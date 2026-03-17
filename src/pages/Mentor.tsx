@@ -165,7 +165,54 @@ const Mentor = () => {
     return fieldMap;
   }, [activeBrandId, brandDataMap]);
 
-  const streamAIResponse = useCallback(async (brandId: string, allMessages: Message[]) => {
+  const detectMilestone = useCallback(async (brandId: string, aiMsgId: string, allMessages: Message[], latestAiContent: string) => {
+    try {
+      const currentData = brandDataMap[brandId];
+      const recentMessages = [...allMessages.slice(-6), { role: "ai" as const, content: latestAiContent }]
+        .map(m => ({ role: m.role, content: m.content }));
+
+      const resp = await fetch(DETECT_MILESTONE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          recentMessages,
+          existingMilestones: currentData?.milestones || [],
+        }),
+      });
+
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!data.milestone) return;
+
+      const newMilestoneId = `m-auto-${++milestoneCounter}`;
+      const newMilestone = {
+        id: newMilestoneId,
+        category: data.milestone.category as import("@/components/mentor/types").MilestoneCategory,
+        name: data.milestone.name,
+        timeAgo: "Just now",
+      };
+
+      setBrandDataMap(prev => {
+        const bd = prev[brandId];
+        if (!bd) return prev;
+        return {
+          ...prev,
+          [brandId]: {
+            ...bd,
+            milestones: [...bd.milestones, newMilestone],
+            milestoneMarkers: [...bd.milestoneMarkers, { beforeMessageId: aiMsgId, milestoneId: newMilestoneId }],
+          },
+        };
+      });
+    } catch (e) {
+      console.error("Milestone detection failed:", e);
+    }
+  }, [brandDataMap]);
+
+
     setChatError(null);
     setTypingBrands(prev => new Set(prev).add(brandId));
     setSlowThinking(false);
