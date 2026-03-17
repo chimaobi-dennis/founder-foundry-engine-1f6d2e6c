@@ -12,6 +12,9 @@ import { MentorBrand, BrandData, BrandDNAField, Message, InlineSavePrompt } from
 
 const TABLET_MAX = 1024;
 const MENTOR_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mentor-chat`;
+const DETECT_MILESTONE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-milestone`;
+
+let milestoneCounter = 100;
 
 function useIsTablet() {
   const [isTablet, setIsTablet] = useState(
