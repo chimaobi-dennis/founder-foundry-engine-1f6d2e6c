@@ -15,6 +15,10 @@ interface ChatPanelProps {
   onMilestoneScrolled: () => void;
   isMobile?: boolean;
   isTyping?: boolean;
+  onSendMessage?: (text: string) => void;
+  error?: string | null;
+  onRetry?: () => void;
+  slowThinking?: boolean;
 }
 
 export function ChatPanel({
@@ -28,6 +32,10 @@ export function ChatPanel({
   onMilestoneScrolled,
   isMobile,
   isTyping,
+  onSendMessage,
+  error,
+  onRetry,
+  slowThinking,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState("");
   const [dismissedPrompts, setDismissedPrompts] = useState<Set<string>>(new Set());
@@ -36,6 +44,7 @@ export function ChatPanel({
   const [highlightedMilestone, setHighlightedMilestone] = useState<string | null>(null);
   const milestoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!scrollToMilestoneId) return;
@@ -47,6 +56,11 @@ export function ChatPanel({
     }
     onMilestoneScrolled();
   }, [scrollToMilestoneId, onMilestoneScrolled]);
+
+  // Auto-scroll to bottom on new messages or typing
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length, isTyping]);
 
   const handleSave = useCallback((prompt: InlineSavePrompt) => {
     setSavedPrompts(prev => new Set(prev).add(prompt.afterMessageId));
@@ -68,6 +82,20 @@ export function ChatPanel({
 
   const handleDismiss = (afterMessageId: string) => {
     setDismissedPrompts(prev => new Set(prev).add(afterMessageId));
+  };
+
+  const handleSubmit = () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed || !onSendMessage) return;
+    onSendMessage(trimmed);
+    setInputValue("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   const milestoneMap = Object.fromEntries(milestones.map(m => [m.id, m]));
@@ -203,9 +231,14 @@ export function ChatPanel({
                   <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
                   <span className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
                 </div>
+                {slowThinking && (
+                  <p className="text-[11px] font-ui text-muted-foreground mt-1.5">Still thinking...</p>
+                )}
               </div>
             </div>
           )}
+
+          <div ref={bottomRef} />
         </div>
       </div>
 
@@ -214,6 +247,12 @@ export function ChatPanel({
         "flex-shrink-0 border-t border-border bg-card/50 z-10",
         isMobile && "pb-14"
       )}>
+        {error && (
+          <div className="px-4 pt-2 flex items-center gap-1.5">
+            <span className="text-[12px] font-ui text-muted-foreground">Could not connect —</span>
+            <button onClick={onRetry} className="text-[12px] font-ui text-primary hover:underline">try again</button>
+          </div>
+        )}
         <div className="w-full flex items-center gap-2 px-4 py-2" style={{ maxWidth: "100%", boxSizing: "border-box" }}>
           <button className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex-shrink-0">
             <Paperclip size={18} />
@@ -225,10 +264,16 @@ export function ChatPanel({
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Continue this conversation..."
             className="flex-1 min-w-0 h-10 bg-transparent text-[13px] font-ui text-foreground placeholder:text-muted-foreground outline-none"
+            disabled={isTyping}
           />
-          <button className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0">
+          <button
+            onClick={handleSubmit}
+            disabled={isTyping || !inputValue.trim()}
+            className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0 disabled:opacity-50"
+          >
             <Send size={16} />
           </button>
         </div>

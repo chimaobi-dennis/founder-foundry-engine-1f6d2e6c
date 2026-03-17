@@ -1,0 +1,4 @@
+project_id = "wayprzekrmgocjdjnfjw"
+
+[functions.mentor-chat]
+verify_jwt = false
