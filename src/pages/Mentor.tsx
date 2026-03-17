@@ -366,7 +366,7 @@ const Mentor = () => {
         return next;
       });
     }
-  }, [getDNAContext]);
+  }, [getDNAContext, detectMilestone]);
 
   const handleSendMessage = useCallback((text: string) => {
     const brandId = activeBrandId;
