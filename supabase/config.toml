@@ -2,3 +2,6 @@ project_id = "wayprzekrmgocjdjnfjw"
 
 [functions.mentor-chat]
 verify_jwt = false
+
+[functions.detect-milestone]
+verify_jwt = false

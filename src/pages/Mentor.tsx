@@ -12,6 +12,9 @@ import { MentorBrand, BrandData, BrandDNAField, Message, InlineSavePrompt } from
 
 const TABLET_MAX = 1024;
 const MENTOR_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mentor-chat`;
+const DETECT_MILESTONE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-milestone`;
+
+let milestoneCounter = 100;
 
 function useIsTablet() {
   const [isTablet, setIsTablet] = useState(
@@ -162,6 +165,53 @@ const Mentor = () => {
     return fieldMap;
   }, [activeBrandId, brandDataMap]);
 
+  const detectMilestone = useCallback(async (brandId: string, aiMsgId: string, allMessages: Message[], latestAiContent: string) => {
+    try {
+      const currentData = brandDataMap[brandId];
+      const recentMessages = [...allMessages.slice(-6), { role: "ai" as const, content: latestAiContent }]
+        .map(m => ({ role: m.role, content: m.content }));
+
+      const resp = await fetch(DETECT_MILESTONE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          recentMessages,
+          existingMilestones: currentData?.milestones || [],
+        }),
+      });
+
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!data.milestone) return;
+
+      const newMilestoneId = `m-auto-${++milestoneCounter}`;
+      const newMilestone = {
+        id: newMilestoneId,
+        category: data.milestone.category as import("@/components/mentor/types").MilestoneCategory,
+        name: data.milestone.name,
+        timeAgo: "Just now",
+      };
+
+      setBrandDataMap(prev => {
+        const bd = prev[brandId];
+        if (!bd) return prev;
+        return {
+          ...prev,
+          [brandId]: {
+            ...bd,
+            milestones: [...bd.milestones, newMilestone],
+            milestoneMarkers: [...bd.milestoneMarkers, { beforeMessageId: aiMsgId, milestoneId: newMilestoneId }],
+          },
+        };
+      });
+    } catch (e) {
+      console.error("Milestone detection failed:", e);
+    }
+  }, [brandDataMap]);
+
   const streamAIResponse = useCallback(async (brandId: string, allMessages: Message[]) => {
     setChatError(null);
     setTypingBrands(prev => new Set(prev).add(brandId));
@@ -302,6 +352,9 @@ const Mentor = () => {
         });
       }
 
+      // Detect milestone in background (non-blocking)
+      detectMilestone(brandId, aiMsgId, allMessages, assistantSoFar);
+
     } catch (e) {
       setChatError(e instanceof Error ? e.message : "Could not connect — try again");
     } finally {
@@ -313,7 +366,7 @@ const Mentor = () => {
         return next;
       });
     }
-  }, [getDNAContext]);
+  }, [getDNAContext, detectMilestone]);
 
   const handleSendMessage = useCallback((text: string) => {
     const brandId = activeBrandId;
