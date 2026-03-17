@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Menu, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -8,9 +8,10 @@ import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
 import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptyState";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { brands as allBrands, roastData, lagosData } from "@/components/mentor/data";
-import { MentorBrand, BrandData, BrandDNAField, Message } from "@/components/mentor/types";
+import { MentorBrand, BrandData, BrandDNAField, Message, InlineSavePrompt } from "@/components/mentor/types";
 
 const TABLET_MAX = 1024;
+const MENTOR_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mentor-chat`;
 
 function useIsTablet() {
   const [isTablet, setIsTablet] = useState(
@@ -33,7 +34,37 @@ const aiResponses: Record<string, string> = {
   new: "Interesting. Most people describe a solution — you are describing a feeling. That is actually the better starting point. Who specifically feels this problem most acutely? Not a demographic — a specific person. Describe them.",
 };
 
+// DNA field detection patterns for auto-generating save prompts
+const DNA_PATTERNS: { field: string; patterns: RegExp[] }[] = [
+  { field: "Voice", patterns: [/brand voice.{0,10}(is|should be|:)\s*(.{10,80})/i, /voice.{0,10}(is|should be)\s*(.{10,80})/i] },
+  { field: "Positioning", patterns: [/positioning.{0,10}(is|should be|:)\s*(.{10,80})/i, /position.{0,10}(is|should be)\s*(.{10,80})/i] },
+  { field: "Target audience", patterns: [/target.{0,10}(audience|customer).{0,10}(is|are|:)\s*(.{10,80})/i] },
+  { field: "Core promise", patterns: [/promise.{0,10}(is|should be|:)\s*(.{10,80})/i, /core promise.{0,10}(is|:)\s*(.{10,80})/i] },
+  { field: "Brand references", patterns: [/reference.{0,10}(is|are|:)\s*(.{10,80})/i] },
+];
+
+function detectSavePrompts(content: string, messageId: string): InlineSavePrompt | null {
+  for (const { field, patterns } of DNA_PATTERNS) {
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        const value = (match[match.length - 1] || "").replace(/[.!?]+$/, "").trim();
+        if (value.length > 8) {
+          return {
+            afterMessageId: messageId,
+            label: `Save ${field.toLowerCase()}: ${value.slice(0, 60)}${value.length > 60 ? "..." : ""}`,
+            dnaField: field,
+            value,
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
 let brandCounter = 0;
+let msgCounter = 100;
 
 const Mentor = () => {
   const isMobile = useIsMobile();
@@ -52,6 +83,10 @@ const Mentor = () => {
 
   const [emptyBrands, setEmptyBrands] = useState<Record<string, MentorMode>>({});
   const [typingBrands, setTypingBrands] = useState<Set<string>>(new Set());
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [slowThinking, setSlowThinking] = useState(false);
+  const lastMessageRef = useRef<string>("");
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     const mode = searchParams.get("mode") as MentorMode;
@@ -116,6 +151,200 @@ const Mentor = () => {
     setEmptyBrands(prev => ({ ...prev, [newId]: "new" }));
   };
 
+  const getDNAContext = useCallback(() => {
+    const data = brandDataMap[activeBrandId];
+    if (!data) return {};
+    const fieldMap: Record<string, string> = {};
+    for (const f of data.dnaFields) {
+      const key = f.key.toLowerCase().replace(/\s+/g, "_");
+      fieldMap[key] = f.value || "Not yet defined";
+    }
+    return fieldMap;
+  }, [activeBrandId, brandDataMap]);
+
+  const streamAIResponse = useCallback(async (brandId: string, allMessages: Message[]) => {
+    setChatError(null);
+    setTypingBrands(prev => new Set(prev).add(brandId));
+    setSlowThinking(false);
+
+    // Start slow-thinking timer
+    slowTimerRef.current = setTimeout(() => setSlowThinking(true), 8000);
+
+    const aiMsgId = `ai-${++msgCounter}`;
+
+    try {
+      const resp = await fetch(MENTOR_CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: allMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
+          brandDNA: getDNAContext(),
+        }),
+      });
+
+      if (!resp.ok || !resp.body) {
+        const errBody = await resp.text().catch(() => "");
+        let errMsg = "Could not connect — try again";
+        try {
+          const parsed = JSON.parse(errBody);
+          if (parsed.error) errMsg = parsed.error;
+        } catch {}
+        throw new Error(errMsg);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let assistantSoFar = "";
+      let streamDone = false;
+      let addedMsg = false;
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") { streamDone = true; break; }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantSoFar += content;
+              setBrandDataMap(prev => {
+                const data = prev[brandId];
+                if (!data) return prev;
+                if (!addedMsg) {
+                  addedMsg = true;
+                  return {
+                    ...prev,
+                    [brandId]: {
+                      ...data,
+                      messages: [...data.messages, { id: aiMsgId, role: "ai" as const, content: assistantSoFar }],
+                    },
+                  };
+                }
+                return {
+                  ...prev,
+                  [brandId]: {
+                    ...data,
+                    messages: data.messages.map(m =>
+                      m.id === aiMsgId ? { ...m, content: assistantSoFar } : m
+                    ),
+                  },
+                };
+              });
+            }
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      // Final flush
+      if (textBuffer.trim()) {
+        for (let raw of textBuffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (raw.startsWith(":") || raw.trim() === "") continue;
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantSoFar += content;
+              setBrandDataMap(prev => {
+                const data = prev[brandId];
+                if (!data) return prev;
+                return {
+                  ...prev,
+                  [brandId]: {
+                    ...data,
+                    messages: data.messages.map(m =>
+                      m.id === aiMsgId ? { ...m, content: assistantSoFar } : m
+                    ),
+                  },
+                };
+              });
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
+      // Detect save prompts from the completed response
+      const savePrompt = detectSavePrompts(assistantSoFar, aiMsgId);
+      if (savePrompt) {
+        setBrandDataMap(prev => {
+          const data = prev[brandId];
+          if (!data) return prev;
+          return {
+            ...prev,
+            [brandId]: {
+              ...data,
+              savePrompts: [...data.savePrompts, savePrompt],
+            },
+          };
+        });
+      }
+
+    } catch (e) {
+      setChatError(e instanceof Error ? e.message : "Could not connect — try again");
+    } finally {
+      clearTimeout(slowTimerRef.current);
+      setSlowThinking(false);
+      setTypingBrands(prev => {
+        const next = new Set(prev);
+        next.delete(brandId);
+        return next;
+      });
+    }
+  }, [getDNAContext]);
+
+  const handleSendMessage = useCallback((text: string) => {
+    const brandId = activeBrandId;
+    setChatError(null);
+    const founderMsg: Message = { id: `f-${++msgCounter}`, role: "founder", content: text };
+
+    setBrandDataMap(prev => {
+      const data = prev[brandId];
+      if (!data) return prev;
+      return {
+        ...prev,
+        [brandId]: { ...data, messages: [...data.messages, founderMsg] },
+      };
+    });
+
+    lastMessageRef.current = text;
+
+    // Get updated messages including the new one
+    const allMessages = [...(brandDataMap[brandId]?.messages || []), founderMsg];
+    streamAIResponse(brandId, allMessages);
+  }, [activeBrandId, brandDataMap, streamAIResponse]);
+
+  const handleRetry = useCallback(() => {
+    const brandId = activeBrandId;
+    const messages = brandDataMap[brandId]?.messages || [];
+    if (messages.length > 0) {
+      setChatError(null);
+      streamAIResponse(brandId, messages);
+    }
+  }, [activeBrandId, brandDataMap, streamAIResponse]);
+
   const handleEmptySubmit = useCallback((text: string) => {
     const brandId = activeBrandId;
     const mode = emptyBrands[brandId] || "new";
@@ -132,25 +361,9 @@ const Mentor = () => {
       return next;
     });
 
-    setTypingBrands(prev => new Set(prev).add(brandId));
-
-    setTimeout(() => {
-      const aiMsg: Message = {
-        id: `${brandId}-a1`,
-        role: "ai",
-        content: aiResponses[mode] || aiResponses.new,
-      };
-      setBrandDataMap(prev => ({
-        ...prev,
-        [brandId]: { ...prev[brandId], messages: [...prev[brandId].messages, aiMsg] },
-      }));
-      setTypingBrands(prev => {
-        const next = new Set(prev);
-        next.delete(brandId);
-        return next;
-      });
-    }, 1500);
-  }, [activeBrandId, emptyBrands]);
+    // Use real AI for the response
+    streamAIResponse(brandId, [founderMsg]);
+  }, [activeBrandId, emptyBrands, streamAIResponse]);
 
   const handleSelectMilestone = (milestoneId: string) => {
     setScrollToMilestoneId(milestoneId);
@@ -244,6 +457,10 @@ const Mentor = () => {
             onMilestoneScrolled={handleMilestoneScrolled}
             isMobile={isMobile}
             isTyping={isTyping}
+            onSendMessage={handleSendMessage}
+            error={chatError}
+            onRetry={handleRetry}
+            slowThinking={slowThinking}
           />
         ) : null}
       </div>
