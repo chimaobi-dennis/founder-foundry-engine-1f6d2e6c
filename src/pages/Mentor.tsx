@@ -305,6 +305,9 @@ const Mentor = () => {
         });
       }
 
+      // Detect milestone in background (non-blocking)
+      detectMilestone(brandId, aiMsgId, allMessages, assistantSoFar);
+
     } catch (e) {
       setChatError(e instanceof Error ? e.message : "Could not connect — try again");
     } finally {
