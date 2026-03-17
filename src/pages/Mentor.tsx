@@ -212,7 +212,7 @@ const Mentor = () => {
     }
   }, [brandDataMap]);
 
-
+  const streamAIResponse = useCallback(async (brandId: string, allMessages: Message[]) => {
     setChatError(null);
     setTypingBrands(prev => new Set(prev).add(brandId));
     setSlowThinking(false);
