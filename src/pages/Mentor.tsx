@@ -343,17 +343,17 @@ Rules:
 
     // Get updated messages including the new one
     const allMessages = [...(brandDataMap[brandId]?.messages || []), founderMsg];
-    streamAIResponse(brandId, allMessages);
-  }, [activeBrandId, brandDataMap, streamAIResponse]);
+    handleAIResponse(brandId, allMessages);
+  }, [activeBrandId, brandDataMap, handleAIResponse]);
 
   const handleRetry = useCallback(() => {
     const brandId = activeBrandId;
     const messages = brandDataMap[brandId]?.messages || [];
     if (messages.length > 0) {
       setChatError(null);
-      streamAIResponse(brandId, messages);
+      handleAIResponse(brandId, messages);
     }
-  }, [activeBrandId, brandDataMap, streamAIResponse]);
+  }, [activeBrandId, brandDataMap, handleAIResponse]);
 
   const handleEmptySubmit = useCallback((text: string) => {
     const brandId = activeBrandId;
@@ -372,8 +372,8 @@ Rules:
     });
 
     // Use real AI for the response
-    streamAIResponse(brandId, [founderMsg]);
-  }, [activeBrandId, emptyBrands, streamAIResponse]);
+    handleAIResponse(brandId, [founderMsg]);
+  }, [activeBrandId, emptyBrands, handleAIResponse]);
 
   const handleSelectMilestone = (milestoneId: string) => {
     setScrollToMilestoneId(milestoneId);
