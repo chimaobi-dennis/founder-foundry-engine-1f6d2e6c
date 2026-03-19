@@ -168,29 +168,44 @@ const Mentor = () => {
     try {
       const currentData = brandDataMap[brandId];
       const recentMessages = [...allMessages.slice(-6), { role: "ai" as const, content: latestAiContent }]
-        .map(m => ({ role: m.role, content: m.content }));
+        .map(m => ({ role: m.role === "founder" ? "user" : "assistant", content: m.content }));
 
-      const resp = await fetch(DETECT_MILESTONE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          recentMessages,
-          existingMilestones: currentData?.milestones || [],
-        }),
-      });
+      const existingNames = (currentData?.milestones || []).map(m => m.name).join(", ");
 
-      if (!resp.ok) return;
-      const data = await resp.json();
-      if (!data.milestone) return;
+      const result = await callAI([
+        {
+          role: "user",
+          content: `You are a conversation analyst. Analyze this conversation and determine if the topic has shifted to a new area that deserves a milestone marker.
+
+Existing milestones: ${existingNames || "None"}
+
+Recent messages:
+${recentMessages.map(m => `${m.role}: ${m.content}`).join("\n")}
+
+If there is a meaningful new topic shift not already covered by existing milestones, respond with EXACTLY this format:
+MILESTONE: [category] | [short name]
+
+Categories: Brand Discovery, Campaign Strategy, Customer Insight, Product Positioning, Growth Strategy, Creative Direction
+
+If no milestone is needed, respond with: NO_MILESTONE
+
+Be selective — only mark significant shifts, not minor tangents.`
+        }
+      ], 200);
+
+      if (!result || result.includes("NO_MILESTONE")) return;
+
+      const match = result.match(/MILESTONE:\s*(.+?)\s*\|\s*(.+)/);
+      if (!match) return;
 
       const newMilestoneId = `m-auto-${++milestoneCounter}`;
+      const category = match[1].trim();
+      const name = match[2].trim();
+
       const newMilestone = {
         id: newMilestoneId,
-        category: data.milestone.category as import("@/components/mentor/types").MilestoneCategory,
-        name: data.milestone.name,
+        category: category as import("@/components/mentor/types").MilestoneCategory,
+        name,
         timeAgo: "Just now",
       };
 
@@ -211,148 +226,91 @@ const Mentor = () => {
     }
   }, [brandDataMap]);
 
-  const streamAIResponse = useCallback(async (brandId: string, allMessages: Message[]) => {
+  const handleAIResponse = useCallback(async (brandId: string, allMessages: Message[]) => {
     setChatError(null);
     setTypingBrands(prev => new Set(prev).add(brandId));
     setSlowThinking(false);
 
-    // Start slow-thinking timer
-    slowTimerRef.current = setTimeout(() => setSlowThinking(true), 8000);
+    slowTimerRef.current = setTimeout(() => setSlowThinking(true), 6000);
 
     const aiMsgId = `ai-${++msgCounter}`;
 
     try {
-      const resp = await fetch(MENTOR_CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: allMessages.slice(-10).map(m => ({ role: m.role, content: m.content })),
-          brandDNA: getDNAContext(),
-        }),
+      const dnaContext = getDNAContext();
+      const systemContext = `You are a sharp, experienced business mentor and brand strategist working with a founder on their brand. You are direct, honest, and occasionally challenging. You push back on bad ideas constructively. You sound like a trusted advisor — not an AI assistant.
+
+Current brand context:
+Brand: ${dnaContext.brand_name || "Unknown brand"}
+Industry: ${dnaContext.industry || "Not yet defined"}
+Voice: ${dnaContext.voice || "Not yet defined"}
+Positioning: ${dnaContext.positioning || "Not yet defined"}
+Target audience: ${dnaContext.target_audience || "Not yet defined"}
+Core promise: ${dnaContext.core_promise || "Not yet defined"}
+
+Rules:
+- Maximum 3 sentences per response
+- End most responses with one sharp follow-up question
+- Never use bullet points
+- Never say great question or similar
+- Sound like a person not an AI`;
+
+      const conversationMessages = allMessages.slice(-8).map(m => ({
+        role: m.role === "founder" ? "user" : "assistant",
+        content: m.content,
+      }));
+
+      const messages = [
+        { role: "user", content: systemContext },
+        { role: "assistant", content: "Understood. Ready." },
+        ...conversationMessages,
+      ];
+
+      const response = await callAI(messages, 800);
+
+      if (!response) {
+        throw new Error("Could not connect — try again");
+      }
+
+      const aiMsg: Message = { id: aiMsgId, role: "ai", content: response };
+      setBrandDataMap(prev => {
+        const data = prev[brandId];
+        if (!data) return prev;
+        return {
+          ...prev,
+          [brandId]: { ...data, messages: [...data.messages, aiMsg] },
+        };
       });
 
-      if (!resp.ok || !resp.body) {
-        const errBody = await resp.text().catch(() => "");
-        let errMsg = "Could not connect — try again";
-        try {
-          const parsed = JSON.parse(errBody);
-          if (parsed.error) errMsg = parsed.error;
-        } catch {}
-        throw new Error(errMsg);
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-      let assistantSoFar = "";
-      let streamDone = false;
-      let addedMsg = false;
-
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") { streamDone = true; break; }
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantSoFar += content;
-              setBrandDataMap(prev => {
-                const data = prev[brandId];
-                if (!data) return prev;
-                if (!addedMsg) {
-                  addedMsg = true;
-                  return {
-                    ...prev,
-                    [brandId]: {
-                      ...data,
-                      messages: [...data.messages, { id: aiMsgId, role: "ai" as const, content: assistantSoFar }],
-                    },
-                  };
-                }
-                return {
-                  ...prev,
-                  [brandId]: {
-                    ...data,
-                    messages: data.messages.map(m =>
-                      m.id === aiMsgId ? { ...m, content: assistantSoFar } : m
-                    ),
-                  },
-                };
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
+      // Detect save prompts
+      const savePrompt = detectSavePrompts(response, aiMsgId);
+      if (!savePrompt) {
+        // Fallback keyword check
+        const lower = response.toLowerCase();
+        let fallbackPrompt: InlineSavePrompt | null = null;
+        if (lower.includes("brand voice") || lower.includes("you sound like") || lower.includes("your voice")) {
+          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save brand voice insight", dnaField: "Voice", value: response.slice(0, 100) };
+        } else if (lower.includes("position") || lower.includes("third space") || lower.includes("gap")) {
+          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save positioning insight", dnaField: "Positioning", value: response.slice(0, 100) };
+        } else if (lower.includes("promise") || lower.includes("built for") || lower.includes("made for")) {
+          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save brand promise", dnaField: "Core promise", value: response.slice(0, 100) };
         }
-      }
-
-      // Final flush
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
-          if (!raw) continue;
-          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-          if (raw.startsWith(":") || raw.trim() === "") continue;
-          if (!raw.startsWith("data: ")) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantSoFar += content;
-              setBrandDataMap(prev => {
-                const data = prev[brandId];
-                if (!data) return prev;
-                return {
-                  ...prev,
-                  [brandId]: {
-                    ...data,
-                    messages: data.messages.map(m =>
-                      m.id === aiMsgId ? { ...m, content: assistantSoFar } : m
-                    ),
-                  },
-                };
-              });
-            }
-          } catch { /* ignore */ }
+        if (fallbackPrompt) {
+          setBrandDataMap(prev => {
+            const data = prev[brandId];
+            if (!data) return prev;
+            return { ...prev, [brandId]: { ...data, savePrompts: [...data.savePrompts, fallbackPrompt!] } };
+          });
         }
-      }
-
-      // Detect save prompts from the completed response
-      const savePrompt = detectSavePrompts(assistantSoFar, aiMsgId);
-      if (savePrompt) {
+      } else {
         setBrandDataMap(prev => {
           const data = prev[brandId];
           if (!data) return prev;
-          return {
-            ...prev,
-            [brandId]: {
-              ...data,
-              savePrompts: [...data.savePrompts, savePrompt],
-            },
-          };
+          return { ...prev, [brandId]: { ...data, savePrompts: [...data.savePrompts, savePrompt] } };
         });
       }
 
-      // Detect milestone in background (non-blocking)
-      detectMilestone(brandId, aiMsgId, allMessages, assistantSoFar);
+      // Detect milestone in background
+      detectMilestone(brandId, aiMsgId, allMessages, response);
 
     } catch (e) {
       setChatError(e instanceof Error ? e.message : "Could not connect — try again");
