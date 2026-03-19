@@ -9,10 +9,9 @@ import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptySta
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { brands as allBrands, roastData, lagosData } from "@/components/mentor/data";
 import { MentorBrand, BrandData, BrandDNAField, Message, InlineSavePrompt } from "@/components/mentor/types";
+import { callAI } from "@/lib/ai";
 
 const TABLET_MAX = 1024;
-const MENTOR_CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mentor-chat`;
-const DETECT_MILESTONE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-milestone`;
 
 let milestoneCounter = 100;
 
