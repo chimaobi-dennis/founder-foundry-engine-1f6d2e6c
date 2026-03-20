@@ -276,6 +276,15 @@ Output only the HTML div. Nothing else.`;
                     if (file) {
                       const url = URL.createObjectURL(file);
                       setUploadedFile({ name: file.name, url });
+                      // Convert to base64
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const result = ev.target?.result as string;
+                        const base64 = result.split(",")[1];
+                        setUploadedImageBase64(base64);
+                        setUploadedImageMimeType(file.type || "image/jpeg");
+                      };
+                      reader.readAsDataURL(file);
                     }
                     e.target.value = "";
                   }}
