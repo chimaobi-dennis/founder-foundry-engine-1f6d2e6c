@@ -41,6 +41,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [styleIntensity, setStyleIntensity] = useState(2);
+  const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
+  const [uploadedImageMimeType, setUploadedImageMimeType] = useState<string>("image/jpeg");
 
   // AI generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -80,6 +82,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setVariations([null, null, null]);
       setActiveVariation(0);
       setUploadedFile(type === "physical" ? { name: "product-photo.png", url: "" } : null);
+      setUploadedImageBase64(null);
     }
   }, [template?.id, type]);
 
@@ -100,6 +103,10 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       productName: (activeBrand?.name || brandName) + " Product",
     };
 
+    const productInstruction = uploadedImageBase64
+      ? `The actual product image is attached. Study the product carefully — its shape, color, proportions, and character. Position it naturally within the scene as if it were actually photographed there. Represent it as an img tag using this src: "data:${uploadedImageMimeType};base64,${uploadedImageBase64}" with appropriate dimensions that respect the product's natural proportions. The product should feel like it belongs in the scene — not pasted on top of it.`
+      : `Represent the product as a div: width:130px height:190px background:white border-radius:4px display:flex align-items:center justify-content:center font-size:10px text-align:center padding:8px color matching brand primary — containing the product name text.`;
+
     return `You are an expert creative director and senior frontend developer specialising in premium brand marketing visuals.
 
 Generate a self-contained HTML marketing visual for ${brandDNA.name}.
@@ -111,7 +118,10 @@ Primary color: ${brandDNA.primaryColor}
 Secondary color: ${brandDNA.secondaryColor}
 Brand voice: ${brandDNA.voice}
 Core promise: ${brandDNA.corePromise}
-Product name: ${brandDNA.productName}
+Product: ${brandDNA.productName}
+
+PRODUCT IMAGE INSTRUCTION:
+${productInstruction}
 
 TEMPLATE DESIGN DIRECTION:
 ${templatePrompt}
@@ -122,12 +132,14 @@ TECHNICAL REQUIREMENTS:
 - Output ONLY a self-contained div — no html, head, body tags, no markdown, no backticks
 - Exactly 600px × 600px — use style="width:600px;height:600px;position:relative;overflow:hidden;"
 - All CSS inline or in a single style tag inside the div
-- Represent the product as a div: width:130px height:190px background:white border-radius:4px display:flex align-items:center justify-content:center font-size:10px text-align:center padding:8px color matching brand primary — containing the product name text
+- If using the product image tag set it to position:absolute with appropriate top left width height to place it naturally in the scene
 - The brand primary color must appear meaningfully in the design
 - Load Google Fonts via @import if needed — choose a font that fits the brand voice and design direction
-- CSS backgrounds textures and gradients only — no external images
+- CSS backgrounds textures and gradients only for scene elements — no other external images
 - The composition must feel like a real premium marketing asset
-- Be creative with typography treatment layout and visual hierarchy — avoid centering everything`;
+- Be creative with typography treatment layout and visual hierarchy — avoid centering everything
+
+Output only the HTML div. Nothing else.`;
   };
 
   const handleRun = async () => {
@@ -158,7 +170,12 @@ TECHNICAL REQUIREMENTS:
     try {
       const results = await Promise.all(
         suffixes.map(suffix =>
-          callAI([{ role: "user", content: basePrompt + suffix }], 3000)
+          callAI(
+            [{ role: "user", content: basePrompt + suffix }],
+            3000,
+            uploadedImageBase64 || undefined,
+            uploadedImageMimeType
+          )
         )
       );
       setVariations(results.map(cleanAIHtml));
@@ -181,7 +198,9 @@ TECHNICAL REQUIREMENTS:
     const basePrompt = buildBasePrompt();
     const result = await callAI(
       [{ role: "user", content: basePrompt + "\n\n" + suffixes[variationIndex] }],
-      3000
+      3000,
+      uploadedImageBase64 || undefined,
+      uploadedImageMimeType
     );
     setVariations(prev => prev.map((v, i) => (i === variationIndex ? cleanAIHtml(result) : v)));
     setRegeneratingIdx(null);
@@ -257,6 +276,15 @@ TECHNICAL REQUIREMENTS:
                     if (file) {
                       const url = URL.createObjectURL(file);
                       setUploadedFile({ name: file.name, url });
+                      // Convert to base64
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const result = ev.target?.result as string;
+                        const base64 = result.split(",")[1];
+                        setUploadedImageBase64(base64);
+                        setUploadedImageMimeType(file.type || "image/jpeg");
+                      };
+                      reader.readAsDataURL(file);
                     }
                     e.target.value = "";
                   }}
@@ -272,20 +300,31 @@ TECHNICAL REQUIREMENTS:
                     )}
                     <span className="text-[11px] font-ui text-muted-foreground">{uploadedFile.name}</span>
                     <button
-                      onClick={() => setUploadedFile(null)}
+                      onClick={() => { setUploadedFile(null); setUploadedImageBase64(null); }}
                       className="text-[11px] font-ui text-destructive/70 hover:text-destructive"
                     >
                       Remove
                     </button>
+                    {/* Image status indicator */}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      <span className="text-[11px] font-ui text-muted-foreground">Product image will be included in generation</span>
+                    </div>
                   </div>
                 ) : (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-[160px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/60 transition-colors"
-                  >
-                    <Upload size={20} className="text-primary" />
-                    <span className="text-[13px] font-ui text-primary">Upload your product photo</span>
-                    <span className="text-[11px] font-ui text-muted-foreground">JPG, PNG, WebP up to 10MB</span>
+                  <div>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-[160px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/60 transition-colors"
+                    >
+                      <Upload size={20} className="text-primary" />
+                      <span className="text-[13px] font-ui text-primary">Upload your product photo</span>
+                      <span className="text-[11px] font-ui text-muted-foreground">JPG, PNG, WebP up to 10MB</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+                      <span className="text-[11px] font-ui text-muted-foreground">Upload a product image for best results</span>
+                    </div>
                   </div>
                 )}
 
