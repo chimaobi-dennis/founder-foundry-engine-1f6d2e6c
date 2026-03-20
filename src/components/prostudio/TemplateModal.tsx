@@ -41,6 +41,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [styleIntensity, setStyleIntensity] = useState(2);
+  const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
+  const [uploadedImageMimeType, setUploadedImageMimeType] = useState<string>("image/jpeg");
 
   // AI generation state
   const [isGenerating, setIsGenerating] = useState(false);
