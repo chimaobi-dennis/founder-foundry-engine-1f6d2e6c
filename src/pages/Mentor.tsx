@@ -384,6 +384,49 @@ Rules:
     setScrollToMilestoneId(null);
   }, []);
 
+  const handleRenameMilestone = useCallback((id: string, newName: string) => {
+    setBrandDataMap(prev => {
+      const data = prev[activeBrandId];
+      if (!data) return prev;
+      return {
+        ...prev,
+        [activeBrandId]: {
+          ...data,
+          milestones: data.milestones.map(m => m.id === id ? { ...m, name: newName } : m),
+        },
+      };
+    });
+  }, [activeBrandId]);
+
+  const handleDeleteMilestone = useCallback((id: string) => {
+    setBrandDataMap(prev => {
+      const data = prev[activeBrandId];
+      if (!data) return prev;
+      return {
+        ...prev,
+        [activeBrandId]: {
+          ...data,
+          milestones: data.milestones.filter(m => m.id !== id),
+          milestoneMarkers: data.milestoneMarkers.filter(mm => mm.milestoneId !== id),
+        },
+      };
+    });
+  }, [activeBrandId]);
+
+  const handleEditMilestoneCategory = useCallback((id: string, newCategory: import("@/components/mentor/types").MilestoneCategory) => {
+    setBrandDataMap(prev => {
+      const data = prev[activeBrandId];
+      if (!data) return prev;
+      return {
+        ...prev,
+        [activeBrandId]: {
+          ...data,
+          milestones: data.milestones.map(m => m.id === id ? { ...m, category: newCategory } : m),
+        },
+      };
+    });
+  }, [activeBrandId]);
+
   const handleSaveDNA = useCallback((field: string, value: string) => {
     setBrandDataMap(prev => {
       const data = prev[activeBrandId];
@@ -416,6 +459,9 @@ Rules:
             onAddBrand={handleAddBrand}
             milestones={activeBrandData?.milestones || []}
             onSelectMilestone={handleSelectMilestone}
+            onRenameMilestone={handleRenameMilestone}
+            onDeleteMilestone={handleDeleteMilestone}
+            onEditMilestoneCategory={handleEditMilestoneCategory}
           />
         </aside>
       ) : (
@@ -429,6 +475,9 @@ Rules:
               onAddBrand={() => { handleAddBrand(); setLeftOpen(false); }}
               milestones={activeBrandData?.milestones || []}
               onSelectMilestone={handleSelectMilestone}
+              onRenameMilestone={handleRenameMilestone}
+              onDeleteMilestone={handleDeleteMilestone}
+              onEditMilestoneCategory={handleEditMilestoneCategory}
             />
           </SheetContent>
         </Sheet>

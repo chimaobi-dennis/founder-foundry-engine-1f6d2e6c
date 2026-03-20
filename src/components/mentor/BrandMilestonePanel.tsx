@@ -1,8 +1,15 @@
-import { Flag, Plus, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MentorBrand, Milestone, categoryColors } from "./types";
+import { MentorBrand, Milestone, MilestoneCategory, categoryColors } from "./types";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
@@ -11,7 +18,19 @@ interface BrandMilestonePanelProps {
   onAddBrand: () => void;
   milestones: Milestone[];
   onSelectMilestone: (id: string) => void;
+  onRenameMilestone?: (id: string, newName: string) => void;
+  onDeleteMilestone?: (id: string) => void;
+  onEditMilestoneCategory?: (id: string, newCategory: MilestoneCategory) => void;
 }
+
+const CATEGORIES: MilestoneCategory[] = [
+  "Brand Discovery",
+  "Campaign Strategy",
+  "Customer Insight",
+  "Product Positioning",
+  "Growth Brainstorm",
+  "Pitch Preparation",
+];
 
 export function BrandMilestonePanel({
   brands,
@@ -20,8 +39,41 @@ export function BrandMilestonePanel({
   onAddBrand,
   milestones,
   onSelectMilestone,
+  onRenameMilestone,
+  onDeleteMilestone,
+  onEditMilestoneCategory,
 }: BrandMilestonePanelProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
+
+  const startRename = (ms: Milestone) => {
+    setEditingId(ms.id);
+    setEditValue(ms.name);
+    setEditCategoryId(null);
+  };
+
+  const confirmRename = () => {
+    if (editingId && editValue.trim() && onRenameMilestone) {
+      onRenameMilestone(editingId, editValue.trim());
+    }
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditValue("");
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -91,21 +143,110 @@ export function BrandMilestonePanel({
             milestones.map((ms) => {
               const colors = categoryColors[ms.category] || "text-muted-foreground border-border";
               const borderColor = colors.split(" ").find(c => c.startsWith("border-")) || "border-primary";
+              const isEditing = editingId === ms.id;
+              const isEditingCategory = editCategoryId === ms.id;
+
               return (
-                <button
+                <div
                   key={ms.id}
-                  onClick={() => onSelectMilestone(ms.id)}
                   className={cn(
-                    "w-full text-left px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-muted/50 border-l-2",
+                    "group relative w-full text-left px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-muted/50 border-l-2",
                     borderColor
                   )}
                 >
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <Flag size={11} className="text-primary flex-shrink-0" />
-                    <span className="text-[13px] font-ui text-foreground leading-tight truncate">{ms.name}</span>
-                  </div>
-                  <p className="text-[11px] font-ui text-muted-foreground ml-[17px]">{ms.category} · {ms.timeAgo}</p>
-                </button>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1.5">
+                      <Flag size={11} className="text-primary flex-shrink-0" />
+                      <input
+                        ref={editInputRef}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") confirmRename();
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        className="flex-1 text-[13px] font-ui text-foreground bg-transparent border-b border-primary outline-none py-0.5"
+                      />
+                      <button onClick={confirmRename} className="p-0.5 text-primary hover:text-primary/80">
+                        <Check size={12} />
+                      </button>
+                      <button onClick={cancelRename} className="p-0.5 text-muted-foreground hover:text-foreground">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onSelectMilestone(ms.id)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <Flag size={11} className="text-primary flex-shrink-0" />
+                        <span className="text-[13px] font-ui text-foreground leading-tight truncate">{ms.name}</span>
+                      </div>
+                      <p className="text-[11px] font-ui text-muted-foreground ml-[17px]">{ms.category} · {ms.timeAgo}</p>
+                    </button>
+                  )}
+
+                  {isEditingCategory && (
+                    <div className="mt-2 ml-[17px] space-y-0.5">
+                      {CATEGORIES.map((cat) => {
+                        const catColors = categoryColors[cat] || "text-muted-foreground border-border";
+                        const catBorderColor = catColors.split(" ").find(c => c.startsWith("border-")) || "border-primary";
+                        const catTextColor = catColors.split(" ").find(c => c.startsWith("text-")) || "text-primary";
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => {
+                              onEditMilestoneCategory?.(ms.id, cat);
+                              setEditCategoryId(null);
+                            }}
+                            className={cn(
+                              "w-full text-left px-2 py-1.5 rounded text-[11px] font-ui transition-colors hover:bg-muted/50 flex items-center gap-2",
+                              ms.category === cat ? "bg-muted/30 font-medium" : ""
+                            )}
+                          >
+                            <div className={cn("w-1.5 h-1.5 rounded-full", catBorderColor.replace("border-", "bg-"))} />
+                            <span className={cn(catTextColor)}>{cat}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Actions menu */}
+                  {!isEditing && (
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors">
+                            <MoreHorizontal size={13} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[140px]">
+                          <DropdownMenuItem onClick={() => startRename(ms)} className="text-[12px] gap-2">
+                            <Pencil size={12} />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setEditCategoryId(editCategoryId === ms.id ? null : ms.id)}
+                            className="text-[12px] gap-2"
+                          >
+                            <Flag size={12} />
+                            Change category
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => onDeleteMilestone?.(ms.id)}
+                            className="text-[12px] gap-2 text-destructive focus:text-destructive"
+                          >
+                            <Trash2 size={12} />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
+                </div>
               );
             })
           )}
