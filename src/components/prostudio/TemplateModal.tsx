@@ -198,7 +198,9 @@ Output only the HTML div. Nothing else.`;
     const basePrompt = buildBasePrompt();
     const result = await callAI(
       [{ role: "user", content: basePrompt + "\n\n" + suffixes[variationIndex] }],
-      3000
+      3000,
+      uploadedImageBase64 || undefined,
+      uploadedImageMimeType
     );
     setVariations(prev => prev.map((v, i) => (i === variationIndex ? cleanAIHtml(result) : v)));
     setRegeneratingIdx(null);
