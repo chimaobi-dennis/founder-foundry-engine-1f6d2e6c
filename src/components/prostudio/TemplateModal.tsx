@@ -36,7 +36,10 @@ function cleanAIHtml(raw: string | null): string | null {
 export function TemplateModal({ template, open, onClose, type, brandName, brandInitials }: TemplateModalProps) {
   const { activeBrand } = useBrand();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
-  const [hasUploaded, setHasUploaded] = useState(type === "physical");
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(
+    type === "physical" ? { name: "product-photo.png", url: "" } : null
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [styleIntensity, setStyleIntensity] = useState(2);
 
   // AI generation state
