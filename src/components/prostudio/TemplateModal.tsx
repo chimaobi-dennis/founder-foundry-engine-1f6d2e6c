@@ -247,14 +247,32 @@ TECHNICAL REQUIREMENTS:
 
             {isPhysical ? (
               <>
-                {hasUploaded ? (
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const url = URL.createObjectURL(file);
+                      setUploadedFile({ name: file.name, url });
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                {uploadedFile ? (
                   <div className="relative rounded-lg border border-border p-4 flex flex-col items-center gap-2">
-                    <div className="w-[120px] h-[80px] rounded-md flex items-center justify-center" style={{ backgroundColor: "#2D4A3E" }}>
-                      <span className="text-[11px] font-ui text-[#F5F0E8] font-medium">{brandName}</span>
-                    </div>
-                    <span className="text-[11px] font-ui text-muted-foreground">product-photo.png</span>
+                    {uploadedFile.url ? (
+                      <img src={uploadedFile.url} alt="Product" className="w-[120px] h-[80px] rounded-md object-cover" />
+                    ) : (
+                      <div className="w-[120px] h-[80px] rounded-md flex items-center justify-center" style={{ backgroundColor: "#2D4A3E" }}>
+                        <span className="text-[11px] font-ui text-[#F5F0E8] font-medium">{brandName}</span>
+                      </div>
+                    )}
+                    <span className="text-[11px] font-ui text-muted-foreground">{uploadedFile.name}</span>
                     <button
-                      onClick={() => setHasUploaded(false)}
+                      onClick={() => setUploadedFile(null)}
                       className="text-[11px] font-ui text-destructive/70 hover:text-destructive"
                     >
                       Remove
@@ -262,7 +280,7 @@ TECHNICAL REQUIREMENTS:
                   </div>
                 ) : (
                   <div
-                    onClick={() => setHasUploaded(true)}
+                    onClick={() => fileInputRef.current?.click()}
                     className="h-[160px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/60 transition-colors"
                   >
                     <Upload size={20} className="text-primary" />
