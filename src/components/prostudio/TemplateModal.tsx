@@ -170,7 +170,12 @@ Output only the HTML div. Nothing else.`;
     try {
       const results = await Promise.all(
         suffixes.map(suffix =>
-          callAI([{ role: "user", content: basePrompt + suffix }], 3000)
+          callAI(
+            [{ role: "user", content: basePrompt + suffix }],
+            3000,
+            uploadedImageBase64 || undefined,
+            uploadedImageMimeType
+          )
         )
       );
       setVariations(results.map(cleanAIHtml));
