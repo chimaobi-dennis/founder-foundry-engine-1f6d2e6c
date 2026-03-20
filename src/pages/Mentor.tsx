@@ -475,6 +475,9 @@ Rules:
               onAddBrand={() => { handleAddBrand(); setLeftOpen(false); }}
               milestones={activeBrandData?.milestones || []}
               onSelectMilestone={handleSelectMilestone}
+              onRenameMilestone={handleRenameMilestone}
+              onDeleteMilestone={handleDeleteMilestone}
+              onEditMilestoneCategory={handleEditMilestoneCategory}
             />
           </SheetContent>
         </Sheet>
