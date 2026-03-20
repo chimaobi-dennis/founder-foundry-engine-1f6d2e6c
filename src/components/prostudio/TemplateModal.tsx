@@ -312,13 +312,19 @@ Output only the HTML div. Nothing else.`;
                     </div>
                   </div>
                 ) : (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-[160px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/60 transition-colors"
-                  >
-                    <Upload size={20} className="text-primary" />
-                    <span className="text-[13px] font-ui text-primary">Upload your product photo</span>
-                    <span className="text-[11px] font-ui text-muted-foreground">JPG, PNG, WebP up to 10MB</span>
+                  <div>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-[160px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/60 transition-colors"
+                    >
+                      <Upload size={20} className="text-primary" />
+                      <span className="text-[13px] font-ui text-primary">Upload your product photo</span>
+                      <span className="text-[11px] font-ui text-muted-foreground">JPG, PNG, WebP up to 10MB</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+                      <span className="text-[11px] font-ui text-muted-foreground">Upload a product image for best results</span>
+                    </div>
                   </div>
                 )}
 
