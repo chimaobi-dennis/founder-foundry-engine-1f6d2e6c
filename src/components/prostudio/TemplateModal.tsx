@@ -300,11 +300,16 @@ Output only the HTML div. Nothing else.`;
                     )}
                     <span className="text-[11px] font-ui text-muted-foreground">{uploadedFile.name}</span>
                     <button
-                      onClick={() => setUploadedFile(null)}
+                      onClick={() => { setUploadedFile(null); setUploadedImageBase64(null); }}
                       className="text-[11px] font-ui text-destructive/70 hover:text-destructive"
                     >
                       Remove
                     </button>
+                    {/* Image status indicator */}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      <span className="text-[11px] font-ui text-muted-foreground">Product image will be included in generation</span>
+                    </div>
                   </div>
                 ) : (
                   <div
