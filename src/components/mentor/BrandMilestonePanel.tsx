@@ -247,7 +247,7 @@ export function BrandMilestonePanel({
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            onClick={() => onDeleteMilestone?.(ms.id)}
+                            onClick={() => setDeleteConfirmId(ms.id)}
                             className="text-[12px] gap-2 text-destructive focus:text-destructive"
                           >
                             <Trash2 size={12} />
@@ -263,6 +263,29 @@ export function BrandMilestonePanel({
           )}
         </div>
       </ScrollArea>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-ui text-[15px]">Delete milestone?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px]">
+              This will remove the milestone marker from your conversation. The conversation itself will not be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="text-[13px]">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-[13px]"
+              onClick={() => {
+                if (deleteConfirmId) onDeleteMilestone?.(deleteConfirmId);
+                setDeleteConfirmId(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
