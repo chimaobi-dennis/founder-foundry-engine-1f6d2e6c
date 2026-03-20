@@ -79,7 +79,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setGenerated(false);
       setVariations([null, null, null]);
       setActiveVariation(0);
-      setHasUploaded(type === "physical");
+      setUploadedFile(type === "physical" ? { name: "product-photo.png", url: "" } : null);
     }
   }, [template?.id, type]);
 
