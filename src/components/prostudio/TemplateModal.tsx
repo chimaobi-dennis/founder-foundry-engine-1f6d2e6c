@@ -82,6 +82,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setVariations([null, null, null]);
       setActiveVariation(0);
       setUploadedFile(type === "physical" ? { name: "product-photo.png", url: "" } : null);
+      setUploadedImageBase64(null);
     }
   }, [template?.id, type]);
 
