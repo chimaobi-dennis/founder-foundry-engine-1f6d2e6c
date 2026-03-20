@@ -459,6 +459,9 @@ Rules:
             onAddBrand={handleAddBrand}
             milestones={activeBrandData?.milestones || []}
             onSelectMilestone={handleSelectMilestone}
+            onRenameMilestone={handleRenameMilestone}
+            onDeleteMilestone={handleDeleteMilestone}
+            onEditMilestoneCategory={handleEditMilestoneCategory}
           />
         </aside>
       ) : (
