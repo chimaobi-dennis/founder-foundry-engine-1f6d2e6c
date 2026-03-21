@@ -161,12 +161,12 @@ export function BrandMilestonePanel({
                 <div
                   key={ms.id}
                   className={cn(
-                    "group relative w-full text-left px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-muted/50 border-l-2",
+                    "group relative w-full text-left px-3 py-2.5 rounded-lg transition-colors duration-200 hover:bg-muted/50 border-l-2 overflow-hidden min-w-0",
                     borderColor
                   )}
                 >
                   {isEditing ? (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <Flag size={11} className="text-primary flex-shrink-0" />
                       <input
                         ref={editInputRef}
@@ -176,25 +176,25 @@ export function BrandMilestonePanel({
                           if (e.key === "Enter") confirmRename();
                           if (e.key === "Escape") cancelRename();
                         }}
-                        className="flex-1 text-[13px] font-ui text-foreground bg-transparent border-b border-primary outline-none py-0.5"
+                        className="flex-1 min-w-0 text-[13px] font-ui text-foreground bg-transparent border-b border-primary outline-none py-0.5"
                       />
-                      <button onClick={confirmRename} className="p-0.5 text-primary hover:text-primary/80">
+                      <button onClick={confirmRename} className="p-0.5 text-primary hover:text-primary/80 flex-shrink-0">
                         <Check size={12} />
                       </button>
-                      <button onClick={cancelRename} className="p-0.5 text-muted-foreground hover:text-foreground">
+                      <button onClick={cancelRename} className="p-0.5 text-muted-foreground hover:text-foreground flex-shrink-0">
                         <X size={12} />
                       </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => onSelectMilestone(ms.id)}
-                      className="w-full text-left"
+                      className="w-full text-left min-w-0 pr-6"
                     >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Flag size={11} className="text-primary flex-shrink-0" />
-                        <span className="text-[13px] font-ui text-foreground leading-tight truncate">{ms.name}</span>
+                      <div className="flex items-start gap-1.5 mb-0.5 min-w-0">
+                        <Flag size={11} className="text-primary flex-shrink-0 mt-0.5" />
+                        <span className="text-[13px] font-ui text-foreground leading-tight break-words" style={{ wordBreak: "break-word" }}>{ms.name}</span>
                       </div>
-                      <p className="text-[11px] font-ui text-muted-foreground ml-[17px]">{ms.category} · {ms.timeAgo}</p>
+                      <p className="text-[11px] font-ui text-muted-foreground ml-[17px] break-words" style={{ wordBreak: "break-word" }}>{ms.category} · {ms.timeAgo}</p>
                     </button>
                   )}
 
