@@ -632,6 +632,8 @@ Rules:
             <BrandDNAPanel
               fields={activeBrandData?.dnaFields || emptyDNAFields}
               highlightField={highlightDNAField}
+              onEditField={handleEditDNAField}
+              onClearField={handleClearDNAField}
             />
           </SheetContent>
         </Sheet>
