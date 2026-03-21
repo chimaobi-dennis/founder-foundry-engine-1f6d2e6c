@@ -400,19 +400,47 @@ Rules:
   }, [activeBrandId]);
 
   const handleDeleteMilestone = useCallback((id: string) => {
+    const data = brandDataMap[activeBrandId];
+    if (!data) return;
+    const deletedMilestone = data.milestones.find(m => m.id === id);
+    const deletedMarkers = data.milestoneMarkers.filter(mm => mm.milestoneId === id);
+
     setBrandDataMap(prev => {
-      const data = prev[activeBrandId];
-      if (!data) return prev;
+      const bd = prev[activeBrandId];
+      if (!bd) return prev;
       return {
         ...prev,
         [activeBrandId]: {
-          ...data,
-          milestones: data.milestones.filter(m => m.id !== id),
-          milestoneMarkers: data.milestoneMarkers.filter(mm => mm.milestoneId !== id),
+          ...bd,
+          milestones: bd.milestones.filter(m => m.id !== id),
+          milestoneMarkers: bd.milestoneMarkers.filter(mm => mm.milestoneId !== id),
         },
       };
     });
-  }, [activeBrandId]);
+
+    if (deletedMilestone) {
+      toast(`Deleted "${deletedMilestone.name}"`, {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            setBrandDataMap(prev => {
+              const bd = prev[activeBrandId];
+              if (!bd) return prev;
+              return {
+                ...prev,
+                [activeBrandId]: {
+                  ...bd,
+                  milestones: [...bd.milestones, deletedMilestone],
+                  milestoneMarkers: [...bd.milestoneMarkers, ...deletedMarkers],
+                },
+              };
+            });
+          },
+        },
+        duration: 5000,
+      });
+    }
+  }, [activeBrandId, brandDataMap]);
 
   const handleEditMilestoneCategory = useCallback((id: string, newCategory: import("@/components/mentor/types").MilestoneCategory) => {
     setBrandDataMap(prev => {
@@ -445,6 +473,69 @@ Rules:
     setHighlightDNAField(field);
     setTimeout(() => setHighlightDNAField(null), 1500);
   }, [activeBrandId]);
+
+  const handleEditDNAField = useCallback((fieldKey: string, newValue: string) => {
+    setBrandDataMap(prev => {
+      const data = prev[activeBrandId];
+      if (!data) return prev;
+      return {
+        ...prev,
+        [activeBrandId]: {
+          ...data,
+          dnaFields: data.dnaFields.map(f =>
+            f.key === fieldKey ? { ...f, value: newValue, savedFrom: f.savedFrom || "Manual edit", savedTimeAgo: "Just now" } : f
+          ),
+        },
+      };
+    });
+    setHighlightDNAField(fieldKey);
+    setTimeout(() => setHighlightDNAField(null), 1500);
+  }, [activeBrandId]);
+
+  const handleClearDNAField = useCallback((fieldKey: string) => {
+    const data = brandDataMap[activeBrandId];
+    if (!data) return;
+    const clearedField = data.dnaFields.find(f => f.key === fieldKey);
+    const oldValue = clearedField?.value;
+    const oldSavedFrom = clearedField?.savedFrom;
+    const oldSavedTimeAgo = clearedField?.savedTimeAgo;
+
+    setBrandDataMap(prev => {
+      const bd = prev[activeBrandId];
+      if (!bd) return prev;
+      return {
+        ...prev,
+        [activeBrandId]: {
+          ...bd,
+          dnaFields: bd.dnaFields.map(f =>
+            f.key === fieldKey ? { ...f, value: null, savedFrom: undefined, savedTimeAgo: undefined } : f
+          ),
+        },
+      };
+    });
+
+    toast(`Cleared "${clearedField?.label}"`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          setBrandDataMap(prev => {
+            const bd = prev[activeBrandId];
+            if (!bd) return prev;
+            return {
+              ...prev,
+              [activeBrandId]: {
+                ...bd,
+                dnaFields: bd.dnaFields.map(f =>
+                  f.key === fieldKey ? { ...f, value: oldValue || null, savedFrom: oldSavedFrom, savedTimeAgo: oldSavedTimeAgo } : f
+                ),
+              },
+            };
+          });
+        },
+      },
+      duration: 5000,
+    });
+  }, [activeBrandId, brandDataMap]);
 
   const showLeftInline = !isMobile;
   const showRightInline = !isMobile && !isTablet;
