@@ -8,8 +8,9 @@ import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
 import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptyState";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { brands as allBrands, roastData, lagosData } from "@/components/mentor/data";
-import { MentorBrand, BrandData, BrandDNAField, Message, InlineSavePrompt } from "@/components/mentor/types";
+import { MentorBrand, BrandData, BrandDNAField, Message, InlineSavePrompt, Milestone, MilestoneMarker } from "@/components/mentor/types";
 import { callAI } from "@/lib/ai";
+import { toast } from "sonner";
 
 const TABLET_MAX = 1024;
 
