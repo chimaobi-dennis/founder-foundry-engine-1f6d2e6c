@@ -27,7 +27,7 @@ function useIsTablet() {
 }
 
 const emptyDNAFields: BrandDNAField[] = [
-  "Brand names", "Industry", "Voice", "Target audience", "Positioning",
+  "Brand name", "Industry", "Voice", "Target audience", "Positioning",
   "Brand references", "Core promise", "Campaign strategy", "Customer insight", "Product positioning",
 ].map(key => ({ key, label: key, value: null }));
 

@@ -26,12 +26,12 @@ export const callAI = async (
       return msg;
     });
 
-    const response = await fetch("https://mujfx.jojapi.net/chat/completions", {
+    const response = await fetch("https://swift-ai.p.rapidapi.com/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-JoJAPI-Key":
-          "jk_5C62qEb86Nc8da6JduxX2n7rb38o1D6cd5ab3KQbKb3Yvd8dBu18X75Bo5c6Ddf8",
+        "X-RapidAPI-Key": "497f5d56c2mshd12ac628118de94p1bd533jsn4044f509b0ad",
+        "X-RapidAPI-Host": "swift-ai.p.rapidapi.com",
       },
       body: JSON.stringify({
         model: "claude-sonnet-4",
