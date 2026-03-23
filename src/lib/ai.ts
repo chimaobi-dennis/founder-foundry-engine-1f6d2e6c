@@ -34,7 +34,7 @@ export const callAI = async (
         "X-RapidAPI-Host": "swift-ai.p.rapidapi.com",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4",
+        model: "gpt-5",
         messages: processedMessages,
       }),
     });
