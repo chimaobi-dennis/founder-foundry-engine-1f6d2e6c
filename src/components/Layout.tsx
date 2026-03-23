@@ -3,7 +3,7 @@ import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
 
-const modulePaths = ["/pro-studio", "/campaign-kit", "/content-calendar", "/doc-studio", "/reel-builder"];
+const modulePaths = ["/pro-studio", "/campaign-kit", "/content-calendar", "/library", "/doc-studio", "/reel-builder"];
 
 const fullHeightPaths = ["/mentor", "/content-calendar"];
 

@@ -35,6 +35,7 @@ const App = () => (
                 <Route path="/pro-studio" element={<ProStudio />} />
                 <Route path="/campaign-kit" element={<CampaignKit />} />
                 <Route path="/content-calendar" element={<ContentCalendar />} />
+                <Route path="/library" element={<Library />} />
                 <Route path="/doc-studio" element={<DocStudio />} />
                 <Route path="/reel-builder" element={<ReelBuilder />} />
                 <Route path="/brand-dna" element={<BrandDNA />} />

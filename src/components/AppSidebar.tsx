@@ -9,6 +9,7 @@ const navItems = [
   { label: "ProStudio", icon: Camera, path: "/pro-studio" },
   { label: "CampaignKit", icon: Megaphone, path: "/campaign-kit" },
   { label: "ContentCalendar", icon: Calendar, path: "/content-calendar" },
+  { label: "Library", icon: FolderOpen, path: "/library" },
   { label: "DocStudio", icon: FileText, path: "/doc-studio" },
   { label: "ReelBuilder", icon: Film, path: "/reel-builder" },
 ];
