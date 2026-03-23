@@ -1,26 +1,32 @@
-import { Home, MessageCircle, Camera, Megaphone, Calendar, FolderOpen, FileText, Film, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Layers, Shield, ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
-const navItems = [
+const moduleItems = [
   { label: "Home", icon: Home, path: "/" },
   { label: "Mentor", icon: MessageCircle, path: "/mentor" },
   { label: "ProStudio", icon: Camera, path: "/pro-studio" },
   { label: "CampaignKit", icon: Megaphone, path: "/campaign-kit" },
   { label: "ContentCalendar", icon: Calendar, path: "/content-calendar" },
-  { label: "Library", icon: FolderOpen, path: "/library" },
   { label: "DocStudio", icon: FileText, path: "/doc-studio" },
   { label: "ReelBuilder", icon: Film, path: "/reel-builder" },
 ];
 
 const secondaryItems = [
+  { label: "Library", icon: Layers, path: "/library" },
   { label: "Brand DNA", icon: Shield, path: "/brand-dna" },
 ];
+
+const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, CampaignKit, ContentCalendar
+const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
 
 export function AppSidebar() {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -33,7 +39,7 @@ export function AppSidebar() {
     localStorage.setItem("sidebar-collapsed", String(collapsed));
   }, [collapsed]);
 
-  const renderNavItem = (item: typeof navItems[0], showLabel: boolean) => {
+  const renderNavItem = (item: typeof moduleItems[0], showLabel: boolean) => {
     const active = isActive(item.path);
     return (
       <NavLink
@@ -54,7 +60,7 @@ export function AppSidebar() {
     );
   };
 
-  const renderTooltipItem = (item: typeof navItems[0]) => {
+  const renderTooltipItem = (item: typeof moduleItems[0]) => {
     const active = isActive(item.path);
     return (
       <Tooltip key={item.path} delayDuration={0}>
@@ -80,6 +86,8 @@ export function AppSidebar() {
     );
   };
 
+  const dividerClass = "my-2 mx-4 h-px bg-[#2A3A4A]";
+
   return (
     <>
       {/* ── Desktop sidebar (>1024px): collapsible ── */}
@@ -87,7 +95,6 @@ export function AppSidebar() {
         className={`hidden lg:flex z-40 h-full flex-col bg-sidebar border-r border-transparent relative flex-shrink-0 transition-all duration-200 ease-in-out ${collapsed ? "w-16" : "w-[220px]"}`}
       >
         <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-primary/40 to-transparent" />
-        {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute top-3 right-2 z-10 w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
@@ -96,10 +103,10 @@ export function AppSidebar() {
         </button>
         <nav className="flex-1 pt-10 px-2 space-y-1">
           {collapsed
-            ? navItems.map((item) => renderTooltipItem(item))
-            : navItems.map((item) => renderNavItem(item, true))
+            ? moduleItems.map((item) => renderTooltipItem(item))
+            : moduleItems.map((item) => renderNavItem(item, true))
           }
-          <div className="mx-3 my-2 border-t border-border" />
+          <div className={dividerClass} />
           {collapsed
             ? secondaryItems.map((item) => renderTooltipItem(item))
             : secondaryItems.map((item) => renderNavItem(item, true))
@@ -115,8 +122,8 @@ export function AppSidebar() {
       <aside className="hidden md:flex lg:hidden z-40 h-full w-16 flex-col items-center bg-sidebar border-r border-transparent relative flex-shrink-0">
         <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-primary/40 to-transparent" />
         <nav className="flex-1 pt-6 space-y-1 w-full px-2">
-          {navItems.map((item) => renderTooltipItem(item))}
-          <div className="mx-3 my-2 border-t border-border" />
+          {moduleItems.map((item) => renderTooltipItem(item))}
+          <div className={dividerClass} />
           {secondaryItems.map((item) => renderTooltipItem(item))}
         </nav>
         <div className="py-4 flex justify-center">
@@ -126,7 +133,7 @@ export function AppSidebar() {
 
       {/* ── Mobile bottom nav (<768px) ── */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t border-border flex items-center justify-around px-2 py-2">
-        {[...navItems, ...secondaryItems].map((item) => {
+        {mobileVisibleItems.map((item) => {
           const active = isActive(item.path);
           return (
             <NavLink
@@ -142,7 +149,42 @@ export function AppSidebar() {
             </NavLink>
           );
         })}
+        <button
+          onClick={() => setMoreOpen(true)}
+          className={`flex flex-col items-center justify-center p-1.5 rounded-md transition-all duration-200 ${
+            mobileDrawerItems.some((i) => isActive(i.path)) ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          <MoreHorizontal size={20} />
+        </button>
       </nav>
+
+      {/* ── Mobile "More" drawer ── */}
+      <Drawer open={moreOpen} onOpenChange={setMoreOpen}>
+        <DrawerContent className="pb-8">
+          <VisuallyHidden.Root><DrawerTitle>More</DrawerTitle></VisuallyHidden.Root>
+          <div className="px-4 pt-2 space-y-1">
+            {mobileDrawerItems.map((item) => {
+              const active = isActive(item.path);
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMoreOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-3 rounded-md text-sm font-ui transition-colors ${
+                    active
+                      ? "text-primary bg-[hsl(var(--active-tint))]"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <item.icon size={18} className={active ? "text-primary" : "text-muted-foreground"} />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }
