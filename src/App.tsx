@@ -14,6 +14,7 @@ import DocStudio from "./pages/DocStudio";
 import ContentCalendar from "./pages/ContentCalendar";
 import ProStudio from "./pages/ProStudio";
 import CampaignKit from "./pages/CampaignKit";
+import Library from "./pages/Library";
 import BrandDNA from "./pages/BrandDNA";
 import NotFound from "./pages/NotFound";
 
