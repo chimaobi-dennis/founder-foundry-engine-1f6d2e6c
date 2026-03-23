@@ -1,4 +1,4 @@
-import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, MessageCircle, Camera, Megaphone, Calendar, FolderOpen, FileText, Film, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,6 +9,7 @@ const navItems = [
   { label: "ProStudio", icon: Camera, path: "/pro-studio" },
   { label: "CampaignKit", icon: Megaphone, path: "/campaign-kit" },
   { label: "ContentCalendar", icon: Calendar, path: "/content-calendar" },
+  { label: "Library", icon: FolderOpen, path: "/library" },
   { label: "DocStudio", icon: FileText, path: "/doc-studio" },
   { label: "ReelBuilder", icon: Film, path: "/reel-builder" },
 ];

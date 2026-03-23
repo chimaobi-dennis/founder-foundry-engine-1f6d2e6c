@@ -14,6 +14,7 @@ import DocStudio from "./pages/DocStudio";
 import ContentCalendar from "./pages/ContentCalendar";
 import ProStudio from "./pages/ProStudio";
 import CampaignKit from "./pages/CampaignKit";
+import Library from "./pages/Library";
 import BrandDNA from "./pages/BrandDNA";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
                 <Route path="/pro-studio" element={<ProStudio />} />
                 <Route path="/campaign-kit" element={<CampaignKit />} />
                 <Route path="/content-calendar" element={<ContentCalendar />} />
+                <Route path="/library" element={<Library />} />
                 <Route path="/doc-studio" element={<DocStudio />} />
                 <Route path="/reel-builder" element={<ReelBuilder />} />
                 <Route path="/brand-dna" element={<BrandDNA />} />
