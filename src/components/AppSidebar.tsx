@@ -1,4 +1,4 @@
-import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, MessageCircle, Camera, Megaphone, Calendar, FolderOpen, FileText, Film, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
