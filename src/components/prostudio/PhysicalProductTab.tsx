@@ -135,7 +135,7 @@ export function PhysicalProductTab({ brandName }: Props) {
 
   return (
     <>
-      <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} />
+      <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} />
       <TemplateModal
         template={selected}
         open={!!selected}

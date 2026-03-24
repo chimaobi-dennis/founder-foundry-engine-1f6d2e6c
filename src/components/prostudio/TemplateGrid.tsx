@@ -1,21 +1,16 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Template } from "./types";
+import { TemplateCardPreview } from "./TemplateCardPreview";
 
 interface Props {
   templates: Template[];
   categories: string[];
   onSelect: (t: Template) => void;
+  brandName?: string;
 }
 
-const aspectClasses: Record<string, string> = {
-  square: "aspect-square",
-  portrait: "aspect-[3/4]",
-  landscape: "aspect-[4/3]",
-};
-
-export function TemplateGrid({ templates, categories, onSelect }: Props) {
+export function TemplateGrid({ templates, categories, onSelect, brandName }: Props) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("Popular");
@@ -76,14 +71,7 @@ export function TemplateGrid({ templates, categories, onSelect }: Props) {
             className="break-inside-avoid rounded-xl border border-border overflow-hidden cursor-pointer group bg-card transition-shadow hover:shadow-md"
           >
             <div className="relative overflow-hidden">
-              <div
-                className={cn("w-full flex items-center justify-center", aspectClasses[t.aspect])}
-                style={{ backgroundColor: t.color }}
-              >
-                <span className="text-[13px] font-ui font-medium text-white/40 select-none">
-                  {t.name}
-                </span>
-              </div>
+              <TemplateCardPreview template={t} brandName={brandName || ''} />
               {/* Hover overlay */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                 <span className="px-5 py-2 rounded-[20px] bg-white/15 backdrop-blur-sm text-[13px] font-ui text-white border border-white/20">
