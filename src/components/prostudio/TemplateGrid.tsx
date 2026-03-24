@@ -1,19 +1,14 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Template } from "./types";
+import { TemplateCardPreview } from "./TemplateCardPreview";
 
 interface Props {
   templates: Template[];
   categories: string[];
   onSelect: (t: Template) => void;
+  brandName?: string;
 }
-
-const aspectClasses: Record<string, string> = {
-  square: "aspect-square",
-  portrait: "aspect-[3/4]",
-  landscape: "aspect-[4/3]",
-};
 
 export function TemplateGrid({ templates, categories, onSelect }: Props) {
   const [search, setSearch] = useState("");
