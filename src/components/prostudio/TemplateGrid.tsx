@@ -10,7 +10,7 @@ interface Props {
   brandName?: string;
 }
 
-export function TemplateGrid({ templates, categories, onSelect }: Props) {
+export function TemplateGrid({ templates, categories, onSelect, brandName }: Props) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("Popular");
