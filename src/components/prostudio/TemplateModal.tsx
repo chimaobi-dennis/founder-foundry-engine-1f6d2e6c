@@ -10,6 +10,7 @@ import { TemplatePreview } from "./TemplatePreview";
 import { templatePrompts } from "./PhysicalProductTab";
 import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
+import { useProductImages } from "@/hooks/use-product-images";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 
 const aspectOptions = ["Auto", "Square", "3:2", "9:16", "16:9"];
