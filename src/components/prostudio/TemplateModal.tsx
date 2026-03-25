@@ -75,16 +75,30 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     }
   }, [open]);
 
-  // Reset state when template changes
+  // Reset state when template changes — auto-load selected product image
   useEffect(() => {
     if (template) {
       setGenerated(false);
       setVariations([null, null, null]);
       setActiveVariation(0);
-      setUploadedFile(type === "physical" ? { name: "product-photo.png", url: "" } : null);
-      setUploadedImageBase64(null);
+      if (type === "physical" && selectedImage) {
+        if (selectedImage.url) {
+          setUploadedFile({ name: selectedImage.name, url: selectedImage.url });
+        } else {
+          setUploadedFile({ name: selectedImage.name, url: "" });
+        }
+        if (selectedImage.base64) {
+          setUploadedImageBase64(selectedImage.base64);
+          setUploadedImageMimeType(selectedImage.mimeType || "image/jpeg");
+        } else {
+          setUploadedImageBase64(null);
+        }
+      } else {
+        setUploadedFile(null);
+        setUploadedImageBase64(null);
+      }
     }
-  }, [template?.id, type]);
+  }, [template?.id, type, selectedImage]);
 
   if (!template) return null;
 
