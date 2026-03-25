@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { BrandProvider } from "@/hooks/use-brand";
+import { ProductImagesProvider } from "@/hooks/use-product-images";
 import { Layout } from "./components/Layout";
 import Home from "./pages/Home";
 import Mentor from "./pages/Mentor";
@@ -24,26 +25,28 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <BrandProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={<Home />} />
-                <Route path="/mentor" element={<Mentor />} />
-                <Route path="/pro-studio" element={<ProStudio />} />
-                <Route path="/campaign-kit" element={<CampaignKit />} />
-                <Route path="/content-calendar" element={<ContentCalendar />} />
-                <Route path="/library" element={<Library />} />
-                <Route path="/doc-studio" element={<DocStudio />} />
-                <Route path="/reel-builder" element={<ReelBuilder />} />
-                <Route path="/brand-dna" element={<BrandDNA />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <ProductImagesProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/mentor" element={<Mentor />} />
+                  <Route path="/pro-studio" element={<ProStudio />} />
+                  <Route path="/campaign-kit" element={<CampaignKit />} />
+                  <Route path="/content-calendar" element={<ContentCalendar />} />
+                  <Route path="/library" element={<Library />} />
+                  <Route path="/doc-studio" element={<DocStudio />} />
+                  <Route path="/reel-builder" element={<ReelBuilder />} />
+                  <Route path="/brand-dna" element={<BrandDNA />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ProductImagesProvider>
       </BrandProvider>
     </ThemeProvider>
   </QueryClientProvider>
