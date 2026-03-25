@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Image, ChevronRight, ChevronLeft } from "lucide-react";
 import { Template } from "./types";
 import { TemplateGrid } from "./TemplateGrid";
 import { TemplateModal } from "./TemplateModal";
+import { ProductImagesSidebar } from "./ProductImagesSidebar";
 
 const categories = ["All", "Photoshoot", "Lifestyle", "Flat Lay", "Packshot", "Outdoor", "Moody Studio", "Minimal"];
 
@@ -123,6 +125,8 @@ Create a warm premium café counter marketing visual:
 - Reference: specialty coffee brands, premium tea brands, artisan food brands`,
 };
 
+const SIDEBAR_KEY = "prostudio-product-sidebar";
+
 interface Props {
   brandId: string;
   brandName: string;
@@ -131,11 +135,46 @@ interface Props {
 
 export function PhysicalProductTab({ brandName }: Props) {
   const [selected, setSelected] = useState<Template | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
+  });
   const initials = brandName.split(" ").map((w) => w[0]).join("").slice(0, 3);
+
+  useEffect(() => {
+    try { localStorage.setItem(SIDEBAR_KEY, String(sidebarOpen)); } catch {}
+  }, [sidebarOpen]);
 
   return (
     <>
-      <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} />
+      {/* Toggle button */}
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => setSidebarOpen((p) => !p)}
+          className="h-8 rounded-lg border border-border px-3 flex items-center gap-1.5 text-[12px] font-ui hover:bg-muted/50 transition-colors"
+        >
+          <Image size={14} className="text-primary" />
+          <span className="text-muted-foreground">Product images</span>
+          {sidebarOpen ? <ChevronLeft size={12} className="text-muted-foreground" /> : <ChevronRight size={12} className="text-muted-foreground" />}
+        </button>
+      </div>
+
+      <div className="flex gap-0 overflow-hidden" style={{ minHeight: 0 }}>
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} />
+        </div>
+
+        {/* Right sidebar */}
+        <div
+          className="flex-shrink-0 overflow-hidden transition-all duration-200 ease-in-out"
+          style={{ width: sidebarOpen ? 240 : 0, borderLeft: sidebarOpen ? "0.5px solid hsl(var(--border))" : "none" }}
+        >
+          <div className="w-[240px] h-full">
+            <ProductImagesSidebar onClose={() => setSidebarOpen(false)} />
+          </div>
+        </div>
+      </div>
+
       <TemplateModal
         template={selected}
         open={!!selected}

@@ -7,10 +7,13 @@ import { LibraryListView } from "@/components/library/LibraryListView";
 import { LibraryDetailPanel } from "@/components/library/LibraryDetailPanel";
 import { LibraryEmptyState } from "@/components/library/LibraryEmptyState";
 import { LibraryFAB } from "@/components/library/LibraryFAB";
+import { LibraryProductImages } from "@/components/library/LibraryProductImages";
+import { useProductImages } from "@/hooks/use-product-images";
 import { type LibraryAsset, getNordformAssets, getSthlmAssets } from "@/components/library/data";
 
 const Library = () => {
   const { activeBrand } = useBrand();
+  const { images: productImages } = useProductImages();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -47,6 +50,7 @@ const Library = () => {
     images: allAssets.filter((a) => a.type === "image").length,
     documents: allAssets.filter((a) => a.type === "document").length,
     scripts: allAssets.filter((a) => a.type === "script").length,
+    productImages: productImages.length,
   };
 
   const noResults = filtered.length === 0;
@@ -70,6 +74,12 @@ const Library = () => {
         ) : (
           <div className={`transition-all duration-200 ${selectedAsset ? "mr-[300px]" : ""}`}>
             <LibraryStats stats={stats} />
+
+            {/* Product images section — above regular images */}
+            {(activeFilter === "All" || activeFilter === "Images") && (
+              <LibraryProductImages />
+            )}
+
             {viewMode === "grid" ? (
               <LibraryGridView
                 recent={recent}
