@@ -625,11 +625,11 @@ Output only the HTML div. Nothing else.`;
                   </div>
 
                   {/* Variation thumbnails */}
-                  <div className="relative w-full max-w-[480px] px-8">
+                  <div className="relative w-full -mx-6 px-10">
                     <div 
                       ref={variationCarouselRef}
                       className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory"
-                      style={{ scrollSnapType: 'x mandatory' }}
+                      style={{ scrollSnapType: 'x mandatory', maxWidth: 'none' }}
                     >
                       {variations.map((html, i) => (
                         <div key={i} className="relative group flex-shrink-0 snap-start">
@@ -669,14 +669,14 @@ Output only the HTML div. Nothing else.`;
                     {/* Navigation arrows for variations */}
                     <button
                       onClick={() => scrollCarousel(variationCarouselRef, 'left')}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
                       style={{ opacity: variationCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
                     >
                       <ChevronLeft size={14} className="text-foreground" />
                     </button>
                     <button
                       onClick={() => scrollCarousel(variationCarouselRef, 'right')}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
                     >
                       <ChevronRight size={14} className="text-foreground" />
                     </button>
