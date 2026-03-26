@@ -40,6 +40,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const { images: productImages, selectedImage, selectImage: selectProductImage, addImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const productCarouselRef = useRef<HTMLDivElement>(null);
+  const variationCarouselRef = useRef<HTMLDivElement>(null);
   const [styleIntensity, setStyleIntensity] = useState(2);
 
   // AI generation state
@@ -50,6 +52,17 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(400);
+
+  // Carousel scroll function
+  const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
+    if (ref.current) {
+      const scrollAmount = 200;
+      ref.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   // Quick edit state
   const [editorOpen, setEditorOpen] = useState(false);
@@ -372,7 +385,10 @@ Output only the HTML div. Nothing else.`;
                     Product image
                   </label>
                   <div className="relative -mx-1">
-                    <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                    <div 
+                      ref={productCarouselRef}
+                      className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+                    >
                       {/* Upload card */}
                       <div
                         onClick={() => fileInputRef.current?.click()}
@@ -420,6 +436,21 @@ Output only the HTML div. Nothing else.`;
                           );
                         })}
                     </div>
+                    
+                    {/* Navigation arrows for product images */}
+                    <button
+                      onClick={() => scrollCarousel(productCarouselRef, 'left')}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      style={{ opacity: productCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
+                    >
+                      <ChevronLeft size={12} className="text-foreground" />
+                    </button>
+                    <button
+                      onClick={() => scrollCarousel(productCarouselRef, 'right')}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                    >
+                      <ChevronRight size={12} className="text-foreground" />
+                    </button>
                   </div>
                   
                   {/* Status indicator */}
@@ -594,40 +625,60 @@ Output only the HTML div. Nothing else.`;
                   </div>
 
                   {/* Variation thumbnails */}
-                  <div className="grid grid-cols-3 gap-3 w-full max-w-[480px]">
-                    {variations.map((html, i) => (
-                      <div key={i} className="relative group">
-                        <button
-                          onClick={() => setActiveVariation(i)}
-                          className={cn(
-                            "w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors",
-                            activeVariation === i ? "border-primary" : "border-transparent hover:border-border"
-                          )}
-                        >
-                          {regeneratingIdx === i ? (
-                            <div
-                              className="w-full h-full bg-muted/40"
-                              style={{ animation: "pulse-amber 1.5s ease-in-out infinite" }}
-                            />
-                          ) : html ? (
-                            <div style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}>
-                              <div dangerouslySetInnerHTML={{ __html: getEditedHtml(html, i) || '' }} />
-                            </div>
-                          ) : (
-                            <div className="w-full h-full bg-muted/30 flex items-center justify-center">
-                              <span className="text-[10px] font-ui text-muted-foreground">Failed</span>
-                            </div>
-                          )}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); regenerateSingle(i); }}
-                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-border"
-                          title="Regenerate"
-                        >
-                          <RefreshCw size={10} className="text-foreground" />
-                        </button>
-                      </div>
-                    ))}
+                  <div className="relative w-full max-w-[480px]">
+                    <div 
+                      ref={variationCarouselRef}
+                      className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+                    >
+                      {variations.map((html, i) => (
+                        <div key={i} className="relative group flex-shrink-0">
+                          <button
+                            onClick={() => setActiveVariation(i)}
+                            className={cn(
+                              "w-[140px] aspect-square rounded-lg overflow-hidden border-2 transition-colors",
+                              activeVariation === i ? "border-primary" : "border-transparent hover:border-border"
+                            )}
+                          >
+                            {regeneratingIdx === i ? (
+                              <div
+                                className="w-full h-full bg-muted/40"
+                                style={{ animation: "pulse-amber 1.5s ease-in-out infinite" }}
+                              />
+                            ) : html ? (
+                              <div style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}>
+                                <div dangerouslySetInnerHTML={{ __html: getEditedHtml(html, i) || '' }} />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full bg-muted/30 flex items-center justify-center">
+                                <span className="text-[10px] font-ui text-muted-foreground">Failed</span>
+                              </div>
+                            )}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); regenerateSingle(i); }}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-border"
+                            title="Regenerate"
+                          >
+                            <RefreshCw size={10} className="text-foreground" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Navigation arrows for variations */}
+                    <button
+                      onClick={() => scrollCarousel(variationCarouselRef, 'left')}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      style={{ opacity: variationCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
+                    >
+                      <ChevronLeft size={12} className="text-foreground" />
+                    </button>
+                    <button
+                      onClick={() => scrollCarousel(variationCarouselRef, 'right')}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                    >
+                      <ChevronRight size={12} className="text-foreground" />
+                    </button>
                   </div>
 
                   {/* Quick edits toggle */}
