@@ -15,15 +15,18 @@ export function ProductImagesSidebar({ onClose }: Props) {
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
+    const fileArray = Array.from(files);
+    let completed = 0;
     const newImgs: ProductImage[] = [];
-    Array.from(files).forEach((file) => {
+    
+    fileArray.forEach((file, index) => {
       const url = URL.createObjectURL(file);
       const reader = new FileReader();
       reader.onload = (ev) => {
         const result = ev.target?.result as string;
         const base64 = result.split(",")[1];
         const img: ProductImage = {
-          id: `pi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `pi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${index}`,
           name: file.name.replace(/\.[^.]+$/, ""),
           color: "#2D4A3E",
           url,
@@ -32,7 +35,10 @@ export function ProductImagesSidebar({ onClose }: Props) {
           templateCount: 0,
         };
         newImgs.push(img);
-        if (newImgs.length === files.length) addImages(newImgs);
+        completed++;
+        if (completed === fileArray.length) {
+          addImages(newImgs);
+        }
       };
       reader.readAsDataURL(file);
     });
