@@ -54,6 +54,10 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(400);
 
+  // Quick edit state
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editStates, setEditStates] = useState<Record<number, EditState>>({});
+
   // Digital inputs
   const [customerName, setCustomerName] = useState("Erik L.");
   const [customerQuote, setCustomerQuote] = useState("I have tried every supplement brand. Nordform is the first one I actually trust.");
