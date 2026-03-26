@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import { Template } from "./types";
 import { TemplateCardPreview } from "./TemplateCardPreview";
+import { TemplatePreviewModal } from "./TemplatePreviewModal";
 
 interface Props {
   templates: Template[];
