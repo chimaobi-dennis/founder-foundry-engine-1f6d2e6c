@@ -86,6 +86,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setGenerated(false);
       setVariations([null, null, null]);
       setActiveVariation(0);
+      setEditorOpen(false);
+      setEditStates({});
       if (type === "physical" && selectedImage) {
         if (selectedImage.url) {
           setUploadedFile({ name: selectedImage.name, url: selectedImage.url });
