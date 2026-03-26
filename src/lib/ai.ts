@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export const callAI = async (
   messages: { role: string; content: any }[],
   maxTokens: number = 4000,
@@ -5,12 +7,6 @@ export const callAI = async (
   imageMimeType?: string
 ): Promise<string | null> => {
   try {
-    const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY;
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      return null;
-    }
-
     const processedMessages = messages.map((msg, index) => {
       if (index === messages.length - 1 && msg.role === "user" && imageBase64) {
         return {
@@ -32,27 +28,21 @@ export const callAI = async (
       return msg;
     });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: processedMessages,
-        max_tokens: maxTokens,
-      }),
+    const { data, error } = await supabase.functions.invoke("ai-call", {
+      body: { messages: processedMessages, max_tokens: maxTokens },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI call failed:", response.status, errorText);
+    if (error) {
+      console.error("AI call failed:", error);
       return null;
     }
 
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content ?? null;
+    if (data?.error) {
+      console.error("AI call error:", data.error);
+      return null;
+    }
+
+    return data?.choices?.[0]?.message?.content ?? null;
   } catch (error) {
     console.error("AI call failed:", error);
     return null;
