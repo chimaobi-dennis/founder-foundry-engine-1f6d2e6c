@@ -15,6 +15,7 @@ export function TemplateGrid({ templates, categories, onSelect, brandName }: Pro
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState("Popular");
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
 
   const filtered = templates
     .filter((t) => {
@@ -25,7 +26,6 @@ export function TemplateGrid({ templates, categories, onSelect, brandName }: Pro
     .sort((a, b) => {
       if (sort === "Newest") return 0;
       if (sort === "Featured") return 0;
-      // Popular — parse uses
       const parseUses = (u: string) => parseFloat(u.replace("k", "")) * (u.includes("k") ? 1000 : 1);
       return parseUses(b.uses) - parseUses(a.uses);
     });
@@ -68,16 +68,28 @@ export function TemplateGrid({ templates, categories, onSelect, brandName }: Pro
         {filtered.map((t) => (
           <div
             key={t.id}
-            onClick={() => onSelect(t)}
             className="break-inside-avoid rounded-xl border border-border overflow-hidden cursor-pointer group bg-card transition-shadow hover:shadow-md"
           >
             <div className="relative overflow-hidden">
               <TemplateCardPreview template={t} brandName={brandName || ''} />
-              {/* Hover overlay */}
+              {/* Hover overlay with two buttons */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <span className="px-5 py-2 rounded-[20px] bg-white/15 backdrop-blur-sm text-[13px] font-ui text-white border border-white/20">
-                  Use template
-                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setPreviewTemplate(t); }}
+                    className="px-4 py-[7px] rounded-[20px] text-[12px] font-ui text-white border cursor-pointer transition-colors hover:bg-white/25"
+                    style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)', borderColor: 'rgba(255,255,255,0.25)' }}
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onSelect(t); }}
+                    className="px-4 py-[7px] rounded-[20px] text-[12px] font-ui font-medium cursor-pointer transition-colors hover:opacity-90"
+                    style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+                  >
+                    Use template
+                  </button>
+                </div>
               </div>
             </div>
             <div className="p-[10px_12px] flex items-start justify-between gap-2">
@@ -96,6 +108,15 @@ export function TemplateGrid({ templates, categories, onSelect, brandName }: Pro
           </div>
         ))}
       </div>
+
+      {/* Preview modal */}
+      <TemplatePreviewModal
+        template={previewTemplate}
+        open={!!previewTemplate}
+        onClose={() => setPreviewTemplate(null)}
+        onUseTemplate={(t) => { setPreviewTemplate(null); onSelect(t); }}
+        brandName={brandName || ''}
+      />
     </div>
   );
 }
