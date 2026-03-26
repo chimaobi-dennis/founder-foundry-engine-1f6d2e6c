@@ -39,11 +39,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const { activeBrand } = useBrand();
   const { images: productImages, selectedImage, selectImage: selectProductImage, addImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
-  const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [styleIntensity, setStyleIntensity] = useState(2);
-  const [uploadedImageBase64, setUploadedImageBase64] = useState<string | null>(null);
-  const [uploadedImageMimeType, setUploadedImageMimeType] = useState<string>("image/jpeg");
 
   // AI generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -80,7 +77,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     }
   }, [open]);
 
-  // Reset state when template changes — auto-load selected product image
+  // Reset state when template changes
   useEffect(() => {
     if (template) {
       setGenerated(false);
@@ -88,24 +85,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
-      if (type === "physical" && selectedImage) {
-        if (selectedImage.url) {
-          setUploadedFile({ name: selectedImage.name, url: selectedImage.url });
-        } else {
-          setUploadedFile({ name: selectedImage.name, url: "" });
-        }
-        if (selectedImage.base64) {
-          setUploadedImageBase64(selectedImage.base64);
-          setUploadedImageMimeType(selectedImage.mimeType || "image/jpeg");
-        } else {
-          setUploadedImageBase64(null);
-        }
-      } else {
-        setUploadedFile(null);
-        setUploadedImageBase64(null);
-      }
     }
-  }, [template?.id, type, selectedImage]);
+  }, [template?.id]);
 
   if (!template) return null;
 
@@ -124,8 +105,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       productName: (activeBrand?.name || brandName) + " Product",
     };
 
-    const productInstruction = uploadedImageBase64
-      ? `The actual product image is attached. Study the product carefully — its shape, color, proportions, and character. Position it naturally within the scene as if it were actually photographed there. Represent it as an img tag using this src: "data:${uploadedImageMimeType};base64,${uploadedImageBase64}" with appropriate dimensions that respect the product's natural proportions. The product should feel like it belongs in the scene — not pasted on top of it.`
+    const productInstruction = selectedImage?.base64
+      ? `The actual product image is attached. Study the product carefully — its shape, color, proportions, and character. Position it naturally within the scene as if it were actually photographed there. Represent it as an img tag using this src: "data:${selectedImage.mimeType || "image/jpeg"};base64,${selectedImage.base64}" with appropriate dimensions that respect the product's natural proportions. The product should feel like it belongs in the scene — not pasted on top of it.`
       : `Represent the product as a div: width:130px height:190px background:white border-radius:4px display:flex align-items:center justify-content:center font-size:10px text-align:center padding:8px color matching brand primary — containing the product name text.`;
 
     return `You are an expert creative director and senior frontend developer specialising in premium brand marketing visuals.
@@ -194,8 +175,8 @@ Output only the HTML div. Nothing else.`;
           callAI(
             [{ role: "user", content: basePrompt + suffix }],
             3000,
-            uploadedImageBase64 || undefined,
-            uploadedImageMimeType
+            selectedImage?.base64 || undefined,
+            selectedImage?.mimeType || "image/jpeg"
           )
         )
       );
@@ -220,8 +201,8 @@ Output only the HTML div. Nothing else.`;
     const result = await callAI(
       [{ role: "user", content: basePrompt + "\n\n" + suffixes[variationIndex] }],
       3000,
-      uploadedImageBase64 || undefined,
-      uploadedImageMimeType
+      selectedImage?.base64 || undefined,
+      selectedImage?.mimeType || "image/jpeg"
     );
     setVariations(prev => prev.map((v, i) => (i === variationIndex ? cleanAIHtml(result) : v)));
     setRegeneratingIdx(null);
@@ -239,8 +220,8 @@ Output only the HTML div. Nothing else.`;
     const result = await callAI(
       [{ role: "user", content: basePrompt + editSuffix }],
       3000,
-      uploadedImageBase64 || undefined,
-      uploadedImageMimeType
+      selectedImage?.base64 || undefined,
+      selectedImage?.mimeType || "image/jpeg"
     );
     setVariations(prev => prev.map((v, i) => (i === activeVariation ? cleanAIHtml(result) : v)));
     // Reset edit state for this variation after regen
