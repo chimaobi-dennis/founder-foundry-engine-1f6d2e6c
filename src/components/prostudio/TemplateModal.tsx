@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { X, Upload, Download, RefreshCw } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { QuickEditPanel, type EditState, defaultEditState } from "./QuickEditPanel";
 
 const aspectOptions = ["Auto", "Square", "3:2", "9:16", "16:9"];
 const intensityOptions = [
