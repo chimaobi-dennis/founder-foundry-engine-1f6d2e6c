@@ -557,11 +557,13 @@ Output only the HTML div. Nothing else.`;
               ) : generated ? (
                 <div className="flex flex-col items-center gap-4 w-full">
                   {/* Active variation preview */}
-                  <TemplatePreview
-                    html={variations[activeVariation]}
-                    scale={previewScale}
-                    id={`variation-${activeVariation}`}
-                  />
+                  <div style={{ transition: 'transform 200ms ease', transform: editorOpen ? 'scale(0.85)' : 'scale(1)', transformOrigin: 'top center' }}>
+                    <TemplatePreview
+                      html={getEditedHtml(variations[activeVariation], activeVariation)}
+                      scale={previewScale}
+                      id={`variation-${activeVariation}`}
+                    />
+                  </div>
 
                   {/* Variation thumbnails */}
                   <div className="grid grid-cols-3 gap-3 w-full max-w-[480px]">
@@ -581,7 +583,7 @@ Output only the HTML div. Nothing else.`;
                             />
                           ) : html ? (
                             <div style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}>
-                              <div dangerouslySetInnerHTML={{ __html: html }} />
+                              <div dangerouslySetInnerHTML={{ __html: getEditedHtml(html, i) || '' }} />
                             </div>
                           ) : (
                             <div className="w-full h-full bg-muted/30 flex items-center justify-center">
@@ -589,7 +591,6 @@ Output only the HTML div. Nothing else.`;
                             </div>
                           )}
                         </button>
-                        {/* Regenerate button */}
                         <button
                           onClick={(e) => { e.stopPropagation(); regenerateSingle(i); }}
                           className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-border"
@@ -600,6 +601,34 @@ Output only the HTML div. Nothing else.`;
                       </div>
                     ))}
                   </div>
+
+                  {/* Quick edits toggle */}
+                  <button
+                    onClick={() => setEditorOpen(p => !p)}
+                    className="h-9 rounded-lg border px-4 text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors"
+                    style={{
+                      borderColor: 'hsl(var(--primary))',
+                      color: 'hsl(var(--primary))',
+                      background: editorOpen ? 'hsl(var(--primary) / 0.08)' : 'transparent',
+                    }}
+                  >
+                    <SlidersHorizontal size={14} />
+                    {editorOpen ? 'Close editor' : 'Quick edits'}
+                  </button>
+
+                  {/* Quick edit panel */}
+                  {editorOpen && (
+                    <div className="w-full">
+                      <QuickEditPanel
+                        variationIndex={activeVariation}
+                        variationHtml={variations[activeVariation]}
+                        editStates={editStates}
+                        onEditStatesChange={setEditStates}
+                        onApplyAndRegenerate={regenerateWithEdits}
+                        isRegenerating={regeneratingIdx !== null}
+                      />
+                    </div>
+                  )}
 
                   <div className="flex gap-3 w-full max-w-[320px]">
                     <Button
