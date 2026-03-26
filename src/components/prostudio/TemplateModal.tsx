@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +37,7 @@ function cleanAIHtml(raw: string | null): string | null {
 
 export function TemplateModal({ template, open, onClose, type, brandName, brandInitials }: TemplateModalProps) {
   const { activeBrand } = useBrand();
-  const { selectedImage } = useProductImages();
+  const { images: productImages, selectedImage, selectImage: selectProductImage, addImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
   const [uploadedFile, setUploadedFile] = useState<{ name: string; url: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -348,63 +348,110 @@ Output only the HTML div. Nothing else.`;
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
+                    const files = e.target.files;
+                    if (!files) return;
+                    const fileArray = Array.from(files);
+                    let completed = 0;
+                    const newImgs: any[] = [];
+                    
+                    fileArray.forEach((file, index) => {
                       const url = URL.createObjectURL(file);
-                      setUploadedFile({ name: file.name, url });
-                      // Convert to base64
                       const reader = new FileReader();
                       reader.onload = (ev) => {
                         const result = ev.target?.result as string;
                         const base64 = result.split(",")[1];
-                        setUploadedImageBase64(base64);
-                        setUploadedImageMimeType(file.type || "image/jpeg");
+                        const img = {
+                          id: `pi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${index}`,
+                          name: file.name.replace(/\.[^.]+$/, ""),
+                          color: "#2D4A3E",
+                          url,
+                          base64,
+                          mimeType: file.type || "image/jpeg",
+                          templateCount: 0,
+                        };
+                        newImgs.push(img);
+                        completed++;
+                        if (completed === fileArray.length) {
+                          addImages(newImgs);
+                          if (newImgs.length > 0) selectProductImage(newImgs[0].id);
+                        }
                       };
                       reader.readAsDataURL(file);
-                    }
+                    });
                     e.target.value = "";
                   }}
                 />
-                {uploadedFile ? (
-                  <div className="relative rounded-lg border border-border p-4 flex flex-col items-center gap-2">
-                    {uploadedFile.url ? (
-                      <img src={uploadedFile.url} alt="Product" className="w-[120px] h-[80px] rounded-md object-cover" />
-                    ) : (
-                      <div className="w-[120px] h-[80px] rounded-md flex items-center justify-center" style={{ backgroundColor: "#2D4A3E" }}>
-                        <span className="text-[11px] font-ui text-[#F5F0E8] font-medium">{brandName}</span>
+                
+                {/* Product Images Carousel */}
+                <div>
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Product image
+                  </label>
+                  <div className="relative -mx-1">
+                    <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                      {/* Upload card */}
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-shrink-0 w-[90px] h-[110px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+                      >
+                        <Upload size={16} className="text-primary" />
+                        <span className="text-[9px] font-ui text-primary text-center px-1">Upload new</span>
                       </div>
-                    )}
-                    <span className="text-[11px] font-ui text-muted-foreground">{uploadedFile.name}</span>
-                    <button
-                      onClick={() => { setUploadedFile(null); setUploadedImageBase64(null); }}
-                      className="text-[11px] font-ui text-destructive/70 hover:text-destructive"
-                    >
-                      Remove
-                    </button>
-                    {/* Image status indicator */}
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      <span className="text-[11px] font-ui text-muted-foreground">Product image will be included in generation</span>
+                      
+                      {/* Existing images from context */}
+                      {productImages.map((img) => {
+                        const isSelected = selectedImage?.id === img.id;
+                        return (
+                          <div
+                            key={img.id}
+                            onClick={() => selectProductImage(img.id)}
+                              className={cn(
+                                "flex-shrink-0 w-[90px] h-[110px] rounded-lg overflow-hidden cursor-pointer transition-all relative group",
+                                isSelected ? "ring-2 ring-primary shadow-lg" : "border border-border hover:border-primary/60"
+                              )}
+                            >
+                              {img.url ? (
+                                <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: img.color }}>
+                                  <span className="text-[9px] font-ui text-white/80 font-medium text-center px-1">{img.name}</span>
+                                </div>
+                              )}
+                              
+                              {/* Name overlay */}
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1">
+                                <span className="text-[8px] font-ui text-white line-clamp-1">{img.name}</span>
+                              </div>
+                              
+                              {/* Selected indicator */}
+                              {isSelected && (
+                                <>
+                                  <div className="absolute top-1 right-1 w-[14px] h-[14px] rounded-full bg-primary flex items-center justify-center">
+                                    <Check size={8} className="text-primary-foreground" />
+                                  </div>
+                                  <div className="absolute inset-0 border-2 border-primary rounded-lg pointer-events-none" />
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
-                ) : (
-                  <div>
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-[160px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/60 transition-colors"
-                    >
-                      <Upload size={20} className="text-primary" />
-                      <span className="text-[13px] font-ui text-primary">Upload your product photo</span>
-                      <span className="text-[11px] font-ui text-muted-foreground">JPG, PNG, WebP up to 10MB</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
-                      <span className="text-[11px] font-ui text-muted-foreground">Upload a product image for best results</span>
-                    </div>
+                  
+                  {/* Status indicator */}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      selectedImage ? "bg-green-500" : "bg-muted-foreground/50"
+                    )} />
+                    <span className="text-[11px] font-ui text-muted-foreground">
+                      {selectedImage ? `Using: ${selectedImage.name}` : "Select or upload a product image"}
+                    </span>
                   </div>
-                )}
+                </div>
 
                 <div className="mt-4">
                   <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
