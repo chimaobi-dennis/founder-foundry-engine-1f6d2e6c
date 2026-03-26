@@ -5,6 +5,12 @@ export const callAI = async (
   imageMimeType?: string
 ): Promise<string | null> => {
   try {
+    const LOVABLE_API_KEY = import.meta.env.VITE_LOVABLE_API_KEY;
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY is not configured");
+      return null;
+    }
+
     const processedMessages = messages.map((msg, index) => {
       if (index === messages.length - 1 && msg.role === "user" && imageBase64) {
         return {
@@ -26,18 +32,25 @@ export const callAI = async (
       return msg;
     });
 
-    const response = await fetch("https://double-gpt.p.rapidapi.com/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
-        "X-RapidAPI-Key": "497f5d56c2mshd12ac628118de94p1bd533jsn4044f509b0ad",
-        "X-RapidAPI-Host": "double-gpt.p.rapidapi.com",
       },
       body: JSON.stringify({
-        model: "gpt-5",
+        model: "google/gemini-2.5-flash-lite",
         messages: processedMessages,
+        max_tokens: maxTokens,
       }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI call failed:", response.status, errorText);
+      return null;
+    }
+
     const data = await response.json();
     return data.choices?.[0]?.message?.content ?? null;
   } catch (error) {
