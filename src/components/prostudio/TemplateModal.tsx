@@ -227,6 +227,63 @@ Output only the HTML div. Nothing else.`;
     setRegeneratingIdx(null);
   };
 
+  const regenerateWithEdits = async (editInstructions: string) => {
+    const suffixes = [
+      "Generate a refined primary variation.",
+      "Generate a refined alternative layout.",
+      "Generate a refined bold variation.",
+    ];
+    setRegeneratingIdx(activeVariation);
+    const basePrompt = buildBasePrompt();
+    const editSuffix = `\n\n${suffixes[activeVariation]}\n\nAPPLY THESE EDITS:\n${editInstructions}`;
+    const result = await callAI(
+      [{ role: "user", content: basePrompt + editSuffix }],
+      3000,
+      uploadedImageBase64 || undefined,
+      uploadedImageMimeType
+    );
+    setVariations(prev => prev.map((v, i) => (i === activeVariation ? cleanAIHtml(result) : v)));
+    // Reset edit state for this variation after regen
+    setEditStates(prev => {
+      const next = { ...prev };
+      delete next[activeVariation];
+      return next;
+    });
+    setRegeneratingIdx(null);
+  };
+
+  // Apply live edits to HTML
+  const getEditedHtml = (html: string | null, variationIdx: number): string | null => {
+    if (!html) return null;
+    const edits = editStates[variationIdx];
+    if (!edits) return html;
+
+    let edited = html;
+
+    // Apply text replacements
+    for (const t of edits.texts) {
+      if (t.original !== t.edited) {
+        edited = edited.split(t.original).join(t.edited);
+      }
+    }
+
+    // Apply brightness/contrast via wrapper filter
+    // Apply color replacements
+    if (edits.primaryColor !== '#2D4A3E') {
+      edited = edited.replace(/#2D4A3E/gi, edits.primaryColor);
+    }
+    if (edits.secondaryColor !== '#F5F0E8') {
+      edited = edited.replace(/#F5F0E8/gi, edits.secondaryColor);
+    }
+
+    // Wrap in a filter div for brightness/contrast
+    if (edits.brightness !== 100 || edits.contrast !== 100) {
+      edited = `<div style="filter:brightness(${edits.brightness / 100}) contrast(${edits.contrast / 100});width:600px;height:600px;">${edited}</div>`;
+    }
+
+    return edited;
+  };
+
   const downloadVariation = async (variationIndex: number) => {
     const el = document.getElementById(`variation-${variationIndex}`);
     if (!el) return;
