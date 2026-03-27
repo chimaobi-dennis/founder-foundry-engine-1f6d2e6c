@@ -311,7 +311,7 @@ Output only the HTML div. Nothing else.`;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] p-0 overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
+      <DialogContent className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] p-0 overflow-hidden md:overflow-hidden overflow-y-auto rounded-2xl border-border gap-0" aria-describedby={undefined}>
         <DialogTitle className="sr-only">{template?.name ?? "Template"}</DialogTitle>
         <button
           onClick={onClose}
