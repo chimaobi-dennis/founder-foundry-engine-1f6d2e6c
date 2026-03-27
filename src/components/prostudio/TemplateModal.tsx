@@ -311,7 +311,7 @@ Output only the HTML div. Nothing else.`;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[880px] w-[90vw] p-0 overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
+      <DialogContent className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] p-0 overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
         <DialogTitle className="sr-only">{template?.name ?? "Template"}</DialogTitle>
         <button
           onClick={onClose}
@@ -320,9 +320,9 @@ Output only the HTML div. Nothing else.`;
           <X size={16} className="text-foreground" />
         </button>
 
-        <div className="flex flex-col md:flex-row max-h-[85vh]">
+        <div className="flex flex-col md:flex-row h-full">
           {/* Left panel */}
-          <div className="w-full md:w-[45%] p-7 overflow-y-auto bg-card border-r border-border">
+          <div className="w-full md:w-[38%] p-7 overflow-y-auto bg-card border-r border-border">
             <h2 className="font-display text-[20px] text-foreground">{template.name}</h2>
             <div className="flex items-center gap-2 mt-2">
               <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -582,7 +582,7 @@ Output only the HTML div. Nothing else.`;
           </div>
 
           {/* Right panel */}
-          <div ref={panelRef} className="w-full md:w-[55%] bg-background flex flex-col items-center justify-start p-6 min-h-[400px] overflow-y-auto">
+          <div ref={panelRef} className="w-full md:w-[62%] bg-background flex flex-col items-center justify-start p-6 overflow-y-auto">
             {isPhysical ? (
               // AI-powered generation view
               isGenerating ? (
@@ -616,10 +616,10 @@ Output only the HTML div. Nothing else.`;
               ) : generated ? (
                 <div className="flex flex-col items-center gap-4 w-full">
                   {/* Active variation preview */}
-                  <div className="w-full flex items-center justify-center" style={{ maxHeight: editorOpen ? '280px' : '420px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
+                  <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
                     <TemplatePreview
                       html={getEditedHtml(variations[activeVariation], activeVariation)}
-                      scale={editorOpen ? 0.47 : Math.min(previewScale, 0.7)}
+                      scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
                       id={`variation-${activeVariation}`}
                     />
                   </div>
