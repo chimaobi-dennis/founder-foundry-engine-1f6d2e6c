@@ -320,9 +320,9 @@ Output only the HTML div. Nothing else.`;
           <X size={16} className="text-foreground" />
         </button>
 
-        <div className="flex flex-col md:flex-row max-h-[85vh]">
+        <div className="flex flex-col md:flex-row h-full">
           {/* Left panel */}
-          <div className="w-full md:w-[45%] p-7 overflow-y-auto bg-card border-r border-border">
+          <div className="w-full md:w-[38%] p-7 overflow-y-auto bg-card border-r border-border">
             <h2 className="font-display text-[20px] text-foreground">{template.name}</h2>
             <div className="flex items-center gap-2 mt-2">
               <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
