@@ -582,7 +582,7 @@ Output only the HTML div. Nothing else.`;
           </div>
 
           {/* Right panel */}
-          <div ref={panelRef} className="w-full md:w-[55%] bg-background flex flex-col items-center justify-center p-6 min-h-[400px] overflow-y-auto">
+          <div ref={panelRef} className="w-full md:w-[55%] bg-background flex flex-col items-center justify-start p-6 min-h-[400px] overflow-y-auto">
             {isPhysical ? (
               // AI-powered generation view
               isGenerating ? (
@@ -616,10 +616,10 @@ Output only the HTML div. Nothing else.`;
               ) : generated ? (
                 <div className="flex flex-col items-center gap-4 w-full">
                   {/* Active variation preview */}
-                  <div style={{ transition: 'transform 200ms ease', transform: editorOpen ? 'scale(0.85)' : 'scale(1)', transformOrigin: 'top center' }}>
+                  <div className="w-full flex items-center justify-center" style={{ maxHeight: editorOpen ? '280px' : '420px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
                     <TemplatePreview
                       html={getEditedHtml(variations[activeVariation], activeVariation)}
-                      scale={previewScale}
+                      scale={editorOpen ? 0.47 : Math.min(previewScale, 0.7)}
                       id={`variation-${activeVariation}`}
                     />
                   </div>
@@ -669,14 +669,13 @@ Output only the HTML div. Nothing else.`;
                     {/* Navigation arrows for variations */}
                     <button
                       onClick={() => scrollCarousel(variationCarouselRef, 'left')}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
-                      style={{ opacity: variationCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
                     >
                       <ChevronLeft size={14} className="text-foreground" />
                     </button>
                     <button
                       onClick={() => scrollCarousel(variationCarouselRef, 'right')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
                     >
                       <ChevronRight size={14} className="text-foreground" />
                     </button>
