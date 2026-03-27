@@ -616,10 +616,10 @@ Output only the HTML div. Nothing else.`;
               ) : generated ? (
                 <div className="flex flex-col items-center gap-4 w-full">
                   {/* Active variation preview */}
-                  <div className="w-full flex items-center justify-center" style={{ maxHeight: editorOpen ? '280px' : '420px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
+                  <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
                     <TemplatePreview
                       html={getEditedHtml(variations[activeVariation], activeVariation)}
-                      scale={editorOpen ? 0.47 : Math.min(previewScale, 0.7)}
+                      scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
                       id={`variation-${activeVariation}`}
                     />
                   </div>
