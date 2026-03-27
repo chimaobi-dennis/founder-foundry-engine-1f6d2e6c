@@ -35,6 +35,13 @@ function cleanAIHtml(raw: string | null): string | null {
   return cleaned.trim();
 }
 
+function ensureProductImage(html: string | null, imageBase64?: string, imageMimeType?: string): string | null {
+  if (!html || !imageBase64) return html;
+  if (html.includes('<img')) return html;
+  const imgTag = `<img src="data:${imageMimeType || 'image/jpeg'};base64,${imageBase64}" style="position:absolute;width:140px;height:auto;object-fit:contain;top:50%;left:50%;transform:translate(-50%,-60%);z-index:10;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.2));" />`;
+  return html.replace(/<\/div>\s*$/, imgTag + '</div>');
+}
+
 export function TemplateModal({ template, open, onClose, type, brandName, brandInitials }: TemplateModalProps) {
   const { activeBrand } = useBrand();
   const { images: productImages, selectedImage, selectImage: selectProductImage, addImages } = useProductImages();
@@ -119,7 +126,12 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     };
 
     const productInstruction = selectedImage?.base64
-      ? `The actual product image is attached. Study the product carefully — its shape, color, proportions, and character. Position it naturally within the scene as if it were actually photographed there. Represent it as an img tag using this src: "data:${selectedImage.mimeType || "image/jpeg"};base64,${selectedImage.base64}" with appropriate dimensions that respect the product's natural proportions. The product should feel like it belongs in the scene — not pasted on top of it.`
+      ? `The user has uploaded their product image. It is attached to this message.
+
+You MUST include this product image in the HTML output using this exact img tag:
+<img src="data:${selectedImage.mimeType || "image/jpeg"};base64,${selectedImage.base64}" style="position:absolute;width:140px;height:auto;object-fit:contain;top:50%;left:50%;transform:translate(-50%,-60%);z-index:10;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.2));" />
+
+Place the img tag inside the main container div at the position that makes most sense for this template's design direction. The product MUST be visible. Do not replace it with a div placeholder.`
       : `Represent the product as a div: width:130px height:190px background:white border-radius:4px display:flex align-items:center justify-content:center font-size:10px text-align:center padding:8px color matching brand primary — containing the product name text.`;
 
     return `You are an expert creative director and senior frontend developer specialising in premium brand marketing visuals.
@@ -193,7 +205,11 @@ Output only the HTML div. Nothing else.`;
           )
         )
       );
-      setVariations(results.map(cleanAIHtml));
+      const cleanedResults = results.map(cleanAIHtml);
+      const safeResults = cleanedResults.map(html => 
+        ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg")
+      );
+      setVariations(safeResults);
       setGenerated(true);
       setActiveVariation(0);
     } catch (e) {
@@ -217,7 +233,9 @@ Output only the HTML div. Nothing else.`;
       selectedImage?.base64 || undefined,
       selectedImage?.mimeType || "image/jpeg"
     );
-    setVariations(prev => prev.map((v, i) => (i === variationIndex ? cleanAIHtml(result) : v)));
+    const cleaned = cleanAIHtml(result);
+    const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+    setVariations(prev => prev.map((v, i) => (i === variationIndex ? safe : v)));
     setRegeneratingIdx(null);
   };
 
@@ -236,7 +254,9 @@ Output only the HTML div. Nothing else.`;
       selectedImage?.base64 || undefined,
       selectedImage?.mimeType || "image/jpeg"
     );
-    setVariations(prev => prev.map((v, i) => (i === activeVariation ? cleanAIHtml(result) : v)));
+    const cleaned = cleanAIHtml(result);
+    const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+    setVariations(prev => prev.map((v, i) => (i === activeVariation ? safe : v)));
     // Reset edit state for this variation after regen
     setEditStates(prev => {
       const next = { ...prev };
@@ -311,18 +331,18 @@ Output only the HTML div. Nothing else.`;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] p-0 overflow-y-auto md:overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
+      <DialogContent className="max-w-[96vw] w-[96vw] h-[90vh] md:h-[94vh] max-h-[90vh] md:max-h-[94vh] p-0 overflow-y-auto md:overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
         <DialogTitle className="sr-only">{template?.name ?? "Template"}</DialogTitle>
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-muted/80 flex items-center justify-center hover:bg-muted transition-colors"
+          className="fixed md:absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-muted/80 backdrop-blur-sm flex items-center justify-center hover:bg-muted transition-colors"
         >
           <X size={16} className="text-foreground" />
         </button>
 
         <div className="flex flex-col md:flex-row h-full">
           {/* Left panel */}
-          <div className="w-full md:w-[38%] p-7 overflow-y-auto bg-card border-r border-border">
+          <div className="w-full md:w-[480px] md:flex-shrink-0 p-4 md:p-7 overflow-y-auto bg-card md:border-r border-border">
             <h2 className="font-display text-[20px] text-foreground">{template.name}</h2>
             <div className="flex items-center gap-2 mt-2">
               <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -387,12 +407,13 @@ Output only the HTML div. Nothing else.`;
                   <div className="relative -mx-1">
                     <div 
                       ref={productCarouselRef}
-                      className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+                      className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent"
+                      style={{ scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
                     >
                       {/* Upload card */}
                       <div
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex-shrink-0 w-[90px] h-[110px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+                        className="flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
                       >
                         <Upload size={16} className="text-primary" />
                         <span className="text-[9px] font-ui text-primary text-center px-1">Upload new</span>
@@ -406,7 +427,7 @@ Output only the HTML div. Nothing else.`;
                             key={img.id}
                             onClick={() => selectProductImage(img.id)}
                               className={cn(
-                                "flex-shrink-0 w-[90px] h-[110px] rounded-lg overflow-hidden cursor-pointer transition-all relative group",
+                                "flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg overflow-hidden cursor-pointer transition-all relative group",
                                 isSelected ? "ring-2 ring-primary shadow-lg" : "border border-border hover:border-primary/60"
                               )}
                             >
@@ -457,10 +478,12 @@ Output only the HTML div. Nothing else.`;
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className={cn(
                       "w-1.5 h-1.5 rounded-full",
-                      selectedImage ? "bg-green-500" : "bg-muted-foreground/50"
+                      selectedImage?.url ? "bg-green-500" : "bg-amber-500"
                     )} />
                     <span className="text-[11px] font-ui text-muted-foreground">
-                      {selectedImage ? `Using: ${selectedImage.name}` : "Select or upload a product image"}
+                      {selectedImage?.url 
+                        ? "Product photo included in generation" 
+                        : "Upload a real photo for best results"}
                     </span>
                   </div>
                 </div>
@@ -469,7 +492,7 @@ Output only the HTML div. Nothing else.`;
                   <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
                     Aspect ratio
                   </label>
-                  <div className="flex gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {aspectOptions.map((a) => (
                       <button
                         key={a}
@@ -492,7 +515,7 @@ Output only the HTML div. Nothing else.`;
                   <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
                     Style intensity
                   </label>
-                  <div className="flex gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {intensityOptions.map((opt) => (
                       <button
                         key={opt.value}
@@ -574,15 +597,22 @@ Output only the HTML div. Nothing else.`;
                 )}
               </div>
             )}
-
-            <Button onClick={handleRun} disabled={isGenerating} className="w-full h-12 rounded-lg text-[14px] font-ui mt-5">
-              {isGenerating ? "Generating..." : "Run template"}
-            </Button>
-            <p className="text-[11px] font-ui text-muted-foreground text-center mt-2">Uses 1 credit</p>
+            
+            <div className="sticky md:static bottom-0 left-0 right-0 bg-card md:bg-transparent pt-3 pb-3 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 z-5 border-t md:border-t-0 border-border md:border-none">
+              <Button
+                onClick={handleRun}
+                disabled={isGenerating}
+                className="w-full h-12 rounded-lg text-[14px] font-ui font-medium"
+                style={{ backgroundColor: template.color }}
+              >
+                {isGenerating ? "Generating..." : "Run template"}
+              </Button>
+              <p className="text-[11px] font-ui text-muted-foreground text-center mt-2">Uses 1 credit</p>
+            </div>
           </div>
 
           {/* Right panel */}
-          <div ref={panelRef} className="w-full md:w-[62%] bg-background flex flex-col items-center justify-start p-6 overflow-y-auto">
+          <div ref={panelRef} className="w-full md:flex-1 bg-background flex flex-col items-center justify-start p-4 md:p-6 overflow-y-auto">
             {isPhysical ? (
               // AI-powered generation view
               isGenerating ? (
@@ -625,11 +655,11 @@ Output only the HTML div. Nothing else.`;
                   </div>
 
                   {/* Variation thumbnails */}
-                  <div className="relative w-full -mx-6 px-10">
+                  <div className="relative w-full -mx-4 md:-mx-6 px-8 md:px-10">
                     <div 
                       ref={variationCarouselRef}
-                      className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory"
-                      style={{ scrollSnapType: 'x mandatory', maxWidth: 'none' }}
+                      className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory"
+                      style={{ scrollSnapType: 'x mandatory', maxWidth: 'none', scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
                     >
                       {variations.map((html, i) => (
                         <div key={i} className="relative group flex-shrink-0 snap-start">
