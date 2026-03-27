@@ -582,7 +582,7 @@ Output only the HTML div. Nothing else.`;
           </div>
 
           {/* Right panel */}
-          <div ref={panelRef} className="w-full md:w-[55%] bg-background flex flex-col items-center justify-start p-6 min-h-[400px] overflow-y-auto">
+          <div ref={panelRef} className="w-full md:w-[62%] bg-background flex flex-col items-center justify-start p-6 overflow-y-auto">
             {isPhysical ? (
               // AI-powered generation view
               isGenerating ? (
