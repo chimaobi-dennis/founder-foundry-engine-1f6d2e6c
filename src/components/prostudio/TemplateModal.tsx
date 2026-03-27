@@ -36,10 +36,40 @@ function cleanAIHtml(raw: string | null): string | null {
 }
 
 function ensureProductImage(html: string | null, imageBase64?: string, imageMimeType?: string): string | null {
-  if (!html || !imageBase64) return html;
-  if (html.includes('<img')) return html;
+  if (!html || !imageBase64) {
+    console.log('[ensureProductImage] Skipping - no html or imageBase64', { hasHtml: !!html, hasImage: !!imageBase64 });
+    return html;
+  }
+  
+  // Check for img tag (case insensitive)
+  if (html.toLowerCase().includes('<img')) {
+    console.log('[ensureProductImage] Image already present in HTML');
+    return html;
+  }
+  
+  console.log('[ensureProductImage] No image found - injecting product image');
   const imgTag = `<img src="data:${imageMimeType || 'image/jpeg'};base64,${imageBase64}" style="position:absolute;width:140px;height:auto;object-fit:contain;top:50%;left:50%;transform:translate(-50%,-60%);z-index:10;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.2));" />`;
-  return html.replace(/<\/div>\s*$/, imgTag + '</div>');
+  
+  // Try multiple injection strategies
+  // Strategy 1: Replace last closing div
+  if (html.match(/<\/div>\s*$/)) {
+    return html.replace(/<\/div>\s*$/, imgTag + '</div>');
+  }
+  
+  // Strategy 2: Find the main container div and inject before its closing tag
+  const divMatch = html.match(/(<div[^>]*style="[^"]*width:600px[^"]*"[^>]*>)([\s\S]*?)(<\/div>\s*$)/);
+  if (divMatch) {
+    return divMatch[1] + divMatch[2] + imgTag + divMatch[3];
+  }
+  
+  // Strategy 3: Just append before the last closing div tag
+  const lastDivIndex = html.lastIndexOf('</div>');
+  if (lastDivIndex !== -1) {
+    return html.substring(0, lastDivIndex) + imgTag + html.substring(lastDivIndex);
+  }
+  
+  console.warn('[ensureProductImage] Could not inject image - no suitable injection point found');
+  return html;
 }
 
 export function TemplateModal({ template, open, onClose, type, brandName, brandInitials }: TemplateModalProps) {
@@ -182,6 +212,14 @@ Output only the HTML div. Nothing else.`;
       return;
     }
 
+    console.log('[handleRun] Starting generation with selectedImage:', {
+      hasSelectedImage: !!selectedImage,
+      hasBase64: !!selectedImage?.base64,
+      hasMimeType: !!selectedImage?.mimeType,
+      hasUrl: !!selectedImage?.url,
+      imageName: selectedImage?.name
+    });
+
     setIsGenerating(true);
     setGenerated(false);
     setVariations([null, null, null]);
@@ -205,10 +243,14 @@ Output only the HTML div. Nothing else.`;
           )
         )
       );
+      console.log('[handleRun] AI generation complete, processing results');
       const cleanedResults = results.map(cleanAIHtml);
-      const safeResults = cleanedResults.map(html => 
-        ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg")
-      );
+      console.log('[handleRun] Cleaned results, applying safety check');
+      const safeResults = cleanedResults.map((html, idx) => {
+        console.log(`[handleRun] Processing variation ${idx}`);
+        return ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+      });
+      console.log('[handleRun] All variations processed, setting state');
       setVariations(safeResults);
       setGenerated(true);
       setActiveVariation(0);
