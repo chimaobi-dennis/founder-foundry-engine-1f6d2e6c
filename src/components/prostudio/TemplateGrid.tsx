@@ -73,18 +73,18 @@ export function TemplateGrid({ templates, categories, onSelect, brandName }: Pro
             <div className="relative overflow-hidden">
               <TemplateCardPreview template={t} brandName={brandName || ''} />
               {/* Hover overlay with two buttons - always visible on mobile, hover on desktop */}
-              <div className="absolute inset-0 bg-black/40 md:bg-black/0 md:group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100">
-                <div className="flex flex-col md:flex-row gap-1.5 md:gap-2 px-2 w-full md:w-auto">
+              <div className="absolute inset-0 bg-black/40 md:bg-black/0 md:group-hover:bg-black/40 transition-colors flex items-end md:items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 md:p-0">
+                <div className="flex flex-row gap-2 w-full md:w-auto">
                   <button
                     onClick={(e) => { e.stopPropagation(); setPreviewTemplate(t); }}
-                    className="px-3 md:px-4 py-1.5 md:py-[7px] rounded-[20px] text-[11px] md:text-[12px] font-ui text-white border cursor-pointer transition-colors hover:bg-white/25"
+                    className="flex-1 md:flex-none px-2.5 md:px-4 py-1.5 md:py-[7px] rounded-full text-[10px] md:text-[12px] font-ui text-white border cursor-pointer transition-colors hover:bg-white/25 whitespace-nowrap"
                     style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)', borderColor: 'rgba(255,255,255,0.25)' }}
                   >
                     Preview
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onSelect(t); }}
-                    className="px-3 md:px-4 py-1.5 md:py-[7px] rounded-[20px] text-[11px] md:text-[12px] font-ui font-medium cursor-pointer transition-colors hover:opacity-90"
+                    className="flex-1 md:flex-none px-2.5 md:px-4 py-1.5 md:py-[7px] rounded-full text-[10px] md:text-[12px] font-ui font-medium cursor-pointer transition-colors hover:opacity-90 whitespace-nowrap"
                     style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
                   >
                     Use template
