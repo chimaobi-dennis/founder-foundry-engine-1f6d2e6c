@@ -1,7 +1,8 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, ChevronRight, ChevronDown, LogOut, Check } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useBrand } from "@/hooks/use-brand";
+import { useAuth } from "@/contexts/AuthContext";
 import { useState, useRef, useEffect } from "react";
 
 const routeTitles: Record<string, string> = {
