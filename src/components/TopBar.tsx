@@ -90,7 +90,7 @@ export function TopBar() {
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-ui font-semibold hover:ring-2 hover:ring-primary/30 transition-all duration-200"
           >
-            CK
+            {initials}
           </button>
 
           {dropdownOpen && (
@@ -98,15 +98,15 @@ export function TopBar() {
               {/* User identity */}
               <div className="p-5 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-lg font-ui font-semibold flex-shrink-0">
-                  CK
+                  {initials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-display text-base text-foreground">Chimaobi Kingsley</p>
+                  <p className="font-display text-base text-foreground">{fullName}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[13px] font-ui text-muted-foreground">Founder</span>
                     <span className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">Pro Plan</span>
                   </div>
-                  <p className="text-[12px] font-ui text-muted-foreground mt-0.5 truncate">chimaobi@nordform.se</p>
+                  <p className="text-[12px] font-ui text-muted-foreground mt-0.5 truncate">{email}</p>
                 </div>
               </div>
 
@@ -180,7 +180,10 @@ export function TopBar() {
               <div className="border-t border-border" />
 
               {/* Sign out */}
-              <button className="w-full flex items-center gap-2 px-5 py-3 text-[13px] font-ui text-destructive hover:bg-destructive/10 transition-colors duration-200">
+              <button
+                onClick={async () => { await signOut(); navigate('/sign-in'); }}
+                className="w-full flex items-center gap-2 px-5 py-3 text-[13px] font-ui text-destructive hover:bg-destructive/10 transition-colors duration-200"
+              >
                 <LogOut size={14} />
                 <span>Sign out</span>
               </button>
