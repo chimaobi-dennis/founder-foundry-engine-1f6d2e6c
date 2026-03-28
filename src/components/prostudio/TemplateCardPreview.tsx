@@ -107,7 +107,7 @@ export function TemplateCardPreview({ template, brandName }: Props) {
         fontSize: '7px', letterSpacing: '0.15em', color: s.textColor,
         fontFamily: s.fontStyle, textTransform: 'uppercase' as const,
       }}>
-        {brandName || 'NORDFORM'}
+        {'NORDFORM'}
       </div>
 
       {/* Template-specific decorations */}
