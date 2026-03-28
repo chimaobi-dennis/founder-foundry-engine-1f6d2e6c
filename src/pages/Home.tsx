@@ -5,7 +5,8 @@ import {
   ArrowRight, Clock, Plus, Send
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mockChat = [
   { role: "user" as const, text: "I want to build a functional wellness brand called Nordform. Science-based adaptogens, targeting Stockholm professionals who are skeptical of wellness culture." },
