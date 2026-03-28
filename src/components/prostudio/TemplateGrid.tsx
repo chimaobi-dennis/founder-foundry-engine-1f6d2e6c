@@ -74,7 +74,7 @@ export function TemplateGrid({ templates, categories, onSelect, brandName }: Pro
               <TemplateCardPreview template={t} brandName={brandName || ''} />
               {/* Hover overlay with two buttons - always visible on mobile, hover on desktop */}
               <div className="absolute inset-0 bg-black/40 md:bg-black/0 md:group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 md:p-0">
-                <div className="flex flex-col md:flex-row gap-1.5 md:gap-2 w-full md:w-auto">
+                <div className="gap-2 w-full md:w-auto flex flex-col">
                   <button
                     onClick={(e) => { e.stopPropagation(); setPreviewTemplate(t); }}
                     className="w-full md:w-auto px-3 md:px-4 py-1.5 md:py-[7px] rounded-full text-[10px] md:text-[12px] font-ui text-white border cursor-pointer transition-colors hover:bg-white/25 whitespace-nowrap text-center"
