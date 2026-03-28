@@ -25,13 +25,19 @@ function getGreeting() {
 
 export function TopBar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { brands, activeBrand, setActiveBrand, hasBrands } = useBrand();
+  const { user, signOut } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const email = user?.email || '';
+
   const titleKey = routeTitles[location.pathname] || "Home";
-  const title = titleKey === "greeting" ? `${getGreeting()}, Chimaobi` : titleKey;
+  const title = titleKey === "greeting" ? `${getGreeting()}, ${fullName.split(' ')[0]}` : titleKey;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
