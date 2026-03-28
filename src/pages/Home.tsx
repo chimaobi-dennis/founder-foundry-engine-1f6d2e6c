@@ -136,12 +136,44 @@ function ModuleVisual({ type }: { type: string }) {
 const Home = () => {
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const [isFirstTime, setIsFirstTime] = useState(false);
 
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, []);
+
+  // Check if user is first-time (no brands flag in metadata)
+  useEffect(() => {
+    if (user) {
+      const hasCompletedOnboarding = user.user_metadata?.has_brand === true;
+      setIsFirstTime(!hasCompletedOnboarding);
+    }
+  }, [user]);
+
+  if (isFirstTime) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[70vh]">
+        <div className="flex flex-col items-center text-center gap-4 max-w-[440px] px-4">
+          <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse" />
+          <h1 className="font-display text-[32px] text-foreground mt-2">Welcome to FounderForge</h1>
+          <p className="font-ui text-base text-muted-foreground max-w-[400px]">
+            Let's start by building your first brand. Your mentor is ready.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 mt-2">
+            <Button onClick={() => navigate("/mentor?mode=idea")} className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 rounded-lg min-w-[200px]">
+              Start with an idea
+            </Button>
+            <Button onClick={() => navigate("/mentor?mode=brand")} variant="outline" className="border-primary text-primary hover:bg-primary/10 h-12 rounded-lg min-w-[200px]">
+              I already have a brand
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen pb-16 overflow-x-hidden">
