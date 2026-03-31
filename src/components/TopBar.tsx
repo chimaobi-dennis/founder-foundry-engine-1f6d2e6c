@@ -3,6 +3,7 @@ import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, ChevronRight, ChevronDo
 import { useTheme } from "@/hooks/use-theme";
 import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/use-profile";
 import { useState, useRef, useEffect } from "react";
 
 const routeTitles: Record<string, string> = {
@@ -29,10 +30,11 @@ export function TopBar() {
   const { theme, toggleTheme } = useTheme();
   const { brands, activeBrand, setActiveBrand, hasBrands } = useBrand();
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const fullName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const email = user?.email || '';
 

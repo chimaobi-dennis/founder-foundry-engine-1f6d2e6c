@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { BrandProvider } from "@/hooks/use-brand";
 import { ProductImagesProvider } from "@/hooks/use-product-images";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ProfileProvider, useProfile } from "@/hooks/use-profile";
 import { Layout } from "./components/Layout";
 import Home from "./pages/Home";
 import Mentor from "./pages/Mentor";
@@ -20,15 +21,18 @@ import BrandDNA from "./pages/BrandDNA";
 import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
+import Onboarding from "./pages/Onboarding";
 
 const queryClient = new QueryClient();
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useAuth();
+  const { profile, loading: profileLoading } = useProfile();
   const location = useLocation();
   const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up";
+  const isOnboarding = location.pathname === "/onboarding";
 
-  if (isLoading) {
+  if (isLoading || (session && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse" />
@@ -41,7 +45,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (session && isAuthRoute) {
+    // Check if onboarding needed
+    if (profile && !profile.onboarding_completed) {
+      return <Navigate to="/onboarding" replace />;
+    }
     return <Navigate to="/" replace />;
+  }
+
+  // Redirect to onboarding if not completed (and not already there)
+  if (session && profile && !profile.onboarding_completed && !isOnboarding && !isAuthRoute) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
@@ -51,34 +64,37 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
-        <BrandProvider>
-          <ProductImagesProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <AuthGuard>
-                  <Routes>
-                    <Route path="/sign-up" element={<SignUp />} />
-                    <Route path="/sign-in" element={<SignIn />} />
-                    <Route element={<Layout />}>
-                      <Route path="/" element={<Home />} />
-                      <Route path="/mentor" element={<Mentor />} />
-                      <Route path="/pro-studio" element={<ProStudio />} />
-                      <Route path="/campaign-kit" element={<CampaignKit />} />
-                      <Route path="/content-calendar" element={<ContentCalendar />} />
-                      <Route path="/library" element={<Library />} />
-                      <Route path="/doc-studio" element={<DocStudio />} />
-                      <Route path="/reel-builder" element={<ReelBuilder />} />
-                      <Route path="/brand-dna" element={<BrandDNA />} />
-                    </Route>
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AuthGuard>
-              </BrowserRouter>
-            </TooltipProvider>
-          </ProductImagesProvider>
-        </BrandProvider>
+        <ProfileProvider>
+          <BrandProvider>
+            <ProductImagesProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <AuthGuard>
+                    <Routes>
+                      <Route path="/sign-up" element={<SignUp />} />
+                      <Route path="/sign-in" element={<SignIn />} />
+                      <Route path="/onboarding" element={<Onboarding />} />
+                      <Route element={<Layout />}>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/mentor" element={<Mentor />} />
+                        <Route path="/pro-studio" element={<ProStudio />} />
+                        <Route path="/campaign-kit" element={<CampaignKit />} />
+                        <Route path="/content-calendar" element={<ContentCalendar />} />
+                        <Route path="/library" element={<Library />} />
+                        <Route path="/doc-studio" element={<DocStudio />} />
+                        <Route path="/reel-builder" element={<ReelBuilder />} />
+                        <Route path="/brand-dna" element={<BrandDNA />} />
+                      </Route>
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AuthGuard>
+                </BrowserRouter>
+              </TooltipProvider>
+            </ProductImagesProvider>
+          </BrandProvider>
+        </ProfileProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
