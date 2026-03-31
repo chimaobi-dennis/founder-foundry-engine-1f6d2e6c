@@ -3,6 +3,7 @@ import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, ChevronRight, ChevronDo
 import { useTheme } from "@/hooks/use-theme";
 import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/use-profile";
 import { useState, useRef, useEffect } from "react";
 
 const routeTitles: Record<string, string> = {
