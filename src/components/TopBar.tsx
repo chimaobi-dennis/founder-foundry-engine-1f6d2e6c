@@ -34,7 +34,7 @@ export function TopBar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const fullName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const email = user?.email || '';
 
