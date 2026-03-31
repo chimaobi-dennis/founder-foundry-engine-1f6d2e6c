@@ -2,59 +2,75 @@ import { Button } from "@/components/ui/button";
 import {
   MessageCircle, Camera, Megaphone, Calendar, FileText, Film,
   Download, CalendarPlus, Instagram, Facebook, Twitter,
-  ArrowRight, Clock, Plus, Send
+  ArrowRight, Clock, Plus, Send, Folder
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useRef } from "react";
+import { useProfile } from "@/hooks/use-profile";
 
-const mockChat = [
-  { role: "user" as const, text: "I want to build a functional wellness brand called Nordform. Science-based adaptogens, targeting Stockholm professionals who are skeptical of wellness culture." },
-  { role: "ai" as const, text: "Interesting tension. Swedish consumers are very open to health products but deeply skeptical of wellness marketing. How honest are you willing to be about what the research actually shows?" },
-  { role: "user" as const, text: "Completely honest. I think that is actually the differentiator." },
-  { role: "ai" as const, text: "That is a strong instinct. If Nordform says 'the research is promising but not conclusive — here is what we know' that builds more trust than overclaiming. How do you communicate uncertainty without undermining purchase confidence?" },
-  { role: "user" as const, text: "We frame it around ritual and consistency rather than miracle results." },
-  { role: "ai" as const, text: "Smart. That shifts the success metric from the product to the behavior. What does the physical product look like? In Sweden the packaging carries a lot of brand weight." },
-  { role: "user" as const, text: "Minimal white packaging. Forest green typography. Very clean. More design object than supplement bottle." },
-  { role: "ai" as const, text: "Perfect for Stockholm. Supplements that look good on a kitchen counter rather than hidden in a cabinet. The packaging signals intelligence before the customer reads a word. Who is your specific customer?" },
-  { role: "user" as const, text: "Mid-thirties, works in tech or design, slightly embarrassed by the wellness industry but genuinely interested in optimising how they feel." },
-  { role: "ai" as const, text: "That self-awareness is gold. Nordform is the supplement brand for people who hate supplement brands. That is a real positioning. Write that down — it is your brief for everything." },
+const allModules = [
+  { key: "mentor", name: "Mentor", icon: MessageCircle, path: "/mentor", desc: "Your AI thinking partner. Remembers everything.", visual: "chat-brain" },
+  { key: "prostudio", name: "ProStudio", icon: Camera, path: "/pro-studio", desc: "Product photography and digital visuals without a studio.", visual: "before-after" },
+  { key: "campaignkit", name: "CampaignKit", icon: Megaphone, path: "/campaign-kit", desc: "One brief. Eight platform-ready creatives instantly.", visual: "fan-out" },
+  { key: "contentcalendar", name: "ContentCalendar", icon: Calendar, path: "/content-calendar", desc: "Plan your content month. Never miss a posting day.", visual: "mini-cal" },
+  { key: "docstudio", name: "DocStudio", icon: FileText, path: "/doc-studio", desc: "Professional documents powered by your brand memory.", visual: "doc-card" },
+  { key: "reelbuilder", name: "ReelBuilder", icon: Film, path: "/reel-builder", desc: "Brief to storyboard to teleprompter in minutes.", visual: "storyboard" },
 ];
 
-const modules = [
-  { name: "Mentor", icon: MessageCircle, path: "/mentor", desc: "Your AI thinking partner. Remembers everything.", visual: "chat-brain" },
-  { name: "ProStudio", icon: Camera, path: "/pro-studio", desc: "Product photography and digital visuals without a studio.", visual: "before-after" },
-  { name: "CampaignKit", icon: Megaphone, path: "/campaign-kit", desc: "One brief. Eight platform-ready creatives instantly.", visual: "fan-out" },
-  { name: "ContentCalendar", icon: Calendar, path: "/content-calendar", desc: "Plan your content month. Never miss a posting day.", visual: "mini-cal" },
-  { name: "DocStudio", icon: FileText, path: "/doc-studio", desc: "Professional documents powered by your brand memory.", visual: "doc-card" },
-  { name: "ReelBuilder", icon: Film, path: "/reel-builder", desc: "Brief to storyboard to teleprompter in minutes.", visual: "storyboard" },
-];
-
-const recentAssets = [
-  { name: "Daily Stack on counter", platform: "Instagram" },
-  { name: "Testimonial card", platform: "Facebook" },
-  { name: "Feature card", platform: "General" },
-  { name: "Announcement visual", platform: "Instagram" },
-  { name: "Ashwagandha close-up", platform: "Facebook" },
-  { name: "Lifestyle morning shot", platform: "Instagram" },
-];
-
-const today = new Date();
-const upcomingDays = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date(today);
-  d.setDate(d.getDate() + i + 1);
-  return d;
-});
-
-const scheduledPosts: Record<number, { platform: string; copy: string; time: string }> = {
-  0: { platform: "Instagram", copy: "Morning ritual with Nordform Daily Stack ✦", time: "09:00" },
-  2: { platform: "Facebook", copy: "What our customers actually say about Lion's Mane", time: "12:30" },
-  4: { platform: "Instagram", copy: "The science behind Ashwagandha — honestly explained", time: "10:00" },
-  5: { platform: "Twitter", copy: "Three supplements. One daily ritual. No overclaiming. ✦", time: "14:00" },
+const getModuleOrder = (profession: string | null, brandStatus: string | null) => {
+  if (brandStatus === "just_an_idea" || brandStatus === "early_stage") {
+    return ["mentor", "prostudio", "campaignkit", "contentcalendar", "docstudio", "reelbuilder"];
+  }
+  if (profession === "freelancer") {
+    return ["mentor", "docstudio", "campaignkit", "prostudio", "contentcalendar", "reelbuilder"];
+  }
+  if (brandStatus === "multiple_brands") {
+    return ["mentor", "contentcalendar", "campaignkit", "prostudio", "docstudio", "reelbuilder"];
+  }
+  if (brandStatus === "established") {
+    return ["campaignkit", "mentor", "prostudio", "contentcalendar", "docstudio", "reelbuilder"];
+  }
+  return ["mentor", "prostudio", "campaignkit", "contentcalendar", "docstudio", "reelbuilder"];
 };
 
-const dayName = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "short" });
-const dayDate = (d: Date) => `${d.getDate()} ${d.toLocaleDateString("en-GB", { month: "short" })}`;
+function getChatPreview(brandStatus: string | null) {
+  if (brandStatus === "just_an_idea") {
+    return [
+      { role: "ai" as const, text: "You have an idea. Good — that is where everything starts. Before we talk about logos or campaigns, tell me this: what problem are you actually solving and for who specifically?" },
+    ];
+  }
+  if (brandStatus === "early_stage") {
+    return [
+      { role: "ai" as const, text: "You have got something started. The hardest part now is usually figuring out what is actually working versus what just feels like it should be working. What is the biggest thing that feels unresolved about your brand right now?" },
+    ];
+  }
+  if (brandStatus === "established") {
+    return [
+      { role: "ai" as const, text: "You have been at this a while. At this stage most founders are not missing ideas — they are missing clarity on which idea to focus on. What is the one thing you keep coming back to that you have not solved yet?" },
+    ];
+  }
+  if (brandStatus === "multiple_brands") {
+    return [
+      { role: "ai" as const, text: "Managing multiple brands or clients means your biggest risk is dilution — spreading too thin across too many things. Which brand or client needs the most strategic attention right now?" },
+    ];
+  }
+  // Default — Nordform conversation
+  return [
+    { role: "user" as const, text: "I want to build a functional wellness brand called Nordform. Science-based adaptogens, targeting Stockholm professionals who are skeptical of wellness culture." },
+    { role: "ai" as const, text: "Interesting tension. Swedish consumers are very open to health products but deeply skeptical of wellness marketing. How honest are you willing to be about what the research actually shows?" },
+    { role: "user" as const, text: "Completely honest. I think that is actually the differentiator." },
+    { role: "ai" as const, text: "That is a strong instinct. If Nordform says 'the research is promising but not conclusive — here is what we know' that builds more trust than overclaiming. How do you communicate uncertainty without undermining purchase confidence?" },
+    { role: "user" as const, text: "We frame it around ritual and consistency rather than miracle results." },
+    { role: "ai" as const, text: "Smart. That shifts the success metric from the product to the behavior. What does the physical product look like? In Sweden the packaging carries a lot of brand weight." },
+  ];
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 const platformColor: Record<string, string> = { Instagram: "text-[#2D4A3E]", Facebook: "text-blue-400", Twitter: "text-sky-400", General: "text-muted-foreground" };
 const platformIcon: Record<string, typeof Instagram> = { Instagram, Facebook, Twitter };
@@ -136,8 +152,15 @@ function ModuleVisual({ type }: { type: string }) {
 const Home = () => {
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
-  const [isFirstTime, setIsFirstTime] = useState(false);
+  const { profile } = useProfile();
+
+  const hasBrand = profile?.onboarding_completed;
+  const firstName = profile?.full_name?.split(" ")[0] || "there";
+  const greeting = `${getGreeting()}, ${firstName}`;
+
+  const chatMessages = getChatPreview(profile?.brand_status ?? null);
+  const moduleOrder = getModuleOrder(profile?.profession ?? null, profile?.brand_status ?? null);
+  const orderedModules = moduleOrder.map((key) => allModules.find((m) => m.key === key)!).filter(Boolean);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -145,15 +168,8 @@ const Home = () => {
     }
   }, []);
 
-  // Check if user is first-time (no brands flag in metadata)
-  useEffect(() => {
-    if (user) {
-      const hasCompletedOnboarding = user.user_metadata?.has_brand === true;
-      setIsFirstTime(!hasCompletedOnboarding);
-    }
-  }, [user]);
-
-  if (isFirstTime) {
+  // First-time user with no brand (should not normally happen since onboarding sets onboarding_completed)
+  if (!hasBrand) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[70vh]">
         <div className="flex flex-col items-center text-center gap-4 max-w-[440px] px-4">
@@ -175,6 +191,10 @@ const Home = () => {
     );
   }
 
+  // Check if user has actual assets/brands (for empty states)
+  const hasAssets = false; // Will be dynamic once brands/assets are stored
+  const hasPosts = false;
+
   return (
     <div className="relative min-h-screen pb-16 overflow-x-hidden">
       <div className="pointer-events-none absolute top-0 right-0 w-[500px] h-[400px] bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.06),transparent_70%)]" />
@@ -185,7 +205,7 @@ const Home = () => {
           <div className="flex items-center gap-3">
             <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse flex-shrink-0" />
             <h1 className="font-display text-[32px] md:text-[40px] lg:text-[48px] leading-tight text-foreground">
-              What are we building today?
+              {greeting}
             </h1>
           </div>
           <p className="font-ui text-base md:text-lg text-muted-foreground max-w-lg leading-relaxed">
@@ -206,10 +226,10 @@ const Home = () => {
           <div className="rounded-xl border-[0.5px] border-card-border bg-card overflow-hidden shadow-lg dark:shadow-primary/5 shadow-black/5">
             <div className="px-5 py-3 border-b border-border flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-primary animate-amber-pulse" />
-              <span className="font-ui text-xs text-muted-foreground">Mentor · Nordform session</span>
+              <span className="font-ui text-xs text-muted-foreground">Mentor · Your session</span>
             </div>
             <div ref={chatRef} className="px-5 py-4 space-y-3 h-[320px] overflow-y-auto scrollbar-chat">
-              {mockChat.map((msg, i) => (
+              {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`rounded-lg px-3 py-2 text-[12px] leading-relaxed max-w-[85%] font-ui ${
                     msg.role === "user"
@@ -237,7 +257,7 @@ const Home = () => {
           Everything you need to build your brand
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {modules.map((mod) => (
+          {orderedModules.map((mod) => (
             <Link
               key={mod.name}
               to={mod.path}
@@ -264,14 +284,17 @@ const Home = () => {
       <section className="px-4 md:px-6 pb-8 md:pb-12 max-w-full lg:max-w-[1200px] mx-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Recent assets</h2>
-          <button className="font-ui text-[13px] text-primary hover:underline">View all</button>
         </div>
-        <div className="hidden md:flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-          {recentAssets.map((asset, i) => <AssetCard key={i} asset={asset} tablet />)}
-        </div>
-        <div className="grid grid-cols-2 gap-3 md:hidden">
-          {recentAssets.map((asset, i) => <AssetCard key={i} asset={asset} mobile />)}
-        </div>
+        {hasAssets ? (
+          <div className="text-muted-foreground">Assets grid here</div>
+        ) : (
+          <div className="flex flex-col items-center py-12 gap-2">
+            <Folder size={32} className="text-muted-foreground/40" />
+            <p className="font-ui text-[13px] text-muted-foreground">Your assets will appear here</p>
+            <p className="font-ui text-[12px] text-muted-foreground">Assets you create in ProStudio, DocStudio and ReelBuilder are saved automatically.</p>
+            <Link to="/pro-studio" className="font-ui text-[13px] text-primary hover:underline mt-2">Go to ProStudio →</Link>
+          </div>
+        )}
       </section>
 
       {/* ── Upcoming posts ── */}
@@ -279,67 +302,18 @@ const Home = () => {
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Upcoming posts</h2>
         </div>
-        <div className="flex flex-col gap-1">
-          {upcomingDays.map((d, i) => {
-            const post = scheduledPosts[i];
-            const PlatformIcon = post ? platformIcon[post.platform] : null;
-            return (
-              <div key={i} className={`flex items-center gap-2 md:gap-4 px-3 md:px-4 py-2.5 md:py-3 rounded-lg transition-all duration-200 min-w-0 ${
-                post ? "bg-card border border-card-border hover:border-card-border-hover" : "border border-dashed border-border/50"
-              }`}>
-                <span className="font-ui text-[11px] md:text-[13px] text-muted-foreground w-14 md:w-20 flex-shrink-0">
-                  {dayName(d)} {dayDate(d)}
-                </span>
-                {post ? (
-                  <>
-                    {PlatformIcon && <PlatformIcon size={16} className={platformColor[post.platform]} />}
-                    <div className="w-7 h-7 md:w-8 md:h-8 rounded bg-muted/30 flex-shrink-0 flex items-center justify-center">
-                      <Camera size={12} className="text-muted-foreground/40" />
-                    </div>
-                    <p className="font-ui text-[12px] md:text-[13px] text-foreground flex-1 truncate">{post.copy}</p>
-                    <span className="font-ui text-[11px] md:text-[12px] text-muted-foreground flex items-center gap-1 flex-shrink-0">
-                      <Clock size={12} /> {post.time}
-                    </span>
-                  </>
-                ) : (
-                  <button className="font-ui text-[12px] text-primary/50 hover:text-primary flex items-center gap-1 transition-colors duration-200">
-                    <Plus size={12} /> Schedule post
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4">
-          <Link to="/content-calendar" className="font-ui text-[13px] text-primary hover:underline">View full calendar →</Link>
-        </div>
+        {hasPosts ? (
+          <div className="text-muted-foreground">Posts here</div>
+        ) : (
+          <div className="flex flex-col items-center py-12 gap-2">
+            <Calendar size={32} className="text-muted-foreground/40" />
+            <p className="font-ui text-[13px] text-muted-foreground">No posts scheduled yet</p>
+            <Link to="/campaign-kit" className="font-ui text-[13px] text-primary hover:underline mt-2">Create your first campaign →</Link>
+          </div>
+        )}
       </section>
     </div>
   );
 };
-
-function AssetCard({ asset, mobile, tablet }: { asset: { name: string; platform: string }; mobile?: boolean; tablet?: boolean }) {
-  return (
-    <div className={`group relative flex-shrink-0 ${mobile ? "w-full" : tablet ? "w-[140px] lg:w-[160px]" : "w-[160px]"}`}>
-      <div className="relative w-full aspect-[4/3] rounded-lg bg-card border border-card-border overflow-hidden group-hover:border-card-border-hover transition-all duration-200">
-        <div className="w-full h-full bg-gradient-to-br from-muted/40 to-muted/20 flex items-center justify-center">
-          <Camera size={20} className="text-muted-foreground/40" />
-        </div>
-        <div className={`absolute bottom-1.5 right-1.5 flex gap-1.5 ${mobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity duration-200`}>
-          <button className="w-7 h-7 rounded-full bg-card/90 border border-border flex items-center justify-center hover:border-primary transition-colors duration-200">
-            <Download size={12} className="text-foreground" />
-          </button>
-          <button className="w-7 h-7 rounded-full bg-card/90 border border-border flex items-center justify-center hover:border-primary transition-colors duration-200">
-            <CalendarPlus size={12} className="text-foreground" />
-          </button>
-        </div>
-      </div>
-      <div className="mt-2 flex items-center gap-1.5">
-        <span className="font-ui text-[10px] px-1.5 py-0.5 rounded-full border border-primary/30 text-primary">{asset.platform}</span>
-      </div>
-      <p className="font-ui text-[13px] text-foreground mt-1 truncate">{asset.name}</p>
-    </div>
-  );
-}
 
 export default Home;
