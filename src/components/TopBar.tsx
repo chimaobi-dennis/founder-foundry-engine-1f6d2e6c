@@ -30,6 +30,7 @@ export function TopBar() {
   const { theme, toggleTheme } = useTheme();
   const { brands, activeBrand, setActiveBrand, hasBrands } = useBrand();
   const { user, signOut } = useAuth();
+  const { profile } = useProfile();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
