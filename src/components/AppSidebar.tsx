@@ -28,7 +28,9 @@ const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocSt
 
 export function AppSidebar() {
   const location = useLocation();
-  const isActive = (path: string) => location.pathname === path;
+  const { profile } = useProfile();
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const showCreator = profile?.role === "creator" || profile?.role === "admin";
   const [moreOpen, setMoreOpen] = useState(false);
 
   const [collapsed, setCollapsed] = useState(() => {
