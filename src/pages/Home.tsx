@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { useProfile } from "@/hooks/use-profile";
 import { HomeSkeleton } from "@/components/skeletons/PageSkeletons";
+import { FadeIn } from "@/components/FadeIn";
 
 const allModules = [
   { key: "mentor", name: "Mentor", icon: MessageCircle, path: "/mentor", desc: "Your AI thinking partner. Remembers everything.", visual: "chat-brain" },
@@ -155,12 +156,9 @@ const Home = () => {
   const chatRef = useRef<HTMLDivElement>(null);
   const { profile, loading: profileLoading } = useProfile();
 
-  if (profileLoading) return <HomeSkeleton />;
-
   const hasBrand = profile?.onboarding_completed;
   const firstName = profile?.full_name?.split(" ")[0] || "there";
   const greeting = `${getGreeting()}, ${firstName}`;
-
   const chatMessages = getChatPreview(profile?.brand_status ?? null);
   const moduleOrder = getModuleOrder(profile?.profession ?? null, profile?.brand_status ?? null);
   const orderedModules = moduleOrder.map((key) => allModules.find((m) => m.key === key)!).filter(Boolean);
@@ -171,34 +169,37 @@ const Home = () => {
     }
   }, []);
 
-  // First-time user with no brand (should not normally happen since onboarding sets onboarding_completed)
+  if (profileLoading) return <HomeSkeleton />;
+
   if (!hasBrand) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-[70vh]">
-        <div className="flex flex-col items-center text-center gap-4 max-w-[440px] px-4">
-          <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse" />
-          <h1 className="font-display text-[32px] text-foreground mt-2">Welcome to FounderForge</h1>
-          <p className="font-ui text-base text-muted-foreground max-w-[400px]">
-            Let's start by building your first brand. Your mentor is ready.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 mt-2">
-            <Button onClick={() => navigate("/mentor?mode=idea")} className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 rounded-lg min-w-[200px]">
-              Start with an idea
-            </Button>
-            <Button onClick={() => navigate("/mentor?mode=brand")} variant="outline" className="border-primary text-primary hover:bg-primary/10 h-12 rounded-lg min-w-[200px]">
-              I already have a brand
-            </Button>
+      <FadeIn>
+        <div className="flex-1 flex items-center justify-center min-h-[70vh]">
+          <div className="flex flex-col items-center text-center gap-4 max-w-[440px] px-4">
+            <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse" />
+            <h1 className="font-display text-[32px] text-foreground mt-2">Welcome to FounderForge</h1>
+            <p className="font-ui text-base text-muted-foreground max-w-[400px]">
+              Let's start by building your first brand. Your mentor is ready.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 mt-2">
+              <Button onClick={() => navigate("/mentor?mode=idea")} className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 rounded-lg min-w-[200px]">
+                Start with an idea
+              </Button>
+              <Button onClick={() => navigate("/mentor?mode=brand")} variant="outline" className="border-primary text-primary hover:bg-primary/10 h-12 rounded-lg min-w-[200px]">
+                I already have a brand
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </FadeIn>
     );
   }
 
-  // Check if user has actual assets/brands (for empty states)
-  const hasAssets = false; // Will be dynamic once brands/assets are stored
+  const hasAssets = false;
   const hasPosts = false;
 
   return (
+    <FadeIn>
     <div className="relative min-h-screen pb-16 overflow-x-hidden">
       <div className="pointer-events-none absolute top-0 right-0 w-[500px] h-[400px] bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.06),transparent_70%)]" />
 
@@ -316,6 +317,7 @@ const Home = () => {
         )}
       </section>
     </div>
+    </FadeIn>
   );
 };
 

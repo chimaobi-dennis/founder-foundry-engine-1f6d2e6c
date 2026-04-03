@@ -3,6 +3,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { Navigate } from "react-router-dom";
 import { Shield, FileText, Users, Clock, ChevronRight, Check, X, Loader2, Image } from "lucide-react";
 import { AdminSkeleton } from "@/components/skeletons/PageSkeletons";
+import { FadeIn } from "@/components/FadeIn";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -141,6 +142,7 @@ export default function Admin() {
   ];
 
   return (
+    <FadeIn>
     <div className="flex-1 p-6 md:p-8 space-y-8 overflow-y-auto">
       <h1 className="font-heading text-2xl text-foreground">Admin Panel</h1>
 
@@ -396,5 +398,6 @@ export default function Admin() {
         </SheetContent>
       </Sheet>
     </div>
+    </FadeIn>
   );
 }

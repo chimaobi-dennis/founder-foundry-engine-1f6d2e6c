@@ -10,6 +10,7 @@ import {
 } from "@/services/templateService";
 import { useToast } from "@/hooks/use-toast";
 import { CreatorTemplateEditorSkeleton } from "@/components/skeletons/PageSkeletons";
+import { FadeIn } from "@/components/FadeIn";
 import { ArrowLeft, Upload, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -155,6 +156,7 @@ export default function CreatorTemplateEditor() {
   }
 
   return (
+    <FadeIn>
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
       {/* Back + title */}
       <div className="flex items-center gap-3">
@@ -305,5 +307,6 @@ export default function CreatorTemplateEditor() {
         </div>
       </div>
     </div>
+    </FadeIn>
   );
 }

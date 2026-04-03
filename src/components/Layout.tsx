@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
+import { NavigationProgress } from "./NavigationProgress";
 
 const modulePaths = ["/pro-studio", "/campaign-kit", "/content-calendar", "/library", "/doc-studio", "/reel-builder"];
 
@@ -14,6 +15,7 @@ export function Layout() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
+      <NavigationProgress />
       <TopBar />
       <div className="flex-1 flex overflow-hidden">
         <AppSidebar />

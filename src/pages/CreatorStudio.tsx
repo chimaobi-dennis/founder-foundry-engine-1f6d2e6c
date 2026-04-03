@@ -5,6 +5,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { getCreatorTemplates } from "@/services/templateService";
 import { Plus, Image, Eye, EyeOff, Edit2 } from "lucide-react";
 import { CreatorStudioSkeleton } from "@/components/skeletons/PageSkeletons";
+import { FadeIn } from "@/components/FadeIn";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -89,6 +90,7 @@ export default function CreatorStudio() {
   };
 
   return (
+    <FadeIn>
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -193,5 +195,6 @@ export default function CreatorStudio() {
         </div>
       )}
     </div>
+    </FadeIn>
   );
 }
