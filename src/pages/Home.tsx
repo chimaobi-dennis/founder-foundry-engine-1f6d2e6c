@@ -7,6 +7,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { useProfile } from "@/hooks/use-profile";
+import { HomeSkeleton } from "@/components/skeletons/PageSkeletons";
 
 const allModules = [
   { key: "mentor", name: "Mentor", icon: MessageCircle, path: "/mentor", desc: "Your AI thinking partner. Remembers everything.", visual: "chat-brain" },
