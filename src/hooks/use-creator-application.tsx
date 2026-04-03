@@ -24,8 +24,8 @@ export function useCreatorApplication() {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
-      .from("creator_applications" as any)
+    const { data } = await (supabase as any)
+      .from("creator_applications")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
