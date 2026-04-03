@@ -3,6 +3,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { Navigate } from "react-router-dom";
 import { Shield, FileText, Users, Clock, ChevronRight, Check, X, Loader2, Image } from "lucide-react";
 import { AdminSkeleton } from "@/components/skeletons/PageSkeletons";
+import { FadeIn } from "@/components/FadeIn";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
