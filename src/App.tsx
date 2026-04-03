@@ -90,6 +90,9 @@ const App = () => (
                         <Route path="/reel-builder" element={<ReelBuilder />} />
                         <Route path="/brand-dna" element={<BrandDNA />} />
                         <Route path="/creator/apply" element={<CreatorApply />} />
+                        <Route path="/creator" element={<CreatorStudio />} />
+                        <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />
+                        <Route path="/creator/templates/:id" element={<CreatorTemplateEditor />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>
