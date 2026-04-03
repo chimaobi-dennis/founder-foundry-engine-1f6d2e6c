@@ -153,7 +153,9 @@ function ModuleVisual({ type }: { type: string }) {
 const Home = () => {
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement>(null);
-  const { profile } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
+
+  if (profileLoading) return <HomeSkeleton />;
 
   const hasBrand = profile?.onboarding_completed;
   const firstName = profile?.full_name?.split(" ")[0] || "there";
