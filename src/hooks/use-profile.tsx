@@ -9,6 +9,7 @@ export interface Profile {
   brand_status: string | null;
   team_size: string | null;
   onboarding_completed: boolean;
+  role: string | null;
 }
 
 interface ProfileContextType {
