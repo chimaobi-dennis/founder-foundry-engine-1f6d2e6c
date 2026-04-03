@@ -94,6 +94,7 @@ const App = () => (
                         <Route path="/creator" element={<CreatorStudio />} />
                         <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />
                         <Route path="/creator/templates/:id" element={<CreatorTemplateEditor />} />
+                        <Route path="/admin" element={<Admin />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>

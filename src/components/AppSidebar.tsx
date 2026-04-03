@@ -195,7 +195,7 @@ export function AppSidebar() {
         <DrawerContent className="pb-8">
           <VisuallyHidden.Root><DrawerTitle>More</DrawerTitle></VisuallyHidden.Root>
           <div className="px-4 pt-2 space-y-1">
-            {[...mobileDrawerItems, ...(showCreator ? [creatorItem] : [])].map((item) => {
+            {[...mobileDrawerItems, ...(showCreator ? [creatorItem] : []), ...(showAdmin ? [adminItem] : [])].map((item) => {
               const active = isActive(item.path);
               return (
                 <NavLink
