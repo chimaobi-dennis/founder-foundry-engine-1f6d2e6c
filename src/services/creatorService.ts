@@ -7,13 +7,14 @@ export interface CreatorApplicationData {
   samplePrompt: string;
 }
 
+const db = supabase as any;
+
 export const submitCreatorApplication = async (
   userId: string,
   data: CreatorApplicationData
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Check if application already exists
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('creator_applications')
       .select('id, status')
       .eq('user_id', userId)
@@ -28,7 +29,7 @@ export const submitCreatorApplication = async (
       }
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from('creator_applications')
       .insert({
         user_id: userId,
@@ -49,7 +50,7 @@ export const submitCreatorApplication = async (
 export const getApplicationStatus = async (
   userId: string
 ): Promise<'none' | 'pending' | 'approved' | 'rejected'> => {
-  const { data } = await supabase
+  const { data } = await db
     .from('creator_applications')
     .select('status')
     .eq('user_id', userId)
@@ -57,17 +58,17 @@ export const getApplicationStatus = async (
     .limit(1)
     .single();
 
-  return (data?.status as any) ?? 'none';
+  return data?.status ?? 'none';
 };
 
 export const getUserRole = async (
   userId: string
 ): Promise<'founder' | 'creator' | 'admin'> => {
-  const { data } = await supabase
+  const { data } = await db
     .from('profiles')
     .select('role')
     .eq('id', userId)
     .single();
 
-  return (data?.role as any) ?? 'founder';
+  return data?.role ?? 'founder';
 };

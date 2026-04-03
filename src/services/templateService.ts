@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
+const db = supabase as any;
+
 export interface TemplateData {
   name: string;
   description?: string;
@@ -23,7 +25,7 @@ export const createTemplate = async (
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
-    const { data: template, error } = await supabase
+    const { data: template, error } = await db
       .from('prostudio_templates')
       .insert({
         creator_id: creatorId,
@@ -55,7 +57,7 @@ export const updateTemplate = async (
   data: Partial<TemplateData> & { status?: string }
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
+    const { error } = await db
       .from('prostudio_templates')
       .update({
         ...data.name && { name: data.name },
@@ -96,7 +98,7 @@ export const uploadTemplatePreviewImage = async (
 
     const isFirstImage = sortOrder === 0;
 
-    const { error: dbError } = await supabase
+    const { error: dbError } = await db
       .from('template_preview_images')
       .insert({
         template_id: templateId,
@@ -109,7 +111,7 @@ export const uploadTemplatePreviewImage = async (
     if (dbError) throw dbError;
 
     if (isFirstImage) {
-      await supabase
+      await db
         .from('prostudio_templates')
         .update({ cover_image_url: publicUrl })
         .eq('id', templateId);
@@ -124,7 +126,7 @@ export const uploadTemplatePreviewImage = async (
 export const getPublishedTemplates = async (
   templateType: 'physical' | 'digital'
 ) => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('prostudio_templates')
     .select(`
       *,
@@ -143,7 +145,7 @@ export const getPublishedTemplates = async (
 };
 
 export const getCreatorTemplates = async (creatorId: string) => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('prostudio_templates')
     .select(`
       *,
