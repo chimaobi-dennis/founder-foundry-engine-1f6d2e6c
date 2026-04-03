@@ -150,11 +150,7 @@ export default function CreatorTemplateEditor() {
   }
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-4 h-4 rounded-full bg-primary animate-pulse" />
-      </div>
-    );
+    return <CreatorTemplateEditorSkeleton />;
   }
 
   return (
