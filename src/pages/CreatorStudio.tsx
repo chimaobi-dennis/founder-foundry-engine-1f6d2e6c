@@ -5,6 +5,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { getCreatorTemplates } from "@/services/templateService";
 import { Plus, Image, Eye, EyeOff, Edit2 } from "lucide-react";
 import { CreatorStudioSkeleton } from "@/components/skeletons/PageSkeletons";
+import { FadeIn } from "@/components/FadeIn";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
