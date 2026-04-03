@@ -21,6 +21,8 @@ const secondaryItems = [
   { label: "Brand DNA", icon: Shield, path: "/brand-dna" },
 ];
 
+const creatorItem = { label: "Creator Studio", icon: Palette, path: "/creator" };
+
 const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, CampaignKit, ContentCalendar
 const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
 
