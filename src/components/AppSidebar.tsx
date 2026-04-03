@@ -1,6 +1,7 @@
-import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Layers, Shield, ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
+import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Layers, Shield, Palette, ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useProfile } from "@/hooks/use-profile";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
