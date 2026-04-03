@@ -35,12 +35,24 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    const { data } = await (supabase as any)
+    // Try with role column first, fall back without it
+    let result = await (supabase as any)
       .from("profiles")
       .select("id, full_name, profession, brand_status, team_size, onboarding_completed, role")
       .eq("id", user.id)
       .single();
-    setProfile(data as Profile | null);
+    
+    if (result.error) {
+      // role column may not exist yet — retry without it
+      result = await supabase
+        .from("profiles")
+        .select("id, full_name, profession, brand_status, team_size, onboarding_completed")
+        .eq("id", user.id)
+        .single();
+    }
+    
+    const data = result.data as any;
+    setProfile(data ? { ...data, role: data.role || "founder" } as Profile : null);
     setLoading(false);
   };
 
