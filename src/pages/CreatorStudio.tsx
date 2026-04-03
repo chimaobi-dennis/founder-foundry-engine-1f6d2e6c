@@ -119,9 +119,7 @@ export default function CreatorStudio() {
 
       {/* Templates table */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-4 h-4 rounded-full bg-primary animate-pulse" />
-        </div>
+        <CreatorStudioSkeleton />
       ) : templates.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-muted-foreground font-ui text-sm">No templates yet. Create your first one!</p>
