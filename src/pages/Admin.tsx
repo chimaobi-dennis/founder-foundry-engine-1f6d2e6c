@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useProfile } from "@/hooks/use-profile";
 import { Navigate } from "react-router-dom";
 import { Shield, FileText, Users, Clock, ChevronRight, Check, X, Loader2, Image } from "lucide-react";
+import { AdminSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,12 +60,8 @@ export default function Admin() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  if (profileLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-      </div>
-    );
+  if (profileLoading || loading) {
+    return <AdminSkeleton />;
   }
 
   if (profile?.role !== "admin") {

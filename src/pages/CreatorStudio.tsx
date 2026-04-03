@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
 import { getCreatorTemplates } from "@/services/templateService";
 import { Plus, Image, Eye, EyeOff, Edit2 } from "lucide-react";
+import { CreatorStudioSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -119,9 +120,7 @@ export default function CreatorStudio() {
 
       {/* Templates table */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-4 h-4 rounded-full bg-primary animate-pulse" />
-        </div>
+        <CreatorStudioSkeleton />
       ) : templates.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-muted-foreground font-ui text-sm">No templates yet. Create your first one!</p>

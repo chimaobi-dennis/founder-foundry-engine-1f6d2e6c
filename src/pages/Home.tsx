@@ -7,6 +7,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { useProfile } from "@/hooks/use-profile";
+import { HomeSkeleton } from "@/components/skeletons/PageSkeletons";
 
 const allModules = [
   { key: "mentor", name: "Mentor", icon: MessageCircle, path: "/mentor", desc: "Your AI thinking partner. Remembers everything.", visual: "chat-brain" },
@@ -152,7 +153,9 @@ function ModuleVisual({ type }: { type: string }) {
 const Home = () => {
   const navigate = useNavigate();
   const chatRef = useRef<HTMLDivElement>(null);
-  const { profile } = useProfile();
+  const { profile, loading: profileLoading } = useProfile();
+
+  if (profileLoading) return <HomeSkeleton />;
 
   const hasBrand = profile?.onboarding_completed;
   const firstName = profile?.full_name?.split(" ")[0] || "there";

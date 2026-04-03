@@ -76,7 +76,7 @@ export const approveCreatorApplication = async (
   applicationId: string,
   notes: string
 ) => {
-  const { error } = await supabase.rpc('approve_creator', {
+  const { error } = await db.rpc('approve_creator', {
     application_id: applicationId,
     admin_notes: notes
   });
@@ -87,7 +87,7 @@ export const rejectCreatorApplication = async (
   applicationId: string,
   notes: string
 ) => {
-  const { error } = await supabase.rpc('reject_creator', {
+  const { error } = await db.rpc('reject_creator', {
     application_id: applicationId,
     admin_notes: notes
   });
@@ -95,7 +95,7 @@ export const rejectCreatorApplication = async (
 };
 
 export const getPendingApplications = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('creator_applications')
     .select(`
       *,
@@ -107,7 +107,7 @@ export const getPendingApplications = async () => {
 };
 
 export const getPendingTemplates = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('prostudio_templates')
     .select(`
       *,
