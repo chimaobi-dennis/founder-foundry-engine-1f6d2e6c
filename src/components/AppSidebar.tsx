@@ -124,6 +124,12 @@ export function AppSidebar() {
               {collapsed ? renderTooltipItem(creatorItem) : renderNavItem(creatorItem, true)}
             </>
           )}
+          {showAdmin && (
+            <>
+              <div className={dividerClass} />
+              {collapsed ? renderTooltipItem(adminItem) : renderNavItem(adminItem, true)}
+            </>
+          )}
         </nav>
         <div className={`px-4 py-4 border-t border-border flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-ui font-semibold flex-shrink-0">CK</div>
