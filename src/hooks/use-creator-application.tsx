@@ -44,12 +44,12 @@ export function useCreatorApplication() {
     sample_prompt: string;
   }) => {
     if (!user) throw new Error("Not authenticated");
-    const { data, error } = await supabase
-      .from("creator_applications" as any)
+    const { data, error } = await (supabase as any)
+      .from("creator_applications")
       .insert({
         user_id: user.id,
         ...formData,
-      } as any)
+      })
       .select()
       .single();
     if (error) throw error;

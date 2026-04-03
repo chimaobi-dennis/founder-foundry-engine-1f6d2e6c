@@ -35,7 +35,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("profiles")
       .select("id, full_name, profession, brand_status, team_size, onboarding_completed, role")
       .eq("id", user.id)
