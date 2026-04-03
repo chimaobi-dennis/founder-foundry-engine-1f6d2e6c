@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import Onboarding from "./pages/Onboarding";
+import CreatorApply from "./pages/CreatorApply";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
                         <Route path="/doc-studio" element={<DocStudio />} />
                         <Route path="/reel-builder" element={<ReelBuilder />} />
                         <Route path="/brand-dna" element={<BrandDNA />} />
+                        <Route path="/creator/apply" element={<CreatorApply />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>

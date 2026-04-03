@@ -4,6 +4,7 @@ import { Template } from "./types";
 import { TemplateGrid } from "./TemplateGrid";
 import { TemplateModal } from "./TemplateModal";
 import { ProductImagesSidebar } from "./ProductImagesSidebar";
+import { CreatorBanner } from "./CreatorBanner";
 
 const categories = ["All", "Photoshoot", "Lifestyle", "Flat Lay", "Packshot", "Outdoor", "Moody Studio", "Minimal"];
 
@@ -174,6 +175,8 @@ export function PhysicalProductTab({ brandName }: Props) {
           </div>
         </div>
       </div>
+
+      <CreatorBanner />
 
       <TemplateModal
         template={selected}

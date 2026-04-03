@@ -1,9 +1,10 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, ChevronRight, ChevronDown, LogOut, Check } from "lucide-react";
+import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, ChevronRight, ChevronDown, LogOut, Check, Sparkles, Clock } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
+import { useCreatorApplication } from "@/hooks/use-creator-application";
 import { useState, useRef, useEffect } from "react";
 
 const routeTitles: Record<string, string> = {
@@ -31,6 +32,7 @@ export function TopBar() {
   const { brands, activeBrand, setActiveBrand, hasBrands } = useBrand();
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
+  const { application: creatorApp } = useCreatorApplication();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +167,32 @@ export function TopBar() {
                     <ChevronRight size={14} className="text-muted-foreground" />
                   </button>
                 ))}
+
+                {/* Creator row — only for founders */}
+                {profile?.role === "founder" && !creatorApp && (
+                  <button
+                    onClick={() => { setDropdownOpen(false); navigate("/creator/apply"); }}
+                    className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-muted/50 transition-colors duration-200"
+                  >
+                    <Sparkles size={16} className="text-primary flex-shrink-0" />
+                    <div className="flex-1 text-left">
+                      <p className="text-[13px] font-ui text-foreground">Become a creator</p>
+                      <p className="text-[11px] font-ui text-muted-foreground">Publish templates and earn</p>
+                    </div>
+                    <ChevronRight size={14} className="text-muted-foreground" />
+                  </button>
+                )}
+
+                {/* Pending application */}
+                {profile?.role === "founder" && creatorApp?.status === "pending" && (
+                  <div className="w-full flex items-center gap-3 px-5 py-2.5">
+                    <Clock size={16} className="text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 text-left">
+                      <p className="text-[13px] font-ui text-muted-foreground">Application pending</p>
+                      <p className="text-[11px] font-ui text-muted-foreground">We will notify you when reviewed</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-border" />

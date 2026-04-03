@@ -9,6 +9,7 @@ export interface Profile {
   brand_status: string | null;
   team_size: string | null;
   onboarding_completed: boolean;
+  role: string | null;
 }
 
 interface ProfileContextType {
@@ -34,9 +35,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("profiles")
-      .select("id, full_name, profession, brand_status, team_size, onboarding_completed")
+      .select("id, full_name, profession, brand_status, team_size, onboarding_completed, role")
       .eq("id", user.id)
       .single();
     setProfile(data as Profile | null);
