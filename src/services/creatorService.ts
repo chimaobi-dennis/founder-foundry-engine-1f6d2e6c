@@ -72,3 +72,49 @@ export const getUserRole = async (
 
   return data?.role ?? 'founder';
 };
+export const approveCreatorApplication = async (
+  applicationId: string,
+  notes: string
+) => {
+  const { error } = await supabase.rpc('approve_creator', {
+    application_id: applicationId,
+    admin_notes: notes
+  });
+  return { success: !error, error: error?.message };
+};
+
+export const rejectCreatorApplication = async (
+  applicationId: string,
+  notes: string
+) => {
+  const { error } = await supabase.rpc('reject_creator', {
+    application_id: applicationId,
+    admin_notes: notes
+  });
+  return { success: !error, error: error?.message };
+};
+
+export const getPendingApplications = async () => {
+  const { data, error } = await supabase
+    .from('creator_applications')
+    .select(`
+      *,
+      profiles (full_name, email, avatar_url)
+    `)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  return { data, error };
+};
+
+export const getPendingTemplates = async () => {
+  const { data, error } = await supabase
+    .from('prostudio_templates')
+    .select(`
+      *,
+      template_preview_images (image_url, is_cover),
+      creator_profiles (display_name)
+    `)
+    .eq('status', 'pending_review')
+    .order('updated_at', { ascending: true });
+  return { data, error };
+};
