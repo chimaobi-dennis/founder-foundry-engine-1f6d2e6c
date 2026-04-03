@@ -317,6 +317,7 @@ const Home = () => {
         )}
       </section>
     </div>
+    </FadeIn>
   );
 };
 
