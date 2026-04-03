@@ -176,6 +176,8 @@ export function PhysicalProductTab({ brandName }: Props) {
         </div>
       </div>
 
+      <CreatorBanner />
+
       <TemplateModal
         template={selected}
         open={!!selected}

@@ -87,6 +87,7 @@ const App = () => (
                         <Route path="/doc-studio" element={<DocStudio />} />
                         <Route path="/reel-builder" element={<ReelBuilder />} />
                         <Route path="/brand-dna" element={<BrandDNA />} />
+                        <Route path="/creator/apply" element={<CreatorApply />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>

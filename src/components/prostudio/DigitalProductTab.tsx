@@ -34,6 +34,7 @@ export function DigitalProductTab({ brandName }: Props) {
   return (
     <>
       <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} />
+      <CreatorBanner />
       <TemplateModal
         template={selected}
         open={!!selected}
