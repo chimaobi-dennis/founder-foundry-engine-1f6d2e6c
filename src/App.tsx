@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import Onboarding from "./pages/Onboarding";
+import CreatorApply from "./pages/CreatorApply";
 
 const queryClient = new QueryClient();
 
