@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Template } from "./types";
 import { TemplateGrid } from "./TemplateGrid";
 import { TemplateModal } from "./TemplateModal";
+import { CreatorBanner } from "./CreatorBanner";
 
 const categories = ["All", "Testimonial", "Pricing", "Feature Cards", "Announcement", "App Mockup", "Brand Story", "Comparison"];
 
