@@ -37,7 +37,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, profession, brand_status, team_size, onboarding_completed")
+      .select("id, full_name, profession, brand_status, team_size, onboarding_completed, role")
       .eq("id", user.id)
       .single();
     setProfile(data as Profile | null);
