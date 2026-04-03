@@ -307,5 +307,6 @@ export default function CreatorTemplateEditor() {
         </div>
       </div>
     </div>
+    </FadeIn>
   );
 }

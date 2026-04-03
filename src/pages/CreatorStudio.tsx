@@ -195,5 +195,6 @@ export default function CreatorStudio() {
         </div>
       )}
     </div>
+    </FadeIn>
   );
 }
