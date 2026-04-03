@@ -136,6 +136,12 @@ export function AppSidebar() {
           {moduleItems.map((item) => renderTooltipItem(item))}
           <div className={dividerClass} />
           {secondaryItems.map((item) => renderTooltipItem(item))}
+          {showCreator && (
+            <>
+              <div className={dividerClass} />
+              {renderTooltipItem(creatorItem)}
+            </>
+          )}
         </nav>
         <div className="py-4 flex justify-center">
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-ui font-semibold">CK</div>
