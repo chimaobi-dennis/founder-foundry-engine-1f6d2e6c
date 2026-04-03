@@ -1,6 +1,7 @@
-import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Layers, Shield, ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
+import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Layers, Shield, Palette, ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useProfile } from "@/hooks/use-profile";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -20,12 +21,16 @@ const secondaryItems = [
   { label: "Brand DNA", icon: Shield, path: "/brand-dna" },
 ];
 
+const creatorItem = { label: "Creator Studio", icon: Palette, path: "/creator" };
+
 const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, CampaignKit, ContentCalendar
 const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
 
 export function AppSidebar() {
   const location = useLocation();
-  const isActive = (path: string) => location.pathname === path;
+  const { profile } = useProfile();
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const showCreator = profile?.role === "creator" || profile?.role === "admin";
   const [moreOpen, setMoreOpen] = useState(false);
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -111,6 +116,12 @@ export function AppSidebar() {
             ? secondaryItems.map((item) => renderTooltipItem(item))
             : secondaryItems.map((item) => renderNavItem(item, true))
           }
+          {showCreator && (
+            <>
+              <div className={dividerClass} />
+              {collapsed ? renderTooltipItem(creatorItem) : renderNavItem(creatorItem, true)}
+            </>
+          )}
         </nav>
         <div className={`px-4 py-4 border-t border-border flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-ui font-semibold flex-shrink-0">CK</div>
@@ -125,6 +136,12 @@ export function AppSidebar() {
           {moduleItems.map((item) => renderTooltipItem(item))}
           <div className={dividerClass} />
           {secondaryItems.map((item) => renderTooltipItem(item))}
+          {showCreator && (
+            <>
+              <div className={dividerClass} />
+              {renderTooltipItem(creatorItem)}
+            </>
+          )}
         </nav>
         <div className="py-4 flex justify-center">
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-ui font-semibold">CK</div>
@@ -152,7 +169,7 @@ export function AppSidebar() {
         <button
           onClick={() => setMoreOpen(true)}
           className={`flex flex-col items-center justify-center p-1.5 rounded-md transition-all duration-200 ${
-            mobileDrawerItems.some((i) => isActive(i.path)) ? "text-primary" : "text-muted-foreground"
+            [...mobileDrawerItems, ...(showCreator ? [creatorItem] : [])].some((i) => isActive(i.path)) ? "text-primary" : "text-muted-foreground"
           }`}
         >
           <MoreHorizontal size={20} />
@@ -164,7 +181,7 @@ export function AppSidebar() {
         <DrawerContent className="pb-8">
           <VisuallyHidden.Root><DrawerTitle>More</DrawerTitle></VisuallyHidden.Root>
           <div className="px-4 pt-2 space-y-1">
-            {mobileDrawerItems.map((item) => {
+            {[...mobileDrawerItems, ...(showCreator ? [creatorItem] : [])].map((item) => {
               const active = isActive(item.path);
               return (
                 <NavLink
