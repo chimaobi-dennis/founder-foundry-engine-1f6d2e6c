@@ -22,6 +22,7 @@ const secondaryItems = [
 ];
 
 const creatorItem = { label: "Creator Studio", icon: Palette, path: "/creator" };
+const adminItem = { label: "Admin", icon: Shield, path: "/admin" };
 
 const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, CampaignKit, ContentCalendar
 const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
@@ -31,6 +32,7 @@ export function AppSidebar() {
   const { profile } = useProfile();
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
   const showCreator = profile?.role === "creator" || profile?.role === "admin";
+  const showAdmin = profile?.role === "admin";
   const [moreOpen, setMoreOpen] = useState(false);
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -122,6 +124,12 @@ export function AppSidebar() {
               {collapsed ? renderTooltipItem(creatorItem) : renderNavItem(creatorItem, true)}
             </>
           )}
+          {showAdmin && (
+            <>
+              <div className={dividerClass} />
+              {collapsed ? renderTooltipItem(adminItem) : renderNavItem(adminItem, true)}
+            </>
+          )}
         </nav>
         <div className={`px-4 py-4 border-t border-border flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-ui font-semibold flex-shrink-0">CK</div>
@@ -140,6 +148,12 @@ export function AppSidebar() {
             <>
               <div className={dividerClass} />
               {renderTooltipItem(creatorItem)}
+            </>
+          )}
+          {showAdmin && (
+            <>
+              <div className={dividerClass} />
+              {renderTooltipItem(adminItem)}
             </>
           )}
         </nav>
@@ -169,7 +183,7 @@ export function AppSidebar() {
         <button
           onClick={() => setMoreOpen(true)}
           className={`flex flex-col items-center justify-center p-1.5 rounded-md transition-all duration-200 ${
-            [...mobileDrawerItems, ...(showCreator ? [creatorItem] : [])].some((i) => isActive(i.path)) ? "text-primary" : "text-muted-foreground"
+            [...mobileDrawerItems, ...(showCreator ? [creatorItem] : []), ...(showAdmin ? [adminItem] : [])].some((i) => isActive(i.path)) ? "text-primary" : "text-muted-foreground"
           }`}
         >
           <MoreHorizontal size={20} />
@@ -181,7 +195,7 @@ export function AppSidebar() {
         <DrawerContent className="pb-8">
           <VisuallyHidden.Root><DrawerTitle>More</DrawerTitle></VisuallyHidden.Root>
           <div className="px-4 pt-2 space-y-1">
-            {[...mobileDrawerItems, ...(showCreator ? [creatorItem] : [])].map((item) => {
+            {[...mobileDrawerItems, ...(showCreator ? [creatorItem] : []), ...(showAdmin ? [adminItem] : [])].map((item) => {
               const active = isActive(item.path);
               return (
                 <NavLink

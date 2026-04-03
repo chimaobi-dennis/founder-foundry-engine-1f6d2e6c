@@ -25,6 +25,7 @@ import Onboarding from "./pages/Onboarding";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
 import CreatorTemplateEditor from "./pages/CreatorTemplateEditor";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ const App = () => (
                         <Route path="/creator" element={<CreatorStudio />} />
                         <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />
                         <Route path="/creator/templates/:id" element={<CreatorTemplateEditor />} />
+                        <Route path="/admin" element={<Admin />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>
