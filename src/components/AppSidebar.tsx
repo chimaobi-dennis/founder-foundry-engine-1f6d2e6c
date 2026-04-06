@@ -22,7 +22,7 @@ const secondaryItems = [
 ];
 
 const creatorItem = { label: "Creator Studio", icon: Palette, path: "/creator" };
-const adminItem = { label: "Admin", icon: Shield, path: "/admin" };
+// Admin is now a separate shell at /admin, no sidebar item needed here
 
 const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, CampaignKit, ContentCalendar
 const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
