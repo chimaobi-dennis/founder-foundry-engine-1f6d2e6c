@@ -5,11 +5,14 @@ import { useAuth } from "@/contexts/AuthContext";
 export interface CreatorApplication {
   id: string;
   user_id: string;
-  motivation: string;
+  why_apply: string;
   portfolio_url: string | null;
-  experience: string;
+  prompt_engineering_experience: string;
   sample_prompt: string;
+  motivation: string | null;
   status: string;
+  reviewed_at: string | null;
+  reviewer_notes: string | null;
   created_at: string;
 }
 
@@ -38,17 +41,23 @@ export function useCreatorApplication() {
   }, [user]);
 
   const submitApplication = async (formData: {
-    motivation: string;
+    whyApply: string;
     portfolio_url: string;
-    experience: string;
-    sample_prompt: string;
+    promptEngineeringExperience: string;
+    samplePrompt: string;
+    motivation?: string;
   }) => {
     if (!user) throw new Error("Not authenticated");
     const { data, error } = await (supabase as any)
       .from("creator_applications")
       .insert({
         user_id: user.id,
-        ...formData,
+        why_apply: formData.whyApply,
+        portfolio_url: formData.portfolio_url || null,
+        prompt_engineering_experience: formData.promptEngineeringExperience,
+        sample_prompt: formData.samplePrompt,
+        motivation: formData.motivation || null,
+        status: 'pending'
       })
       .select()
       .single();

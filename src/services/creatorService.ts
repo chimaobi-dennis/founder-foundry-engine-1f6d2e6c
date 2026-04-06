@@ -5,6 +5,7 @@ export interface CreatorApplicationData {
   portfolioUrl?: string;
   promptEngineeringExperience: string;
   samplePrompt: string;
+  motivation?: string;
 }
 
 const db = supabase as any;
@@ -37,6 +38,7 @@ export const submitCreatorApplication = async (
         portfolio_url: data.portfolioUrl || null,
         prompt_engineering_experience: data.promptEngineeringExperience,
         sample_prompt: data.samplePrompt,
+        motivation: data.motivation || null,
         status: 'pending'
       });
 
@@ -99,7 +101,7 @@ export const getPendingApplications = async () => {
     .from('creator_applications')
     .select(`
       *,
-      profiles (full_name, email, avatar_url)
+      profiles (full_name, avatar_url)
     `)
     .eq('status', 'pending')
     .order('created_at', { ascending: true });
