@@ -144,12 +144,6 @@ export function AppSidebar() {
               {renderTooltipItem(creatorItem)}
             </>
           )}
-          {showAdmin && (
-            <>
-              <div className={dividerClass} />
-              {renderTooltipItem(adminItem)}
-            </>
-          )}
         </nav>
         <div className="py-4 flex justify-center">
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-ui font-semibold">CK</div>
