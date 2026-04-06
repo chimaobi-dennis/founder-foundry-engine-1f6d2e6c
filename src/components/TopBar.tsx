@@ -168,7 +168,20 @@ export function TopBar() {
                   </button>
                 ))}
 
-                {/* Creator row — only for founders */}
+                {/* Switch to Admin — only for admins */}
+                {profile?.role === "admin" && (
+                  <button
+                    onClick={() => { setDropdownOpen(false); navigate("/admin"); }}
+                    className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-muted/50 transition-colors duration-200"
+                  >
+                    <Shield size={16} className="text-primary flex-shrink-0" />
+                    <div className="flex-1 text-left">
+                      <p className="text-[13px] font-ui text-foreground">Switch to Admin</p>
+                      <p className="text-[11px] font-ui text-muted-foreground">Manage the platform</p>
+                    </div>
+                    <ChevronRight size={14} className="text-muted-foreground" />
+                  </button>
+                )}
                 {profile?.role === "founder" && !creatorApp && (
                   <button
                     onClick={() => { setDropdownOpen(false); navigate("/creator/apply"); }}
