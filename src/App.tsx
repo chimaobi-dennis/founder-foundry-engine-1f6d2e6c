@@ -9,6 +9,7 @@ import { ProductImagesProvider } from "@/hooks/use-product-images";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProfileProvider, useProfile } from "@/hooks/use-profile";
 import { Layout } from "./components/Layout";
+import { AdminLayout } from "./components/admin/AdminLayout";
 import Home from "./pages/Home";
 import Mentor from "./pages/Mentor";
 import ReelBuilder from "./pages/ReelBuilder";
@@ -25,7 +26,10 @@ import Onboarding from "./pages/Onboarding";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
 import CreatorTemplateEditor from "./pages/CreatorTemplateEditor";
-import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminTemplates from "./pages/admin/AdminTemplates";
+import AdminApplications from "./pages/admin/AdminApplications";
 
 const queryClient = new QueryClient();
 
@@ -49,14 +53,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (session && isAuthRoute) {
-    // Check if onboarding needed
     if (profile && !profile.onboarding_completed) {
       return <Navigate to="/onboarding" replace />;
     }
     return <Navigate to="/" replace />;
   }
 
-  // Redirect to onboarding if not completed (and not already there)
   if (session && profile && !profile.onboarding_completed && !isOnboarding && !isAuthRoute) {
     return <Navigate to="/onboarding" replace />;
   }
@@ -80,6 +82,14 @@ const App = () => (
                       <Route path="/sign-up" element={<SignUp />} />
                       <Route path="/sign-in" element={<SignIn />} />
                       <Route path="/onboarding" element={<Onboarding />} />
+                      {/* Admin shell — separate layout */}
+                      <Route path="/admin" element={<AdminLayout />}>
+                        <Route index element={<AdminDashboard />} />
+                        <Route path="users" element={<AdminUsers />} />
+                        <Route path="product/templates" element={<AdminTemplates />} />
+                        <Route path="product/applications" element={<AdminApplications />} />
+                      </Route>
+                      {/* Main app shell */}
                       <Route element={<Layout />}>
                         <Route path="/" element={<Home />} />
                         <Route path="/mentor" element={<Mentor />} />
@@ -94,7 +104,6 @@ const App = () => (
                         <Route path="/creator" element={<CreatorStudio />} />
                         <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />
                         <Route path="/creator/templates/:id" element={<CreatorTemplateEditor />} />
-                        <Route path="/admin" element={<Admin />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>
