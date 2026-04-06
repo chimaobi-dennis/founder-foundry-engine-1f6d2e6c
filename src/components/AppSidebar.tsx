@@ -32,7 +32,7 @@ export function AppSidebar() {
   const { profile } = useProfile();
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
   const showCreator = profile?.role === "creator" || profile?.role === "admin";
-  const showAdmin = profile?.role === "admin";
+  
   const [moreOpen, setMoreOpen] = useState(false);
 
   const [collapsed, setCollapsed] = useState(() => {
