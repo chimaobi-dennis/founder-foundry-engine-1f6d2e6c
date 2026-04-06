@@ -20,6 +20,24 @@ export const getAdminStats = async () => {
   };
 };
 
+// Update user role
+export const updateUserRole = async (
+  userId: string,
+  newRole: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await db
+      .from('profiles')
+      .update({ role: newRole })
+      .eq('id', userId);
+    
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
 export const approveCreator = async (applicationId: string, notes: string) => {
   try {
     // Get application to find user_id
@@ -76,15 +94,15 @@ export const getDashboardStats = async () => {
     { count: pendingApplications },
     { count: pendingTemplates }
   ] = await Promise.all([
-    supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    supabase.from('brands').select('*', { count: 'exact', head: true }),
-    supabase.from('prostudio_templates')
+    db.from('profiles').select('*', { count: 'exact', head: true }),
+    db.from('brands').select('*', { count: 'exact', head: true }),
+    db.from('prostudio_templates')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'published'),
-    supabase.from('creator_applications')
+    db.from('creator_applications')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending'),
-    supabase.from('prostudio_templates')
+    db.from('prostudio_templates')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending_review')
   ]);
@@ -102,7 +120,7 @@ export const getUserSignupsByDay = async (days: number = 30) => {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  const { data } = await supabase
+  const { data } = await db
     .from('profiles')
     .select('created_at')
     .gte('created_at', startDate.toISOString())
@@ -129,7 +147,7 @@ export const getUserSignupsByDay = async (days: number = 30) => {
 
 // Role breakdown
 export const getUserRoleBreakdown = async () => {
-  const { data } = await supabase
+  const { data } = await db
     .from('profiles')
     .select('role');
 
@@ -144,7 +162,7 @@ export const getUserRoleBreakdown = async () => {
 
 // Template usage by category
 export const getTemplateUsageByCategory = async () => {
-  const { data } = await supabase
+  const { data } = await db
     .from('prostudio_templates')
     .select('category, uses_count')
     .eq('status', 'published');
@@ -162,17 +180,17 @@ export const getTemplateUsageByCategory = async () => {
 // Recent activity
 export const getRecentActivity = async (limit: number = 20) => {
   const [users, brands, applications] = await Promise.all([
-    supabase
+    db
       .from('profiles')
       .select('full_name, created_at, role')
       .order('created_at', { ascending: false })
       .limit(limit),
-    supabase
+    db
       .from('brands')
       .select('name, created_at')
       .order('created_at', { ascending: false })
       .limit(limit),
-    supabase
+    db
       .from('creator_applications')
       .select('created_at, profiles(full_name)')
       .order('created_at', { ascending: false })
@@ -209,7 +227,7 @@ export const getRecentActivity = async (limit: number = 20) => {
 
 // All users for Users section
 export const getAllUsers = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false });
@@ -218,7 +236,7 @@ export const getAllUsers = async () => {
 
 // Pending creator applications
 export const getPendingApplications = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('creator_applications')
     .select(`
       *,
@@ -231,7 +249,7 @@ export const getPendingApplications = async () => {
 
 // All creator applications
 export const getAllApplications = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('creator_applications')
     .select(`
       *,
@@ -243,7 +261,7 @@ export const getAllApplications = async () => {
 
 // Pending template reviews
 export const getPendingTemplates = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('prostudio_templates')
     .select(`
       *,
@@ -257,7 +275,7 @@ export const getPendingTemplates = async () => {
 
 // All templates for admin
 export const getAllTemplates = async () => {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('prostudio_templates')
     .select(`
       *,
@@ -273,7 +291,7 @@ export const approveCreatorApplication = async (
   applicationId: string,
   notes: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase.rpc('approve_creator', {
+  const { error } = await db.rpc('approve_creator', {
     application_id: applicationId,
     admin_notes: notes
   });
@@ -285,7 +303,7 @@ export const rejectCreatorApplication = async (
   applicationId: string,
   notes: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase.rpc('reject_creator', {
+  const { error } = await db.rpc('reject_creator', {
     application_id: applicationId,
     admin_notes: notes
   });
@@ -296,7 +314,7 @@ export const rejectCreatorApplication = async (
 export const publishTemplate = async (
   templateId: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await db
     .from('prostudio_templates')
     .update({ status: 'published', updated_at: new Date().toISOString() })
     .eq('id', templateId);
@@ -307,7 +325,7 @@ export const publishTemplate = async (
 export const unpublishTemplate = async (
   templateId: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await db
     .from('prostudio_templates')
     .update({ status: 'unpublished', updated_at: new Date().toISOString() })
     .eq('id', templateId);
@@ -319,7 +337,7 @@ export const requestTemplateChanges = async (
   templateId: string,
   feedback: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await db
     .from('prostudio_templates')
     .update({
       status: 'draft',
