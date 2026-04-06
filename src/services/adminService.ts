@@ -34,18 +34,6 @@ export const getPendingTemplates = async () => {
   return { data, error };
 };
 
-export const getPendingTemplates = async () => {
-  const { data, error } = await db
-    .from('prostudio_templates')
-    .select(`
-      *,
-      template_preview_images (image_url, is_cover),
-      creator_profiles (display_name, avatar_url)
-    `)
-    .eq('status', 'pending_review')
-    .order('updated_at', { ascending: true });
-  return { data, error };
-};
 
 export const getPendingApplications = async () => {
   const { data, error } = await db
