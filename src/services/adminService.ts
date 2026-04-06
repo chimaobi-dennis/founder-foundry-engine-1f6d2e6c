@@ -273,6 +273,21 @@ export const getPendingTemplates = async () => {
   return { data, error };
 };
 
+// Get template detail by ID
+export const getTemplateDetail = async (templateId: string) => {
+  const { data, error } = await db
+    .from('prostudio_templates')
+    .select(`
+      *,
+      template_preview_images (image_url, is_cover, sort_order),
+      creator_profiles (display_name, avatar_url)
+    `)
+    .eq('id', templateId)
+    .single();
+
+  return { data, error };
+};
+
 // All templates for admin
 export const getAllTemplates = async () => {
   const { data, error } = await db
