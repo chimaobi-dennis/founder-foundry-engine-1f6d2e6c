@@ -171,7 +171,7 @@ export function AppSidebar() {
         <button
           onClick={() => setMoreOpen(true)}
           className={`flex flex-col items-center justify-center p-1.5 rounded-md transition-all duration-200 ${
-            [...mobileDrawerItems, ...(showCreator ? [creatorItem] : []), ...(showAdmin ? [adminItem] : [])].some((i) => isActive(i.path)) ? "text-primary" : "text-muted-foreground"
+            [...mobileDrawerItems, ...(showCreator ? [creatorItem] : [])].some((i) => isActive(i.path)) ? "text-primary" : "text-muted-foreground"
           }`}
         >
           <MoreHorizontal size={20} />
