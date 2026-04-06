@@ -21,7 +21,7 @@ const benefits = [
 export default function CreatorApply() {
   const navigate = useNavigate();
   const { application, submitApplication } = useCreatorApplication();
-  const [motivation, setMotivation] = useState("");
+  const [whyApply, setWhyApply] = useState("");
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [experience, setExperience] = useState("");
   const [samplePrompt, setSamplePrompt] = useState("");
@@ -51,17 +51,17 @@ export default function CreatorApply() {
     );
   }
 
-  const canSubmit = motivation.trim() && experience && samplePrompt.trim();
+  const canSubmit = whyApply.trim() && experience && samplePrompt.trim();
 
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
     try {
       await submitApplication({
-        motivation: motivation.trim(),
+        whyApply: whyApply.trim(),
         portfolio_url: portfolioUrl.trim() || "",
-        experience,
-        sample_prompt: samplePrompt.trim(),
+        promptEngineeringExperience: experience,
+        samplePrompt: samplePrompt.trim(),
       });
       setSubmitted(true);
     } catch (e) {
@@ -115,8 +115,8 @@ export default function CreatorApply() {
           </label>
           <textarea
             rows={4}
-            value={motivation}
-            onChange={(e) => setMotivation(e.target.value)}
+            value={whyApply}
+            onChange={(e) => setWhyApply(e.target.value)}
             placeholder="Tell us about your background with prompt engineering and what kinds of templates you want to build..."
             className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-ui text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
           />
