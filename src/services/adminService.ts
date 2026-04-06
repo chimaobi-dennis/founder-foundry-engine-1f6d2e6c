@@ -34,7 +34,6 @@ export const getPendingTemplates = async () => {
   return { data, error };
 };
 
-// Pending template reviews
 export const getPendingTemplates = async () => {
   const { data, error } = await db
     .from('prostudio_templates')
