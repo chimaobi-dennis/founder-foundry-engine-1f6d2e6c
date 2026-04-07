@@ -293,8 +293,8 @@ export const getTemplateDetail = async (templateId: string) => {
 };
 
 // All templates for admin
-export const getAllTemplates = async () => {
-  const { data, error } = await db
+export const getAllTemplates = async (statusFilter?: string, typeFilter?: string) => {
+  let query = db
     .from('prostudio_templates')
     .select(`
       *,
@@ -302,6 +302,9 @@ export const getAllTemplates = async () => {
       creator_profiles (display_name)
     `)
     .order('created_at', { ascending: false });
+  if (statusFilter) query = query.eq('status', statusFilter);
+  if (typeFilter) query = query.eq('template_type', typeFilter);
+  const { data, error } = await query;
   return { data, error };
 };
 
