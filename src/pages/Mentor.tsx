@@ -287,6 +287,25 @@ const Mentor = () => {
   const activeEmptyMode = emptyBrands[activeBrandId] || null;
   const isTyping = typingBrands.has(activeBrandId);
 
+  // Demo conversation for empty state preview (never shown as real messages)
+  const demoMessages = [
+    {
+      id: "demo-1",
+      role: "ai",
+      content: "Welcome to Mentor. I’m your thinking partner for building a sharp, differentiated brand. Ask me anything about your brand, product, or audience."
+    },
+    {
+      id: "demo-2",
+      role: "founder",
+      content: "How do I stand out in a crowded market?"
+    },
+    {
+      id: "demo-3",
+      role: "ai",
+      content: "Let’s start with your positioning. What do you offer that nobody else does, and who is it for?"
+    }
+  ];
+
   const [scrollToMilestoneId, setScrollToMilestoneId] = useState<string | null>(null);
   const [highlightDNAField, setHighlightDNAField] = useState<string | null>(null);
 
@@ -754,8 +773,33 @@ Rules:
   const showLeftInline = !isMobile;
   const showRightInline = !isMobile && !isTablet;
 
-  if (!currentActiveBrand && !isLoading) return null;
-  if (!currentActiveBrand) return null;
+
+  // If no brand is selected, show empty state with CTA
+  if (!currentActiveBrand && !isLoading) {
+    return (
+      <div className="flex-1 min-h-0 flex items-center justify-center px-4">
+        <div className="w-[90%] max-w-[560px] rounded-2xl p-8 bg-card dark:bg-[#1A2A3A] border-[0.5px] border-[#E8E2D9] dark:border-[#2A3A4A]">
+          <div className="w-2 h-2 rounded-full bg-primary animate-amber-pulse mb-4" />
+          <p className="font-display text-[18px] leading-[1.7] text-foreground mb-2">No brand selected — start by creating your first brand</p>
+          <div className="my-6 h-px bg-border dark:border-[#2A3A4A] w-full" style={{ height: "0.5px" }} />
+          <div className="flex gap-3">
+            <button
+              className="flex-1 h-12 rounded-lg bg-primary text-primary-foreground font-semibold text-[15px] hover:bg-primary/90 transition-colors"
+              onClick={handleAddBrand}
+            >
+              + New Brand
+            </button>
+            <button
+              className="flex-1 h-12 rounded-lg border border-primary text-primary font-semibold text-[15px] hover:bg-primary/10 transition-colors"
+              onClick={handleAddBrand}
+            >
+              Try Demo
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
@@ -812,8 +856,10 @@ Rules:
         )}
 
         {activeEmptyMode ? (
+          // Show empty state greeting
           <MentorEmptyState mode={activeEmptyMode} onSubmit={handleEmptySubmit} />
-        ) : activeBrandData ? (
+        ) : activeBrandData && activeBrandData.messages.length > 0 ? (
+          // Show real messages from DB
           <ChatPanel
             brand={currentActiveBrand}
             messages={activeBrandData.messages}
@@ -830,7 +876,24 @@ Rules:
             onRetry={handleRetry}
             slowThinking={slowThinking}
           />
-        ) : null}
+        ) : (
+          // Show empty state greeting and demo conversation as preview only
+          <div className="flex flex-col h-full w-full items-center justify-center">
+            <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
+            <div className="w-full max-w-[560px] mt-8">
+              <div className="rounded-xl bg-card border border-border p-6">
+                <div className="font-semibold text-[15px] mb-3 text-muted-foreground">Demo conversation preview</div>
+                {demoMessages.map((msg) => (
+                  <div key={msg.id} className="mb-3">
+                    <div className={`rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words ${msg.role === "founder" ? "bg-primary/10 ml-auto" : "bg-card border border-border"}`}>
+                      <span className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words">{msg.content}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {showRightInline ? (

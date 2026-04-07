@@ -1,8 +1,14 @@
 import { Send, Paperclip, Mic, Flag, Save, Check, X } from "lucide-react";
+import { useEffect } from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 
 import { cn } from "@/lib/utils";
-import { MentorBrand, Message, InlineSavePrompt, MilestoneMarker, Milestone, categoryTextColors } from "./types";
+import { MentorBrand, Message, InlineSavePrompt, MilestoneMarker, Milestone, MilestoneCategory, categoryTextColors } from "./types";
+// Milestone prompt state
+interface MilestonePromptState {
+  messageId: string;
+  visible: boolean;
+}
 
 interface ChatPanelProps {
   brand: MentorBrand;
@@ -45,6 +51,28 @@ export function ChatPanel({
   const milestoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Milestone creation prompt state
+  const [milestonePrompt, setMilestonePrompt] = useState<MilestonePromptState | null>(null);
+  const [milestoneNameInput, setMilestoneNameInput] = useState("");
+  const [milestoneCategoryInput, setMilestoneCategoryInput] = useState<MilestoneCategory>("Brand Discovery");
+
+  // Handler to trigger milestone prompt after AI message
+  const checkForMilestoneOpportunity = (responseText: string, messageId: string) => {
+    const lower = responseText.toLowerCase();
+    const isMilestoneWorthy =
+      responseText.length > 200 ||
+      lower.includes("brand voice") ||
+      lower.includes("positioning") ||
+      lower.includes("target audience") ||
+      lower.includes("core promise") ||
+      lower.includes("campaign") ||
+      lower.includes("strategy");
+
+    if (isMilestoneWorthy) {
+      setMilestonePrompt({ messageId, visible: true });
+    }
+  };
 
   useEffect(() => {
     if (!scrollToMilestoneId) return;
@@ -132,6 +160,14 @@ export function ChatPanel({
             const isShowingSaved = showingSaved.has(msg.id);
             const showTimestamp = i === 8;
 
+            // If this is an AI message, check for milestone opportunity
+            useEffect(() => {
+              if (msg.role === "ai") {
+                checkForMilestoneOpportunity(msg.content, msg.id);
+              }
+              // eslint-disable-next-line
+            }, [msg.content, msg.id]);
+
             return (
               <div key={msg.id} className="min-w-0 w-full max-w-full overflow-hidden" style={{ boxSizing: "border-box" }}>
                 {/* Milestone marker */}
@@ -215,6 +251,60 @@ export function ChatPanel({
                     <div className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary/10">
                       <Check size={13} className="text-primary" />
                       <span className="text-[12px] font-ui text-primary font-medium">Saved to Brand DNA</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Milestone creation prompt */}
+                {milestonePrompt?.messageId === msg.id && milestonePrompt.visible && (
+                  <div className="milestone-prompt-card flex flex-col gap-2 p-4 border border-amber-400 bg-amber-50 rounded-lg my-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Flag className="text-amber-500" size={16} />
+                      <span className="font-semibold text-amber-900">Mark this as a milestone?</span>
+                    </div>
+                    <input
+                      value={milestoneNameInput}
+                      onChange={e => setMilestoneNameInput(e.target.value)}
+                      placeholder="Milestone name..."
+                      className="milestone-name-input border px-2 py-1 rounded text-sm"
+                    />
+                    <select
+                      value={milestoneCategoryInput}
+                      onChange={e => setMilestoneCategoryInput(e.target.value as MilestoneCategory)}
+                      className="milestone-category-select border px-2 py-1 rounded text-sm"
+                    >
+                      <option value="Brand Discovery">Brand Discovery</option>
+                      <option value="Campaign Strategy">Campaign Strategy</option>
+                      <option value="Customer Insight">Customer Insight</option>
+                      <option value="Product Positioning">Product Positioning</option>
+                      <option value="Growth Brainstorm">Growth Brainstorm</option>
+                      <option value="Pitch Preparation">Pitch Preparation</option>
+                      <option value="Free Form">Free Form</option>
+                    </select>
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={async () => {
+                          if (!milestoneNameInput.trim()) return;
+                          if (typeof window !== "undefined" && window.handleCreateMilestone) {
+                            await window.handleCreateMilestone(
+                              milestoneNameInput,
+                              milestoneCategoryInput,
+                              msg.id
+                            );
+                          }
+                          setMilestonePrompt(null);
+                          setMilestoneNameInput("");
+                        }}
+                        className="create-milestone-btn bg-amber-500 text-white px-3 py-1 rounded hover:bg-amber-600"
+                      >
+                        Create milestone
+                      </button>
+                      <button
+                        onClick={() => setMilestonePrompt(null)}
+                        className="dismiss-milestone-btn px-3 py-1 rounded border border-amber-300 text-amber-700 bg-white hover:bg-amber-100"
+                      >
+                        Dismiss
+                      </button>
                     </div>
                   </div>
                 )}
