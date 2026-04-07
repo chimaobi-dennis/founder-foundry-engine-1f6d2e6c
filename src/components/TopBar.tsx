@@ -29,7 +29,7 @@ export function TopBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { brands, activeBrand, setActiveBrand, hasBrands } = useBrand();
+  const { brands, activeBrand, switchBrand } = useBrand();
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const { application: creatorApp } = useCreatorApplication();
