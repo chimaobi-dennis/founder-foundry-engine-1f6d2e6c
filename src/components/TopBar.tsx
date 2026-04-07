@@ -123,10 +123,10 @@ export function TopBar() {
                   {brands.map((brand) => (
                     <button
                       key={brand.id}
-                      onClick={() => setActiveBrand(brand)}
+                      onClick={() => switchBrand(brand.id)}
                       className="w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-[13px] font-ui text-foreground hover:bg-muted/50 transition-colors duration-200"
                     >
-                      <div className={`w-3 h-3 rounded-full ${brand.color} flex-shrink-0`} />
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: brand.primary_color || '#D4A017' }} />
                       <span className="flex-1 text-left">{brand.name}</span>
                       {activeBrand?.id === brand.id && <Check size={14} className="text-primary" />}
                     </button>
