@@ -117,7 +117,7 @@ export default function AdminTemplates() {
       res = await updateTemplate(detail.id, { 
         status: newStatus,
         admin_notes: notes.trim(),
-        admin_signature: adminSignature,
+        admin_signature: JSON.stringify(adminSignature),
         reviewed_at: new Date().toISOString()
       });
     }
