@@ -250,14 +250,16 @@ export const getPendingApplications = async () => {
 };
 
 // All creator applications
-export const getAllApplications = async () => {
-  const { data, error } = await db
+export const getAllApplications = async (statusFilter?: string) => {
+  let query = db
     .from('creator_applications')
     .select(`
       *,
       profiles (full_name, email, avatar_url)
     `)
     .order('created_at', { ascending: false });
+  if (statusFilter) query = query.eq('status', statusFilter);
+  const { data, error } = await query;
   return { data, error };
 };
 
