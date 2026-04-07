@@ -40,9 +40,9 @@ const ProStudio = () => {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-6">
           {activeTab === "Physical Product" ? (
-            <PhysicalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.color || "bg-primary"} />
+            <PhysicalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.primary_color || "bg-primary"} />
           ) : (
-            <DigitalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.color || "bg-primary"} />
+            <DigitalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.primary_color || "bg-primary"} />
           )}
         </div>
       </div>
