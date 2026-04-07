@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, MoreHorizontal } from "lucide-react";
 import { getAllUsers, updateUserRole } from "@/services/adminService";
+import { getAllUsersAdmin, updateUserRoleAdmin } from "@/services/adminServiceSupabase";
 import { toast } from "@/hooks/use-toast";
 
 const ROLE_TABS = ["all", "founder", "creator"] as const;
@@ -23,8 +24,16 @@ export default function AdminUsers() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data } = await getAllUsers(filter === "all" ? undefined : filter);
-    setUsers(data ?? []);
+    try {
+      // Try admin service first (bypasses RLS)
+      const { data } = await getAllUsersAdmin(filter === "all" ? undefined : filter);
+      setUsers(data ?? []);
+    } catch (error) {
+      console.warn('Admin service not available, falling back to regular service:', error);
+      // Fallback to regular service (limited by RLS)
+      const { data } = await getAllUsers(filter === "all" ? undefined : filter);
+      setUsers(data ?? []);
+    }
     setLoading(false);
   };
 
@@ -40,13 +49,27 @@ export default function AdminUsers() {
   }, [users, search]);
 
   const handleChangeRole = async (userId: string, newRole: string) => {
-    const res = await updateUserRole(userId, newRole);
-    if (res.success) {
-      toast({ title: "Role updated" });
-      setRoleMenuOpen(null);
-      fetchUsers();
-    } else {
-      toast({ title: "Error", description: res.error, variant: "destructive" });
+    try {
+      // Try admin service first (bypasses RLS)
+      const res = await updateUserRoleAdmin(userId, newRole);
+      if (res.success) {
+        toast({ title: "Role updated" });
+        setRoleMenuOpen(null);
+        fetchUsers();
+      } else {
+        toast({ title: "Error", description: res.error, variant: "destructive" });
+      }
+    } catch (error) {
+      console.warn('Admin service not available, falling back to regular service:', error);
+      // Fallback to regular service (limited by RLS)
+      const res = await updateUserRole(userId, newRole);
+      if (res.success) {
+        toast({ title: "Role updated" });
+        setRoleMenuOpen(null);
+        fetchUsers();
+      } else {
+        toast({ title: "Error", description: res.error, variant: "destructive" });
+      }
     }
   };
 
