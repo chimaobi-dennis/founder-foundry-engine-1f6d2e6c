@@ -162,7 +162,7 @@ export function PhysicalProductTab({ brandName }: Props) {
       <div className="flex gap-0 overflow-hidden" style={{ minHeight: 0 }}>
         {/* Main content */}
         <div className="flex-1 min-w-0">
-          <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} />
+          <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} templateType="physical" />
         </div>
 
         {/* Right sidebar */}

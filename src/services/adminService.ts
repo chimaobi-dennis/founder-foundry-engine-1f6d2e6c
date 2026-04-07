@@ -226,11 +226,13 @@ export const getRecentActivity = async (limit: number = 20) => {
 };
 
 // All users for Users section
-export const getAllUsers = async () => {
-  const { data, error } = await db
+export const getAllUsers = async (roleFilter?: string) => {
+  let query = db
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false });
+  if (roleFilter) query = query.eq('role', roleFilter);
+  const { data, error } = await query;
   return { data, error };
 };
 
@@ -248,14 +250,16 @@ export const getPendingApplications = async () => {
 };
 
 // All creator applications
-export const getAllApplications = async () => {
-  const { data, error } = await db
+export const getAllApplications = async (statusFilter?: string) => {
+  let query = db
     .from('creator_applications')
     .select(`
       *,
       profiles (full_name, email, avatar_url)
     `)
     .order('created_at', { ascending: false });
+  if (statusFilter) query = query.eq('status', statusFilter);
+  const { data, error } = await query;
   return { data, error };
 };
 
@@ -289,8 +293,8 @@ export const getTemplateDetail = async (templateId: string) => {
 };
 
 // All templates for admin
-export const getAllTemplates = async () => {
-  const { data, error } = await db
+export const getAllTemplates = async (statusFilter?: string, typeFilter?: string) => {
+  let query = db
     .from('prostudio_templates')
     .select(`
       *,
@@ -298,6 +302,9 @@ export const getAllTemplates = async () => {
       creator_profiles (display_name)
     `)
     .order('created_at', { ascending: false });
+  if (statusFilter) query = query.eq('status', statusFilter);
+  if (typeFilter) query = query.eq('template_type', typeFilter);
+  const { data, error } = await query;
   return { data, error };
 };
 

@@ -33,7 +33,7 @@ export function DigitalProductTab({ brandName }: Props) {
 
   return (
     <>
-      <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} />
+      <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} templateType="digital" />
       <CreatorBanner />
       <TemplateModal
         template={selected}
