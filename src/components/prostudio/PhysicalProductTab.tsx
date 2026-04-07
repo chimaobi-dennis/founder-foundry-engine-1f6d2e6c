@@ -5,23 +5,7 @@ import { TemplateGrid } from "./TemplateGrid";
 import { TemplateModal } from "./TemplateModal";
 import { ProductImagesSidebar } from "./ProductImagesSidebar";
 import { CreatorBanner } from "./CreatorBanner";
-
-const categories = ["All", "Photoshoot", "Lifestyle", "Flat Lay", "Packshot", "Outdoor", "Moody Studio", "Minimal"];
-
-const templates: Template[] = [
-  { id: "marble-luxury", name: "Marble Luxury", color: "#F2EDE6", aspect: "square", uses: "3.2k", creator: "ProStudio Team", category: "Photoshoot" },
-  { id: "dark-moody-studio", name: "Dark Moody Studio", color: "#141210", aspect: "square", uses: "2.8k", creator: "ProStudio Team", category: "Moody Studio" },
-  { id: "outdoor-lifestyle", name: "Outdoor Lifestyle", color: "#A8C4B0", aspect: "square", uses: "2.1k", creator: "ProStudio Team", category: "Lifestyle" },
-  { id: "linen-flat-lay", name: "Linen Flat Lay", color: "#EDE5D5", aspect: "square", uses: "1.9k", creator: "ProStudio Team", category: "Flat Lay" },
-  { id: "urban-street", name: "Urban Street", color: "#7A8898", aspect: "square", uses: "1.7k", creator: "ProStudio Team", category: "Lifestyle" },
-  { id: "cafe-counter", name: "Café Counter", color: "#6A4A30", aspect: "square", uses: "1.5k", creator: "ProStudio Team", category: "Lifestyle" },
-  { id: "sunrise-window", name: "Sunrise Window", color: "#E8C878", aspect: "square", uses: "1.4k", creator: "ProStudio Team", category: "Lifestyle" },
-  { id: "minimal-white", name: "Minimal White", color: "#FAFAF8", aspect: "square", uses: "1.3k", creator: "ProStudio Team", category: "Minimal" },
-  { id: "forest-floor", name: "Forest Floor", color: "#283828", aspect: "square", uses: "1.2k", creator: "ProStudio Team", category: "Outdoor" },
-  { id: "night-neon", name: "Night Neon", color: "#080A14", aspect: "square", uses: "1.1k", creator: "ProStudio Team", category: "Moody Studio" },
-  { id: "rooftop-golden-hour", name: "Rooftop Golden Hour", color: "#C87820", aspect: "square", uses: "980", creator: "ProStudio Team", category: "Outdoor" },
-  { id: "raw-concrete", name: "Raw Concrete", color: "#909090", aspect: "square", uses: "870", creator: "ProStudio Team", category: "Minimal" },
-];
+import { getPublishedTemplates, getTemplateCategories, getTemplateById, incrementTemplateUsage } from "@/services/templateService";
 
 export const templatePrompts: Record<string, string> = {
   "marble-luxury": `Design direction: Marble Luxury editorial.
@@ -136,14 +120,80 @@ interface Props {
 
 export function PhysicalProductTab({ brandName }: Props) {
   const [selected, setSelected] = useState<Template | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [categories, setCategories] = useState<string[]>(["All"]);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === "true"; } catch { return false; }
   });
   const initials = brandName.split(" ").map((w) => w[0]).join("").slice(0, 3);
 
+  // Fetch templates and categories from database
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch templates
+        const { data: templatesData, error: templatesError } = await getPublishedTemplates('physical');
+        if (templatesError) {
+          console.error('Error fetching templates:', templatesError);
+        } else {
+          // Transform database data to match Template interface
+          const transformedTemplates: Template[] = (templatesData || []).map((template: any) => ({
+            id: template.id,
+            name: template.name,
+            color: template.preview_background || '#1A2A3A',
+            aspect: 'square',
+            uses: template.uses_count ? `${(template.uses_count / 1000).toFixed(1)}k` : '0',
+            creator: template.creator_profiles?.display_name || 'Unknown Creator',
+            category: template.category,
+            description: template.description,
+            generation_prompt: template.generation_prompt,
+            template_preview_images: template.template_preview_images || [],
+            cover_image_url: template.cover_image_url,
+            creator_id: template.creator_id,
+            status: template.status,
+            best_for: template.best_for || []
+          }));
+          setTemplates(transformedTemplates);
+        }
+
+        // Fetch categories
+        const categoriesData = await getTemplateCategories('physical');
+        setCategories(categoriesData);
+        
+      } catch (error) {
+        console.error('Error fetching template data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_KEY, String(sidebarOpen)); } catch {}
   }, [sidebarOpen]);
+
+  // Handle template selection with usage tracking
+  const handleTemplateSelect = async (template: Template) => {
+    setSelected(template);
+    
+    // Increment template usage count
+    try {
+      await incrementTemplateUsage(template.id);
+      // Update local usage count
+      setTemplates(prev => prev.map(t => 
+        t.id === template.id 
+          ? { ...t, uses: t.uses === '0' ? '0.1k' : t.uses }
+          : t
+      ));
+    } catch (error) {
+      console.error('Error incrementing template usage:', error);
+    }
+  };
 
   return (
     <>
@@ -162,7 +212,14 @@ export function PhysicalProductTab({ brandName }: Props) {
       <div className="flex gap-0 overflow-hidden" style={{ minHeight: 0 }}>
         {/* Main content */}
         <div className="flex-1 min-w-0">
-          <TemplateGrid templates={templates} categories={categories} onSelect={setSelected} brandName={brandName} templateType="physical" />
+          <TemplateGrid 
+            templates={templates} 
+            categories={categories} 
+            onSelect={handleTemplateSelect} 
+            brandName={brandName} 
+            templateType="physical" 
+            loading={loading}
+          />
         </div>
 
         {/* Right sidebar */}

@@ -40,30 +40,181 @@ export const updateUserRole = async (
 
 export const approveCreator = async (applicationId: string, notes: string) => {
   try {
-    // Get application to find user_id
-    const { data: app, error: fetchErr } = await db
+    // Get current admin user ID
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error('Admin user not authenticated');
+    }
+    const adminId = user.id;
+
+    // Get application to find user_id and other details
+    console.log('Fetching application data for approval...');
+    
+    // Fetch application data
+    const appResult = await db
       .from('creator_applications')
-      .select('user_id')
+      .select('user_id, portfolio_url')
       .eq('id', applicationId)
       .single();
-
-    if (fetchErr) throw fetchErr;
+    
+    if (appResult.error) {
+      console.error('Failed to fetch application:', appResult.error);
+      throw appResult.error;
+    }
+    
+    // Fetch user profile data (should exist since user submitted application)
+    console.log('Fetching user profile for:', appResult.data.user_id);
+    
+    let profileData: any;
+    try {
+      // Try admin service first to bypass RLS
+      const { adminSupabase } = await import('./adminServiceSupabase');
+      
+      if (adminSupabase) {
+        console.log('Using admin service to fetch profile...');
+        const profileResult = await adminSupabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', appResult.data.user_id)
+          .single();
+        
+        if (profileResult.error) {
+          console.error('Admin service profile fetch failed:', profileResult.error);
+          throw profileResult.error;
+        }
+        profileData = profileResult.data;
+        console.log('Profile fetched successfully with admin service');
+      } else {
+        throw new Error('Admin service not available');
+      }
+    } catch (adminError) {
+      console.warn('Admin service failed, trying regular client:', adminError);
+      
+      // Fallback to regular client
+      const profileResult = await db
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', appResult.data.user_id)
+        .single();
+      
+      if (profileResult.error) {
+        console.error('Regular client profile fetch failed:', profileResult.error);
+        throw new Error(`Failed to fetch user profile: ${profileResult.error.message}. User ID: ${appResult.data.user_id}`);
+      }
+      
+      profileData = profileResult.data;
+      console.log('Profile fetched successfully with regular client');
+    }
+    
+    const app = {
+      ...appResult.data,
+      profiles: profileData
+    };
+    
+    console.log('Application data fetched:', { 
+      userId: app.user_id, 
+      portfolioUrl: app.portfolio_url,
+      fullName: app.profiles?.full_name 
+    });
 
     // Update application status
     const { error: appErr } = await db
       .from('creator_applications')
-      .update({ status: 'approved', admin_notes: notes, reviewed_at: new Date().toISOString() })
+      .update({ status: 'approved', reviewer_notes: notes, reviewed_at: new Date().toISOString() })
       .eq('id', applicationId);
 
     if (appErr) throw appErr;
 
-    // Update user role to creator
-    const { error: roleErr } = await db
-      .from('profiles')
-      .update({ role: 'creator' })
-      .eq('id', app.user_id);
+    // Update user profile to creator role and set is_creator flag
+    let roleErr;
+    try {
+      const { adminSupabase } = await import('./adminServiceSupabase');
+      
+      if (adminSupabase) {
+        console.log('Using admin service to update user role...');
+        const result = await adminSupabase
+          .from('profiles')
+          .update({ 
+            role: 'creator', 
+            is_creator: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', app.user_id);
+        roleErr = result.error;
+      } else {
+        // Fallback to regular client
+        const result = await db
+          .from('profiles')
+          .update({ 
+            role: 'creator', 
+            is_creator: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', app.user_id);
+        roleErr = result.error;
+      }
+    } catch (updateError) {
+      console.error('Profile update failed:', updateError);
+      roleErr = updateError;
+    }
 
-    if (roleErr) throw roleErr;
+    if (roleErr) {
+      console.error('Failed to update user role:', roleErr);
+      throw roleErr;
+    } else {
+      console.log('User role updated to creator successfully');
+    }
+
+    // Create creator profile record
+    console.log('Creating creator profile...');
+    const creatorProfileData = {
+      id: app.user_id,
+      display_name: app.profiles?.full_name || 'Creator',
+      bio: null, // User will update themselves
+      website_url: app.portfolio_url, // Use portfolio_url from application
+      avatar_url: app.profiles?.avatar_url,
+      is_approved: true,
+      approved_at: new Date().toISOString(),
+      approved_by: adminId,
+      updated_at: new Date().toISOString()
+    };
+    
+    console.log('Creator profile data:', creatorProfileData);
+    
+    let creatorProfileErr;
+    try {
+      const { adminSupabase } = await import('./adminServiceSupabase');
+      
+      if (adminSupabase) {
+        console.log('Using admin service to create creator profile...');
+        const result = await adminSupabase
+          .from('creator_profiles')
+          .upsert(creatorProfileData, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          });
+        creatorProfileErr = result.error;
+      } else {
+        // Fallback to regular client
+        const result = await db
+          .from('creator_profiles')
+          .upsert(creatorProfileData, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          });
+        creatorProfileErr = result.error;
+      }
+    } catch (createError) {
+      console.error('Creator profile creation failed:', createError);
+      creatorProfileErr = createError;
+    }
+
+    if (creatorProfileErr) {
+      console.error('Failed to create creator profile:', creatorProfileErr);
+      throw creatorProfileErr;
+    } else {
+      console.log('Creator profile created successfully');
+    }
 
     return { success: true };
   } catch (error: any) {
@@ -75,7 +226,7 @@ export const rejectCreator = async (applicationId: string, notes: string) => {
   try {
     const { error } = await db
       .from('creator_applications')
-      .update({ status: 'rejected', admin_notes: notes, reviewed_at: new Date().toISOString() })
+      .update({ status: 'rejected', reviewer_notes: notes, reviewed_at: new Date().toISOString() })
       .eq('id', applicationId);
 
     if (error) throw error;
@@ -313,11 +464,9 @@ export const approveCreatorApplication = async (
   applicationId: string,
   notes: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await db.rpc('approve_creator', {
-    application_id: applicationId,
-    admin_notes: notes
-  });
-  return { success: !error, error: error?.message };
+  console.log('Using manual approval approach (RPC functions need database update)');
+  // Use manual approach directly until database RPC functions are updated
+  return await approveCreator(applicationId, notes);
 };
 
 // Reject creator application
@@ -325,11 +474,24 @@ export const rejectCreatorApplication = async (
   applicationId: string,
   notes: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await db.rpc('reject_creator', {
-    application_id: applicationId,
-    admin_notes: notes
-  });
-  return { success: !error, error: error?.message };
+  try {
+    // Get current admin user ID for RPC call
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error('Admin user not authenticated');
+    }
+    const adminId = user.id;
+
+    const { error } = await db.rpc('reject_creator', {
+      application_id: applicationId,
+      reviewer_notes: notes,
+      reviewed_at: new Date().toISOString(),
+      approved_by: adminId
+    });
+    return { success: !error, error: error?.message };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 };
 
 // Publish template

@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
-import { templatePrompts } from "./PhysicalProductTab";
 import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
@@ -141,8 +140,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   if (!template) return null;
 
   const isPhysical = type === "physical";
-  const promptKey = template.id;
-  const templatePrompt = templatePrompts[promptKey] || "";
+  const templatePrompt = template.generation_prompt || "";
 
   const buildBasePrompt = () => {
     const brandDNA = {

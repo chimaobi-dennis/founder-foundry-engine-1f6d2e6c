@@ -12,6 +12,7 @@ interface Props {
   onSelect: (t: Template) => void;
   brandName?: string;
   templateType?: "physical" | "digital";
+  loading?: boolean;
 }
 
 const getAspectRatio = (index: number) => {
@@ -34,41 +35,13 @@ function LoadingSkeleton() {
   );
 }
 
-export function TemplateGrid({ templates: fallbackTemplates, categories, onSelect, brandName, templateType }: Props) {
+export function TemplateGrid({ templates, categories, onSelect, brandName, templateType, loading: externalLoading = false }: Props) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-  const [dbTemplates, setDbTemplates] = useState<any[] | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  // Try fetching from Supabase
-  useEffect(() => {
-    if (!templateType) return;
-    setLoading(true);
-    getPublishedTemplates(templateType).then(({ data }) => {
-      if (data && data.length > 0) {
-        setDbTemplates(data);
-      }
-      setLoading(false);
-    });
-  }, [templateType]);
-
-  // Merge: prefer DB templates, fall back to hardcoded
-  const templates: (Template & { cover_image_url?: string })[] =
-    dbTemplates && dbTemplates.length > 0
-      ? dbTemplates.map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          color: t.preview_background || "#1A2A3A",
-          aspect: "square" as const,
-          uses: String(t.uses_count || 0),
-          creator: t.creator_profiles?.display_name || "ProStudio Team",
-          category: t.category || "Uncategorized",
-          cover_image_url: t.cover_image_url,
-        }))
-      : fallbackTemplates;
-
+  // Use passed-in templates directly
   const filtered = templates.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = category === "All" || t.category === category;
@@ -126,7 +99,7 @@ export function TemplateGrid({ templates: fallbackTemplates, categories, onSelec
       </div>
 
       {/* Masonry grid */}
-      {loading ? (
+      {externalLoading ? (
         <LoadingSkeleton />
       ) : (
         <div

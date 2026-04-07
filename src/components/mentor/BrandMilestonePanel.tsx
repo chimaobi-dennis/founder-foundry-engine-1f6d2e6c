@@ -2,6 +2,7 @@ import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X } fro
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useBrand } from "@/contexts/BrandContext";
 import { MentorBrand, Milestone, MilestoneCategory, categoryColors } from "./types";
 import {
   DropdownMenu,
@@ -53,12 +54,20 @@ export function BrandMilestonePanel({
   onDeleteMilestone,
   onEditMilestoneCategory,
 }: BrandMilestonePanelProps) {
+  const { brands: realBrands } = useBrand();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editingCategory, setEditingCategory] = useState<MilestoneCategory | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to get brand color from real brands
+  const getBrandColor = (brandId: string) => {
+    const realBrand = realBrands.find(b => b.id === brandId);
+    return realBrand?.primary_color || '#666';
+  };
 
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -95,7 +104,10 @@ export function BrandMilestonePanel({
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="w-full h-11 rounded-lg border border-border bg-card px-3 flex items-center gap-2.5 hover:border-card-border-hover transition-colors"
           >
-            <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", activeBrand.colorClass)} />
+            <div 
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+              style={{ backgroundColor: getBrandColor(activeBrand.id) }}
+            />
             <div className="flex-1 text-left min-w-0">
               <p className="text-[13px] font-ui font-medium text-foreground truncate">{activeBrand.name}</p>
               <p className="text-[10px] font-ui text-muted-foreground">Started {activeBrand.startedDate}</p>
@@ -113,7 +125,10 @@ export function BrandMilestonePanel({
                     brand.id === activeBrand.id && "bg-muted/30"
                   )}
                 >
-                  <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", brand.colorClass)} />
+                  <div 
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: getBrandColor(brand.id) }}
+                  />
                   <div className="min-w-0">
                     <p className={cn("text-[13px] font-ui truncate", brand.id === activeBrand.id ? "text-primary font-medium" : "text-foreground")}>{brand.name}</p>
                     <p className="text-[10px] font-ui text-muted-foreground">Started {brand.startedDate}</p>

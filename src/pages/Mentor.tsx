@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Menu, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useBrand } from "@/contexts/BrandContext";
 import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
@@ -76,8 +77,18 @@ const Mentor = () => {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
 
-  const [brands, setBrands] = useState<MentorBrand[]>(allBrands);
-  const [activeBrandId, setActiveBrandId] = useState("nordform");
+  // Use BrandContext for real brand data
+  const { brands: realBrands, activeBrand, switchBrand, createNewBrand, isLoading } = useBrand();
+  
+  // Convert real brands to MentorBrand format for compatibility
+  const brands: MentorBrand[] = realBrands.map(brand => ({
+    id: brand.id,
+    name: brand.name,
+    colorClass: '', // Will be handled by inline styles
+    startedDate: new Date(brand.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }));
+
+  const activeBrandId = activeBrand?.id || "";
 
   const [brandDataMap, setBrandDataMap] = useState<Record<string, BrandData>>({
     nordform: roastData,
@@ -119,39 +130,37 @@ const Mentor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activeBrandData = brandDataMap[activeBrandId];
-  const activeBrand = brands.find(b => b.id === activeBrandId) || brands[0];
+  const activeBrandData = brandDataMap[activeBrandId] || { brand: activeBrand, milestones: [], messages: [], savePrompts: [], milestoneMarkers: [] };
+  const currentActiveBrand = brands.find(b => b.id === activeBrandId) || activeBrand || brands[0];
   const activeEmptyMode = emptyBrands[activeBrandId] || null;
   const isTyping = typingBrands.has(activeBrandId);
 
   const [scrollToMilestoneId, setScrollToMilestoneId] = useState<string | null>(null);
   const [highlightDNAField, setHighlightDNAField] = useState<string | null>(null);
 
-  const handleSelectBrand = (brand: MentorBrand) => {
-    setActiveBrandId(brand.id);
+  const handleSelectBrand = async (brand: MentorBrand) => {
+    await switchBrand(brand.id);
   };
 
-  const handleAddBrand = () => {
-    brandCounter++;
-    const newId = `new-${brandCounter}`;
-    const newBrand: MentorBrand = {
-      id: newId,
-      name: "Untitled Brand",
-      colorClass: "bg-muted-foreground",
-      startedDate: "Mar 2026",
-    };
-    const newData: BrandData = {
-      brand: newBrand,
-      milestones: [],
-      messages: [],
-      savePrompts: [],
-      milestoneMarkers: [],
-      dnaFields: emptyDNAFields.map(f => ({ ...f })),
-    };
-    setBrands(prev => [...prev, newBrand]);
-    setBrandDataMap(prev => ({ ...prev, [newId]: newData }));
-    setActiveBrandId(newId);
-    setEmptyBrands(prev => ({ ...prev, [newId]: "new" }));
+  const handleAddBrand = async () => {
+    const newBrand = await createNewBrand('Untitled Brand');
+    if (newBrand) {
+      // Initialize brand data for the new brand
+      const newData: BrandData = {
+        brand: {
+          id: newBrand.id,
+          name: newBrand.name,
+          colorClass: '',
+          startedDate: new Date(newBrand.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        },
+        milestones: [],
+        messages: [],
+        savePrompts: [],
+        milestoneMarkers: [],
+      };
+      setBrandDataMap(prev => ({ ...prev, [newBrand.id]: newData }));
+      setEmptyBrands(prev => ({ ...prev, [newBrand.id]: "idea" }));
+    }
   };
 
   const getDNAContext = useCallback(() => {

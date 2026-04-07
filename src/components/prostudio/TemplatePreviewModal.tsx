@@ -95,7 +95,12 @@ export function TemplatePreviewModal({ template, open, onClose, onUseTemplate, b
 
   if (!open || !template) return null;
 
-  const desc = templateDescriptions[template.id] || fallbackDesc;
+  // Use template description from database, fallback to hardcoded for backward compatibility
+  const desc = template.description ? {
+    about: template.description,
+    bestFor: template.best_for || [], // Use best_for field from database if available
+    creatorNote: 'This template has been carefully crafted and tested for professional results.'
+  } : (templateDescriptions[template.id] || fallbackDesc);
   const platforms = ['Instagram', 'Facebook', 'General'];
 
   const handleUse = () => {

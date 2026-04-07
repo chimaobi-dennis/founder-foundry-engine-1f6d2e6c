@@ -1,5 +1,7 @@
+import { Template } from "./types";
+
 interface Props {
-  template: { id: string; name: string };
+  template: Template;
   brandName: string;
 }
 
@@ -84,9 +86,12 @@ const fallback = previews['minimal-white'];
 export function TemplateCardPreview({ template, brandName }: Props) {
   const s = previews[template.id] || fallback;
   const initials = brandName ? brandName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'NF';
+  
+  // Use template color from database, fallback to hardcoded preview
+  const backgroundColor = template.color || s.background;
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: s.background }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: backgroundColor }}>
       {s.overlay !== 'none' && <div style={{ position: 'absolute', inset: 0, background: s.overlay }} />}
       {s.showFrame && <div style={{ position: 'absolute', inset: '12px', border: '0.5px solid rgba(150,140,130,0.25)', borderRadius: '2px', pointerEvents: 'none' as const }} />}
 

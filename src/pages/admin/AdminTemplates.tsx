@@ -7,8 +7,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Textarea } from "@/components/ui/textarea";
 import { Image, Check, Loader2 } from "lucide-react";
 import { getAllTemplates, getTemplateDetail } from "@/services/adminService";
-import { getAllTemplatesAdmin } from "@/services/adminServiceSupabase";
+import { getAllTemplatesAdmin, getTemplateDetailAdmin, updateTemplateAdmin } from "@/services/adminServiceSupabase";
 import { updateTemplate } from "@/services/templateService";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 const STATUS_TABS = ["all", "pending_review", "published", "draft", "unpublished"];
@@ -59,11 +60,23 @@ export default function AdminTemplates() {
   useEffect(() => { fetchTemplates(); }, [statusFilter, typeFilter]);
 
   const openReview = async (id: string) => {
-    const { data } = await getTemplateDetail(id);
-    if (data) {
-      setDetail(data);
-      setNotes("");
-      setDrawerOpen(true);
+    try {
+      // Try admin service first (bypasses RLS)
+      const { data } = await getTemplateDetailAdmin(id);
+      if (data) {
+        setDetail(data);
+        setNotes("");
+        setDrawerOpen(true);
+      }
+    } catch (error) {
+      console.warn('Admin service not available for template detail, falling back to regular service:', error);
+      // Fallback to regular service (limited by RLS)
+      const { data } = await getTemplateDetail(id);
+      if (data) {
+        setDetail(data);
+        setNotes("");
+        setDrawerOpen(true);
+      }
     }
   };
 
@@ -72,10 +85,48 @@ export default function AdminTemplates() {
     if (action === "request_changes" && !notes.trim()) return;
     setActioning(true);
     const newStatus = action === "publish" ? "published" : action === "unpublish" ? "unpublished" : "draft";
-    const res = await updateTemplate(detail.id, { status: newStatus });
+    
+    // Get admin user info for signature
+    let adminId = "unknown";
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      adminId = user?.id || "unknown";
+    } catch (error) {
+      console.warn('Could not get admin user ID:', error);
+    }
+    
+    const adminSignature = {
+      admin_id: adminId,
+      notes: notes.trim(),
+      action: action,
+      timestamp: new Date().toISOString()
+    };
+    
+    let res;
+    try {
+      // Try admin service first (bypasses RLS)
+      res = await updateTemplateAdmin(detail.id, { 
+        status: newStatus,
+        admin_notes: notes.trim(),
+        admin_signature: adminSignature,
+        reviewed_at: new Date().toISOString()
+      });
+    } catch (error) {
+      console.warn('Admin service not available for template update, falling back to regular service:', error);
+      // Fallback to regular service (limited by RLS)
+      res = await updateTemplate(detail.id, { 
+        status: newStatus,
+        admin_notes: notes.trim(),
+        admin_signature: adminSignature,
+        reviewed_at: new Date().toISOString()
+      });
+    }
+    
     setActioning(false);
     if (res.success) {
-      toast({ title: action === "publish" ? "Template published" : action === "unpublish" ? "Template unpublished" : "Changes requested" });
+      const actionText = action === "publish" ? "Template published" : 
+                        action === "unpublish" ? "Template unpublished" : "Changes requested";
+      toast({ title: actionText, description: "Admin notes and signature saved" });
       setDrawerOpen(false);
       fetchTemplates();
     } else {
@@ -161,7 +212,9 @@ export default function AdminTemplates() {
                         <p className="text-[11px] font-ui" style={{ color: "#8A96A3" }}>{t.category}</p>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>{t.profiles?.full_name ?? "Unknown"}</span>
+                        <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>
+                          {(t.creator_profiles?.display_name || t.profiles?.full_name) ?? "Unknown"}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-[11px] font-ui px-2 py-0.5 rounded-full capitalize" style={{ background: "#1A2A3A", color: "#8A96A3" }}>
@@ -210,68 +263,216 @@ export default function AdminTemplates() {
             <SheetTitle className="font-display" style={{ color: "#F5F0E8" }}>Review Template</SheetTitle>
           </SheetHeader>
           {detail && (
-            <div className="space-y-4 mt-4">
+            <div className="space-y-6 mt-4">
+              {/* Template Header */}
               <div>
-                <p className="text-sm font-ui font-medium" style={{ color: "#F5F0E8" }}>{detail.name}</p>
-                <p className="text-xs font-ui" style={{ color: "#8A96A3" }}>{detail.category} · {detail.template_type}</p>
+                <p className="text-lg font-ui font-medium" style={{ color: "#F5F0E8" }}>{detail.name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs font-ui px-2 py-0.5 rounded-full capitalize" style={{ background: "#1A2A3A", color: "#8A96A3" }}>
+                    {detail.category}
+                  </span>
+                  <span className="text-xs font-ui px-2 py-0.5 rounded-full capitalize" style={{ background: "#1A2A3A", color: "#8A96A3" }}>
+                    {detail.template_type}
+                  </span>
+                  <span
+                    className="text-[11px] font-ui px-2 py-0.5 rounded-full capitalize"
+                    style={statusPillStyle[detail.status] || statusPillStyle.draft}
+                  >
+                    {statusLabel(detail.status)}
+                  </span>
+                </div>
               </div>
-              {detail.description && <p className="text-sm font-ui" style={{ color: "#8A96A3" }}>{detail.description}</p>}
-              
+
+              {/* Template Description */}
+              {detail.description && (
+                <div>
+                  <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Description</p>
+                  <p className="text-sm font-ui" style={{ color: "#F5F0E8" }}>{detail.description}</p>
+                </div>
+              )}
+
+              {/* Creator Information */}
+              <div>
+                <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Creator Information</p>
+                <div className="rounded-lg p-3" style={{ background: "#080F18", border: "0.5px solid #1A2A3A" }}>
+                  <div className="flex items-center gap-3">
+                    {detail.creator_profiles?.avatar_url || detail.profiles?.avatar_url ? (
+                      <img 
+                        src={detail.creator_profiles?.avatar_url || detail.profiles?.avatar_url} 
+                        alt="" 
+                        className="w-10 h-10 rounded-full object-cover" 
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "#1A2A3A" }}>
+                        <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>
+                          {((detail.creator_profiles?.display_name || detail.profiles?.full_name) || "Creator")?.[0]?.toUpperCase() || "C"}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-ui" style={{ color: "#F5F0E8" }}>
+                        {(detail.creator_profiles?.display_name || detail.profiles?.full_name) || "Unknown Creator"}
+                      </p>
+                      <p className="text-xs font-ui" style={{ color: "#8A96A3" }}>
+                        Creator ID: {detail.creator_id}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview Images */}
               {detail.template_preview_images?.length > 0 && (
                 <div>
-                  <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Preview Images</p>
+                  <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Preview Images ({detail.template_preview_images.length})</p>
                   <div className="grid grid-cols-2 gap-2">
                     {detail.template_preview_images
                       .sort((a: any, b: any) => a.sort_order - b.sort_order)
                       .map((img: any) => (
-                        <img key={img.id} src={img.image_url} alt="" className="rounded-lg object-cover aspect-square w-full" />
+                        <div key={img.id} className="relative group">
+                          <img src={img.image_url} alt="" className="rounded-lg object-cover aspect-square w-full" />
+                          {img.is_cover && (
+                            <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-ui" style={{ background: "#D4A017", color: "#0D1B2A" }}>
+                              Cover
+                            </div>
+                          )}
+                        </div>
                       ))}
                   </div>
                 </div>
               )}
 
+              {/* Generation Prompt */}
               {detail.generation_prompt && (
                 <div>
-                  <p className="text-xs font-ui mb-1" style={{ color: "#8A96A3" }}>Generation Prompt</p>
+                  <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Generation Prompt</p>
                   <pre className="rounded-lg p-3 text-xs font-mono whitespace-pre-wrap" style={{ background: "#080F18", color: "#F5F0E8", border: "0.5px solid #1A2A3A" }}>
                     {detail.generation_prompt}
                   </pre>
                 </div>
               )}
 
+              {/* Template Metadata */}
               <div>
-                <p className="text-xs font-ui mb-1" style={{ color: "#8A96A3" }}>Creator: {detail.profiles?.full_name ?? "Unknown"}</p>
+                <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Template Details</p>
+                <div className="rounded-lg p-3 space-y-2" style={{ background: "#080F18", border: "0.5px solid #1A2A3A" }}>
+                  <div className="flex justify-between">
+                    <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>Created:</span>
+                    <span className="text-xs font-ui" style={{ color: "#F5F0E8" }}>
+                      {new Date(detail.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>Last Updated:</span>
+                    <span className="text-xs font-ui" style={{ color: "#F5F0E8" }}>
+                      {new Date(detail.updated_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {detail.reviewed_at && (
+                    <div className="flex justify-between">
+                      <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>Last Reviewed:</span>
+                      <span className="text-xs font-ui" style={{ color: "#F5F0E8" }}>
+                        {new Date(detail.reviewed_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  {detail.best_for && (
+                    <div>
+                      <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>Best For:</span>
+                      <p className="text-xs font-ui mt-1" style={{ color: "#F5F0E8" }}>{detail.best_for}</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <p className="text-xs font-ui mb-1" style={{ color: "#8A96A3" }}>Feedback (required for changes)</p>
-                <Textarea
-                  placeholder="Notes for the creator..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="text-sm"
-                  style={{ background: "#080F18", border: "0.5px solid #1A2A3A", color: "#F5F0E8" }}
-                />
-              </div>
+              {/* Previous Admin Review */}
+              {detail.admin_notes && (
+                <div>
+                  <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Previous Admin Review</p>
+                  <div className="rounded-lg p-3 space-y-2" style={{ background: "#080F18", border: "0.5px solid #1A2A3A" }}>
+                    <p className="text-sm font-ui" style={{ color: "#F5F0E8" }}>{detail.admin_notes}</p>
+                    {detail.admin_signature && (
+                      <div className="text-xs font-mono" style={{ color: "#D4A017" }}>
+                        Admin ID: {detail.admin_signature.admin_id} • 
+                        Action: {detail.admin_signature.action} • 
+                        {new Date(detail.admin_signature.timestamp).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => handleAction("publish")}
-                  disabled={actioning}
-                  className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  style={{ background: "#16A34A", color: "#fff" }}
-                >
-                  {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check size={16} />}
-                  Publish template
-                </button>
-                <button
-                  onClick={() => handleAction("request_changes")}
-                  disabled={actioning || !notes.trim()}
-                  className="flex-1 h-10 rounded-lg text-sm font-ui font-medium disabled:opacity-50"
-                  style={{ border: "0.5px solid #D4A017", color: "#D4A017", background: "transparent" }}
-                >
-                  Request changes
-                </button>
+              {/* Admin Review Section */}
+              <div>
+                <p className="text-xs font-ui mb-2" style={{ color: "#8A96A3" }}>Admin Review</p>
+                
+                {/* Approval Notes */}
+                <div className="mb-4">
+                  <Textarea
+                    placeholder="Enter approval notes or feedback for the creator..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="text-sm min-h-[80px]"
+                    style={{ background: "#080F18", border: "0.5px solid #1A2A3A", color: "#F5F0E8" }}
+                  />
+                </div>
+
+                {/* Admin Signature */}
+                <div className="mb-4">
+                  <p className="text-xs font-ui mb-1" style={{ color: "#8A96A3" }}>Admin Signature (ID)</p>
+                  <div className="rounded-lg p-2 text-xs font-mono" style={{ background: "#080F18", border: "0.5px solid #1A2A3A", color: "#D4A017" }}>
+                    Admin Review • {new Date().toISOString()}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  {detail.status === "pending_review" && (
+                    <>
+                      <button
+                        onClick={() => handleAction("publish")}
+                        disabled={actioning}
+                        className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        style={{ background: "#16A34A", color: "#fff" }}
+                      >
+                        {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check size={16} />}
+                        Approve & Publish
+                      </button>
+                      <button
+                        onClick={() => handleAction("request_changes")}
+                        disabled={actioning || !notes.trim()}
+                        className="flex-1 h-10 rounded-lg text-sm font-ui font-medium disabled:opacity-50"
+                        style={{ border: "0.5px solid #D4A017", color: "#D4A017", background: "transparent" }}
+                      >
+                        Request Changes
+                      </button>
+                    </>
+                  )}
+                  
+                  {detail.status === "published" && (
+                    <button
+                      onClick={() => handleAction("unpublish")}
+                      disabled={actioning}
+                      className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      style={{ border: "0.5px solid #F87171", color: "#F87171", background: "transparent" }}
+                    >
+                      {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Unpublish Template
+                    </button>
+                  )}
+                  
+                  {detail.status === "unpublished" && (
+                    <button
+                      onClick={() => handleAction("publish")}
+                      disabled={actioning}
+                      className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      style={{ background: "#16A34A", color: "#fff" }}
+                    >
+                      {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check size={16} />}
+                      Republish Template
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}

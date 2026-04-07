@@ -74,26 +74,39 @@ export const getUserRole = async (
 
   return data?.role ?? 'founder';
 };
-export const approveCreatorApplication = async (
+
+export const approveCreator = async (
   applicationId: string,
   notes: string
 ) => {
-  const { error } = await db.rpc('approve_creator', {
-    application_id: applicationId,
-    admin_notes: notes
-  });
-  return { success: !error, error: error?.message };
+  console.log('Using manual approval approach (RPC functions need database update)');
+  // Use manual approach directly until database RPC functions are updated
+  const { approveCreator: manualApprove } = await import('./adminService');
+  return await manualApprove(applicationId, notes);
 };
 
 export const rejectCreatorApplication = async (
   applicationId: string,
   notes: string
 ) => {
-  const { error } = await db.rpc('reject_creator', {
-    application_id: applicationId,
-    admin_notes: notes
-  });
-  return { success: !error, error: error?.message };
+  try {
+    // Get current admin user ID for RPC call
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      throw new Error('Admin user not authenticated');
+    }
+    const adminId = user.id;
+
+    const { error } = await db.rpc('reject_creator', {
+      application_id: applicationId,
+      reviewer_notes: notes,
+      reviewed_at: new Date().toISOString(),
+      approved_by: adminId
+    });
+    return { success: !error, error: error?.message };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 };
 
 export const getPendingApplications = async () => {

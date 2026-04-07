@@ -171,22 +171,64 @@ export const uploadTemplatePreviewImage = async (
 export const getPublishedTemplates = async (
   templateType: 'physical' | 'digital'
 ) => {
-  const { data, error } = await db
+  // Fetch templates without the problematic join
+  const { data: templatesData, error: templatesError } = await db
     .from('prostudio_templates')
     .select(`
       *,
       template_preview_images (
         id, image_url, is_cover, sort_order
-      ),
-      creator_profiles (
-        display_name, avatar_url
       )
     `)
     .eq('status', 'published')
     .eq('template_type', templateType)
-    .order('sort_order');
+    .order('sort_order')
+    .order('created_at', { ascending: false });
 
-  return { data, error };
+  if (templatesError) {
+    return { data: null, error: templatesError };
+  }
+
+  // Fetch creator profiles separately for each template
+  const templatesWithCreators = await Promise.all(
+    (templatesData || []).map(async (template: any) => {
+      let creatorProfile = null;
+      
+      if (template.creator_id) {
+        // Try to get from creator_profiles first
+        const { data: creatorData } = await db
+          .from('creator_profiles')
+          .select('display_name, avatar_url')
+          .eq('id', template.creator_id)
+          .single();
+        
+        if (creatorData) {
+          creatorProfile = creatorData;
+        } else {
+          // Fallback to profiles table
+          const { data: profileData } = await db
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', template.creator_id)
+            .single();
+          
+          if (profileData) {
+            creatorProfile = {
+              display_name: profileData.full_name,
+              avatar_url: profileData.avatar_url
+            };
+          }
+        }
+      }
+
+      return {
+        ...template,
+        creator_profiles: creatorProfile
+      };
+    })
+  );
+
+  return { data: templatesWithCreators, error: null };
 };
 
 export const getCreatorTemplates = async (creatorId: string) => {
@@ -202,4 +244,85 @@ export const getCreatorTemplates = async (creatorId: string) => {
     .order('created_at', { ascending: false });
 
   return { data, error };
+};
+
+// Get template by ID with full details
+export const getTemplateById = async (templateId: string) => {
+  // Fetch template without the problematic join
+  const { data: templateData, error: templateError } = await db
+    .from('prostudio_templates')
+    .select(`
+      *,
+      template_preview_images (
+        id, image_url, is_cover, sort_order, caption
+      )
+    `)
+    .eq('id', templateId)
+    .single();
+
+  if (templateError) {
+    return { data: null, error: templateError };
+  }
+
+  // Fetch creator profile separately
+  let creatorProfile = null;
+  if (templateData.creator_id) {
+    // Try to get from creator_profiles first
+    const { data: creatorData } = await db
+      .from('creator_profiles')
+      .select('display_name, avatar_url')
+      .eq('id', templateData.creator_id)
+      .single();
+    
+    if (creatorData) {
+      creatorProfile = creatorData;
+    } else {
+      // Fallback to profiles table
+      const { data: profileData } = await db
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', templateData.creator_id)
+        .single();
+      
+      if (profileData) {
+        creatorProfile = {
+          display_name: profileData.full_name,
+          avatar_url: profileData.avatar_url
+        };
+      }
+    }
+  }
+
+  const templateWithCreator = {
+    ...templateData,
+    creator_profiles: creatorProfile
+  };
+
+  return { data: templateWithCreator, error: null };
+};
+
+// Get all unique categories for a template type
+export const getTemplateCategories = async (templateType: 'physical' | 'digital' = 'physical'): Promise<string[]> => {
+  const { data, error } = await db
+    .from('prostudio_templates')
+    .select('category')
+    .eq('template_type', templateType)
+    .eq('status', 'published');
+
+  if (error) return ['All'];
+  
+  // Type the data structure properly
+  const templateData = data as Array<{ category: string }> | null;
+  const categories = [...new Set((templateData || []).map((item) => item.category))];
+  return ['All', ...categories.sort()];
+};
+
+// Increment template usage count
+export const incrementTemplateUsage = async (templateId: string) => {
+  const { error } = await db
+    .from('prostudio_templates')
+    .update({ uses_count: db.raw('uses_count + 1') })
+    .eq('id', templateId);
+
+  return { error };
 };
