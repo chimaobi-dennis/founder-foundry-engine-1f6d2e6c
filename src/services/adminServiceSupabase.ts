@@ -37,6 +37,8 @@ export const getAllApplicationsAdmin = async (statusFilter?: string) => {
     throw new Error('Service role key not configured. Please add VITE_SUPABASE_SERVICE_ROLE_KEY to your environment variables.');
   }
   
+  console.log('Fetching all creator applications with admin service...');
+  
   let query = adminSupabase
     .from('creator_applications')
     .select(`
@@ -48,11 +50,20 @@ export const getAllApplicationsAdmin = async (statusFilter?: string) => {
   if (statusFilter) query = query.eq('status', statusFilter);
   
   const { data, error } = await query;
+  
+  console.log('Creator applications result:', { data: data?.length, error });
+  
   return { data, error };
 };
 
 // All templates for admin - bypasses RLS
 export const getAllTemplatesAdmin = async (statusFilter?: string, typeFilter?: string) => {
+  if (!adminSupabase) {
+    throw new Error('Service role key not configured. Please add VITE_SUPABASE_SERVICE_ROLE_KEY to your environment variables.');
+  }
+  
+  console.log('Fetching all templates with admin service...');
+  
   let query = adminSupabase
     .from('prostudio_templates')
     .select(`
@@ -66,6 +77,9 @@ export const getAllTemplatesAdmin = async (statusFilter?: string, typeFilter?: s
   if (typeFilter) query = query.eq('template_type', typeFilter);
   
   const { data, error } = await query;
+  
+  console.log('Templates result:', { data: data?.length, error });
+  
   return { data, error };
 };
 
@@ -93,12 +107,14 @@ export const getDashboardStatsAdmin = async () => {
     throw new Error('Service role key not configured. Please add VITE_SUPABASE_SERVICE_ROLE_KEY to your environment variables.');
   }
   
+  console.log('Fetching dashboard stats with admin service...');
+  
   const [
-    { count: totalUsers },
-    { count: totalBrands },
-    { count: totalTemplates },
-    { count: pendingApplications },
-    { count: pendingTemplates }
+    { count: totalUsers, error: usersError },
+    { count: totalBrands, error: brandsError },
+    { count: totalTemplates, error: templatesError },
+    { count: pendingApplications, error: appsError },
+    { count: pendingTemplates, error: pendingTemplatesError }
   ] = await Promise.all([
     adminSupabase.from('profiles').select('*', { count: 'exact', head: true }),
     adminSupabase.from('brands').select('*', { count: 'exact', head: true }),
@@ -113,10 +129,35 @@ export const getDashboardStatsAdmin = async () => {
       .eq('status', 'pending_review')
   ]);
 
-  return {
+  const stats = {
     totalUsers: totalUsers ?? 0,
     totalBrands: totalBrands ?? 0,
     totalTemplates: totalTemplates ?? 0,
     pendingActions: (pendingApplications ?? 0) + (pendingTemplates ?? 0)
   };
+
+  console.log('Dashboard stats result:', stats, { 
+    errors: { usersError, brandsError, templatesError, appsError, pendingTemplatesError },
+    rawCounts: { totalUsers, totalBrands, totalTemplates, pendingApplications, pendingTemplates }
+  });
+
+  return stats;
+};
+
+// Test function to verify admin service is working
+export const testAdminService = async () => {
+  if (!adminSupabase) {
+    throw new Error('Service role key not configured');
+  }
+  
+  console.log('Testing admin service connection...');
+  
+  // Simple test - try to count profiles
+  const { count, error } = await adminSupabase
+    .from('profiles')
+    .select('*', { count: 'exact', head: true });
+  
+  console.log('Admin service test result:', { count, error });
+  
+  return { count, error };
 };
