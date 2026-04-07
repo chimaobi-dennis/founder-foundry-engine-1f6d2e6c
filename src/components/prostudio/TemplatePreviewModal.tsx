@@ -188,7 +188,7 @@ export function TemplatePreviewModal({ template, open, onClose, onUseTemplate, b
                   >
                     <div className="w-full h-full relative" style={{ transform: 'scale(1)', transformOrigin: 'top left' }}>
                       <TemplateCardPreview
-                        template={{ id: template.id, name: template.name }}
+                        template={{ id: template.id, name: template.name, color: '', aspect: 'square', uses: '0', creator: '', category: template.category || '' } as Template}
                         brandName={brandName}
                       />
                       {/* Variation overlay for visual diversity */}
