@@ -226,11 +226,13 @@ export const getRecentActivity = async (limit: number = 20) => {
 };
 
 // All users for Users section
-export const getAllUsers = async () => {
-  const { data, error } = await db
+export const getAllUsers = async (roleFilter?: string) => {
+  let query = db
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false });
+  if (roleFilter) query = query.eq('role', roleFilter);
+  const { data, error } = await query;
   return { data, error };
 };
 
