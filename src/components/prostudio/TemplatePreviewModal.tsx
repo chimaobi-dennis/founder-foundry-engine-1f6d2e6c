@@ -299,7 +299,7 @@ export function TemplatePreviewModal({ template, open, onClose, onUseTemplate, b
             onClick={(e) => e.stopPropagation()}
           >
             <TemplateCardPreview
-              template={{ id: template.id, name: template.name }}
+              template={{ id: template.id, name: template.name, color: '', aspect: 'square', uses: '0', creator: '', category: template.category || '' } as Template}
               brandName={brandName}
             />
             <style>{`

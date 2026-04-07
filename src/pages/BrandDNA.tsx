@@ -235,7 +235,7 @@ const BrandDNA = () => {
   const handleSwitchBrand = (id: string) => {
     setActiveProfileId(id);
     const brand = brands.find((b) => b.id === id);
-    if (brand) setActiveBrand(brand);
+    if (brand) switchBrand(brand.id);
   };
 
   return (
