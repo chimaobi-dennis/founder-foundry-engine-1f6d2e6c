@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Textarea } from "@/components/ui/textarea";
 import { Check, X, Loader2 } from "lucide-react";
 import { getAllApplications, approveCreator, rejectCreator } from "@/services/adminService";
+import { getAllApplicationsAdmin } from "@/services/adminServiceSupabase";
 import { toast } from "@/hooks/use-toast";
 
 const STATUS_TABS = ["pending", "approved", "rejected", "all"];
@@ -29,8 +30,16 @@ export default function AdminApplications() {
 
   const fetchApps = async () => {
     setLoading(true);
-    const { data } = await getAllApplications(filter === "all" ? undefined : filter);
-    setApps(data ?? []);
+    try {
+      // Try admin service first (bypasses RLS)
+      const { data } = await getAllApplicationsAdmin(filter === "all" ? undefined : filter);
+      setApps(data ?? []);
+    } catch (error) {
+      console.warn('Admin service not available, falling back to regular service:', error);
+      // Fallback to regular service (limited by RLS)
+      const { data } = await getAllApplications(filter === "all" ? undefined : filter);
+      setApps(data ?? []);
+    }
     setLoading(false);
   };
 

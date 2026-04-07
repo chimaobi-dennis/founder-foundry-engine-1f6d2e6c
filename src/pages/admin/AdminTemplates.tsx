@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Textarea } from "@/components/ui/textarea";
 import { Image, Check, Loader2 } from "lucide-react";
 import { getAllTemplates, getTemplateDetail } from "@/services/adminService";
+import { getAllTemplatesAdmin } from "@/services/adminServiceSupabase";
 import { updateTemplate } from "@/services/templateService";
 import { toast } from "@/hooks/use-toast";
 
@@ -36,11 +37,22 @@ export default function AdminTemplates() {
 
   const fetchTemplates = async () => {
     setLoading(true);
-    const { data } = await getAllTemplates(
-      statusFilter === "all" ? undefined : statusFilter,
-      typeFilter === "all" ? undefined : typeFilter,
-    );
-    setTemplates(data ?? []);
+    try {
+      // Try admin service first (bypasses RLS)
+      const { data } = await getAllTemplatesAdmin(
+        statusFilter === "all" ? undefined : statusFilter,
+        typeFilter === "all" ? undefined : typeFilter,
+      );
+      setTemplates(data ?? []);
+    } catch (error) {
+      console.warn('Admin service not available, falling back to regular service:', error);
+      // Fallback to regular service (limited by RLS)
+      const { data } = await getAllTemplates(
+        statusFilter === "all" ? undefined : statusFilter,
+        typeFilter === "all" ? undefined : typeFilter,
+      );
+      setTemplates(data ?? []);
+    }
     setLoading(false);
   };
 

@@ -10,6 +10,7 @@ import {
   getUserRoleBreakdown,
   getRecentActivity,
 } from "@/services/adminService";
+import { getDashboardStatsAdmin } from "@/services/adminServiceSupabase";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Area, AreaChart,
   BarChart, Bar, PieChart, Pie, Cell, Legend,
@@ -41,18 +42,36 @@ export default function AdminDashboard() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [s, su, tu, rb, act] = await Promise.all([
-      getDashboardStats(),
-      getUserSignupsByDay(signupDays),
-      getTemplateUsageByCategory(),
-      getUserRoleBreakdown(),
-      getRecentActivity(20),
-    ]);
-    setStats(s);
-    setSignups(su);
-    setTemplateUsage(tu);
-    setRoles(rb);
-    setActivity(act);
+    try {
+      // Try admin service first for dashboard stats (bypasses RLS)
+      const s = await getDashboardStatsAdmin();
+      const [su, tu, rb, act] = await Promise.all([
+        getUserSignupsByDay(signupDays),
+        getTemplateUsageByCategory(),
+        getUserRoleBreakdown(),
+        getRecentActivity(20),
+      ]);
+      setStats(s);
+      setSignups(su);
+      setTemplateUsage(tu);
+      setRoles(rb);
+      setActivity(act);
+    } catch (error) {
+      console.warn('Admin service not available, falling back to regular service:', error);
+      // Fallback to regular service (limited by RLS)
+      const [s, su, tu, rb, act] = await Promise.all([
+        getDashboardStats(),
+        getUserSignupsByDay(signupDays),
+        getTemplateUsageByCategory(),
+        getUserRoleBreakdown(),
+        getRecentActivity(20),
+      ]);
+      setStats(s);
+      setSignups(su);
+      setTemplateUsage(tu);
+      setRoles(rb);
+      setActivity(act);
+    }
     setLoading(false);
   };
 
