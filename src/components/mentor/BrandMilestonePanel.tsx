@@ -58,9 +58,8 @@ export function BrandMilestonePanel({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
-  const [editingCategory, setEditingCategory] = useState<MilestoneCategory | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // Helper to get brand color from real brands

@@ -3,19 +3,40 @@ import { Menu, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBrand } from "@/contexts/BrandContext";
+import { getBrandDNA, updateBrandDNAField, BrandDNA } from "@/services/brandService";
+import {
+  getOrCreateConversation,
+  getMessages,
+  saveMessage,
+  getMilestones,
+  createMilestone,
+  deleteMilestone,
+  updateMilestoneName,
+  updateMilestoneCategoryDB,
+  MentorConversation,
+} from "@/services/mentorService";
 import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
 import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptyState";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { brands as allBrands, roastData, lagosData } from "@/components/mentor/data";
-import { MentorBrand, BrandData, BrandDNAField, Message, InlineSavePrompt, Milestone, MilestoneMarker } from "@/components/mentor/types";
+import {
+  MentorBrand,
+  BrandData,
+  BrandDNAField,
+  Message,
+  InlineSavePrompt,
+  Milestone,
+  MilestoneMarker,
+  MilestoneCategory,
+} from "@/components/mentor/types";
 import { callAI } from "@/lib/ai";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const TABLET_MAX = 1024;
-
 let milestoneCounter = 100;
+let msgCounter = 100;
 
 function useIsTablet() {
   const [isTablet, setIsTablet] = useState(
@@ -32,18 +53,81 @@ const emptyDNAFields: BrandDNAField[] = [
   "Brand references", "Core promise", "Campaign strategy", "Customer insight", "Product positioning",
 ].map(key => ({ key, label: key, value: null }));
 
-const aiResponses: Record<string, string> = {
-  idea: "Interesting. Most people describe a solution — you are describing a feeling. That is actually the better starting point. Who specifically feels this problem most acutely? Not a demographic — a specific person. Describe them.",
-  brand: "That is worth pulling on. Most founders know something is off before they can name it. What have you tried already to fix it — and why did it not work?",
-  new: "Interesting. Most people describe a solution — you are describing a feeling. That is actually the better starting point. Who specifically feels this problem most acutely? Not a demographic — a specific person. Describe them.",
+// ─── DNA field key → DB column mapping ──────────────────────────────────────
+
+const DNA_UI_TO_DB: Record<string, { table: "brands" | "brand_dna"; column: string }> = {
+  "Brand name":          { table: "brands",    column: "name" },
+  "Industry":            { table: "brands",    column: "industry" },
+  "Voice":               { table: "brand_dna", column: "brand_voice" },
+  "Target audience":     { table: "brand_dna", column: "target_audience" },
+  "Positioning":         { table: "brand_dna", column: "positioning_statement" },
+  "Brand references":    { table: "brand_dna", column: "brand_references" },
+  "Core promise":        { table: "brand_dna", column: "core_promise" },
+  "Campaign strategy":   { table: "brand_dna", column: "campaign_strategy" },
+  "Customer insight":    { table: "brand_dna", column: "customer_insight" },
+  "Product positioning": { table: "brand_dna", column: "product_positioning" },
 };
 
-// DNA field detection patterns for auto-generating save prompts
+// ─── Milestone category conversion ──────────────────────────────────────────
+
+const UI_TO_DB_CATEGORY: Record<string, string> = {
+  "Brand Discovery":    "brand_discovery",
+  "Campaign Strategy":  "campaign_strategy",
+  "Customer Insight":   "customer_insight",
+  "Product Positioning":"product_positioning",
+  "Growth Brainstorm":  "growth_brainstorm",
+  "Pitch Preparation":  "pitch_preparation",
+};
+
+const DB_TO_UI_CATEGORY: Record<string, MilestoneCategory> = {
+  brand_discovery:     "Brand Discovery",
+  campaign_strategy:   "Campaign Strategy",
+  customer_insight:    "Customer Insight",
+  product_positioning: "Product Positioning",
+  growth_brainstorm:   "Growth Brainstorm",
+  pitch_preparation:   "Pitch Preparation",
+  free_form:           "Brand Discovery",
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  const d = Math.floor(diff / 86400000);
+  if (m < 1) return "Just now";
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d < 7) return `${d} day${d === 1 ? "" : "s"} ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function buildDNAFields(
+  brand: { name: string; industry?: string },
+  dna: BrandDNA | null
+): BrandDNAField[] {
+  return [
+    { key: "Brand name",          label: "Brand name",          value: brand.name || null,                    savedFrom: brand.name ? "Brand Discovery" : undefined },
+    { key: "Industry",            label: "Industry",            value: brand.industry || null,                savedFrom: brand.industry ? "Brand Discovery" : undefined },
+    { key: "Voice",               label: "Voice",               value: dna?.brand_voice || null,              savedFrom: dna?.brand_voice ? "Brand Discovery" : undefined },
+    { key: "Target audience",     label: "Target audience",     value: dna?.target_audience || null,          savedFrom: dna?.target_audience ? "Customer Insight" : undefined },
+    { key: "Positioning",         label: "Positioning",         value: dna?.positioning_statement || null,    savedFrom: dna?.positioning_statement ? "Product Positioning" : undefined },
+    { key: "Brand references",    label: "Brand references",    value: dna?.brand_references || null,         savedFrom: dna?.brand_references ? "Brand Discovery" : undefined },
+    { key: "Core promise",        label: "Core promise",        value: dna?.core_promise || null,             savedFrom: dna?.core_promise ? "Brand Discovery" : undefined },
+    { key: "Campaign strategy",   label: "Campaign strategy",   value: dna?.campaign_strategy || null,        savedFrom: dna?.campaign_strategy ? "Campaign Strategy" : undefined },
+    { key: "Customer insight",    label: "Customer insight",    value: dna?.customer_insight || null,         savedFrom: dna?.customer_insight ? "Customer Insight" : undefined },
+    { key: "Product positioning", label: "Product positioning", value: dna?.product_positioning || null,      savedFrom: dna?.product_positioning ? "Product Positioning" : undefined },
+  ];
+}
+
+// ─── DNA save-prompt detection ───────────────────────────────────────────────
+
 const DNA_PATTERNS: { field: string; patterns: RegExp[] }[] = [
-  { field: "Voice", patterns: [/brand voice.{0,10}(is|should be|:)\s*(.{10,80})/i, /voice.{0,10}(is|should be)\s*(.{10,80})/i] },
-  { field: "Positioning", patterns: [/positioning.{0,10}(is|should be|:)\s*(.{10,80})/i, /position.{0,10}(is|should be)\s*(.{10,80})/i] },
-  { field: "Target audience", patterns: [/target.{0,10}(audience|customer).{0,10}(is|are|:)\s*(.{10,80})/i] },
-  { field: "Core promise", patterns: [/promise.{0,10}(is|should be|:)\s*(.{10,80})/i, /core promise.{0,10}(is|:)\s*(.{10,80})/i] },
+  { field: "Voice",            patterns: [/brand voice.{0,10}(is|should be|:)\s*(.{10,80})/i, /voice.{0,10}(is|should be)\s*(.{10,80})/i] },
+  { field: "Positioning",      patterns: [/positioning.{0,10}(is|should be|:)\s*(.{10,80})/i, /position.{0,10}(is|should be)\s*(.{10,80})/i] },
+  { field: "Target audience",  patterns: [/target.{0,10}(audience|customer).{0,10}(is|are|:)\s*(.{10,80})/i] },
+  { field: "Core promise",     patterns: [/promise.{0,10}(is|should be|:)\s*(.{10,80})/i, /core promise.{0,10}(is|:)\s*(.{10,80})/i] },
   { field: "Brand references", patterns: [/reference.{0,10}(is|are|:)\s*(.{10,80})/i] },
 ];
 
@@ -67,8 +151,7 @@ function detectSavePrompts(content: string, messageId: string): InlineSavePrompt
   return null;
 }
 
-let brandCounter = 0;
-let msgCounter = 100;
+// ─── Component ───────────────────────────────────────────────────────────────
 
 const Mentor = () => {
   const isMobile = useIsMobile();
@@ -77,23 +160,29 @@ const Mentor = () => {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
 
-  // Use BrandContext for real brand data
-  const { brands: realBrands, activeBrand, switchBrand, createNewBrand, isLoading } = useBrand();
-  
-  // Convert real brands to MentorBrand format for compatibility
+  const { brands: realBrands, activeBrand, switchBrand, createNewBrand, refreshBrands, isLoading } = useBrand();
+
   const brands: MentorBrand[] = realBrands.map(brand => ({
     id: brand.id,
     name: brand.name,
-    colorClass: '', // Will be handled by inline styles
-    startedDate: new Date(brand.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    colorClass: "",
+    startedDate: new Date(brand.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
   }));
 
   const activeBrandId = activeBrand?.id || "";
 
-  const [brandDataMap, setBrandDataMap] = useState<Record<string, BrandData>>({
-    nordform: roastData,
-    sthlm: lagosData,
-  });
+  const currentActiveBrand: MentorBrand | null = activeBrand
+    ? {
+        id: activeBrand.id,
+        name: activeBrand.name,
+        colorClass: "",
+        startedDate: new Date(activeBrand.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      }
+    : null;
+
+  const [brandDataMap, setBrandDataMap] = useState<Record<string, BrandData>>({});
+  const [conversationMap, setConversationMap] = useState<Record<string, MentorConversation>>({});
+  const [loadedBrands, setLoadedBrands] = useState<Set<string>>(new Set());
 
   const [emptyBrands, setEmptyBrands] = useState<Record<string, MentorMode>>({});
   const [typingBrands, setTypingBrands] = useState<Set<string>>(new Set());
@@ -102,66 +191,120 @@ const Mentor = () => {
   const lastMessageRef = useRef<string>("");
   const slowTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Ref so callbacks can always access the latest conversation map without stale closure
+  const conversationMapRef = useRef(conversationMap);
+  useEffect(() => { conversationMapRef.current = conversationMap; }, [conversationMap]);
+
+  // ─── Load brand data when active brand changes ─────────────────────────────
+
+  useEffect(() => {
+    if (!activeBrandId || !activeBrand || loadedBrands.has(activeBrandId)) return;
+
+    const loadBrandData = async () => {
+      const conversation = await getOrCreateConversation(activeBrandId);
+      if (!conversation) return;
+
+      setConversationMap(prev => ({ ...prev, [activeBrandId]: conversation }));
+      conversationMapRef.current = { ...conversationMapRef.current, [activeBrandId]: conversation };
+
+      const [dbMessages, dbMilestones, dna] = await Promise.all([
+        getMessages(conversation.id),
+        getMilestones(activeBrandId),
+        getBrandDNA(activeBrandId),
+      ]);
+
+      const uiMessages: Message[] = dbMessages.map(m => ({
+        id: m.id,
+        role: m.role === "user" ? "founder" : "ai",
+        content: m.content,
+      }));
+
+      const uiMilestones: Milestone[] = dbMilestones.map(m => ({
+        id: m.id,
+        category: DB_TO_UI_CATEGORY[m.category] || "Brand Discovery",
+        name: m.name,
+        timeAgo: formatTimeAgo(m.created_at),
+      }));
+
+      const milestoneMarkers: MilestoneMarker[] = dbMilestones
+        .filter(m => m.message_id)
+        .map(m => ({ beforeMessageId: m.message_id!, milestoneId: m.id }));
+
+      const dnaFields = buildDNAFields(activeBrand, dna);
+
+      const mentorBrand: MentorBrand = {
+        id: activeBrand.id,
+        name: activeBrand.name,
+        colorClass: "",
+        startedDate: new Date(activeBrand.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      };
+
+      setBrandDataMap(prev => ({
+        ...prev,
+        [activeBrandId]: {
+          brand: mentorBrand,
+          messages: uiMessages,
+          milestones: uiMilestones,
+          milestoneMarkers,
+          savePrompts: [],
+          dnaFields,
+        },
+      }));
+
+      // Set empty mode if no messages and no mode was explicitly assigned
+      setEmptyBrands(prev => {
+        if (uiMessages.length === 0 && !prev[activeBrandId]) {
+          return { ...prev, [activeBrandId]: "new" };
+        }
+        return prev;
+      });
+
+      setLoadedBrands(prev => new Set(prev).add(activeBrandId));
+    };
+
+    loadBrandData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBrandId]);
+
+  // ─── Handle CTA query param (idea / brand mode) ───────────────────────────
+
   useEffect(() => {
     const mode = searchParams.get("mode") as MentorMode;
     if (mode === "idea" || mode === "brand") {
-      brandCounter++;
-      const newId = `cta-${brandCounter}`;
-      const newBrand: MentorBrand = {
-        id: newId,
-        name: "Untitled Brand",
-        colorClass: "bg-muted-foreground",
-        startedDate: "Mar 2026",
+      const init = async () => {
+        const newBrand = await createNewBrand("Untitled Brand");
+        if (newBrand) {
+          setEmptyBrands(prev => ({ ...prev, [newBrand.id]: mode }));
+        }
+        setSearchParams({}, { replace: true });
       };
-      const newData: BrandData = {
-        brand: newBrand,
-        milestones: [],
-        messages: [],
-        savePrompts: [],
-        milestoneMarkers: [],
-        dnaFields: emptyDNAFields.map(f => ({ ...f })),
-      };
-      setBrands(prev => [...prev, newBrand]);
-      setBrandDataMap(prev => ({ ...prev, [newId]: newData }));
-      setActiveBrandId(newId);
-      setEmptyBrands(prev => ({ ...prev, [newId]: mode }));
-      setSearchParams({}, { replace: true });
+      init();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activeBrandData = brandDataMap[activeBrandId] || { brand: activeBrand, milestones: [], messages: [], savePrompts: [], milestoneMarkers: [] };
-  const currentActiveBrand = brands.find(b => b.id === activeBrandId) || activeBrand || brands[0];
+  const activeBrandData = brandDataMap[activeBrandId] || null;
   const activeEmptyMode = emptyBrands[activeBrandId] || null;
   const isTyping = typingBrands.has(activeBrandId);
 
   const [scrollToMilestoneId, setScrollToMilestoneId] = useState<string | null>(null);
   const [highlightDNAField, setHighlightDNAField] = useState<string | null>(null);
 
+  // ─── Brand handlers ───────────────────────────────────────────────────────
+
   const handleSelectBrand = async (brand: MentorBrand) => {
     await switchBrand(brand.id);
   };
 
   const handleAddBrand = async () => {
-    const newBrand = await createNewBrand('Untitled Brand');
+    const newBrand = await createNewBrand("Untitled Brand");
     if (newBrand) {
-      // Initialize brand data for the new brand
-      const newData: BrandData = {
-        brand: {
-          id: newBrand.id,
-          name: newBrand.name,
-          colorClass: '',
-          startedDate: new Date(newBrand.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        },
-        milestones: [],
-        messages: [],
-        savePrompts: [],
-        milestoneMarkers: [],
-      };
-      setBrandDataMap(prev => ({ ...prev, [newBrand.id]: newData }));
+      // Let the activeBrandId useEffect load the data; just set the empty mode
       setEmptyBrands(prev => ({ ...prev, [newBrand.id]: "idea" }));
     }
   };
+
+  // ─── DNA context for AI system prompt ────────────────────────────────────
 
   const getDNAContext = useCallback(() => {
     const data = brandDataMap[activeBrandId];
@@ -174,18 +317,45 @@ const Mentor = () => {
     return fieldMap;
   }, [activeBrandId, brandDataMap]);
 
-  const detectMilestone = useCallback(async (brandId: string, aiMsgId: string, allMessages: Message[], latestAiContent: string) => {
+  // ─── Persist a DNA field to Supabase ─────────────────────────────────────
+
+  const persistDNAField = useCallback(async (
+    brandId: string,
+    fieldKey: string,
+    value: string | null
+  ) => {
+    const mapping = DNA_UI_TO_DB[fieldKey];
+    if (!mapping) return;
+
+    if (mapping.table === "brands") {
+      await (supabase as any)
+        .from("brands")
+        .update({ [mapping.column]: value })
+        .eq("id", brandId);
+      // Refresh brand list so the panel shows the updated name
+      if (fieldKey === "Brand name") refreshBrands();
+    } else {
+      await updateBrandDNAField(brandId, mapping.column as keyof BrandDNA, value ?? "");
+    }
+  }, [refreshBrands]);
+
+  // ─── Milestone auto-detection ─────────────────────────────────────────────
+
+  const detectMilestone = useCallback(async (
+    brandId: string,
+    aiMsgId: string,
+    allMessages: Message[],
+    latestAiContent: string
+  ) => {
     try {
       const currentData = brandDataMap[brandId];
       const recentMessages = [...allMessages.slice(-6), { role: "ai" as const, content: latestAiContent }]
         .map(m => ({ role: m.role === "founder" ? "user" : "assistant", content: m.content }));
-
       const existingNames = (currentData?.milestones || []).map(m => m.name).join(", ");
 
-      const result = await callAI([
-        {
-          role: "user",
-          content: `You are a conversation analyst. Analyze this conversation and determine if the topic has shifted to a new area that deserves a milestone marker.
+      const result = await callAI([{
+        role: "user",
+        content: `You are a conversation analyst. Analyze this conversation and determine if the topic has shifted to a new area that deserves a milestone marker.
 
 Existing milestones: ${existingNames || "None"}
 
@@ -195,29 +365,31 @@ ${recentMessages.map(m => `${m.role}: ${m.content}`).join("\n")}
 If there is a meaningful new topic shift not already covered by existing milestones, respond with EXACTLY this format:
 MILESTONE: [category] | [short name]
 
-Categories: Brand Discovery, Campaign Strategy, Customer Insight, Product Positioning, Growth Strategy, Creative Direction
+Categories: Brand Discovery, Campaign Strategy, Customer Insight, Product Positioning, Growth Brainstorm, Pitch Preparation
 
 If no milestone is needed, respond with: NO_MILESTONE
 
-Be selective — only mark significant shifts, not minor tangents.`
-        }
-      ], 200);
+Be selective — only mark significant shifts, not minor tangents.`,
+      }], 200);
 
       if (!result || result.includes("NO_MILESTONE")) return;
 
       const match = result.match(/MILESTONE:\s*(.+?)\s*\|\s*(.+)/);
       if (!match) return;
 
-      const newMilestoneId = `m-auto-${++milestoneCounter}`;
-      const category = match[1].trim();
+      const uiCategory = match[1].trim() as MilestoneCategory;
       const name = match[2].trim();
+      const dbCategory = UI_TO_DB_CATEGORY[uiCategory] || "free_form";
 
-      const newMilestone = {
-        id: newMilestoneId,
-        category: category as import("@/components/mentor/types").MilestoneCategory,
-        name,
-        timeAgo: "Just now",
-      };
+      // Persist to DB and use the returned ID
+      const conversation = conversationMapRef.current[brandId];
+      let milestoneId = `m-auto-${++milestoneCounter}`;
+      if (conversation) {
+        const saved = await createMilestone(brandId, conversation.id, name, dbCategory, aiMsgId);
+        if (saved) milestoneId = saved.id;
+      }
+
+      const newMilestone: Milestone = { id: milestoneId, category: uiCategory, name, timeAgo: "Just now" };
 
       setBrandDataMap(prev => {
         const bd = prev[brandId];
@@ -227,7 +399,7 @@ Be selective — only mark significant shifts, not minor tangents.`
           [brandId]: {
             ...bd,
             milestones: [...bd.milestones, newMilestone],
-            milestoneMarkers: [...bd.milestoneMarkers, { beforeMessageId: aiMsgId, milestoneId: newMilestoneId }],
+            milestoneMarkers: [...bd.milestoneMarkers, { beforeMessageId: aiMsgId, milestoneId }],
           },
         };
       });
@@ -236,14 +408,13 @@ Be selective — only mark significant shifts, not minor tangents.`
     }
   }, [brandDataMap]);
 
+  // ─── AI response handler ──────────────────────────────────────────────────
+
   const handleAIResponse = useCallback(async (brandId: string, allMessages: Message[]) => {
     setChatError(null);
     setTypingBrands(prev => new Set(prev).add(brandId));
     setSlowThinking(false);
-
     slowTimerRef.current = setTimeout(() => setSlowThinking(true), 6000);
-
-    const aiMsgId = `ai-${++msgCounter}`;
 
     try {
       const dnaContext = getDNAContext();
@@ -269,32 +440,34 @@ Rules:
         content: m.content,
       }));
 
-      const messages = [
+      const response = await callAI([
         { role: "user", content: systemContext },
         { role: "assistant", content: "Understood. Ready." },
         ...conversationMessages,
-      ];
+      ], 800);
 
-      const response = await callAI(messages, 800);
+      if (!response) throw new Error("Could not connect — try again");
 
-      if (!response) {
-        throw new Error("Could not connect — try again");
+      // Save AI message to DB and use the real UUID for milestone references
+      const conversation = conversationMapRef.current[brandId];
+      let aiMsgId: string;
+      if (conversation) {
+        const saved = await saveMessage(conversation.id, "assistant", response);
+        aiMsgId = saved?.id ?? `ai-${++msgCounter}`;
+      } else {
+        aiMsgId = `ai-${++msgCounter}`;
       }
 
       const aiMsg: Message = { id: aiMsgId, role: "ai", content: response };
       setBrandDataMap(prev => {
         const data = prev[brandId];
         if (!data) return prev;
-        return {
-          ...prev,
-          [brandId]: { ...data, messages: [...data.messages, aiMsg] },
-        };
+        return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMsg] } };
       });
 
-      // Detect save prompts
+      // Detect and attach inline save prompts
       const savePrompt = detectSavePrompts(response, aiMsgId);
       if (!savePrompt) {
-        // Fallback keyword check
         const lower = response.toLowerCase();
         let fallbackPrompt: InlineSavePrompt | null = null;
         if (lower.includes("brand voice") || lower.includes("you sound like") || lower.includes("your voice")) {
@@ -319,7 +492,7 @@ Rules:
         });
       }
 
-      // Detect milestone in background
+      // Detect milestone in background (fire and forget)
       detectMilestone(brandId, aiMsgId, allMessages, response);
 
     } catch (e) {
@@ -335,23 +508,25 @@ Rules:
     }
   }, [getDNAContext, detectMilestone]);
 
+  // ─── Send message ─────────────────────────────────────────────────────────
+
   const handleSendMessage = useCallback((text: string) => {
     const brandId = activeBrandId;
     setChatError(null);
-    const founderMsg: Message = { id: `f-${++msgCounter}`, role: "founder", content: text };
+    lastMessageRef.current = text;
 
+    // Fire-and-forget DB save for founder message (temp ID is fine; only AI message IDs
+    // are referenced by milestones and save prompts)
+    const conversation = conversationMapRef.current[brandId];
+    if (conversation) saveMessage(conversation.id, "user", text);
+
+    const founderMsg: Message = { id: `f-${++msgCounter}`, role: "founder", content: text };
     setBrandDataMap(prev => {
       const data = prev[brandId];
       if (!data) return prev;
-      return {
-        ...prev,
-        [brandId]: { ...data, messages: [...data.messages, founderMsg] },
-      };
+      return { ...prev, [brandId]: { ...data, messages: [...data.messages, founderMsg] } };
     });
 
-    lastMessageRef.current = text;
-
-    // Get updated messages including the new one
     const allMessages = [...(brandDataMap[brandId]?.messages || []), founderMsg];
     handleAIResponse(brandId, allMessages);
   }, [activeBrandId, brandDataMap, handleAIResponse]);
@@ -365,15 +540,30 @@ Rules:
     }
   }, [activeBrandId, brandDataMap, handleAIResponse]);
 
+  // ─── Empty state submit (first message) ──────────────────────────────────
+
   const handleEmptySubmit = useCallback((text: string) => {
     const brandId = activeBrandId;
-    const mode = emptyBrands[brandId] || "new";
+
+    const conversation = conversationMapRef.current[brandId];
+    if (conversation) saveMessage(conversation.id, "user", text);
 
     const founderMsg: Message = { id: `${brandId}-f1`, role: "founder", content: text };
-    setBrandDataMap(prev => ({
-      ...prev,
-      [brandId]: { ...prev[brandId], messages: [founderMsg] },
-    }));
+
+    setBrandDataMap(prev => {
+      const existing = prev[brandId];
+      return {
+        ...prev,
+        [brandId]: {
+          brand: existing?.brand || currentActiveBrand || { id: brandId, name: "Brand", colorClass: "", startedDate: "" },
+          milestones: existing?.milestones || [],
+          milestoneMarkers: existing?.milestoneMarkers || [],
+          savePrompts: existing?.savePrompts || [],
+          dnaFields: existing?.dnaFields || emptyDNAFields.map(f => ({ ...f })),
+          messages: [founderMsg],
+        },
+      };
+    });
 
     setEmptyBrands(prev => {
       const next = { ...prev };
@@ -381,9 +571,10 @@ Rules:
       return next;
     });
 
-    // Use real AI for the response
     handleAIResponse(brandId, [founderMsg]);
-  }, [activeBrandId, emptyBrands, handleAIResponse]);
+  }, [activeBrandId, currentActiveBrand, handleAIResponse]);
+
+  // ─── Milestone handlers ───────────────────────────────────────────────────
 
   const handleSelectMilestone = (milestoneId: string) => {
     setScrollToMilestoneId(milestoneId);
@@ -394,7 +585,7 @@ Rules:
     setScrollToMilestoneId(null);
   }, []);
 
-  const handleRenameMilestone = useCallback((id: string, newName: string) => {
+  const handleRenameMilestone = useCallback(async (id: string, newName: string) => {
     setBrandDataMap(prev => {
       const data = prev[activeBrandId];
       if (!data) return prev;
@@ -406,12 +597,13 @@ Rules:
         },
       };
     });
+    await updateMilestoneName(id, newName);
   }, [activeBrandId]);
 
-  const handleDeleteMilestone = useCallback((id: string) => {
+  const handleDeleteMilestone = useCallback(async (id: string) => {
     const data = brandDataMap[activeBrandId];
     if (!data) return;
-    const deletedMilestone = data.milestones.find(m => m.id === id);
+    const deleted = data.milestones.find(m => m.id === id);
     const deletedMarkers = data.milestoneMarkers.filter(mm => mm.milestoneId === id);
 
     setBrandDataMap(prev => {
@@ -427,11 +619,14 @@ Rules:
       };
     });
 
-    if (deletedMilestone) {
-      toast(`Deleted "${deletedMilestone.name}"`, {
+    await deleteMilestone(id);
+
+    if (deleted) {
+      toast(`Deleted "${deleted.name}"`, {
         action: {
           label: "Undo",
           onClick: () => {
+            // Restore locally (DB re-insert would assign a new ID)
             setBrandDataMap(prev => {
               const bd = prev[activeBrandId];
               if (!bd) return prev;
@@ -439,7 +634,7 @@ Rules:
                 ...prev,
                 [activeBrandId]: {
                   ...bd,
-                  milestones: [...bd.milestones, deletedMilestone],
+                  milestones: [...bd.milestones, deleted],
                   milestoneMarkers: [...bd.milestoneMarkers, ...deletedMarkers],
                 },
               };
@@ -451,7 +646,7 @@ Rules:
     }
   }, [activeBrandId, brandDataMap]);
 
-  const handleEditMilestoneCategory = useCallback((id: string, newCategory: import("@/components/mentor/types").MilestoneCategory) => {
+  const handleEditMilestoneCategory = useCallback(async (id: string, newCategory: MilestoneCategory) => {
     setBrandDataMap(prev => {
       const data = prev[activeBrandId];
       if (!data) return prev;
@@ -463,9 +658,12 @@ Rules:
         },
       };
     });
+    await updateMilestoneCategoryDB(id, UI_TO_DB_CATEGORY[newCategory] || "free_form");
   }, [activeBrandId]);
 
-  const handleSaveDNA = useCallback((field: string, value: string) => {
+  // ─── DNA handlers ─────────────────────────────────────────────────────────
+
+  const handleSaveDNA = useCallback(async (field: string, value: string) => {
     setBrandDataMap(prev => {
       const data = prev[activeBrandId];
       if (!data) return prev;
@@ -481,9 +679,10 @@ Rules:
     });
     setHighlightDNAField(field);
     setTimeout(() => setHighlightDNAField(null), 1500);
-  }, [activeBrandId]);
+    await persistDNAField(activeBrandId, field, value);
+  }, [activeBrandId, persistDNAField]);
 
-  const handleEditDNAField = useCallback((fieldKey: string, newValue: string) => {
+  const handleEditDNAField = useCallback(async (fieldKey: string, newValue: string) => {
     setBrandDataMap(prev => {
       const data = prev[activeBrandId];
       if (!data) return prev;
@@ -499,9 +698,10 @@ Rules:
     });
     setHighlightDNAField(fieldKey);
     setTimeout(() => setHighlightDNAField(null), 1500);
-  }, [activeBrandId]);
+    await persistDNAField(activeBrandId, fieldKey, newValue);
+  }, [activeBrandId, persistDNAField]);
 
-  const handleClearDNAField = useCallback((fieldKey: string) => {
+  const handleClearDNAField = useCallback(async (fieldKey: string) => {
     const data = brandDataMap[activeBrandId];
     if (!data) return;
     const clearedField = data.dnaFields.find(f => f.key === fieldKey);
@@ -523,10 +723,12 @@ Rules:
       };
     });
 
+    await persistDNAField(activeBrandId, fieldKey, null);
+
     toast(`Cleared "${clearedField?.label}"`, {
       action: {
         label: "Undo",
-        onClick: () => {
+        onClick: async () => {
           setBrandDataMap(prev => {
             const bd = prev[activeBrandId];
             if (!bd) return prev;
@@ -540,14 +742,20 @@ Rules:
               },
             };
           });
+          if (oldValue) await persistDNAField(activeBrandId, fieldKey, oldValue);
         },
       },
       duration: 5000,
     });
-  }, [activeBrandId, brandDataMap]);
+  }, [activeBrandId, brandDataMap, persistDNAField]);
+
+  // ─── Layout ───────────────────────────────────────────────────────────────
 
   const showLeftInline = !isMobile;
   const showRightInline = !isMobile && !isTablet;
+
+  if (!currentActiveBrand && !isLoading) return null;
+  if (!currentActiveBrand) return null;
 
   return (
     <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
@@ -555,7 +763,7 @@ Rules:
         <aside className="w-60 flex-shrink-0 min-w-0 border-r border-border bg-card/50 overflow-hidden">
           <BrandMilestonePanel
             brands={brands}
-            activeBrand={activeBrand}
+            activeBrand={currentActiveBrand}
             onSelectBrand={handleSelectBrand}
             onAddBrand={handleAddBrand}
             milestones={activeBrandData?.milestones || []}
@@ -571,7 +779,7 @@ Rules:
             <SheetTitle className="sr-only">Brand & Milestones</SheetTitle>
             <BrandMilestonePanel
               brands={brands}
-              activeBrand={activeBrand}
+              activeBrand={currentActiveBrand}
               onSelectBrand={(b) => { handleSelectBrand(b); setLeftOpen(false); }}
               onAddBrand={() => { handleAddBrand(); setLeftOpen(false); }}
               milestones={activeBrandData?.milestones || []}
@@ -607,7 +815,7 @@ Rules:
           <MentorEmptyState mode={activeEmptyMode} onSubmit={handleEmptySubmit} />
         ) : activeBrandData ? (
           <ChatPanel
-            brand={activeBrand}
+            brand={currentActiveBrand}
             messages={activeBrandData.messages}
             milestones={activeBrandData.milestones}
             milestoneMarkers={activeBrandData.milestoneMarkers}
