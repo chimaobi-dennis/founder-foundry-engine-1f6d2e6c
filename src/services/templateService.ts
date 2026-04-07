@@ -54,7 +54,7 @@ export const createTemplate = async (
 
 export const updateTemplate = async (
   templateId: string,
-  data: Partial<TemplateData> & { status?: string }
+  data: Partial<TemplateData> & { status?: string; admin_notes?: string; admin_signature?: string; reviewed_at?: string }
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await db
