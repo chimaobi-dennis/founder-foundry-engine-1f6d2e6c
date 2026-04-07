@@ -227,7 +227,7 @@ function CategoryCard({ icon: Icon, title, fields }: { icon: React.ElementType; 
 }
 
 const BrandDNA = () => {
-  const { activeBrand, setActiveBrand, brands } = useBrand();
+  const { activeBrand, switchBrand, brands } = useBrand();
   const [activeProfileId, setActiveProfileId] = useState(activeBrand?.id || "1");
 
   const profile = activeProfileId === "1" ? nordformProfile : sthlmProfile;
