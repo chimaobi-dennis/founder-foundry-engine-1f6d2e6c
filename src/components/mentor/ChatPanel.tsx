@@ -42,6 +42,7 @@ export function ChatPanel({
   error,
   onRetry,
   slowThinking,
+  onCreateMilestone,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState("");
   const [dismissedPrompts, setDismissedPrompts] = useState<Set<string>>(new Set());
