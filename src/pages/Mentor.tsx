@@ -901,6 +901,7 @@ Rules:
             error={chatError}
             onRetry={handleRetry}
             slowThinking={slowThinking}
+            onCreateMilestone={handleManualCreateMilestone}
           />
         ) : (
           // Show empty state greeting and demo conversation as preview only
