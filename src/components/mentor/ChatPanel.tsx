@@ -24,6 +24,7 @@ interface ChatPanelProps {
   error?: string | null;
   onRetry?: () => void;
   slowThinking?: boolean;
+  onCreateMilestone?: (name: string, category: string, messageId: string) => Promise<void>;
 }
 
 export function ChatPanel({
