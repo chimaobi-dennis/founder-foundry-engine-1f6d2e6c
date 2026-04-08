@@ -284,8 +284,8 @@ export function ChatPanel({
                       <button
                         onClick={async () => {
                           if (!milestoneNameInput.trim()) return;
-                          if (typeof window !== "undefined" && window.handleCreateMilestone) {
-                            await window.handleCreateMilestone(
+                          if (typeof window !== "undefined" && (window as any).handleCreateMilestone) {
+                            await (window as any).handleCreateMilestone(
                               milestoneNameInput,
                               milestoneCategoryInput,
                               msg.id
