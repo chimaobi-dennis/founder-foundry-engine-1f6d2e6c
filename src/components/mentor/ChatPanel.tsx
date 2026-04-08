@@ -1,5 +1,4 @@
 import { Send, Paperclip, Mic, Flag, Save, Check, X } from "lucide-react";
-import { useEffect } from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 
 import { cn } from "@/lib/utils";
