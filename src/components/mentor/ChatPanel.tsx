@@ -24,6 +24,7 @@ interface ChatPanelProps {
   error?: string | null;
   onRetry?: () => void;
   slowThinking?: boolean;
+  onCreateMilestone?: (name: string, category: string, messageId: string) => Promise<void>;
 }
 
 export function ChatPanel({
@@ -41,6 +42,7 @@ export function ChatPanel({
   error,
   onRetry,
   slowThinking,
+  onCreateMilestone,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState("");
   const [dismissedPrompts, setDismissedPrompts] = useState<Set<string>>(new Set());
@@ -284,8 +286,8 @@ export function ChatPanel({
                       <button
                         onClick={async () => {
                           if (!milestoneNameInput.trim()) return;
-                          if (typeof window !== "undefined" && window.handleCreateMilestone) {
-                            await window.handleCreateMilestone(
+                          if (onCreateMilestone) {
+                            await onCreateMilestone(
                               milestoneNameInput,
                               milestoneCategoryInput,
                               msg.id

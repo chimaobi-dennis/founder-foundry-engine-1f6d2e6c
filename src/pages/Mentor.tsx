@@ -527,6 +527,32 @@ Rules:
     }
   }, [getDNAContext, detectMilestone]);
 
+  // ─── Manual milestone creation from chat ───────────────────────────────────
+
+  const handleManualCreateMilestone = useCallback(async (name: string, category: string, messageId: string) => {
+    const brandId = activeBrandId;
+    const conversation = conversationMapRef.current[brandId];
+    const dbCategory = UI_TO_DB_CATEGORY[category as MilestoneCategory] || "free_form";
+    let milestoneId = `m-manual-${++milestoneCounter}`;
+    if (conversation) {
+      const saved = await createMilestone(brandId, conversation.id, name, dbCategory, messageId);
+      if (saved) milestoneId = saved.id;
+    }
+    const newMilestone: Milestone = { id: milestoneId, category: category as MilestoneCategory, name, timeAgo: "Just now" };
+    setBrandDataMap(prev => {
+      const bd = prev[brandId];
+      if (!bd) return prev;
+      return {
+        ...prev,
+        [brandId]: {
+          ...bd,
+          milestones: [...bd.milestones, newMilestone],
+          milestoneMarkers: [...bd.milestoneMarkers, { beforeMessageId: messageId, milestoneId }],
+        },
+      };
+    });
+  }, [activeBrandId]);
+
   // ─── Send message ─────────────────────────────────────────────────────────
 
   const handleSendMessage = useCallback((text: string) => {
@@ -875,6 +901,7 @@ Rules:
             error={chatError}
             onRetry={handleRetry}
             slowThinking={slowThinking}
+            onCreateMilestone={handleManualCreateMilestone}
           />
         ) : (
           // Show empty state greeting and demo conversation as preview only
