@@ -801,6 +801,14 @@ Rules:
     );
   }
 
+  if (!currentActiveBrand) {
+    return (
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <div className="text-muted-foreground text-sm">Loading brand...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
       {showLeftInline ? (
