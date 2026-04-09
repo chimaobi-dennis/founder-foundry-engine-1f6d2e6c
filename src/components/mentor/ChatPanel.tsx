@@ -89,6 +89,14 @@ export function ChatPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, isTyping]);
 
+  // Check for milestone opportunities on new AI messages (outside map loop)
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.role === "ai") {
+      checkForMilestoneOpportunity(lastMsg.content, lastMsg.id);
+    }
+  }, [messages.length]);
+
   const handleSave = useCallback((prompt: InlineSavePrompt) => {
     setSavedPrompts(prev => new Set(prev).add(prompt.afterMessageId));
     setShowingSaved(prev => new Set(prev).add(prompt.afterMessageId));
@@ -158,14 +166,6 @@ export function ChatPanel({
             const isSaved = savedPrompts.has(msg.id);
             const isShowingSaved = showingSaved.has(msg.id);
             const showTimestamp = i === 8;
-
-            // If this is an AI message, check for milestone opportunity
-            useEffect(() => {
-              if (msg.role === "ai") {
-                checkForMilestoneOpportunity(msg.content, msg.id);
-              }
-              // eslint-disable-next-line
-            }, [msg.content, msg.id]);
 
             return (
               <div key={msg.id} className="min-w-0 w-full max-w-full overflow-hidden" style={{ boxSizing: "border-box" }}>
