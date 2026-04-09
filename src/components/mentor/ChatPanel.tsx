@@ -89,6 +89,14 @@ export function ChatPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, isTyping]);
 
+  // Check for milestone opportunities on new AI messages (outside map loop)
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.role === "ai") {
+      checkForMilestoneOpportunity(lastMsg.content, lastMsg.id);
+    }
+  }, [messages.length]);
+
   const handleSave = useCallback((prompt: InlineSavePrompt) => {
     setSavedPrompts(prev => new Set(prev).add(prompt.afterMessageId));
     setShowingSaved(prev => new Set(prev).add(prompt.afterMessageId));
