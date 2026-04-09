@@ -15,6 +15,7 @@ export interface MentorMessage {
   conversation_id: string;
   role: 'user' | 'assistant';
   content: string;
+  ai_response_failed?: boolean;
   created_at: string;
 }
 
@@ -190,4 +191,52 @@ export const getMessagesForAIContext = async (
     .limit(limit);
 
   return (data ?? []).reverse();
+};
+
+// ─── Unanswered message handling ─────────────────────
+
+// Check if the last message in a conversation is unanswered
+// Returns the unanswered user message or null
+export const getUnansweredMessage = async (
+  conversationId: string
+): Promise<MentorMessage | null> => {
+  const { data } = await (supabase as any)
+    .from('mentor_messages')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(2);
+
+  if (!data || data.length === 0) return null;
+
+  // Most recent message
+  const lastMessage = data[0];
+
+  // If the most recent message is from the user it is unanswered
+  if (lastMessage.role === 'user') {
+    return lastMessage;
+  }
+
+  return null;
+};
+
+// Mark a message as having failed AI response
+// We track this by adding a failed_at timestamp
+export const markMessageAsFailed = async (
+  messageId: string
+): Promise<void> => {
+  await (supabase as any)
+    .from('mentor_messages')
+    .update({ ai_response_failed: true })
+    .eq('id', messageId);
+};
+
+// Clear failed flag when retrying
+export const clearMessageFailedFlag = async (
+  messageId: string
+): Promise<void> => {
+  await (supabase as any)
+    .from('mentor_messages')
+    .update({ ai_response_failed: false })
+    .eq('id', messageId);
 };
