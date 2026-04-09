@@ -159,14 +159,6 @@ export function ChatPanel({
             const isShowingSaved = showingSaved.has(msg.id);
             const showTimestamp = i === 8;
 
-            // If this is an AI message, check for milestone opportunity
-            useEffect(() => {
-              if (msg.role === "ai") {
-                checkForMilestoneOpportunity(msg.content, msg.id);
-              }
-              // eslint-disable-next-line
-            }, [msg.content, msg.id]);
-
             return (
               <div key={msg.id} className="min-w-0 w-full max-w-full overflow-hidden" style={{ boxSizing: "border-box" }}>
                 {/* Milestone marker */}
