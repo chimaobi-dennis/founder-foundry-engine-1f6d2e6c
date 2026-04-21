@@ -785,78 +785,174 @@ export function BrandDNAPanel({
               );
             }
 
-            // Past stage — compact completed row
+            // Non-active stage (past, OR future with captured data) — collapsible row
             return (
               <div
                 key={stage.stage_key}
-                onClick={() => toggleStageExpand(stage.stage_key)}
                 style={{
-                  padding: '10px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  cursor: 'pointer',
                   borderBottom: '0.5px solid var(--color-border-tertiary)',
-                  background: 'transparent',
-                  transition: 'background 150ms'
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  background: 'transparent'
                 }}
               >
-                <span style={{ fontSize: '14px', flexShrink: 0 }}>{stage.emoji}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
+                <div
+                  onClick={() => toggleStageExpand(stage.stage_key)}
+                  style={{
+                    padding: '10px 16px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    marginBottom: '2px'
-                  }}>
-                    <span style={{
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: 'var(--color-text-secondary)'
+                    gap: '10px',
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    transition: 'background 150ms'
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }}
+                >
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>{stage.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '2px',
+                      flexWrap: 'wrap'
                     }}>
-                      {stage.name}
-                    </span>
-                    {filledCount > 0 && (
                       <span style={{
-                        fontSize: '9px',
-                        color: '#4CAF50',
-                        background: 'rgba(76,175,80,0.1)',
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        fontWeight: 600
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: 'var(--color-text-secondary)'
                       }}>
-                        {filledCount} captured
+                        {stage.name}
                       </span>
+                      {filledCount > 0 && (
+                        <span style={{
+                          fontSize: '9px',
+                          color: '#4CAF50',
+                          background: 'rgba(76,175,80,0.1)',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          fontWeight: 600
+                        }}>
+                          {filledCount} captured
+                        </span>
+                      )}
+                      {/* Pre-filled badge for future stages that have data from onboarding */}
+                      {isFuture && hasCapturedData && (
+                        <span style={{
+                          fontSize: '9px',
+                          color: '#D4A017',
+                          background: 'rgba(212,160,23,0.12)',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          fontWeight: 600,
+                          letterSpacing: '0.03em'
+                        }}>
+                          Pre-filled from onboarding
+                        </span>
+                      )}
+                    </div>
+                    {/* Mini progress dots */}
+                    <div style={{ display: 'flex', gap: '3px' }}>
+                      {fields.map((f: any) => (
+                        <div key={f.field_key} style={{
+                          width: '5px',
+                          height: '5px',
+                          borderRadius: '50%',
+                          background: data[f.field_key]
+                            ? '#4CAF50'
+                            : 'var(--color-border-secondary)'
+                        }} />
+                      ))}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: '10px',
+                    color: 'var(--color-text-tertiary)',
+                    transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                    transition: 'transform 200ms',
+                    pointerEvents: 'none'
+                  }}>
+                    ▼
+                  </span>
+                </div>
+
+                {/* Expanded body — list captured fields (read-only) */}
+                {isExpanded && (
+                  <div style={{ padding: '0 16px 12px' }}>
+                    {fields.length === 0 ? (
+                      <div style={{
+                        fontSize: '11px',
+                        color: 'var(--color-text-tertiary)',
+                        fontStyle: 'italic',
+                        padding: '4px 0'
+                      }}>
+                        No fields defined for this stage yet.
+                      </div>
+                    ) : (
+                      fields.map((f: any) => {
+                        const value = data[f.field_key];
+                        const hasValue = !!(value && value.trim().length > 0);
+                        return (
+                          <div
+                            key={f.field_key}
+                            style={{
+                              marginBottom: '8px',
+                              padding: '8px 10px',
+                              background: hasValue
+                                ? 'var(--color-card-secondary)'
+                                : 'var(--color-background-secondary)',
+                              borderRadius: '6px',
+                              border: `0.5px solid ${
+                                hasValue
+                                  ? 'rgba(76,175,80,0.2)'
+                                  : 'var(--color-border-tertiary)'
+                              }`
+                            }}
+                          >
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              marginBottom: hasValue ? '4px' : 0
+                            }}>
+                              <span style={{
+                                width: '10px',
+                                height: '10px',
+                                borderRadius: '50%',
+                                background: hasValue ? '#4CAF50' : 'transparent',
+                                border: hasValue
+                                  ? '2px solid #4CAF50'
+                                  : '1.5px solid var(--color-border-secondary)',
+                                flexShrink: 0
+                              }} />
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                color: 'var(--color-text-secondary)'
+                              }}>
+                                {f.field_label}
+                              </span>
+                            </div>
+                            {hasValue && (
+                              <div style={{
+                                fontSize: '12px',
+                                color: 'var(--color-text-primary)',
+                                lineHeight: 1.5,
+                                marginLeft: '16px'
+                              }}>
+                                {value.length > 200 ? value.slice(0, 200) + '…' : value}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
-                  {/* Mini progress dots */}
-                  <div style={{ display: 'flex', gap: '3px' }}>
-                    {fields.map((f: any) => (
-                      <div key={f.field_key} style={{
-                        width: '5px',
-                        height: '5px',
-                        borderRadius: '50%',
-                        background: data[f.field_key]
-                          ? '#4CAF50'
-                          : 'var(--color-border-secondary)'
-                      }} />
-                    ))}
-                  </div>
-                </div>
-                <span style={{
-                  fontSize: '10px',
-                  color: 'var(--color-text-tertiary)',
-                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
-                  transition: 'transform 200ms'
-                }}>
-                  ▼
-                </span>
+                )}
               </div>
             );
           })}
