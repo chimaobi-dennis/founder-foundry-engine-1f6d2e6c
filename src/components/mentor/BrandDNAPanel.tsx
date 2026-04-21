@@ -439,7 +439,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                           ) : (
                             <p style={{
                               fontSize: '11px',
-                              color: 'rgba(255,255,255,0.25)',
+                              color: 'var(--color-text-tertiary)',
                               fontStyle: 'italic',
                               margin: 0,
                               lineHeight: 1.5
