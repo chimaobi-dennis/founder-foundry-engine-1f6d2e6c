@@ -527,8 +527,19 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                           complete
                         </div>
                       </div>
+                      <span style={{
+                        fontSize: '10px',
+                        color: 'var(--color-text-tertiary)',
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 200ms ease',
+                        display: 'inline-block',
+                        marginLeft: '8px'
+                      }}>
+                        ▼
+                      </span>
                     </div>
 
+                    {isExpanded && (<>
                     {/* Progress bar */}
                     <div style={{
                       height: '3px',
