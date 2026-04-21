@@ -4,9 +4,7 @@ import { Link } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBrand } from '@/contexts/BrandContext';
 import { supabase } from '@/integrations/supabase/client';
-import { completeSubstage, getStageProgress } from '@/services/brandService';
-import { createMilestone } from '@/services/mentorService';
-import { SubstageChecklist } from './SubstageChecklist';
+import { getSubstagesWithData, type SubstageWithData } from '@/services/journeyDataService';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface BrandDNAPanelProps {
@@ -17,9 +15,11 @@ interface BrandDNAPanelProps {
   customFields?: any[];
   onSaveCustomField?: (fieldKey: string, fieldLabel: string, fieldValue: string) => void;
   conversation?: { id: string } | null;
+  /** Bumped by the parent after any save so the substage panel re-fetches */
+  dataRefreshTrigger?: number;
 }
 
-export function BrandDNAPanel({ fields, highlightField, onEditField, onClearField, customFields = [], onSaveCustomField, conversation }: BrandDNAPanelProps) {
+export function BrandDNAPanel({ fields, highlightField, onEditField, onClearField, customFields = [], onSaveCustomField, conversation, dataRefreshTrigger = 0 }: BrandDNAPanelProps) {
   const { activeBrand, journeyStages, currentStageData, updateStage } = useBrand();
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
   const [capturedData, setCapturedData] = useState<Record<string, Record<string, string>>>({});
