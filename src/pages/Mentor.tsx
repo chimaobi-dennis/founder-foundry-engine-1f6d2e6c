@@ -331,9 +331,14 @@ const Mentor = () => {
         },
       }));
 
-      // Set empty mode if no messages and no mode was explicitly assigned
+      // Set empty mode if no messages and no mode was explicitly assigned —
+      // but skip when we are about to inject the first AI message after onboarding.
       setEmptyBrands(prev => {
-        if (uiMessages.length === 0 && !prev[activeBrandId]) {
+        if (
+          uiMessages.length === 0 &&
+          !prev[activeBrandId] &&
+          !firstMessageBrandsRef.current.has(activeBrandId)
+        ) {
           return { ...prev, [activeBrandId]: "new" };
         }
         return prev;
