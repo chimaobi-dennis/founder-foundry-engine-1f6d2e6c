@@ -97,6 +97,10 @@ export function ChatPanel({
   const [dismissedPrompts, setDismissedPrompts] = useState<Set<string>>(new Set());
   const [savedPrompts, setSavedPrompts] = useState<Set<string>>(new Set());
   const [showingSaved, setShowingSaved] = useState<Set<string>>(new Set());
+  // SAVE_PROMPT pill state — keyed by `${messageId}::${fieldKey}`
+  const [stagePromptSaved, setStagePromptSaved] = useState<Set<string>>(new Set());
+  const [stagePromptDismissed, setStagePromptDismissed] = useState<Set<string>>(new Set());
+  const [stagePromptEditing, setStagePromptEditing] = useState<Record<string, string>>({});
   const [highlightedMilestone, setHighlightedMilestone] = useState<string | null>(null);
   const milestoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollAreaRef = useRef<HTMLDivElement>(null);
