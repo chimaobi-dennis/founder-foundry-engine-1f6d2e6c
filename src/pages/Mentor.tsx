@@ -955,7 +955,39 @@ Be selective — only mark significant shifts, not minor tangents.`,
       (state) => setThinkingState(state)
     );
 
-    const triggerMessage = "[CONTEXT_LOADED] The founder has just completed onboarding. You have been given their project context. Acknowledge what you now know about their project and ask one focused question to start the conversation.";
+    // ─── Build dynamic trigger message ──────────────────────────────────────
+    // Include captured fields and the next unfilled substage from the active
+    // stage so the AI can acknowledge specifics and transition naturally.
+    let capturedSection = "";
+    let nextDirective = "Acknowledge the project context warmly in 2-3 sentences — show you understand what they are building. Then ask one focused, conversational question to start the conversation. Do not use bullet points or headers. Do not list back everything you know.";
+
+    try {
+      const stageKey = brandForAI.journey_stage ?? 'spark';
+      const { getJourneyStageByKey } = await import('@/services/brandService');
+      const { getSubstagesWithData } = await import('@/services/journeyDataService');
+      const stageData = await getJourneyStageByKey(stageKey);
+      const substages = stageData?.substages ?? [];
+      const substageRows = await getSubstagesWithData(brandId, stageKey, substages);
+
+      const capturedLines = substageRows
+        .filter(r => r.isComplete && r.value)
+        .map(r => `${r.label}: ${r.value}`);
+
+      if (capturedLines.length > 0) {
+        capturedSection = `\n\n${capturedLines.join('\n')}`;
+      }
+
+      const firstUncovered = substageRows.find(r => !r.isComplete);
+      if (firstUncovered) {
+        nextDirective = `The next thing we have not yet covered is: ${firstUncovered.label}\n\nAcknowledge the project context warmly in 2-3 sentences — show you understand what they are building. Then transition naturally into exploring the next uncovered area. Ask one focused, conversational question about it. Do not use bullet points or headers. Do not list back everything you know.`;
+      } else if (substageRows.length > 0) {
+        nextDirective = "All substages for the current stage are complete. Acknowledge this and suggest moving to the next stage.";
+      }
+    } catch (e) {
+      console.error('Failed to build dynamic onboarding trigger:', e);
+    }
+
+    const triggerMessage = `[CONTEXT_LOADED] The founder has just completed onboarding. Here is what I already know about their project:${capturedSection}\n\n${nextDirective}`;
 
     try {
       let streamingStarted = false;
