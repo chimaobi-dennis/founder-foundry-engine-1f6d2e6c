@@ -1309,6 +1309,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             customFields={customDNAFields}
             onSaveCustomField={handleSaveCustomDNAField}
             conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
+            dataRefreshTrigger={forceRefresh}
           />
         </aside>
       ) : (
@@ -1323,6 +1324,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               customFields={customDNAFields}
               onSaveCustomField={handleSaveCustomDNAField}
               conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
+              dataRefreshTrigger={forceRefresh}
             />
           </SheetContent>
         </Sheet>
