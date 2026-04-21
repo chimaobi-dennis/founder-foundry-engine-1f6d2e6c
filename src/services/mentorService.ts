@@ -436,8 +436,7 @@ export const getMentorAIResponse = async (
   // choicePrompt is the extracted structured data
 
   // After getting a successful response check if we should auto-name
-  const isFirstExchange = conversationHistory.length === 0 ||
-    conversationHistory.filter(m => m.role === 'assistant').length === 0;
+  // (isFirstExchange already declared above)
 
   const messageIsSubstantive = userMessage.trim().split(' ').length >= 5;
 
