@@ -652,19 +652,11 @@ function ResultsStep({
                 <span>{stageInfo?.name ?? stageKey}</span>
               </div>
               {Object.entries(fields).map(([fieldKey, value]) => (
-                <div
+                <DataPointCard
                   key={fieldKey}
-                  className="rounded-md bg-muted/30 px-2.5 py-1.5 mb-1"
-                  style={{ fontSize: 12, lineHeight: 1.5 }}
-                >
-                  <span className="text-muted-foreground">
-                    {getFieldLabel(stageKey, fieldKey)}:{" "}
-                  </span>
-                  <span className="text-foreground">
-                    {(value as string).slice(0, 80)}
-                    {(value as string).length > 80 ? "..." : ""}
-                  </span>
-                </div>
+                  label={getFieldLabel(stageKey, fieldKey)}
+                  value={value as string}
+                />
               ))}
             </div>
           );
