@@ -70,7 +70,7 @@ export function BrandMilestonePanel({
   realActiveBrand,
   activeBrandDNA,
 }: BrandMilestonePanelProps) {
-  const { brands: realBrands, journeyStages, currentStageData } = useBrand();
+  const { brands: realBrands, journeyStages, currentStageData, switchBrand } = useBrand();
   const { user } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -84,6 +84,8 @@ export function BrandMilestonePanel({
   const [showAllAssets, setShowAllAssets] = useState(false);
   const [deleteAssetId, setDeleteAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Warn when an untitled project already exists before creating another
+  const [showUntitledWarning, setShowUntitledWarning] = useState(false);
   // Substage completion derived from captured data — read-only progress.
   const [stageSubstages, setStageSubstages] = useState<SubstageWithData[]>([]);
 
@@ -321,12 +323,89 @@ export function BrandMilestonePanel({
         </div>
 
         <button
-          onClick={onAddBrand}
+          onClick={() => {
+            const hasUntitled = realBrands.some(
+              b => b.name.toLowerCase() === 'untitled project' ||
+                   b.name.toLowerCase() === 'untitled brand'
+            );
+            if (hasUntitled) {
+              setShowUntitledWarning(true);
+              return;
+            }
+            onAddBrand();
+          }}
           className="w-full h-9 rounded-lg border border-primary text-primary font-ui text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-primary/10 transition-colors"
         >
           <Plus size={15} />
           New project
         </button>
+
+        {showUntitledWarning && (
+          <div style={{
+            margin: '6px 0 8px',
+            padding: '10px 12px',
+            background: 'rgba(212,160,23,0.08)',
+            border: '0.5px solid rgba(212,160,23,0.3)',
+            borderRadius: '8px'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: 500,
+              color: 'var(--color-text-primary)',
+              marginBottom: '4px'
+            }}>
+              You have an unnamed project
+            </div>
+            <div style={{
+              fontSize: '11px',
+              color: 'var(--color-text-secondary)',
+              marginBottom: '10px',
+              lineHeight: 1.5
+            }}>
+              Give your current project a name before starting a new one.
+              Tell your mentor what you are building and it will suggest a name.
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                onClick={() => {
+                  setShowUntitledWarning(false);
+                  const untitled = realBrands.find(
+                    b => b.name.toLowerCase() === 'untitled project' ||
+                         b.name.toLowerCase() === 'untitled brand'
+                  );
+                  if (untitled) switchBrand(untitled.id);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '6px',
+                  background: '#D4A017',
+                  color: '#0D1B2A',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Go name it first
+              </button>
+              <button
+                onClick={() => setShowUntitledWarning(false)}
+                style={{
+                  padding: '6px 10px',
+                  background: 'transparent',
+                  border: '0.5px solid rgba(255,255,255,0.1)',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  color: 'var(--color-text-tertiary)',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Scrollable middle section — stage info, change stage, memory, milestones */}
