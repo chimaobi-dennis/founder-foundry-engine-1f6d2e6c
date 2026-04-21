@@ -411,10 +411,11 @@ export function BrandDNAPanel({
             const data = capturedData[stage.stage_key] ?? {};
             const completion = calculateStageCompletion(stage.stage_key);
             const filledCount = fields.filter(f => data[f.field_key]).length;
+            const hasCapturedData = filledCount > 0;
             const stageIndexLocal = index;
 
-            // Future stage — locked
-            if (isFuture) {
+            // Future stage with NO captured data — locked
+            if (isFuture && !hasCapturedData) {
               return (
                 <div key={stage.stage_key} style={{
                   padding: '10px 16px',
