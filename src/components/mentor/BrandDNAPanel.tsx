@@ -6,6 +6,7 @@ import { useBrand } from '@/contexts/BrandContext';
 import { supabase } from '@/integrations/supabase/client';
 import { completeSubstage, getStageProgress } from '@/services/brandService';
 import { createMilestone } from '@/services/mentorService';
+import { SubstageChecklist } from './SubstageChecklist';
 
 interface BrandDNAPanelProps {
   fields: any[];
