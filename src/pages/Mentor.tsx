@@ -10,6 +10,7 @@ import {
   getOrCreateConversation,
   getMessages,
   saveMessage,
+  deleteMessage,
   getMilestones,
   createMilestone,
   deleteMilestone,
