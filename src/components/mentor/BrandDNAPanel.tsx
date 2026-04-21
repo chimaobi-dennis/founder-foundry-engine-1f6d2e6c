@@ -411,10 +411,11 @@ export function BrandDNAPanel({
             const data = capturedData[stage.stage_key] ?? {};
             const completion = calculateStageCompletion(stage.stage_key);
             const filledCount = fields.filter(f => data[f.field_key]).length;
+            const hasCapturedData = filledCount > 0;
             const stageIndexLocal = index;
 
-            // Future stage — locked
-            if (isFuture) {
+            // Future stage with NO captured data — locked
+            if (isFuture && !hasCapturedData) {
               return (
                 <div key={stage.stage_key} style={{
                   padding: '10px 16px',
@@ -453,17 +454,22 @@ export function BrandDNAPanel({
                   background: 'linear-gradient(135deg, rgba(212,160,23,0.06) 0%, rgba(212,160,23,0.02) 100%)',
                   borderLeft: '2px solid #D4A017'
                 }}>
-                  {/* Stage header — clickable to toggle */}
-                  <div
-                    onClick={() => toggleStageExpand(stage.stage_key)}
-                    style={{ padding: '14px 16px 10px', cursor: 'pointer' }}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '6px'
-                    }}>
+                  {/* Stage header — clickable to toggle. Only the header row
+                      (not the expanded body) carries the toggle handler so
+                      clicks inside the expanded content do not collapse the
+                      stage. */}
+                  <div style={{ padding: '14px 16px 10px' }}>
+                    <div
+                      onClick={() => toggleStageExpand(stage.stage_key)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '6px',
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                      }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '18px' }}>{stage.emoji}</span>
                         <div>
@@ -517,16 +523,34 @@ export function BrandDNAPanel({
                           complete
                         </div>
                       </div>
-                      <span style={{
-                        fontSize: '10px',
-                        color: 'var(--color-text-tertiary)',
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 200ms ease',
-                        display: 'inline-block',
-                        marginLeft: '8px'
-                      }}>
+                      {/* Toggle arrow — also a real button so the explicit
+                          target always works even if some ancestor swallows
+                          the event. */}
+                      <button
+                        type="button"
+                        aria-label={isExpanded ? 'Collapse stage' : 'Expand stage'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStageExpand(stage.stage_key);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px',
+                          marginLeft: '4px',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          color: 'var(--color-text-tertiary)',
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 200ms ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1
+                        }}
+                      >
                         ▼
-                      </span>
+                      </button>
                     </div>
 
                     {isExpanded && (<>
@@ -784,78 +808,174 @@ export function BrandDNAPanel({
               );
             }
 
-            // Past stage — compact completed row
+            // Non-active stage (past, OR future with captured data) — collapsible row
             return (
               <div
                 key={stage.stage_key}
-                onClick={() => toggleStageExpand(stage.stage_key)}
                 style={{
-                  padding: '10px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  cursor: 'pointer',
                   borderBottom: '0.5px solid var(--color-border-tertiary)',
-                  background: 'transparent',
-                  transition: 'background 150ms'
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  background: 'transparent'
                 }}
               >
-                <span style={{ fontSize: '14px', flexShrink: 0 }}>{stage.emoji}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
+                <div
+                  onClick={() => toggleStageExpand(stage.stage_key)}
+                  style={{
+                    padding: '10px 16px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    marginBottom: '2px'
-                  }}>
-                    <span style={{
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: 'var(--color-text-secondary)'
+                    gap: '10px',
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    transition: 'background 150ms'
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }}
+                >
+                  <span style={{ fontSize: '14px', flexShrink: 0 }}>{stage.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: '2px',
+                      flexWrap: 'wrap'
                     }}>
-                      {stage.name}
-                    </span>
-                    {filledCount > 0 && (
                       <span style={{
-                        fontSize: '9px',
-                        color: '#4CAF50',
-                        background: 'rgba(76,175,80,0.1)',
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        fontWeight: 600
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: 'var(--color-text-secondary)'
                       }}>
-                        {filledCount} captured
+                        {stage.name}
                       </span>
+                      {filledCount > 0 && (
+                        <span style={{
+                          fontSize: '9px',
+                          color: '#4CAF50',
+                          background: 'rgba(76,175,80,0.1)',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          fontWeight: 600
+                        }}>
+                          {filledCount} captured
+                        </span>
+                      )}
+                      {/* Pre-filled badge for future stages that have data from onboarding */}
+                      {isFuture && hasCapturedData && (
+                        <span style={{
+                          fontSize: '9px',
+                          color: '#D4A017',
+                          background: 'rgba(212,160,23,0.12)',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          fontWeight: 600,
+                          letterSpacing: '0.03em'
+                        }}>
+                          Pre-filled from onboarding
+                        </span>
+                      )}
+                    </div>
+                    {/* Mini progress dots */}
+                    <div style={{ display: 'flex', gap: '3px' }}>
+                      {fields.map((f: any) => (
+                        <div key={f.field_key} style={{
+                          width: '5px',
+                          height: '5px',
+                          borderRadius: '50%',
+                          background: data[f.field_key]
+                            ? '#4CAF50'
+                            : 'var(--color-border-secondary)'
+                        }} />
+                      ))}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: '10px',
+                    color: 'var(--color-text-tertiary)',
+                    transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                    transition: 'transform 200ms',
+                    pointerEvents: 'none'
+                  }}>
+                    ▼
+                  </span>
+                </div>
+
+                {/* Expanded body — list captured fields (read-only) */}
+                {isExpanded && (
+                  <div style={{ padding: '0 16px 12px' }}>
+                    {fields.length === 0 ? (
+                      <div style={{
+                        fontSize: '11px',
+                        color: 'var(--color-text-tertiary)',
+                        fontStyle: 'italic',
+                        padding: '4px 0'
+                      }}>
+                        No fields defined for this stage yet.
+                      </div>
+                    ) : (
+                      fields.map((f: any) => {
+                        const value = data[f.field_key];
+                        const hasValue = !!(value && value.trim().length > 0);
+                        return (
+                          <div
+                            key={f.field_key}
+                            style={{
+                              marginBottom: '8px',
+                              padding: '8px 10px',
+                              background: hasValue
+                                ? 'var(--color-card-secondary)'
+                                : 'var(--color-background-secondary)',
+                              borderRadius: '6px',
+                              border: `0.5px solid ${
+                                hasValue
+                                  ? 'rgba(76,175,80,0.2)'
+                                  : 'var(--color-border-tertiary)'
+                              }`
+                            }}
+                          >
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              marginBottom: hasValue ? '4px' : 0
+                            }}>
+                              <span style={{
+                                width: '10px',
+                                height: '10px',
+                                borderRadius: '50%',
+                                background: hasValue ? '#4CAF50' : 'transparent',
+                                border: hasValue
+                                  ? '2px solid #4CAF50'
+                                  : '1.5px solid var(--color-border-secondary)',
+                                flexShrink: 0
+                              }} />
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: 500,
+                                color: 'var(--color-text-secondary)'
+                              }}>
+                                {f.field_label}
+                              </span>
+                            </div>
+                            {hasValue && (
+                              <div style={{
+                                fontSize: '12px',
+                                color: 'var(--color-text-primary)',
+                                lineHeight: 1.5,
+                                marginLeft: '16px'
+                              }}>
+                                {value.length > 200 ? value.slice(0, 200) + '…' : value}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
-                  {/* Mini progress dots */}
-                  <div style={{ display: 'flex', gap: '3px' }}>
-                    {fields.map((f: any) => (
-                      <div key={f.field_key} style={{
-                        width: '5px',
-                        height: '5px',
-                        borderRadius: '50%',
-                        background: data[f.field_key]
-                          ? '#4CAF50'
-                          : 'var(--color-border-secondary)'
-                      }} />
-                    ))}
-                  </div>
-                </div>
-                <span style={{
-                  fontSize: '10px',
-                  color: 'var(--color-text-tertiary)',
-                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
-                  transition: 'transform 200ms'
-                }}>
-                  ▼
-                </span>
+                )}
               </div>
             );
           })}
