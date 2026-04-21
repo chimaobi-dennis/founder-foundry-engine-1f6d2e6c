@@ -67,6 +67,26 @@ export function BrandMilestonePanel({
   const [editValue, setEditValue] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
+
+  // Load substage completion state whenever brand/stage changes
+  useEffect(() => {
+    const stageKey = realActiveBrand?.journey_stage ?? 'spark';
+    if (!realActiveBrand?.id) {
+      setStageProgress({});
+      return;
+    }
+    let cancelled = false;
+    getStageProgress(realActiveBrand.id, stageKey).then(rows => {
+      if (cancelled) return;
+      const map: Record<number, boolean> = {};
+      rows.forEach(r => {
+        if (r.isCompleted) map[r.substageIndex] = true;
+      });
+      setStageProgress(map);
+    });
+    return () => { cancelled = true; };
+  }, [realActiveBrand?.id, realActiveBrand?.journey_stage]);
 
   // Helper to build memory summary
   const buildMemorySummary = (brand: Brand | null, dna: BrandDNA | null): string => {
