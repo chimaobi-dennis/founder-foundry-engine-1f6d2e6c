@@ -494,6 +494,8 @@ const Mentor = () => {
 
     // Note: We're not managing savePrompts state in this version
     await refreshBrandDNA();
+    // Tell the right-panel substage view to re-fetch from brand_stage_data
+    setForceRefresh(prev => prev + 1);
   };
 
   // ─── Milestone auto-detection ─────────────────────────────────────────────
@@ -909,6 +911,9 @@ Be selective — only mark significant shifts, not minor tangents.`,
       setCustomDNAFields(updated);
     }
 
+    // Tell the right-panel substage view to re-fetch from brand_stage_data
+    setForceRefresh(prev => prev + 1);
+
     // Send the selection as a user message
     const selectionMessage = `I like "${selectedLabel}".`;
     await handleSendMessage(selectionMessage);
@@ -1304,6 +1309,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             customFields={customDNAFields}
             onSaveCustomField={handleSaveCustomDNAField}
             conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
+            dataRefreshTrigger={forceRefresh}
           />
         </aside>
       ) : (
@@ -1318,6 +1324,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               customFields={customDNAFields}
               onSaveCustomField={handleSaveCustomDNAField}
               conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
+              dataRefreshTrigger={forceRefresh}
             />
           </SheetContent>
         </Sheet>
