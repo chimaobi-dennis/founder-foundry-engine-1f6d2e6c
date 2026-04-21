@@ -130,6 +130,19 @@ export const saveMessage = async (
   return data;
 };
 
+// Permanently delete a single mentor message from the conversation.
+// Used by the per-message actions menu in the mentor chat timeline.
+export const deleteMessage = async (
+  messageId: string
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await (supabase as any)
+    .from('mentor_messages')
+    .delete()
+    .eq('id', messageId);
+
+  return { success: !error, error: error?.message };
+};
+
 // ─── Milestones ───────────────────────────────────────────
 
 export const getMilestones = async (
