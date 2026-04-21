@@ -296,6 +296,125 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         </div>
       )}
 
+      {/* Incomplete substage warning */}
+      {stageChangeWarning && (
+        <div style={{
+          margin: '8px 12px',
+          padding: '14px',
+          background: 'rgba(212,160,23,0.06)',
+          border: '1px solid rgba(212,160,23,0.25)',
+          borderRadius: '10px',
+          flexShrink: 0
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            marginBottom: '10px'
+          }}>
+            <span style={{ fontSize: '16px', flexShrink: 0 }}>⚠️</span>
+            <div>
+              <div style={{
+                fontSize: '13px',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                marginBottom: '4px'
+              }}>
+                You have not finished this stage yet
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: 'var(--color-text-secondary)',
+                lineHeight: 1.5
+              }}>
+                Skipping these steps might affect the quality of your project output later.
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(0,0,0,0.15)',
+            borderRadius: '6px',
+            padding: '8px 10px',
+            marginBottom: '12px'
+          }}>
+            <div style={{
+              fontSize: '10px',
+              color: '#D4A017',
+              fontWeight: 600,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              marginBottom: '6px'
+            }}>
+              Still to complete:
+            </div>
+            {stageChangeWarning.incompleteSubstages.map((sub: string, i: number) => (
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginBottom: '3px'
+              }}>
+                <div style={{
+                  width: '5px',
+                  height: '5px',
+                  borderRadius: '50%',
+                  background: 'rgba(212,160,23,0.5)',
+                  flexShrink: 0
+                }} />
+                <span style={{
+                  fontSize: '11px',
+                  color: 'var(--color-text-secondary)'
+                }}>
+                  {sub}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <button
+              onClick={() => {
+                setStageChangeWarning(null);
+                setShowRightStagePicker(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: 'transparent',
+                border: '0.5px solid rgba(212,160,23,0.4)',
+                borderRadius: '7px',
+                fontSize: '12px',
+                color: '#D4A017',
+                fontWeight: 500,
+                cursor: 'pointer'
+              }}
+            >
+              ← Stay and complete this stage
+            </button>
+            <button
+              onClick={async () => {
+                await updateStage(stageChangeWarning.targetStageKey, 'user_selected');
+                setStageChangeWarning(null);
+                setShowRightStagePicker(false);
+              }}
+              style={{
+                width: '100%',
+                padding: '8px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '0.5px solid rgba(255,255,255,0.1)',
+                borderRadius: '7px',
+                fontSize: '12px',
+                color: 'var(--color-text-tertiary)',
+                cursor: 'pointer'
+              }}
+            >
+              Skip anyway and move to {journeyStages.find(s => s.stage_key === stageChangeWarning.targetStageKey)?.name}
+            </button>
+          </div>
+        </div>
+      )}
+
       <ScrollArea className="flex-1 min-h-0 journey-record-scroll">
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {journeyStages.map((stage, index) => {
