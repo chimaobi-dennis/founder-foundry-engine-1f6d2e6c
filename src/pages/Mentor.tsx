@@ -554,7 +554,10 @@ const Mentor = () => {
   };
 
   // ─── SAVE_PROMPT handler — writes parsed AI save pill to brand_stage_data ──
-  const handleSaveStagePrompt = useCallback(async (prompt: ParsedSavePrompt) => {
+  // Also mirrors to brand_dna when a mapping exists, so the right-panel DNA
+  // view and the Brand DNA page stay in sync. Persists captured_from_message_id
+  // so the "Saved" pill can be restored across reloads.
+  const handleSaveStagePrompt = useCallback(async (prompt: ParsedSavePrompt, messageId?: string) => {
     if (!activeBrand) return;
 
     // Resolve stage_key: prefer the one provided by the AI, else find by
@@ -576,24 +579,41 @@ const Mentor = () => {
     const conversation = conversationMapRef.current[activeBrand.id];
 
     try {
+      // 1. Save to brand_stage_data (drives Journey Record completion %)
       const { success, error } = await saveStageField(
         activeBrand.id,
         stageKey,
         prompt.fieldKey,
         cleanValue,
-        undefined,
+        messageId,
         conversation?.id,
         prompt.label,
         'brand_discovery'
       );
       if (!success) throw new Error(error || 'Save failed');
 
+      // 2. Mirror to brand_dna when a mapping exists. Match by field_key,
+      //    label, or maps_to_dna_field on the cached stage field def.
+      const stageFieldDefs = (allStageFields[stageKey] ?? []) as any[];
+      const fieldDef = stageFieldDefs.find(f => f.field_key === prompt.fieldKey);
+      const dnaCandidates = [
+        prompt.label,
+        fieldDef?.maps_to_dna_field,
+        fieldDef?.field_label,
+      ].filter(Boolean) as string[];
+      for (const candidate of dnaCandidates) {
+        if (DNA_UI_TO_DB[candidate]) {
+          await persistDNAField(activeBrand.id, candidate, cleanValue);
+          break;
+        }
+      }
+
+      // 3. Update local state and refresh both panels
       setCapturedData(prev => ({
         ...prev,
         [stageKey!]: { ...(prev[stageKey!] ?? {}), [prompt.fieldKey]: cleanValue },
       }));
-
-      // Refresh the right-panel substage progress immediately
+      await refreshBrandDNA();
       setForceRefresh(prev => prev + 1);
 
       toast(`Saved "${prompt.label}"`, { duration: 2000 });
@@ -608,7 +628,7 @@ const Mentor = () => {
       toast.error('Could not save — try again');
       throw e;
     }
-  }, [activeBrand, allStageFields, user]);
+  }, [activeBrand, allStageFields, user, persistDNAField, refreshBrandDNA]);
 
 
   // ─── Milestone auto-detection ─────────────────────────────────────────────
