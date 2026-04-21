@@ -1,7 +1,8 @@
-import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X, Code } from "lucide-react";
+import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X, Code, Upload, Pin, Folder } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/contexts/BrandContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { MentorBrand, Milestone, MilestoneCategory, categoryColors } from "./types";
 import type { JourneyStageData } from "@/services/brandService";
 import {
@@ -22,6 +23,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Brand, BrandDNA, completeSubstage, getStageProgress } from "@/services/brandService";
+import {
+  ProjectAsset,
+  getProjectAssets,
+  uploadProjectFile,
+  togglePinAsset,
+  deleteProjectAsset,
+} from "@/services/projectAssetsService";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
@@ -59,15 +67,21 @@ export function BrandMilestonePanel({
   realActiveBrand,
   activeBrandDNA,
 }: BrandMilestonePanelProps) {
-  const { brands: realBrands, updateStage, journeyStages, currentStageData } = useBrand();
+  const { brands: realBrands, journeyStages, currentStageData } = useBrand();
+  const { user } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [stagePickerOpen, setStagePickerOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
+  // Project Assets state
+  const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [showAllAssets, setShowAllAssets] = useState(false);
+  const [deleteAssetId, setDeleteAssetId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load substage completion state whenever brand/stage changes
   useEffect(() => {
@@ -87,6 +101,78 @@ export function BrandMilestonePanel({
     });
     return () => { cancelled = true; };
   }, [realActiveBrand?.id, realActiveBrand?.journey_stage]);
+
+  // Load project assets whenever brand changes
+  useEffect(() => {
+    if (!realActiveBrand?.id) {
+      setProjectAssets([]);
+      return;
+    }
+    let cancelled = false;
+    getProjectAssets(realActiveBrand.id).then(assets => {
+      if (!cancelled) setProjectAssets(assets);
+    });
+    return () => { cancelled = true; };
+  }, [realActiveBrand?.id]);
+
+  const refreshAssets = async () => {
+    if (!realActiveBrand?.id) return;
+    const assets = await getProjectAssets(realActiveBrand.id);
+    setProjectAssets(assets);
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || !user || !realActiveBrand) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        await uploadProjectFile(
+          user.id,
+          realActiveBrand.id,
+          file,
+          realActiveBrand.journey_stage ?? undefined
+        );
+      }
+      await refreshAssets();
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleTogglePin = async (asset: ProjectAsset) => {
+    await togglePinAsset(asset.id, !asset.is_pinned);
+    await refreshAssets();
+  };
+
+  const handleDeleteAsset = async (asset: ProjectAsset) => {
+    await deleteProjectAsset(asset.id, asset.storage_path ?? undefined);
+    await refreshAssets();
+  };
+
+  const getAssetIcon = (asset: ProjectAsset): string => {
+    if (asset.source === 'ai_generated') return '✦';
+    switch (asset.file_type) {
+      case 'document': return '📄';
+      case 'image': return '🖼';
+      case 'pdf': return '📋';
+      case 'spreadsheet': return '📊';
+      case 'presentation': return '📑';
+      default: return '📎';
+    }
+  };
+
+  const formatStageName = (stageKey: string | null): string => {
+    if (!stageKey) return '';
+    const s = journeyStages.find(js => js.stage_key === stageKey);
+    return s?.name ?? (stageKey.charAt(0).toUpperCase() + stageKey.slice(1));
+  };
+
+  const formatSourceLabel = (asset: ProjectAsset): string => {
+    const source = asset.source === 'ai_generated' ? 'AI generated' : 'Uploaded';
+    const stage = formatStageName(asset.stage_key);
+    return stage ? `${source} · ${stage}` : source;
+  };
+
 
   // Helper to build memory summary
   const buildMemorySummary = (brand: Brand | null, dna: BrandDNA | null): string => {
@@ -447,132 +533,6 @@ export function BrandMilestonePanel({
                 </span>
               </div>
             )}
-            <button
-              onClick={() => setStagePickerOpen(!stagePickerOpen)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 10px',
-                background: stagePickerOpen
-                  ? 'rgba(212,160,23,0.15)'
-                  : 'rgba(212,160,23,0.08)',
-                border: '0.5px solid rgba(212,160,23,0.3)',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                color: '#D4A017',
-                fontWeight: 500,
-                transition: 'all 150ms',
-                width: '100%',
-                justifyContent: 'space-between'
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.background = 'rgba(212,160,23,0.15)';
-              }}
-              onMouseLeave={e => {
-                if (!stagePickerOpen) {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(212,160,23,0.08)';
-                }
-              }}
-            >
-              <span>Change stage</span>
-              <span style={{
-                fontSize: '10px',
-                transition: 'transform 200ms',
-                transform: stagePickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                display: 'inline-block'
-              }}>
-                ▼
-              </span>
-            </button>
-            {stagePickerOpen && (
-              <div style={{
-                marginTop: '8px',
-                background: 'transparent',
-                border: 'none',
-                borderRadius: 0,
-                padding: '4px 0'
-              }}>
-                {journeyStages.map(stage => {
-                  const isCurrent = stage.stage_key === realActiveBrand?.journey_stage;
-
-                  return (
-                    <div
-                      key={stage.stage_key}
-                      onClick={async () => {
-                        if (!isCurrent) {
-                          await updateStage(stage.stage_key, 'user_selected');
-                          setStagePickerOpen(false);
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        cursor: isCurrent ? 'default' : 'pointer',
-                        background: isCurrent
-                          ? 'rgba(212,160,23,0.12)'
-                          : 'var(--stage-option-bg)',
-                        border: isCurrent
-                          ? '0.5px solid rgba(212,160,23,0.3)'
-                          : '0.5px solid var(--stage-option-border)',
-                        transition: 'all 150ms',
-                        marginBottom: '4px'
-                      }}
-                      onMouseEnter={e => {
-                        if (!isCurrent) {
-                          (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg-hover)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!isCurrent) {
-                          (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
-                        }
-                      }}
-                    >
-                      <span style={{ fontSize: '16px', flexShrink: 0 }}>
-                        {stage.emoji}
-                      </span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{
-                          fontSize: '13px',
-                          fontWeight: isCurrent ? 600 : 400,
-                          color: isCurrent
-                            ? '#D4A017'
-                            : 'var(--color-text-primary)'
-                        }}>
-                          {stage.name}
-                        </div>
-                        <div style={{
-                          fontSize: '10px',
-                          color: 'var(--color-text-tertiary)',
-                          marginTop: '1px'
-                        }}>
-                          {stage.description.split('.')[0]}
-                        </div>
-                      </div>
-                      {isCurrent && (
-                        <span style={{
-                          fontSize: '9px',
-                          background: 'rgba(212,160,23,0.2)',
-                          color: '#D4A017',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontWeight: 600,
-                          letterSpacing: '0.04em',
-                          flexShrink: 0
-                        }}>
-                          ACTIVE
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
           <div style={{
             height: '0.5px',
@@ -581,7 +541,204 @@ export function BrandMilestonePanel({
           }} />
         </div>
 
-        {/* Memory */}
+        {/* Project Assets */}
+        <div className="px-4">
+          <p style={{
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-secondary)',
+            marginBottom: '8px'
+          }}>
+            PROJECT ASSETS
+          </p>
+
+          {/* Upload zone */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="*/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => {
+              handleFileUpload(e.target.files);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+          />
+          <div
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            style={{
+              border: '1.5px dashed rgba(212,160,23,0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              textAlign: 'center',
+              cursor: uploading ? 'wait' : 'pointer',
+              marginBottom: '10px',
+              transition: 'border-color 150ms',
+              opacity: uploading ? 0.7 : 1
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.5)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.3)';
+            }}
+          >
+            <Upload size={18} style={{ color: '#D4A017', margin: '0 auto 4px' }} />
+            <div style={{ fontSize: '12px', color: '#D4A017', fontWeight: 500 }}>
+              {uploading ? 'Uploading...' : 'Upload files'}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>
+              Docs, images, PDFs
+            </div>
+          </div>
+
+          {/* Assets list */}
+          {projectAssets.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '12px 8px',
+              marginBottom: '8px'
+            }}>
+              <Folder size={28} style={{ color: 'var(--color-text-tertiary)', margin: '0 auto 6px', opacity: 0.6 }} />
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                No files yet
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', lineHeight: 1.4 }}>
+                Upload research, briefs, or product images for your AI mentor to reference.
+              </div>
+            </div>
+          ) : (
+            <div>
+              {(showAllAssets ? projectAssets : projectAssets.slice(0, 5)).map(asset => (
+                <div
+                  key={asset.id}
+                  className="group"
+                  style={{
+                    padding: '6px 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'background 150ms'
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }}
+                >
+                  <span style={{ fontSize: '18px', flexShrink: 0, color: asset.source === 'ai_generated' ? '#D4A017' : undefined }}>
+                    {getAssetIcon(asset)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--color-text-primary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {asset.name}
+                    </div>
+                    <div style={{
+                      fontSize: '10px',
+                      color: 'var(--color-text-tertiary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {formatSourceLabel(asset)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleTogglePin(asset); }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '2px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexShrink: 0
+                    }}
+                    aria-label={asset.is_pinned ? 'Unpin' : 'Pin'}
+                  >
+                    <Pin
+                      size={14}
+                      style={{
+                        color: asset.is_pinned ? '#D4A017' : 'var(--color-text-tertiary)',
+                        fill: asset.is_pinned ? '#D4A017' : 'none'
+                      }}
+                    />
+                  </button>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ flexShrink: 0 }}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '2px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <MoreHorizontal size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-[120px]">
+                        {asset.file_url && (
+                          <DropdownMenuItem
+                            onClick={() => window.open(asset.file_url!, '_blank')}
+                            className="text-[12px]"
+                          >
+                            View
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => setDeleteAssetId(asset.id)}
+                          className="text-[12px] text-destructive focus:text-destructive"
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))}
+              {projectAssets.length > 5 && (
+                <button
+                  onClick={() => setShowAllAssets(!showAllAssets)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#D4A017',
+                    fontSize: '11px',
+                    padding: '6px 4px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%'
+                  }}
+                >
+                  {showAllAssets ? 'Show less' : `Show all (${projectAssets.length})`}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div style={{
+            height: '0.5px',
+            background: 'var(--color-border-tertiary)',
+            margin: '12px 0'
+          }} />
+        </div>
+
+
         <div className="px-4">
           <p style={{
             fontSize: '10px',
@@ -802,6 +959,30 @@ export function BrandMilestonePanel({
               onClick={() => {
                 if (deleteConfirmId) onDeleteMilestone?.(deleteConfirmId);
                 setDeleteConfirmId(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteAssetId} onOpenChange={(open) => !open && setDeleteAssetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-ui text-[15px]">Delete file?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px]">
+              This will permanently remove the file from your project assets.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="text-[13px]">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-[13px]"
+              onClick={() => {
+                const asset = projectAssets.find(a => a.id === deleteAssetId);
+                if (asset) handleDeleteAsset(asset);
+                setDeleteAssetId(null);
               }}
             >
               Delete
