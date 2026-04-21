@@ -652,19 +652,11 @@ function ResultsStep({
                 <span>{stageInfo?.name ?? stageKey}</span>
               </div>
               {Object.entries(fields).map(([fieldKey, value]) => (
-                <div
+                <DataPointCard
                   key={fieldKey}
-                  className="rounded-md bg-muted/30 px-2.5 py-1.5 mb-1"
-                  style={{ fontSize: 12, lineHeight: 1.5 }}
-                >
-                  <span className="text-muted-foreground">
-                    {getFieldLabel(stageKey, fieldKey)}:{" "}
-                  </span>
-                  <span className="text-foreground">
-                    {(value as string).slice(0, 80)}
-                    {(value as string).length > 80 ? "..." : ""}
-                  </span>
-                </div>
+                  label={getFieldLabel(stageKey, fieldKey)}
+                  value={value as string}
+                />
               ))}
             </div>
           );
@@ -710,5 +702,32 @@ function ResultsStep({
         </button>
       </div>
     </>
+  );
+}
+
+function DataPointCard({ label, value }: { label: string; value: string }) {
+  const TRUNCATE_AT = 80;
+  const isLong = value.length > TRUNCATE_AT;
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className="rounded-md bg-muted/30 px-2.5 py-1.5 mb-1"
+      style={{ fontSize: 12, lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "normal" }}
+    >
+      <span className="text-muted-foreground">{label}: </span>
+      <span className="text-foreground">
+        {isLong && !expanded ? `${value.slice(0, TRUNCATE_AT)}… ` : `${value} `}
+      </span>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="text-primary hover:underline font-ui"
+          style={{ fontSize: 11 }}
+        >
+          {expanded ? "See less" : "See more"}
+        </button>
+      )}
+    </div>
   );
 }
