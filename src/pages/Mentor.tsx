@@ -293,9 +293,27 @@ const Mentor = () => {
         groupedStageFields[field.stage_key].push(field);
       });
 
+      // Pre-populate which save prompts have already been accepted, so the
+      // "Saved" pill is restored under the right message after a reload.
+      const { data: savedRows } = await (supabase as any)
+        .from('brand_stage_data')
+        .select('field_key, captured_from_message_id')
+        .eq('brand_id', activeBrandId)
+        .not('captured_from_message_id', 'is', null);
+      const savedKeys = new Set<string>(
+        (savedRows ?? [])
+          .filter((r: any) => r.captured_from_message_id && r.field_key)
+          .map((r: any) => `${r.captured_from_message_id}::${r.field_key}`)
+      );
+
       setActiveChoicePrompts(choicePrompts);
       setCustomDNAFields(customFields);
       setAllStageFields(groupedStageFields);
+      setSavedStagePromptKeys(prev => {
+        const next = new Set(prev);
+        savedKeys.forEach(k => next.add(k));
+        return next;
+      });
 
       const uiMessages: Message[] = dbMessages.map(m => ({
         id: m.id,
