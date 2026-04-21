@@ -1565,6 +1565,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
                 thinkingState={thinkingState}
                 streamingMessageId={streamingMessageId}
                 streamingText={streamingText}
+                onSaveStagePrompt={handleSaveStagePrompt}
               />
             );
           }
