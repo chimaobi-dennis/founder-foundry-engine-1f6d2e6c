@@ -769,6 +769,15 @@ Be selective — only mark significant shifts, not minor tangents.`,
             setStreamingMessageId(`streaming-${Date.now()}`);
           }
           setStreamingText(chunkText);
+        },
+        async (newName) => {
+          // Project was auto-named — refresh silently
+          await refreshBrands();
+
+          // Subtle confirmation — not intrusive
+          toast(`Project named "${newName}"`, {
+            duration: 3000,
+          });
         }
       );
 
@@ -843,7 +852,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         setUnansweredMessageId(userMsg.id);
       }
     }
-  }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone]);
+  }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone, refreshBrands]);
 
   const handleRetry = useCallback(() => {
     const brandId = activeBrandId;

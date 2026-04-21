@@ -250,3 +250,13 @@
 .animate-amber-pulse {
   animation: amber-pulse 2s ease-in-out infinite;
 }
+
+@keyframes name-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.animate-name-fade {
+  animation: name-fade-in 300ms ease;
+}
+
