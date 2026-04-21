@@ -635,6 +635,13 @@ const Mentor = () => {
         ...prev,
         [stageKey!]: { ...(prev[stageKey!] ?? {}), [prompt.fieldKey]: cleanValue },
       }));
+      if (messageId) {
+        setSavedStagePromptKeys(prev => {
+          const next = new Set(prev);
+          next.add(`${messageId}::${prompt.fieldKey}`);
+          return next;
+        });
+      }
       await refreshBrandDNA();
       setForceRefresh(prev => prev + 1);
 
