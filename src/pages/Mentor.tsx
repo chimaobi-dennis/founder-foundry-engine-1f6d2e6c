@@ -35,6 +35,7 @@ import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
 import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptyState";
+import { ProjectOnboarding } from "@/components/mentor/ProjectOnboarding";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   MentorBrand,
@@ -174,6 +175,8 @@ const Mentor = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingCheckedFor, setOnboardingCheckedFor] = useState<Set<string>>(new Set());
 
   const { brands: realBrands, activeBrand, activeBrandDNA, switchBrand, createNewBrand, refreshBrands, refreshBrandDNA, isLoading, currentStageData } = useBrand();
   const { user } = useAuth();
@@ -354,6 +357,42 @@ const Mentor = () => {
     loadBrandData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrandId]);
+
+  // ─── Onboarding check ──────────────────────────────────────────────────────
+  // When a brand is active and has not completed onboarding, show the overlay
+  useEffect(() => {
+    if (!activeBrandId || !activeBrand) return;
+    if (onboardingCheckedFor.has(activeBrandId)) return;
+
+    const checkOnboarding = async () => {
+      const { data } = await (supabase as any)
+        .from('brands')
+        .select('onboarding_completed')
+        .eq('id', activeBrandId)
+        .single();
+
+      setOnboardingCheckedFor(prev => new Set(prev).add(activeBrandId));
+      if (data && data.onboarding_completed === false) {
+        setShowOnboarding(true);
+      }
+    };
+
+    checkOnboarding();
+  }, [activeBrandId, activeBrand, onboardingCheckedFor]);
+
+  const handleOnboardingComplete = useCallback(async () => {
+    setShowOnboarding(false);
+    // Refresh brands so any extracted name / stage updates flow through
+    await refreshBrands();
+    await refreshBrandDNA();
+    // Force re-load of brand data and right-panel substages
+    setLoadedBrands(prev => {
+      const next = new Set(prev);
+      next.delete(activeBrandId);
+      return next;
+    });
+    setForceRefresh(prev => prev + 1);
+  }, [activeBrandId, refreshBrands, refreshBrandDNA]);
 
   // ─── Handle CTA query param (idea / brand mode) ───────────────────────────
 
@@ -1337,6 +1376,13 @@ Be selective — only mark significant shifts, not minor tangents.`,
             />
           </SheetContent>
         </Sheet>
+      )}
+
+      {showOnboarding && currentActiveBrand && (
+        <ProjectOnboarding
+          brandId={currentActiveBrand.id}
+          onComplete={handleOnboardingComplete}
+        />
       )}
     </div>
   );

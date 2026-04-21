@@ -367,6 +367,16 @@ export const getMentorAIResponse = async (
     systemPrompt += assetsContext;
   }
 
+  // If the founder just shared prior context during onboarding, prompt the
+  // mentor to acknowledge it briefly in the first response. Only fires on the
+  // very first exchange and when context_source indicates real input.
+  const isFirstExchange = conversationHistory.length === 0 ||
+    conversationHistory.filter(m => m.role === 'assistant').length === 0;
+
+  if (isFirstExchange && brand?.context_source && brand.context_source !== 'fresh_start') {
+    systemPrompt += `\n\nCONTEXT NOTE: The founder just shared their prior work during project setup. Their Journey Record has been pre-populated with data extracted from their content. Acknowledge this briefly in your first response — something like "I have read through what you shared. Based on that, here is where I think we are..." — then ask one sharp question to deepen your understanding of their most important current challenge. Do not repeat back everything you read — just show you understood it.`;
+  }
+
   const result = await callAI({
     taskType: 'mentor_chat',
     userId,
@@ -426,8 +436,7 @@ export const getMentorAIResponse = async (
   // choicePrompt is the extracted structured data
 
   // After getting a successful response check if we should auto-name
-  const isFirstExchange = conversationHistory.length === 0 ||
-    conversationHistory.filter(m => m.role === 'assistant').length === 0;
+  // (isFirstExchange already declared above)
 
   const messageIsSubstantive = userMessage.trim().split(' ').length >= 5;
 
