@@ -195,7 +195,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         <div style={{ 
                           fontSize: '18px', 
                           fontWeight: 700,
-                          color: completion === 100 ? '#4CAF50' : '#D4A017',
+                          color: completion === 100 ? '#4CAF50' : 'var(--completion-amber)',
                           lineHeight: 1
                         }}>
                           {completion}%
