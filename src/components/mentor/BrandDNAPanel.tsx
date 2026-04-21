@@ -415,7 +415,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                                     fontSize: '11px',
                                     padding: '4px 10px',
                                     background: 'transparent',
-                                    border: '0.5px solid rgba(255,255,255,0.1)',
+                                    border: '0.5px solid var(--color-border-secondary)',
                                     borderRadius: '5px',
                                     cursor: 'pointer',
                                     color: 'var(--color-text-secondary)'
