@@ -1,7 +1,8 @@
-import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X, Code } from "lucide-react";
+import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X, Code, Upload, Pin, Folder } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/contexts/BrandContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { MentorBrand, Milestone, MilestoneCategory, categoryColors } from "./types";
 import type { JourneyStageData } from "@/services/brandService";
 import {
@@ -22,6 +23,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Brand, BrandDNA, completeSubstage, getStageProgress } from "@/services/brandService";
+import {
+  ProjectAsset,
+  getProjectAssets,
+  uploadProjectFile,
+  togglePinAsset,
+  deleteProjectAsset,
+} from "@/services/projectAssetsService";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
