@@ -28,6 +28,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const [savingField, setSavingField] = useState<string | null>(null);
   const [showRightStagePicker, setShowRightStagePicker] = useState(false);
   const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [stageDataLoading, setStageDataLoading] = useState(true);
   const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
   const [stageChangeWarning, setStageChangeWarning] = useState<{
     targetStageKey: string;

@@ -1,3 +1,5 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
 /**
  * Reusable substage checklist used in the Mentor panels.
  * Preserves the exact spacing, colors, and hover behavior used across the
@@ -10,9 +12,64 @@ interface SubstageChecklistProps {
   progress: Record<number, boolean>;
   /** Called when a not-yet-completed substage row is clicked */
   onComplete?: (index: number, substage: string) => void;
+  /** Show shimmering skeleton rows while progress data is being fetched */
+  loading?: boolean;
+  /** How many skeleton rows to render when loading (default: substages.length || 3) */
+  skeletonRows?: number;
 }
 
-export function SubstageChecklist({ substages, progress, onComplete }: SubstageChecklistProps) {
+export function SubstageChecklist({
+  substages,
+  progress,
+  onComplete,
+  loading = false,
+  skeletonRows
+}: SubstageChecklistProps) {
+  // Loading state — render shimmer rows that mirror the real row layout
+  if (loading) {
+    const rows = skeletonRows ?? (substages?.length || 3);
+    return (
+      <div style={{
+        margin: '0 0 12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px'
+      }}>
+        {Array.from({ length: rows }).map((_, idx) => (
+          <div
+            key={idx}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '8px',
+              padding: '6px 8px',
+              borderRadius: '6px',
+              border: '0.5px solid transparent'
+            }}
+          >
+            <Skeleton
+              className="rounded-full"
+              style={{
+                width: '16px',
+                height: '16px',
+                flexShrink: 0,
+                marginTop: '1px'
+              }}
+            />
+            <Skeleton
+              style={{
+                height: '11px',
+                marginTop: '4px',
+                flex: 1,
+                width: `${60 + ((idx * 13) % 30)}%`
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (!substages || substages.length === 0) return null;
 
   const completedCount = Object.values(progress).filter(Boolean).length;
