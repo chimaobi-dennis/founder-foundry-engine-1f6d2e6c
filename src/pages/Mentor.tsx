@@ -1377,6 +1377,13 @@ Be selective — only mark significant shifts, not minor tangents.`,
           </SheetContent>
         </Sheet>
       )}
+
+      {showOnboarding && currentActiveBrand && (
+        <ProjectOnboarding
+          brandId={currentActiveBrand.id}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
     </div>
   );
 };
