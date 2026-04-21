@@ -246,6 +246,24 @@ export function ChatPanel({
   const promptsByMessage = Object.fromEntries(savePrompts.map(sp => [sp.afterMessageId, sp]));
   const promptsByMessageId = Object.fromEntries(activeChoicePrompts.map(cp => [cp.message_id, cp]));
 
+  // Deduplicate messages by id — optimistic insertion + DB refetch can lead
+  // to the same row appearing twice in `messages`. Keep the first occurrence.
+  const dedupedMessages = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Message[] = [];
+    for (const m of messages) {
+      if (m.id && seen.has(m.id)) continue;
+      if (m.id) seen.add(m.id);
+      out.push(m);
+    }
+    return out;
+  }, [messages]);
+
+  // Combined "saved" set: locally accepted in this session + persisted in DB.
+  const isStagePromptSaved = useCallback((key: string) => (
+    stagePromptSaved.has(key) || (savedStagePromptKeys?.has(key) ?? false)
+  ), [stagePromptSaved, savedStagePromptKeys]);
+
   const ChoicePromptCard = ({ prompt, onSelect }: {
     prompt: ChoicePrompt;
     onSelect: (value: string, label: string) => void;
