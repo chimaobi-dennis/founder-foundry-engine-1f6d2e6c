@@ -918,6 +918,129 @@ Be selective — only mark significant shifts, not minor tangents.`,
     }
   }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone, refreshBrands]);
 
+  // ─── First AI message after onboarding ────────────────────────────────────
+  // Sends a hidden trigger message to the AI to generate the opening message
+  // that acknowledges the loaded context. The trigger user message is NOT
+  // saved to the DB and never appears in the UI — only the AI response does.
+  const triggerFirstAIMessage = useCallback(async (brandId: string) => {
+    if (!user) return;
+
+    // Wait briefly for conversation to be created/loaded if not yet ready
+    let conversation = conversationMapRef.current[brandId];
+    if (!conversation) {
+      for (let i = 0; i < 10 && !conversation; i++) {
+        await new Promise(r => setTimeout(r, 200));
+        conversation = conversationMapRef.current[brandId];
+      }
+    }
+    if (!conversation) {
+      setFirstMessageBrands(prev => {
+        const next = new Set(prev);
+        next.delete(brandId);
+        return next;
+      });
+      return;
+    }
+
+    // Resolve the latest brand record (refreshBrands has just run)
+    const { data: latestBrand } = await (supabase as any)
+      .from('brands')
+      .select('*')
+      .eq('id', brandId)
+      .single();
+    const brandForAI = latestBrand ?? activeBrand;
+    if (!brandForAI) {
+      setFirstMessageBrands(prev => {
+        const next = new Set(prev);
+        next.delete(brandId);
+        return next;
+      });
+      return;
+    }
+
+    const dnaContext = await getBrandDNA(brandId);
+
+    const thinker = createThinkingSequence(
+      'mentor_chat',
+      !!(dnaContext?.brand_voice || dnaContext?.positioning_statement),
+      true,
+      (state) => setThinkingState(state)
+    );
+
+    const triggerMessage = "[CONTEXT_LOADED] The founder has just completed onboarding. You have been given their project context. Acknowledge what you now know about their project and ask one focused question to start the conversation.";
+
+    try {
+      let streamingStarted = false;
+
+      const aiResult = await getMentorAIResponse(
+        user.id,
+        brandForAI,
+        dnaContext,
+        [],
+        triggerMessage,
+        (chunkText) => {
+          if (!streamingStarted) {
+            streamingStarted = true;
+            thinker.stop();
+            setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+            setStreamingMessageId(`streaming-${Date.now()}`);
+          }
+          setStreamingText(chunkText);
+        },
+        async (newName) => {
+          await refreshBrands();
+          toast(`Project named "${newName}"`, { duration: 3000 });
+        }
+      );
+
+      thinker.stop();
+      setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+      setStreamingMessageId(null);
+      setStreamingText('');
+
+      if (aiResult) {
+        const aiMsg = await saveMessage(conversation.id, 'assistant', aiResult.text);
+        if (aiMsg) {
+          const aiMessage: Message = { id: aiMsg.id, role: "ai", content: aiResult.text };
+          setBrandDataMap(prev => {
+            const data = prev[brandId];
+            if (!data) {
+              return {
+                ...prev,
+                [brandId]: {
+                  brand: { id: brandId, name: brandForAI.name, colorClass: "", startedDate: "" },
+                  messages: [aiMessage],
+                  milestones: [],
+                  milestoneMarkers: [],
+                  savePrompts: [],
+                  dnaFields: emptyDNAFields,
+                },
+              };
+            }
+            return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMessage] } };
+          });
+        }
+      }
+    } catch (e) {
+      thinker.stop();
+      setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+      setStreamingMessageId(null);
+      setStreamingText('');
+      console.error('Failed to generate first AI message after onboarding:', e);
+    } finally {
+      setFirstMessageBrands(prev => {
+        const next = new Set(prev);
+        next.delete(brandId);
+        return next;
+      });
+    }
+  }, [user, activeBrand, refreshBrands]);
+
+  useEffect(() => {
+    triggerFirstAIMessageRef.current = triggerFirstAIMessage;
+  }, [triggerFirstAIMessage]);
+
+
   const handleRetry = useCallback(() => {
     const brandId = activeBrandId;
     const messages = brandDataMap[brandId]?.messages || [];
