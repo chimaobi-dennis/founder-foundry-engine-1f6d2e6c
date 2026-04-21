@@ -463,8 +463,11 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   background: 'linear-gradient(135deg, rgba(212,160,23,0.06) 0%, rgba(212,160,23,0.02) 100%)',
                   borderLeft: '2px solid #D4A017',
                 }}>
-                  {/* Stage header */}
-                  <div style={{ padding: '14px 16px 10px' }}>
+                  {/* Stage header — clickable to toggle */}
+                  <div
+                    onClick={() => toggleStageExpand(stage.stage_key)}
+                    style={{ padding: '14px 16px 10px', cursor: 'pointer' }}
+                  >
                     <div style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
