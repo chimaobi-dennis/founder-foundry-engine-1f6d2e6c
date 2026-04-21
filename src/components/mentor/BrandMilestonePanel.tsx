@@ -966,6 +966,30 @@ export function BrandMilestonePanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!deleteAssetId} onOpenChange={(open) => !open && setDeleteAssetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-ui text-[15px]">Delete file?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px]">
+              This will permanently remove the file from your project assets.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="text-[13px]">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-[13px]"
+              onClick={() => {
+                const asset = projectAssets.find(a => a.id === deleteAssetId);
+                if (asset) handleDeleteAsset(asset);
+                setDeleteAssetId(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
