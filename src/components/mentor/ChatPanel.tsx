@@ -741,7 +741,7 @@ export function ChatPanel({
                   wordBreak: 'break-word',
                   margin: 0
                 }}>
-                  {streamingText}
+                  {parseAIMessage(streamingText).cleanText}
                   {/* Blinking cursor at the end */}
                   <span style={{
                     display: 'inline-block',
