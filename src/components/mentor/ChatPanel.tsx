@@ -1,9 +1,17 @@
-import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil } from "lucide-react";
+import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil, MoreHorizontal, Copy, RotateCcw, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 import { MentorBrand, Message, InlineSavePrompt, MilestoneMarker, Milestone, MilestoneCategory, categoryTextColors } from "./types";
 import { parseAIMessage, type ParsedSavePrompt } from "@/lib/savePromptParser";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 export interface ChoicePrompt {
   id: string;
