@@ -87,6 +87,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     return Math.round((filledCount / fields.length) * 100);
   };
 
+  const stageIndex = journeyStages.findIndex(s => s.stage_key === activeBrand?.journey_stage);
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 flex-shrink-0">
@@ -98,6 +100,101 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         </div>
         <p className="text-[12px] font-ui text-muted-foreground mt-0.5">Your founder journey, captured as you go.</p>
       </div>
+
+      {/* Stage switcher row */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '8px 16px',
+        borderBottom: '0.5px solid var(--color-border-tertiary)',
+        marginBottom: '4px',
+        flexShrink: 0
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+          <span style={{ fontSize: '14px' }}>{currentStageData?.emoji}</span>
+          <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+            {currentStageData?.name}
+          </span>
+          <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+            Stage {stageIndex + 1} of {journeyStages.length}
+          </span>
+        </div>
+        <button
+          onClick={() => setShowRightStagePicker(!showRightStagePicker)}
+          style={{
+            fontSize: '11px',
+            color: '#D4A017',
+            background: 'rgba(212,160,23,0.08)',
+            border: '0.5px solid rgba(212,160,23,0.25)',
+            borderRadius: '5px',
+            padding: '3px 8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            flexShrink: 0
+          }}
+        >
+          Change
+          <span style={{
+            fontSize: '8px',
+            transform: showRightStagePicker ? 'rotate(180deg)' : 'rotate(0)',
+            display: 'inline-block',
+            transition: 'transform 150ms'
+          }}>▼</span>
+        </button>
+      </div>
+
+      {/* Stage picker dropdown */}
+      {showRightStagePicker && (
+        <div style={{
+          padding: '8px 12px',
+          borderBottom: '0.5px solid var(--color-border-tertiary)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '3px',
+          flexShrink: 0
+        }}>
+          {journeyStages.map(stage => {
+            const isCurrent = stage.stage_key === activeBrand?.journey_stage;
+            return (
+              <div
+                key={stage.stage_key}
+                onClick={async () => {
+                  if (isCurrent) return;
+                  await updateStage(stage.stage_key, 'user_selected');
+                  setShowRightStagePicker(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  cursor: isCurrent ? 'default' : 'pointer',
+                  background: isCurrent ? 'rgba(212,160,23,0.1)' : 'transparent',
+                  border: isCurrent ? '0.5px solid rgba(212,160,23,0.25)' : '0.5px solid transparent'
+                }}
+              >
+                <span style={{ fontSize: '13px' }}>{stage.emoji}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: isCurrent ? 600 : 400,
+                    color: isCurrent ? '#D4A017' : 'var(--color-text-primary)'
+                  }}>
+                    {stage.name}
+                  </div>
+                </div>
+                {isCurrent && (
+                  <span style={{ fontSize: '8px', color: '#D4A017' }}>●</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <ScrollArea className="flex-1 min-h-0 journey-record-scroll">
         <div style={{ overflowY: 'auto', flex: 1 }}>
