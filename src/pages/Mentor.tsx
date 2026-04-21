@@ -383,6 +383,10 @@ const Mentor = () => {
     checkOnboarding();
   }, [activeBrandId, activeBrand, onboardingCheckedFor]);
 
+  // Ref so we can call triggerFirstAIMessage (defined later) from
+  // handleOnboardingComplete without dealing with hoisting / dependency ordering.
+  const triggerFirstAIMessageRef = useRef<((brandId: string) => Promise<void>) | null>(null);
+
   const handleOnboardingComplete = useCallback(async () => {
     setShowOnboarding(false);
     // Refresh brands so any extracted name / stage updates flow through
@@ -395,6 +399,24 @@ const Mentor = () => {
       return next;
     });
     setForceRefresh(prev => prev + 1);
+
+    // Clear the empty-state greeting for this brand — we are about to populate
+    // the conversation with the first AI message instead.
+    setEmptyBrands(prev => {
+      const next = { ...prev };
+      delete next[activeBrandId];
+      return next;
+    });
+
+    // Mark this brand as generating its first message so the UI shows the
+    // streaming/thinking ChatPanel instead of the empty state.
+    setFirstMessageBrands(prev => new Set(prev).add(activeBrandId));
+
+    // Wait for brand data + conversation to reload, then trigger the hidden
+    // CONTEXT_LOADED message to start the conversation.
+    setTimeout(() => {
+      triggerFirstAIMessageRef.current?.(activeBrandId);
+    }, 300);
   }, [activeBrandId, refreshBrands, refreshBrandDNA]);
 
   // ─── Handle CTA query param (idea / brand mode) ───────────────────────────
