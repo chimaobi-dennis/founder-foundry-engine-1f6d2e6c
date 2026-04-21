@@ -35,6 +35,7 @@ import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
 import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptyState";
+import { ProjectOnboarding } from "@/components/mentor/ProjectOnboarding";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   MentorBrand,
