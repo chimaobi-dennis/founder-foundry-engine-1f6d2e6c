@@ -3,6 +3,7 @@ import { callAI, type TaskType, getSystemPrompt, injectPromptVariables } from '.
 import { logAIError } from './errorService';
 import { getAssetsForAIContext } from './projectAssetsService';
 import { isUntitledProject, updateProjectName } from './brandService';
+import { getSubstagesWithData } from './journeyDataService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -347,6 +348,36 @@ export const getMentorAIResponse = async (
     }
   }
 
+  // Fetch substages with captured data for the active stage
+  let currentSubstages = '';
+  let nextUncapturedSubstage = '';
+  if (brand?.journey_stage) {
+    const { getJourneyStageByKey } = await import('./brandService');
+    const stageData = await getJourneyStageByKey(brand.journey_stage);
+    const substages = stageData?.substages ?? [];
+    
+    if (substages.length > 0) {
+      const substageRows = await getSubstagesWithData(
+        brand.id,
+        brand.journey_stage,
+        substages
+      );
+
+      // Build numbered list with capture status
+      const substageList = substageRows.map((sub, idx) => {
+        const status = sub.isComplete ? '[CAPTURED]' : '[NOT YET CAPTURED]';
+        return `${idx + 1}. ${sub.label} ${status}`;
+      }).join('\n');
+      currentSubstages = substageList;
+
+      // Find first uncaptured substage
+      const firstUncaptured = substageRows.find(sub => !sub.isComplete);
+      if (firstUncaptured) {
+        nextUncapturedSubstage = firstUncaptured.label;
+      }
+    }
+  }
+
   systemPrompt = injectPromptVariables(systemPrompt, {
     brand_name: brand?.name ?? '',
     industry: brand?.industry ?? '',
@@ -358,7 +389,9 @@ export const getMentorAIResponse = async (
     campaign_strategy: dna?.campaign_strategy ?? '',
     customer_insight: dna?.customer_insight ?? '',
     journey_stage: brand?.journey_stage ?? 'spark',
-    stage_focus: stageFocus
+    stage_focus: stageFocus,
+    current_substages: currentSubstages,
+    next_uncaptured_substage: nextUncapturedSubstage
   });
 
   // Inject project assets context
