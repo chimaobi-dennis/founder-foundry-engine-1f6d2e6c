@@ -74,6 +74,25 @@
 
   /* ── Dark mode ───────────────────────────────────────── */
   .dark {
+    /* Mentor / Journey Record semantic tokens (dark overrides) */
+    --stage-option-bg: rgba(255, 255, 255, 0.04);
+    --stage-option-border: rgba(255, 255, 255, 0.07);
+    --stage-option-bg-hover: rgba(255, 255, 255, 0.07);
+
+    --color-text-primary: hsl(36 33% 94%);
+    --color-text-secondary: hsl(212 12% 70%);
+    --color-text-tertiary: hsl(212 12% 55%);
+
+    --color-background-primary: hsl(213 52% 11%);
+    --color-background-secondary: hsl(210 37% 14%);
+    --color-card-secondary: hsl(210 37% 16%);
+
+    --color-border-secondary: rgba(255, 255, 255, 0.1);
+    --color-border-tertiary: rgba(255, 255, 255, 0.05);
+
+    --stage-done-border: rgba(212, 160, 23, 0.12);
+    --completion-amber: #D4A017;
+
     --background: 213 52% 11%;
     --foreground: 36 33% 94%;
 
