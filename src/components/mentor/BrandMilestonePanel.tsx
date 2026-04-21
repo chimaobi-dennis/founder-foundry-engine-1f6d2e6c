@@ -30,6 +30,7 @@ import {
   togglePinAsset,
   deleteProjectAsset,
 } from "@/services/projectAssetsService";
+import { getSubstagesWithData, type SubstageWithData } from "@/services/journeyDataService";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
@@ -43,6 +44,8 @@ interface BrandMilestonePanelProps {
   onEditMilestoneCategory?: (id: string, newCategory: MilestoneCategory) => void;
   realActiveBrand?: Brand | null;
   activeBrandDNA?: BrandDNA | null;
+  /** Optional — accepted for parity with the right panel; not used here. */
+  conversation?: { id: string } | null;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
@@ -81,6 +84,24 @@ export function BrandMilestonePanel({
   const [showAllAssets, setShowAllAssets] = useState(false);
   const [deleteAssetId, setDeleteAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Substage completion derived from captured data — read-only progress.
+  const [stageSubstages, setStageSubstages] = useState<SubstageWithData[]>([]);
+
+  useEffect(() => {
+    if (!realActiveBrand?.id || !currentStageData) {
+      setStageSubstages([]);
+      return;
+    }
+    let cancelled = false;
+    getSubstagesWithData(
+      realActiveBrand.id,
+      realActiveBrand.journey_stage ?? 'spark',
+      currentStageData.substages ?? []
+    ).then(rows => {
+      if (!cancelled) setStageSubstages(rows);
+    });
+    return () => { cancelled = true; };
+  }, [realActiveBrand?.id, realActiveBrand?.journey_stage, currentStageData]);
 
   // Load project assets whenever brand changes
   useEffect(() => {
@@ -553,8 +574,8 @@ export function BrandMilestonePanel({
               borderRadius: '1px'
             }}>
               <div style={{
-                width: `${(Object.values(stageProgress).filter(Boolean).length /
-                  (stageInfo.substages?.length || 1)) * 100}%`,
+                width: `${(stageSubstages.filter(s => s.isComplete).length /
+                  Math.max(stageSubstages.length || stageInfo.substages?.length || 1, 1)) * 100}%`,
                 height: '100%',
                 background: '#D4A017',
                 borderRadius: '1px',

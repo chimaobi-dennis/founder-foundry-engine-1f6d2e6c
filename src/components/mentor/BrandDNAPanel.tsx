@@ -3,13 +3,12 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBrand } from '@/contexts/BrandContext';
-<<<<<<< HEAD
-import { saveStageField, getSubstagesWithData, SubstageWithData, getAllStageFields, getBrandStageData } from '@/services/journeyDataService';
-=======
-import { supabase } from '@/integrations/supabase/client';
-import { completeSubstage, getStageProgress } from '@/services/brandService';
-import { createMilestone } from '@/services/mentorService';
-import { SubstageChecklist } from './SubstageChecklist';
+import {
+  getSubstagesWithData,
+  type SubstageWithData,
+  getAllStageFields,
+  getBrandStageData
+} from '@/services/journeyDataService';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface BrandDNAPanelProps {
@@ -24,18 +23,23 @@ interface BrandDNAPanelProps {
   dataRefreshTrigger?: number;
 }
 
-export function BrandDNAPanel({ fields, highlightField, onEditField, onClearField, customFields = [], onSaveCustomField, conversation, dataRefreshTrigger = 0 }: BrandDNAPanelProps) {
+export function BrandDNAPanel({
+  fields,
+  highlightField,
+  onEditField,
+  onClearField,
+  customFields = [],
+  onSaveCustomField,
+  conversation,
+  dataRefreshTrigger = 0
+}: BrandDNAPanelProps) {
   const { activeBrand, journeyStages, currentStageData, updateStage } = useBrand();
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
   const [capturedData, setCapturedData] = useState<Record<string, Record<string, string>>>({});
   const [expandedStages, setExpandedStages] = useState<string[]>([]);
-  const [editingField, setEditingField] = useState<{ stageKey: string; fieldKey: string } | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [savingField, setSavingField] = useState<string | null>(null);
   const [showRightStagePicker, setShowRightStagePicker] = useState(false);
-  const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
-  const [progressLoading, setProgressLoading] = useState(true);
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
+  const [substagesWithData, setSubstagesWithData] = useState<SubstageWithData[]>([]);
+  const [substagesLoading, setSubstagesLoading] = useState(true);
   const [stageDataLoading, setStageDataLoading] = useState(true);
   const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
   const [stageChangeWarning, setStageChangeWarning] = useState<{
@@ -55,14 +59,10 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const handleStageChange = async (newStageKey: string) => {
     if (newStageKey === activeBrand?.journey_stage) return;
 
-    const currentSubstages = currentStageData?.substages ?? [];
-    const completedCount = Object.values(stageProgress).filter(Boolean).length;
-    const incompleteCount = currentSubstages.length - completedCount;
+    const incompleteSubstages = substagesWithData.filter(s => !s.isComplete);
+    const incompleteCount = incompleteSubstages.length;
 
     if (incompleteCount > 0) {
-      const incompleteSubstages = currentSubstages.filter(
-        (_: string, index: number) => !stageProgress[index]
-      );
       setStageChangeWarning({
         targetStageKey: newStageKey,
         incompleteSubstages: incompleteSubstages.map(s => s.label),
@@ -76,71 +76,41 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     setShowRightStagePicker(false);
   };
 
-  // Load substage completion for the active stage
+  // Load substages with their captured data for the active stage.
+  // Re-runs whenever the parent bumps dataRefreshTrigger (after a save).
   useEffect(() => {
-    const stageKey = activeBrand?.journey_stage ?? 'spark';
-    if (!activeBrand?.id) {
-      setStageProgress({});
-      setProgressLoading(false);
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
+    if (!activeBrand?.id || !currentStageData) {
+      setSubstagesWithData([]);
+      setSubstagesLoading(false);
       return;
     }
 
     let cancelled = false;
-    setProgressLoading(true);
-    getStageProgress(activeBrand.id, stageKey).then(rows => {
-      if (cancelled) return;
-      const map: Record<number, boolean> = {};
-      rows.forEach(r => {
-        if (r.isCompleted) map[r.substageIndex] = true;
+    setSubstagesLoading(true);
+
+    getSubstagesWithData(
+      activeBrand.id,
+      activeBrand.journey_stage ?? 'spark',
+      currentStageData.substages ?? []
+    )
+      .then(rows => {
+        if (cancelled) return;
+        setSubstagesWithData(rows);
+        setSubstagesLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setSubstagesLoading(false);
       });
-      setStageProgress(map);
-      setProgressLoading(false);
-    }).catch(() => {
-      if (!cancelled) setProgressLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [activeBrand?.id, activeBrand?.journey_stage]);
 
-  const handleSubstageComplete = async (
-    substageIndex: number,
-    substageName: string,
-    stageKey: string
-  ) => {
-    if (!activeBrand || !conversation || stageProgress[substageIndex]) return;
-
-    // Mark substage complete in brand_stage_progress
-    await completeSubstage(
-      activeBrand.id,
-      stageKey,
-      substageIndex
-    );
-
-    // Update local progress state immediately
-    setStageProgress(prev => ({ ...prev, [substageIndex]: true }));
-
-    // Map stage key to milestone category
-    const stageCategoryMap: Record<string, string> = {
-      spark: 'brand_discovery',
-      shape: 'product_positioning',
-      validate: 'customer_insight',
-      brand: 'brand_discovery',
-      launch: 'campaign_strategy',
-      grow: 'growth_brainstorm'
+    return () => {
+      cancelled = true;
     };
-
-    const category = stageCategoryMap[stageKey] ?? 'free_form';
-
-    // Auto-create milestone from substage completion
-    await createMilestone(
-      activeBrand.id,
-      conversation.id,
-      substageName,
-      category,
-      undefined, // no specific message_id for substage milestones
-      stageKey // passed as context = stage_key
-    );
-  };
+  }, [
+    activeBrand?.id,
+    activeBrand?.journey_stage,
+    currentStageData,
+    dataRefreshTrigger
+  ]);
 
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
@@ -156,6 +126,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     substages: []
   };
 
+  // Load full stage field map + captured data once per brand (and on refresh)
   useEffect(() => {
     if (!activeBrand) {
       setStageDataLoading(false);
@@ -165,24 +136,21 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     let cancelled = false;
     setStageDataLoading(true);
 
-    Promise.all([
-      (async () => {
-        return await getAllStageFields();
-      })(),
-      (async () => {
-        return await getBrandStageData(activeBrand.id);
-      })()
-    ]).then(([fields, data]) => {
-      if (cancelled) return;
-      setAllStageFields(fields);
-      setCapturedData(data);
-      setStageDataLoading(false);
-    }).catch(() => {
-      if (!cancelled) setStageDataLoading(false);
-    });
+    Promise.all([getAllStageFields(), getBrandStageData(activeBrand.id)])
+      .then(([fields, data]) => {
+        if (cancelled) return;
+        setAllStageFields(fields);
+        setCapturedData(data);
+        setStageDataLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setStageDataLoading(false);
+      });
 
-    return () => { cancelled = true; };
-  }, [activeBrand?.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBrand?.id, dataRefreshTrigger]);
 
   // Auto-expand current stage
   useEffect(() => {
@@ -210,7 +178,9 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
             Active
           </span>
         </div>
-        <p className="text-[12px] font-ui text-muted-foreground mt-0.5">Your founder journey, captured as you go.</p>
+        <p className="text-[12px] font-ui text-muted-foreground mt-0.5">
+          Your founder journey, captured as you go.
+        </p>
       </div>
 
       {/* Stage switcher row */}
@@ -285,7 +255,9 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   borderRadius: '6px',
                   cursor: isCurrent ? 'default' : 'pointer',
                   background: isCurrent ? 'rgba(212,160,23,0.1)' : 'transparent',
-                  border: isCurrent ? '0.5px solid rgba(212,160,23,0.25)' : '0.5px solid transparent'
+                  border: isCurrent
+                    ? '0.5px solid rgba(212,160,23,0.25)'
+                    : '0.5px solid transparent'
                 }}
               >
                 <span style={{ fontSize: '13px' }}>{stage.emoji}</span>
@@ -420,7 +392,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                 cursor: 'pointer'
               }}
             >
-              Skip anyway and move to {journeyStages.find(s => s.stage_key === stageChangeWarning.targetStageKey)?.name}
+              Skip anyway and move to{' '}
+              {journeyStages.find(s => s.stage_key === stageChangeWarning.targetStageKey)?.name}
             </button>
           </div>
         </div>
@@ -438,7 +411,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
             const data = capturedData[stage.stage_key] ?? {};
             const completion = calculateStageCompletion(stage.stage_key);
             const filledCount = fields.filter(f => data[f.field_key]).length;
-            const stageIndex = index;
+            const stageIndexLocal = index;
 
             // Future stage — locked
             if (isFuture) {
@@ -466,35 +439,41 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
               );
             }
 
-            // Active stage — full card treatment
+            // Active stage — full card treatment.
+            // Substages are read-only; completion is derived from brand_stage_data.
             if (isActive) {
+              const doneWhenSource = substagesWithData;
+              const visibleDoneWhen = showAllDoneWhen
+                ? doneWhenSource
+                : doneWhenSource.slice(0, 2);
+
               return (
                 <div key={stage.stage_key} style={{
                   margin: '0 0 2px',
                   background: 'linear-gradient(135deg, rgba(212,160,23,0.06) 0%, rgba(212,160,23,0.02) 100%)',
-                  borderLeft: '2px solid #D4A017',
+                  borderLeft: '2px solid #D4A017'
                 }}>
                   {/* Stage header — clickable to toggle */}
                   <div
                     onClick={() => toggleStageExpand(stage.stage_key)}
                     style={{ padding: '14px 16px 10px', cursor: 'pointer' }}
                   >
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
                       justifyContent: 'space-between',
                       marginBottom: '6px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '18px' }}>{stage.emoji}</span>
                         <div>
-                          <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '6px' 
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
                           }}>
-                            <span style={{ 
-                              fontSize: '14px', 
+                            <span style={{
+                              fontSize: '14px',
                               fontWeight: 600,
                               color: 'var(--color-text-primary)'
                             }}>
@@ -512,28 +491,28 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                               ACTIVE
                             </span>
                           </div>
-                          <div style={{ 
-                            fontSize: '11px', 
+                          <div style={{
+                            fontSize: '11px',
                             color: 'var(--color-text-tertiary)',
                             marginTop: '1px'
                           }}>
-                            Stage {stageIndex + 1} of {journeyStages.length}
+                            Stage {stageIndexLocal + 1} of {journeyStages.length}
                           </div>
                         </div>
                       </div>
                       {/* Completion ring */}
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ 
-                          fontSize: '18px', 
+                        <div style={{
+                          fontSize: '18px',
                           fontWeight: 700,
                           color: completion === 100 ? '#4CAF50' : 'var(--completion-amber)',
                           lineHeight: 1
                         }}>
                           {completion}%
                         </div>
-                        <div style={{ 
-                          fontSize: '10px', 
-                          color: 'var(--color-text-tertiary)' 
+                        <div style={{
+                          fontSize: '10px',
+                          color: 'var(--color-text-tertiary)'
                         }}>
                           complete
                         </div>
@@ -551,348 +530,252 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                     </div>
 
                     {isExpanded && (<>
-                    {/* Progress bar */}
-                    <div style={{
-                      height: '3px',
-                      background: 'rgba(212,160,23,0.15)',
-                      borderRadius: '2px',
-                      marginBottom: '10px'
-                    }}>
+                      {/* Progress bar */}
                       <div style={{
-                        width: `${completion}%`,
-                        height: '100%',
-                        background: completion === 100 
-                          ? '#4CAF50' 
-                          : 'linear-gradient(90deg, #D4A017, #E8C060)',
+                        height: '3px',
+                        background: 'rgba(212,160,23,0.15)',
                         borderRadius: '2px',
-                        transition: 'width 500ms ease'
-                      }} />
-                    </div>
-
-                    {/* Stage completion hint — reflects real captured-data state */}
-                    <div style={{
-                      padding: '8px 10px',
-                      background: 'rgba(212,160,23,0.06)',
-                      borderRadius: '6px',
-                      border: '0.5px solid var(--stage-done-border)',
-                      marginBottom: '10px'
-                    }}>
-                      <div style={{
-                        fontSize: '10px',
-                        color: '#D4A017',
-                        fontWeight: 600,
-                        letterSpacing: '0.04em',
-                        marginBottom: '3px',
-                        textTransform: 'uppercase'
+                        marginBottom: '10px'
                       }}>
-                        This stage is done when we have:
+                        <div style={{
+                          width: `${completion}%`,
+                          height: '100%',
+                          background: completion === 100
+                            ? '#4CAF50'
+                            : 'linear-gradient(90deg, #D4A017, #E8C060)',
+                          borderRadius: '2px',
+                          transition: 'width 500ms ease'
+                        }} />
                       </div>
+
+                      {/* "This stage is done when we have:" — reflects real captured-data state */}
                       <div style={{
-                        fontSize: '11px',
-                        color: 'var(--color-text-secondary)',
-                        lineHeight: 1.5
+                        padding: '8px 10px',
+                        background: 'rgba(212,160,23,0.06)',
+                        borderRadius: '6px',
+                        border: '0.5px solid var(--stage-done-border)',
+                        marginBottom: '10px'
                       }}>
-                        {(showAllDoneWhen ? stage.substages : stage.substages.slice(0, 2)).map((sub: string, i: number) => (
-                          <div key={i} style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '6px',
-                            marginBottom: '2px'
-                          }}>
-                            <span style={{
-                              color: sub.isComplete ? '#4CAF50' : 'rgba(212,160,23,0.5)',
-                              flexShrink: 0,
-                              marginTop: '1px'
+                        <div style={{
+                          fontSize: '10px',
+                          color: '#D4A017',
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          marginBottom: '3px',
+                          textTransform: 'uppercase'
+                        }}>
+                          This stage is done when we have:
+                        </div>
+                        <div style={{
+                          fontSize: '11px',
+                          color: 'var(--color-text-secondary)',
+                          lineHeight: 1.5
+                        }}>
+                          {visibleDoneWhen.map((sub, i) => (
+                            <div key={i} style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '6px',
+                              marginBottom: '2px'
                             }}>
-                              {sub.isComplete ? '✓' : '○'}
-                            </span>
-                            <span>{sub.label}</span>
-                          </div>
-                        ))}
-                        {stage.substages.length > 2 && (
-                          <button
-                            onClick={() => setShowAllDoneWhen(v => !v)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              padding: '2px 0 0',
-                              cursor: 'pointer',
-                              color: '#D4A017',
-                              fontSize: '10px',
-                              fontWeight: 600
-                            }}
-                          >
-                            {showAllDoneWhen ? 'Show less' : `See all (${stage.substages.length})`}
-                          </button>
-                        )}
+                              <span style={{
+                                color: sub.isComplete ? '#4CAF50' : 'rgba(212,160,23,0.5)',
+                                flexShrink: 0,
+                                marginTop: '1px'
+                              }}>
+                                {sub.isComplete ? '✓' : '○'}
+                              </span>
+                              <span>{sub.label}</span>
+                            </div>
+                          ))}
+                          {doneWhenSource.length > 2 && (
+                            <button
+                              onClick={() => setShowAllDoneWhen(v => !v)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: '2px 0 0',
+                                cursor: 'pointer',
+                                color: '#D4A017',
+                                fontSize: '10px',
+                                fontWeight: 600
+                              }}
+                            >
+                              {showAllDoneWhen
+                                ? 'Show less'
+                                : `See all (${doneWhenSource.length})`}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Substage checklist — interactive */}
-                    <SubstageChecklist
-                      substages={stage.substages ?? []}
-                      progress={stageProgress}
-                      loading={progressLoading}
-                      onComplete={(idx, substage) =>
-                        handleSubstageComplete(idx, substage, stage.stage_key)
-                      }
-                    />
-
-                    {/* Divider before field list */}
-                    <div style={{
-                      height: '0.5px',
-                      background: 'var(--color-border-tertiary)',
-                      margin: '4px 0 4px'
-                    }} />
                     </>)}
                   </div>
 
                   {/* Substage cards — read-only, data-driven.
-                      Each substage doubles as its field. The card shows the
-                      label, a prompt-style description when no value exists,
+                      Each substage IS its field. The card shows the label,
+                      a prompt-style description when no value exists,
                       or the captured value once data has been saved.        */}
                   {isExpanded && (
-                  <div style={{ padding: '0 16px 14px' }}>
-                    {progressLoading && substagesWithData.length === 0 ? (
-                      Array.from({ length: 3 }).map((_, i) => (
-                        <div
-                          key={`skeleton-${i}`}
-                          style={{
-                            marginBottom: '10px',
-                            padding: '10px 12px',
-                            background: 'var(--color-background-secondary)',
-                            borderRadius: '8px',
-                            border: '0.5px solid var(--color-border-tertiary)'
-                          }}
-                        >
-                          <Skeleton style={{ height: '10px', width: '40%', marginBottom: '8px' }} />
-                          <Skeleton style={{ height: '10px', width: '90%', marginBottom: '4px' }} />
-                          <Skeleton style={{ height: '10px', width: `${60 + ((i * 11) % 25)}%` }} />
-                        </div>
-                      ))
-                    ) : (
-                    substagesWithData.map((substage, index) => {
-                      const isNext = !substage.isComplete &&
-                        substagesWithData.slice(0, index).every(s => s.isComplete);
+                    <div style={{ padding: '0 16px 14px' }}>
+                      {substagesLoading && substagesWithData.length === 0 ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                          <div
+                            key={`skeleton-${i}`}
+                            style={{
+                              marginBottom: '10px',
+                              padding: '10px 12px',
+                              background: 'var(--color-background-secondary)',
+                              borderRadius: '8px',
+                              border: '0.5px solid var(--color-border-tertiary)'
+                            }}
+                          >
+                            <Skeleton style={{ height: '10px', width: '40%', marginBottom: '8px' }} />
+                            <Skeleton style={{ height: '10px', width: '90%', marginBottom: '4px' }} />
+                            <Skeleton style={{ height: '10px', width: `${60 + ((i * 11) % 25)}%` }} />
+                          </div>
+                        ))
+                      ) : (
+                        substagesWithData.map((substage, idx) => {
+                          const isNext = !substage.isComplete &&
+                            substagesWithData.slice(0, idx).every(s => s.isComplete);
 
-                      return (
-                        <div
-                          key={substage.index}
-                          style={{
-                            marginBottom: '10px',
-                            padding: '10px 12px',
-                            background: substage.isComplete
-                              ? 'var(--color-card-secondary)'
-                              : isNext
-                                ? 'rgba(212,160,23,0.06)'
-                                : 'var(--color-background-secondary)',
-                            borderRadius: '8px',
-                            border: `0.5px solid ${
-                              substage.isComplete
-                                ? 'rgba(212,160,23,0.2)'
-                                : isNext
-                                  ? 'rgba(212,160,23,0.25)'
-                                  : 'var(--color-border-tertiary)'
-                            }`,
-                            transition: 'all 200ms'
-                          }}
-                        >
-                          {/* Substage header row */}
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '8px'
-                          }}>
-                            {/* Status indicator */}
-                            <div style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              flexShrink: 0,
-                              marginTop: '1px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: substage.isComplete ? '#4CAF50' : 'transparent',
-                              border: substage.isComplete
-                                ? '2px solid #4CAF50'
-                                : isNext
-                                  ? '2px solid #D4A017'
-                                  : '1.5px solid var(--color-border-secondary)'
-                            }}>
-                              {substage.isComplete ? (
-                                <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, lineHeight: 1 }}>✓</span>
-                              ) : isNext ? (
-                                <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#D4A017' }} />
-                              ) : null}
-                            </div>
-
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              {/* Substage label */}
-                              <div style={{
-                                fontSize: '12px',
-                                fontWeight: substage.isComplete ? 500 : isNext ? 600 : 500,
-                                color: substage.isComplete
-                                  ? 'var(--color-text-primary)'
+                          return (
+                            <div
+                              key={substage.index}
+                              style={{
+                                marginBottom: '10px',
+                                padding: '10px 12px',
+                                background: substage.isComplete
+                                  ? 'var(--color-card-secondary)'
                                   : isNext
-                                    ? 'var(--color-text-primary)'
-                                    : 'var(--color-text-secondary)',
-                                lineHeight: 1.4
+                                    ? 'rgba(212,160,23,0.06)'
+                                    : 'var(--color-background-secondary)',
+                                borderRadius: '8px',
+                                border: `0.5px solid ${
+                                  substage.isComplete
+                                    ? 'rgba(212,160,23,0.2)'
+                                    : isNext
+                                      ? 'rgba(212,160,23,0.25)'
+                                      : 'var(--color-border-tertiary)'
+                                }`,
+                                transition: 'all 200ms'
+                              }}
+                            >
+                              {/* Substage header row */}
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '8px'
                               }}>
-                                {substage.label}
+                                {/* Status indicator — read-only */}
+                                <div style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  borderRadius: '50%',
+                                  flexShrink: 0,
+                                  marginTop: '1px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  background: substage.isComplete ? '#4CAF50' : 'transparent',
+                                  border: substage.isComplete
+                                    ? '2px solid #4CAF50'
+                                    : isNext
+                                      ? '2px solid #D4A017'
+                                      : '1.5px solid var(--color-border-secondary)'
+                                }}>
+                                  {substage.isComplete ? (
+                                    <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, lineHeight: 1 }}>
+                                      ✓
+                                    </span>
+                                  ) : isNext ? (
+                                    <div style={{
+                                      width: '5px',
+                                      height: '5px',
+                                      borderRadius: '50%',
+                                      background: '#D4A017'
+                                    }} />
+                                  ) : null}
+                                </div>
+
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  {/* Substage label */}
+                                  <div style={{
+                                    fontSize: '12px',
+                                    fontWeight: substage.isComplete ? 500 : isNext ? 600 : 500,
+                                    color: substage.isComplete
+                                      ? 'var(--color-text-primary)'
+                                      : isNext
+                                        ? 'var(--color-text-primary)'
+                                        : 'var(--color-text-secondary)',
+                                    lineHeight: 1.4
+                                  }}>
+                                    {substage.label}
+                                  </div>
+
+                                  {/* Prompt text when no data is captured */}
+                                  {!substage.value && substage.fieldDescription && (
+                                    <div style={{
+                                      fontSize: '11px',
+                                      color: 'var(--color-text-tertiary)',
+                                      marginTop: '4px',
+                                      lineHeight: 1.5,
+                                      fontStyle: isNext ? 'normal' : 'italic'
+                                    }}>
+                                      {isNext
+                                        ? `Tell your mentor: ${substage.fieldDescription}`
+                                        : substage.fieldDescription}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* "discuss" badge for the next item without data */}
+                                {isNext && !substage.value && (
+                                  <span style={{
+                                    fontSize: '9px',
+                                    color: '#D4A017',
+                                    background: 'rgba(212,160,23,0.12)',
+                                    padding: '2px 6px',
+                                    borderRadius: '3px',
+                                    fontWeight: 600,
+                                    letterSpacing: '0.04em',
+                                    flexShrink: 0,
+                                    alignSelf: 'flex-start'
+                                  }}>
+                                    discuss
+                                  </span>
+                                )}
                               </div>
 
-                              {/* Prompt text when no data */}
-                              {!substage.value && substage.fieldDescription && (
-                                <div style={{
-                                  fontSize: '11px',
-                                  color: 'var(--color-text-tertiary)',
-                                  marginTop: '4px',
-                                  lineHeight: 1.5,
-                                  fontStyle: isNext ? 'normal' : 'italic'
-                                }}>
-                                  {isNext
-                                    ? `Tell your mentor: ${substage.fieldDescription}`
-                                    : substage.fieldDescription}
+                              {/* Captured data — shown when value exists */}
+                              {substage.value && (
+                                <div style={{ marginTop: '8px' }}>
+                                  <div style={{
+                                    fontSize: '9px',
+                                    color: '#4CAF50',
+                                    fontWeight: 600,
+                                    letterSpacing: '0.06em',
+                                    textTransform: 'uppercase',
+                                    marginBottom: '4px'
+                                  }}>
+                                    Captured
+                                  </div>
+                                  <div style={{
+                                    fontSize: '12px',
+                                    color: 'var(--color-text-primary)',
+                                    lineHeight: 1.6
+                                  }}>
+                                    {substage.value.length > 150
+                                      ? substage.value.slice(0, 150) + '...'
+                                      : substage.value}
+                                  </div>
                                 </div>
                               )}
                             </div>
-
-                            {/* "discuss" badge for the next item without data */}
-                            {isNext && !substage.value && (
-                              <span style={{
-                                fontSize: '9px',
-                                color: '#D4A017',
-                                background: 'rgba(212,160,23,0.12)',
-                                padding: '2px 6px',
-                                borderRadius: '3px',
-                                fontWeight: 600,
-                                letterSpacing: '0.04em',
-                                flexShrink: 0,
-                                alignSelf: 'flex-start'
-                              }}>
-                                discuss
-                              </span>
-                            )}
-                          </div>
-
-                          {isEditing ? (
-                            <div>
-                              <textarea
-                                value={editValue}
-                                onChange={e => setEditValue(e.target.value)}
-                                style={{
-                                  width: '100%',
-                                  minHeight: '70px',
-                                  padding: '7px 9px',
-                                  fontSize: '12px',
-                                  borderRadius: '6px',
-                                  border: '0.5px solid #D4A017',
-                                  background: 'var(--color-background-secondary)',
-                                  color: 'var(--color-text-primary)',
-                                  resize: 'vertical',
-                                  lineHeight: 1.5,
-                                  outline: 'none'
-                                }}
-                                autoFocus
-                              />
-                              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                                <button
-                                  disabled={isSaving}
-                                  onClick={async () => {
-                                    if (!activeBrand) return;
-                                    const key = `${stage.stage_key}.${field.field_key}`;
-                                    setSavingField(key);
-                                    await (supabase as any)
-                                      .from('brand_stage_data')
-                                      .upsert({
-                                        brand_id: activeBrand.id,
-                                        stage_key: stage.stage_key,
-                                        field_key: field.field_key,
-                                        value: editValue,
-                                        updated_at: new Date().toISOString()
-                                      }, { onConflict: 'brand_id,stage_key,field_key' });
-                                    setCapturedData(prev => ({
-                                      ...prev,
-                                      [stage.stage_key]: {
-                                        ...prev[stage.stage_key],
-                                        [field.field_key]: editValue
-                                      }
-                                    }));
-                                    setSavingField(null);
-                                    setEditingField(null);
-                                  }}
-                                  style={{
-                                    fontSize: '11px',
-                                    padding: '4px 12px',
-                                    background: '#D4A017',
-                                    color: '#0D1B2A',
-                                    border: 'none',
-                                    borderRadius: '5px',
-                                    cursor: isSaving ? 'not-allowed' : 'pointer',
-                                    opacity: isSaving ? 0.7 : 1,
-                                    fontWeight: 600,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
-                                  }}
-                                >
-                                  {isSaving && (
-                                    <span style={{
-                                      width: '8px',
-                                      height: '8px',
-                                      border: '1.5px solid currentColor',
-                                      borderTopColor: 'transparent',
-                                      borderRadius: '50%',
-                                      display: 'inline-block',
-                                      animation: 'spin 0.6s linear infinite'
-                                    }} />
-                                  )}
-                                  {isSaving ? 'Saving...' : 'Save'}
-                                </button>
-                                <button
-                                  onClick={() => setEditingField(null)}
-                                  style={{
-                                    fontSize: '11px',
-                                    padding: '4px 10px',
-                                    background: 'transparent',
-                                    border: '0.5px solid var(--color-border-secondary)',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer',
-                                    color: 'var(--color-text-secondary)'
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : value ? (
-                            <p style={{
-                              fontSize: '12px',
-                              color: 'var(--color-text-primary)',
-                              lineHeight: 1.6,
-                              margin: 0
-                            }}>
-                              {value.length > 140 
-                                ? value.slice(0, 140) + '...' 
-                                : value}
-                            </p>
-                          ) : (
-                            <p style={{
-                              fontSize: '11px',
-                              color: 'var(--color-text-tertiary)',
-                              fontStyle: 'italic',
-                              margin: 0,
-                              lineHeight: 1.5
-                            }}>
-                              {field.field_description}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })
-                    )}
-                  </div>
+                          );
+                        })
+                      )}
+                    </div>
                   )}
                 </div>
               );
@@ -902,13 +785,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
             return (
               <div
                 key={stage.stage_key}
-                onClick={() => {
-                  setExpandedStages(prev =>
-                    prev.includes(stage.stage_key)
-                      ? prev.filter(s => s !== stage.stage_key)
-                      : [...prev, stage.stage_key]
-                  );
-                }}
+                onClick={() => toggleStageExpand(stage.stage_key)}
                 style={{
                   padding: '10px 16px',
                   display: 'flex',
@@ -928,14 +805,14 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
               >
                 <span style={{ fontSize: '14px', flexShrink: 0 }}>{stage.emoji}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: '6px',
                     marginBottom: '2px'
                   }}>
-                    <span style={{ 
-                      fontSize: '12px', 
+                    <span style={{
+                      fontSize: '12px',
                       fontWeight: 500,
                       color: 'var(--color-text-secondary)'
                     }}>
@@ -961,15 +838,15 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         width: '5px',
                         height: '5px',
                         borderRadius: '50%',
-                        background: data[f.field_key] 
-                          ? '#4CAF50' 
+                        background: data[f.field_key]
+                          ? '#4CAF50'
                           : 'var(--color-border-secondary)'
                       }} />
                     ))}
                   </div>
                 </div>
-                <span style={{ 
-                  fontSize: '10px', 
+                <span style={{
+                  fontSize: '10px',
                   color: 'var(--color-text-tertiary)',
                   transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
                   transition: 'transform 200ms'
@@ -987,7 +864,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
             Suggested next steps
           </p>
           <div className="space-y-1">
-            {currentStageInfo.suggested_next_steps.map((step) => (
+            {currentStageInfo.suggested_next_steps.map(step => (
               <Link
                 key={step.label}
                 to={step.route}
