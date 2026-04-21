@@ -541,7 +541,204 @@ export function BrandMilestonePanel({
           }} />
         </div>
 
-        {/* Memory */}
+        {/* Project Assets */}
+        <div className="px-4">
+          <p style={{
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-secondary)',
+            marginBottom: '8px'
+          }}>
+            PROJECT ASSETS
+          </p>
+
+          {/* Upload zone */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="*/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => {
+              handleFileUpload(e.target.files);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+          />
+          <div
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            style={{
+              border: '1.5px dashed rgba(212,160,23,0.3)',
+              borderRadius: '8px',
+              padding: '12px',
+              textAlign: 'center',
+              cursor: uploading ? 'wait' : 'pointer',
+              marginBottom: '10px',
+              transition: 'border-color 150ms',
+              opacity: uploading ? 0.7 : 1
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.5)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.3)';
+            }}
+          >
+            <Upload size={18} style={{ color: '#D4A017', margin: '0 auto 4px' }} />
+            <div style={{ fontSize: '12px', color: '#D4A017', fontWeight: 500 }}>
+              {uploading ? 'Uploading...' : 'Upload files'}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>
+              Docs, images, PDFs
+            </div>
+          </div>
+
+          {/* Assets list */}
+          {projectAssets.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '12px 8px',
+              marginBottom: '8px'
+            }}>
+              <Folder size={28} style={{ color: 'var(--color-text-tertiary)', margin: '0 auto 6px', opacity: 0.6 }} />
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                No files yet
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', lineHeight: 1.4 }}>
+                Upload research, briefs, or product images for your AI mentor to reference.
+              </div>
+            </div>
+          ) : (
+            <div>
+              {(showAllAssets ? projectAssets : projectAssets.slice(0, 5)).map(asset => (
+                <div
+                  key={asset.id}
+                  className="group"
+                  style={{
+                    padding: '6px 4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'background 150ms'
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.background = 'transparent';
+                  }}
+                >
+                  <span style={{ fontSize: '18px', flexShrink: 0, color: asset.source === 'ai_generated' ? '#D4A017' : undefined }}>
+                    {getAssetIcon(asset)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--color-text-primary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {asset.name}
+                    </div>
+                    <div style={{
+                      fontSize: '10px',
+                      color: 'var(--color-text-tertiary)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {formatSourceLabel(asset)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleTogglePin(asset); }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '2px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexShrink: 0
+                    }}
+                    aria-label={asset.is_pinned ? 'Unpin' : 'Pin'}
+                  >
+                    <Pin
+                      size={14}
+                      style={{
+                        color: asset.is_pinned ? '#D4A017' : 'var(--color-text-tertiary)',
+                        fill: asset.is_pinned ? '#D4A017' : 'none'
+                      }}
+                    />
+                  </button>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ flexShrink: 0 }}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '2px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <MoreHorizontal size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-[120px]">
+                        {asset.file_url && (
+                          <DropdownMenuItem
+                            onClick={() => window.open(asset.file_url!, '_blank')}
+                            className="text-[12px]"
+                          >
+                            View
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => setDeleteAssetId(asset.id)}
+                          className="text-[12px] text-destructive focus:text-destructive"
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))}
+              {projectAssets.length > 5 && (
+                <button
+                  onClick={() => setShowAllAssets(!showAllAssets)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#D4A017',
+                    fontSize: '11px',
+                    padding: '6px 4px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%'
+                  }}
+                >
+                  {showAllAssets ? 'Show less' : `Show all (${projectAssets.length})`}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div style={{
+            height: '0.5px',
+            background: 'var(--color-border-tertiary)',
+            margin: '12px 0'
+          }} />
+        </div>
+
+
         <div className="px-4">
           <p style={{
             fontSize: '10px',
