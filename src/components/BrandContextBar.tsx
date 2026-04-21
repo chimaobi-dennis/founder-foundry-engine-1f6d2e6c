@@ -90,7 +90,7 @@ export function BrandContextBar() {
               onClick={handleCreateBrand}
               className="w-full flex items-center gap-2 px-4 py-2.5 text-[12px] font-ui text-primary hover:bg-muted/50 transition-colors duration-200"
             >
-              + New brand
+              + New project
             </button>
           </div>
         </div>

@@ -292,7 +292,7 @@ const BrandDNA = () => {
 
             {/* Right sidebar */}
             <div className="w-full lg:w-[300px] flex-shrink-0">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Your brands</p>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-3">Your projects</p>
 
               {[nordformProfile, sthlmProfile].map((bp) => {
                 const isActive = bp.id === activeProfileId;
@@ -327,7 +327,7 @@ const BrandDNA = () => {
 
               <div className="flex items-center gap-2 px-3.5 py-2.5 cursor-pointer">
                 <Plus size={14} className="text-primary" />
-                <span className="text-[12px] text-primary">Add new brand</span>
+                <span className="text-[12px] text-primary">Add new project</span>
               </div>
 
               <div className="border-t border-border my-4" />
