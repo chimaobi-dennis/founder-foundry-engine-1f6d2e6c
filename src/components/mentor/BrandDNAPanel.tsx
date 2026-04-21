@@ -148,7 +148,13 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   };
 
   useEffect(() => {
-    if (!activeBrand) return;
+    if (!activeBrand) {
+      setStageDataLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setStageDataLoading(true);
 
     Promise.all([
       (async () => {
@@ -176,9 +182,15 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         return structured;
       })()
     ]).then(([fields, data]) => {
+      if (cancelled) return;
       setAllStageFields(fields);
       setCapturedData(data);
+      setStageDataLoading(false);
+    }).catch(() => {
+      if (!cancelled) setStageDataLoading(false);
     });
+
+    return () => { cancelled = true; };
   }, [activeBrand?.id]);
 
   // Auto-expand current stage
