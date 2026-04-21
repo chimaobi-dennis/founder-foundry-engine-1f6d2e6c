@@ -855,7 +855,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                           )}
                         </div>
                       );
-                    })}
+                    })
+                    )}
                   </div>
                   )}
                 </div>
