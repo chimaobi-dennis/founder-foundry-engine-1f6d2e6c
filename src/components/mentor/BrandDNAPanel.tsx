@@ -588,9 +588,12 @@ export function BrandDNAPanel({
                               <span>{sub.label}</span>
                             </div>
                           ))}
-                          {doneWhenSource.length > 2 && (
+                           {doneWhenSource.length > 2 && (
                             <button
-                              onClick={() => setShowAllDoneWhen(v => !v)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAllDoneWhen(v => !v);
+                              }}
                               style={{
                                 background: 'none',
                                 border: 'none',
