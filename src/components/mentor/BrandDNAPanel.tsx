@@ -520,7 +520,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         borderRadius: '50%',
                         background: data[f.field_key] 
                           ? '#4CAF50' 
-                          : 'rgba(255,255,255,0.1)'
+                          : 'var(--color-border-secondary)'
                       }} />
                     ))}
                   </div>
