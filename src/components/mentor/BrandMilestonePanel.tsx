@@ -295,7 +295,7 @@ export function BrandMilestonePanel({
               style={{ backgroundColor: getBrandColor(activeBrand.id) }}
             />
             <div className="flex-1 text-left min-w-0">
-              <p className="text-[13px] font-ui font-medium text-foreground truncate">{displayBrandName}</p>
+              <p key={displayBrandName} className="text-[13px] font-ui font-medium text-foreground truncate animate-name-fade">{displayBrandName}</p>
               <p className="text-[10px] font-ui text-muted-foreground">Started {activeBrand.startedDate}</p>
             </div>
             <ChevronDown size={14} className="text-muted-foreground flex-shrink-0" />
