@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBrand } from '@/contexts/BrandContext';
 import { supabase } from '@/integrations/supabase/client';
+import { completeSubstage, getStageProgress } from '@/services/brandService';
 
 interface BrandDNAPanelProps {
   fields: any[];
