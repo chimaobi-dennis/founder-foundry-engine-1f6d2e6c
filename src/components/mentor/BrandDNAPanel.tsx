@@ -264,8 +264,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                 key={stage.stage_key}
                 onClick={async () => {
                   if (isCurrent) return;
-                  await updateStage(stage.stage_key, 'user_selected');
-                  setShowRightStagePicker(false);
+                  await handleStageChange(stage.stage_key);
                 }}
                 style={{
                   display: 'flex',
