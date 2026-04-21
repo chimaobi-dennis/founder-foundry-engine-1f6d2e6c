@@ -444,7 +444,7 @@ export function ChatPanel({
                         <div key={key} className="flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-md bg-primary/10">
                           <Check size={12} className="text-primary" />
                           <span className="text-[11px] font-ui text-primary font-medium">
-                            Saved to Journey Record · {sp.label}
+                            Saved to Brand DNA · {sp.label}
                           </span>
                         </div>
                       );
