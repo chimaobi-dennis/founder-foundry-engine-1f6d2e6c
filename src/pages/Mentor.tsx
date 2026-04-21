@@ -229,6 +229,10 @@ const Mentor = () => {
   const [forceRefresh, setForceRefresh] = useState(0);
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
   const [capturedData, setCapturedData] = useState<Record<string, Record<string, string>>>({});
+  // Keys of save prompts already accepted, formatted as `${messageId}::${fieldKey}`.
+  // Sourced from brand_stage_data.captured_from_message_id so the "Saved" pill
+  // persists across reloads.
+  const [savedStagePromptKeys, setSavedStagePromptKeys] = useState<Set<string>>(new Set());
   const [thinkingState, setThinkingState] = useState<ThinkingState>({
     isThinking: false,
     currentMessage: '',
@@ -289,9 +293,27 @@ const Mentor = () => {
         groupedStageFields[field.stage_key].push(field);
       });
 
+      // Pre-populate which save prompts have already been accepted, so the
+      // "Saved" pill is restored under the right message after a reload.
+      const { data: savedRows } = await (supabase as any)
+        .from('brand_stage_data')
+        .select('field_key, captured_from_message_id')
+        .eq('brand_id', activeBrandId)
+        .not('captured_from_message_id', 'is', null);
+      const savedKeys = new Set<string>(
+        (savedRows ?? [])
+          .filter((r: any) => r.captured_from_message_id && r.field_key)
+          .map((r: any) => `${r.captured_from_message_id}::${r.field_key}`)
+      );
+
       setActiveChoicePrompts(choicePrompts);
       setCustomDNAFields(customFields);
       setAllStageFields(groupedStageFields);
+      setSavedStagePromptKeys(prev => {
+        const next = new Set(prev);
+        savedKeys.forEach(k => next.add(k));
+        return next;
+      });
 
       const uiMessages: Message[] = dbMessages.map(m => ({
         id: m.id,
@@ -554,7 +576,10 @@ const Mentor = () => {
   };
 
   // ─── SAVE_PROMPT handler — writes parsed AI save pill to brand_stage_data ──
-  const handleSaveStagePrompt = useCallback(async (prompt: ParsedSavePrompt) => {
+  // Also mirrors to brand_dna when a mapping exists, so the right-panel DNA
+  // view and the Brand DNA page stay in sync. Persists captured_from_message_id
+  // so the "Saved" pill can be restored across reloads.
+  const handleSaveStagePrompt = useCallback(async (prompt: ParsedSavePrompt, messageId?: string) => {
     if (!activeBrand) return;
 
     // Resolve stage_key: prefer the one provided by the AI, else find by
@@ -576,24 +601,48 @@ const Mentor = () => {
     const conversation = conversationMapRef.current[activeBrand.id];
 
     try {
+      // 1. Save to brand_stage_data (drives Journey Record completion %)
       const { success, error } = await saveStageField(
         activeBrand.id,
         stageKey,
         prompt.fieldKey,
         cleanValue,
-        undefined,
+        messageId,
         conversation?.id,
         prompt.label,
         'brand_discovery'
       );
       if (!success) throw new Error(error || 'Save failed');
 
+      // 2. Mirror to brand_dna when a mapping exists. Match by field_key,
+      //    label, or maps_to_dna_field on the cached stage field def.
+      const stageFieldDefs = (allStageFields[stageKey] ?? []) as any[];
+      const fieldDef = stageFieldDefs.find(f => f.field_key === prompt.fieldKey);
+      const dnaCandidates = [
+        prompt.label,
+        fieldDef?.maps_to_dna_field,
+        fieldDef?.field_label,
+      ].filter(Boolean) as string[];
+      for (const candidate of dnaCandidates) {
+        if (DNA_UI_TO_DB[candidate]) {
+          await persistDNAField(activeBrand.id, candidate, cleanValue);
+          break;
+        }
+      }
+
+      // 3. Update local state and refresh both panels
       setCapturedData(prev => ({
         ...prev,
         [stageKey!]: { ...(prev[stageKey!] ?? {}), [prompt.fieldKey]: cleanValue },
       }));
-
-      // Refresh the right-panel substage progress immediately
+      if (messageId) {
+        setSavedStagePromptKeys(prev => {
+          const next = new Set(prev);
+          next.add(`${messageId}::${prompt.fieldKey}`);
+          return next;
+        });
+      }
+      await refreshBrandDNA();
       setForceRefresh(prev => prev + 1);
 
       toast(`Saved "${prompt.label}"`, { duration: 2000 });
@@ -608,7 +657,7 @@ const Mentor = () => {
       toast.error('Could not save — try again');
       throw e;
     }
-  }, [activeBrand, allStageFields, user]);
+  }, [activeBrand, allStageFields, user, persistDNAField, refreshBrandDNA]);
 
 
   // ─── Milestone auto-detection ─────────────────────────────────────────────
@@ -1566,6 +1615,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
                 streamingMessageId={streamingMessageId}
                 streamingText={streamingText}
                 onSaveStagePrompt={handleSaveStagePrompt}
+                savedStagePromptKeys={savedStagePromptKeys}
               />
             );
           }
