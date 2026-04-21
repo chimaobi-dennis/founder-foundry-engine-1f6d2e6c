@@ -366,7 +366,7 @@ export function ChatPanel({
         )} style={{ maxWidth: "100%", overflowX: "hidden", boxSizing: "border-box" }}>
           <p className="text-[11px] font-ui text-muted-foreground text-center py-3">Today at 14:23</p>
 
-          {messages.map((msg, i) => {
+          {dedupedMessages.map((msg, i) => {
             const marker = markersByMessage[msg.id];
             const milestone = marker ? milestoneMap[marker.milestoneId] : null;
             const prompt = promptsByMessage[msg.id];
