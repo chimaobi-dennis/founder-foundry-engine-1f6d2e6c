@@ -518,10 +518,10 @@ export function ChatPanel({
                                 if (!valueToSave) return;
                                 setStagePromptSaved(prev => new Set(prev).add(key));
                                 try {
-                                  await onSaveStagePrompt?.({
-                                    ...sp,
-                                    value: valueToSave,
-                                  });
+                                  await onSaveStagePrompt?.(
+                                    { ...sp, value: valueToSave },
+                                    msg.id
+                                  );
                                 } catch (e) {
                                   setStagePromptSaved(prev => {
                                     const n = new Set(prev);
