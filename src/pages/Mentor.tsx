@@ -678,7 +678,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
       }
 
       // Detect milestone in background (fire and forget)
-      detectMilestone(brandId, aiMsgId, allMessages, response);
+      detectMilestone(brandId, aiMsgId, allMessages, response.text);
 
     } catch (e) {
       setChatError(e instanceof Error ? e.message : "Could not connect — try again");
