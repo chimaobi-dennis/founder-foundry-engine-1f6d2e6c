@@ -472,12 +472,12 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   alignItems: 'center',
                   gap: '10px',
                   cursor: 'pointer',
-                  borderBottom: '0.5px solid rgba(255,255,255,0.04)',
+                  borderBottom: '0.5px solid var(--color-border-tertiary)',
                   background: 'transparent',
                   transition: 'background 150ms'
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)';
+                  (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
                 }}
                 onMouseLeave={e => {
                   (e.currentTarget as HTMLElement).style.background = 'transparent';
