@@ -28,7 +28,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const [editValue, setEditValue] = useState('');
   const [savingField, setSavingField] = useState<string | null>(null);
   const [showRightStagePicker, setShowRightStagePicker] = useState(false);
-  const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
+  const [substagesWithData, setSubstagesWithData] = useState<SubstageWithData[]>([]);
   const [progressLoading, setProgressLoading] = useState(true);
   const [stageDataLoading, setStageDataLoading] = useState(true);
   const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
@@ -49,17 +49,13 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const handleStageChange = async (newStageKey: string) => {
     if (newStageKey === activeBrand?.journey_stage) return;
 
-    const currentSubstages = currentStageData?.substages ?? [];
-    const completedCount = Object.values(stageProgress).filter(Boolean).length;
-    const incompleteCount = currentSubstages.length - completedCount;
+    const incompleteSubstages = substagesWithData.filter(s => !s.isComplete);
+    const incompleteCount = incompleteSubstages.length;
 
     if (incompleteCount > 0) {
-      const incompleteSubstages = currentSubstages.filter(
-        (_: string, index: number) => !stageProgress[index]
-      );
       setStageChangeWarning({
         targetStageKey: newStageKey,
-        incompleteSubstages,
+        incompleteSubstages: incompleteSubstages.map(s => s.label),
         incompleteCount
       });
       setShowRightStagePicker(false);
@@ -70,69 +66,27 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     setShowRightStagePicker(false);
   };
 
-  // Load substage completion for the active stage
+  // Load substages-with-data for the active stage. Re-runs whenever the brand,
+  // stage, current stage definition, or external refresh trigger changes.
   useEffect(() => {
     const stageKey = activeBrand?.journey_stage ?? 'spark';
-    if (!activeBrand?.id) {
-      setStageProgress({});
+    const substages = currentStageData?.substages ?? [];
+    if (!activeBrand?.id || substages.length === 0) {
+      setSubstagesWithData([]);
       setProgressLoading(false);
       return;
     }
     let cancelled = false;
     setProgressLoading(true);
-    getStageProgress(activeBrand.id, stageKey).then(rows => {
+    getSubstagesWithData(activeBrand.id, stageKey, substages).then(rows => {
       if (cancelled) return;
-      const map: Record<number, boolean> = {};
-      rows.forEach(r => {
-        if (r.isCompleted) map[r.substageIndex] = true;
-      });
-      setStageProgress(map);
+      setSubstagesWithData(rows);
       setProgressLoading(false);
     }).catch(() => {
       if (!cancelled) setProgressLoading(false);
     });
     return () => { cancelled = true; };
-  }, [activeBrand?.id, activeBrand?.journey_stage]);
-
-  const handleSubstageComplete = async (
-    substageIndex: number,
-    substageName: string,
-    stageKey: string
-  ) => {
-    if (!activeBrand || !conversation || stageProgress[substageIndex]) return;
-
-    // Mark substage complete in brand_stage_progress
-    await completeSubstage(
-      activeBrand.id,
-      stageKey,
-      substageIndex
-    );
-
-    // Update local progress state immediately
-    setStageProgress(prev => ({ ...prev, [substageIndex]: true }));
-
-    // Map stage key to milestone category
-    const stageCategoryMap: Record<string, string> = {
-      spark: 'brand_discovery',
-      shape: 'product_positioning',
-      validate: 'customer_insight',
-      brand: 'brand_discovery',
-      launch: 'campaign_strategy',
-      grow: 'growth_brainstorm'
-    };
-
-    const category = stageCategoryMap[stageKey] ?? 'free_form';
-
-    // Auto-create milestone from substage completion
-    await createMilestone(
-      activeBrand.id,
-      conversation.id,
-      substageName,
-      category,
-      undefined, // no specific message_id for substage milestones
-      stageKey // passed as context = stage_key
-    );
-  };
+  }, [activeBrand?.id, activeBrand?.journey_stage, currentStageData?.stage_key, dataRefreshTrigger]);
 
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
