@@ -1451,55 +1451,68 @@ Be selective — only mark significant shifts, not minor tangents.`,
           </button>
         )}
 
-        {activeEmptyMode ? (
-          // Show empty state greeting
-          <MentorEmptyState mode={activeEmptyMode} onSubmit={handleEmptySubmit} />
-        ) : activeBrandData && activeBrandData.messages.length > 0 ? (
-          // Show real messages from DB
-          <ChatPanel
-            brand={currentActiveBrand}
-            stageName={currentStageData?.name}
-            messages={activeBrandData.messages}
-            milestones={activeBrandData.milestones}
-            milestoneMarkers={activeBrandData.milestoneMarkers}
-            savePrompts={activeBrandData.savePrompts}
-            onSaveDNA={handleSaveDNA}
-            scrollToMilestoneId={scrollToMilestoneId}
-            onMilestoneScrolled={handleMilestoneScrolled}
-            isMobile={isMobile}
-            isTyping={isTyping}
-            onSendMessage={handleSendMessage}
-            error={chatError}
-            onRetry={handleRetry}
-            slowThinking={slowThinking}
-            unansweredMessageId={unansweredMessageId}
-            inputValue={inputValue}
-            onInputValueChange={setInputValue}
-            messageRefsMap={messageRefsMap}
-            activeChoicePrompts={activeChoicePrompts}
-            onChoiceSelect={handleChoiceSelection}
-            thinkingState={thinkingState}
-            streamingMessageId={streamingMessageId}
-            streamingText={streamingText}
-          />
-        ) : (
-          // Show empty state greeting and demo conversation as preview only
-          <div className="flex flex-col h-full w-full items-center justify-center">
-            <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
-            <div className="w-full max-w-[560px] mt-8">
-              <div className="rounded-xl bg-card border border-border p-6">
-                <div className="font-semibold text-[15px] mb-3 text-muted-foreground">Demo conversation preview</div>
-                {demoMessages.map((msg) => (
-                  <div key={msg.id} className="mb-3">
-                    <div className={`rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words ${msg.role === "founder" ? "bg-primary/10 ml-auto" : "bg-card border border-border"}`}>
-                      <span className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words">{msg.content}</span>
+        {(() => {
+          const isGeneratingFirstMessage = firstMessageBrands.has(activeBrandId);
+
+          // While the first AI message is being generated after onboarding,
+          // suppress the empty-state greeting and show the ChatPanel with
+          // its thinking/streaming UI instead.
+          if (!isGeneratingFirstMessage && activeEmptyMode) {
+            return <MentorEmptyState mode={activeEmptyMode} onSubmit={handleEmptySubmit} />;
+          }
+
+          if (
+            isGeneratingFirstMessage ||
+            (activeBrandData && activeBrandData.messages.length > 0)
+          ) {
+            return (
+              <ChatPanel
+                brand={currentActiveBrand}
+                stageName={currentStageData?.name}
+                messages={activeBrandData?.messages ?? []}
+                milestones={activeBrandData?.milestones ?? []}
+                milestoneMarkers={activeBrandData?.milestoneMarkers ?? []}
+                savePrompts={activeBrandData?.savePrompts ?? []}
+                onSaveDNA={handleSaveDNA}
+                scrollToMilestoneId={scrollToMilestoneId}
+                onMilestoneScrolled={handleMilestoneScrolled}
+                isMobile={isMobile}
+                isTyping={isTyping}
+                onSendMessage={handleSendMessage}
+                error={chatError}
+                onRetry={handleRetry}
+                slowThinking={slowThinking}
+                unansweredMessageId={unansweredMessageId}
+                inputValue={inputValue}
+                onInputValueChange={setInputValue}
+                messageRefsMap={messageRefsMap}
+                activeChoicePrompts={activeChoicePrompts}
+                onChoiceSelect={handleChoiceSelection}
+                thinkingState={thinkingState}
+                streamingMessageId={streamingMessageId}
+                streamingText={streamingText}
+              />
+            );
+          }
+
+          return (
+            <div className="flex flex-col h-full w-full items-center justify-center">
+              <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
+              <div className="w-full max-w-[560px] mt-8">
+                <div className="rounded-xl bg-card border border-border p-6">
+                  <div className="font-semibold text-[15px] mb-3 text-muted-foreground">Demo conversation preview</div>
+                  {demoMessages.map((msg) => (
+                    <div key={msg.id} className="mb-3">
+                      <div className={`rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words ${msg.role === "founder" ? "bg-primary/10 ml-auto" : "bg-card border border-border"}`}>
+                        <span className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words">{msg.content}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {showRightInline ? (
