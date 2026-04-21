@@ -447,25 +447,6 @@ const Mentor = () => {
   const activeEmptyMode = emptyBrands[activeBrandId] || null;
   const isTyping = typingBrands.has(activeBrandId);
 
-  // Demo conversation for empty state preview (never shown as real messages)
-  const demoMessages = [
-    {
-      id: "demo-1",
-      role: "ai",
-      content: "Welcome to Mentor. I’m your thinking partner for building a sharp, differentiated brand. Ask me anything about your brand, product, or audience."
-    },
-    {
-      id: "demo-2",
-      role: "founder",
-      content: "How do I stand out in a crowded market?"
-    },
-    {
-      id: "demo-3",
-      role: "ai",
-      content: "Let’s start with your positioning. What do you offer that nobody else does, and who is it for?"
-    }
-  ];
-
   const [scrollToMilestoneId, setScrollToMilestoneId] = useState<string | null>(null);
   const [highlightDNAField, setHighlightDNAField] = useState<string | null>(null);
 
@@ -1498,18 +1479,6 @@ Be selective — only mark significant shifts, not minor tangents.`,
           return (
             <div className="flex flex-col h-full w-full items-center justify-center">
               <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
-              <div className="w-full max-w-[560px] mt-8">
-                <div className="rounded-xl bg-card border border-border p-6">
-                  <div className="font-semibold text-[15px] mb-3 text-muted-foreground">Demo conversation preview</div>
-                  {demoMessages.map((msg) => (
-                    <div key={msg.id} className="mb-3">
-                      <div className={`rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words ${msg.role === "founder" ? "bg-primary/10 ml-auto" : "bg-card border border-border"}`}>
-                        <span className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words">{msg.content}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           );
         })()}
