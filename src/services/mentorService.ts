@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callAI, type TaskType, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logAIError } from './errorService';
+import { getAssetsForAIContext } from './projectAssetsService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -305,6 +306,12 @@ export const getMentorAIResponse = async (
     journey_stage: brand?.journey_stage ?? 'spark',
     stage_focus: stageFocus
   });
+
+  // Inject project assets context
+  const assetsContext = await getAssetsForAIContext(brand.id);
+  if (assetsContext) {
+    systemPrompt += assetsContext;
+  }
 
   const result = await callAI({
     taskType: 'mentor_chat',
