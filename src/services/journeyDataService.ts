@@ -1,16 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { createMilestone } from './mentorService';
 
-export interface SubstageWithData {
-  index: number;
-  label: string;           // from journey_stages.substages array
-  fieldKey: string;        // from journey_stage_fields.field_key
-  fieldLabel: string;      // from journey_stage_fields.field_label
-  fieldDescription: string | null;
-  value: string | null;    // from brand_stage_data
-  isComplete: boolean;     // true only if value exists and is non-empty
-}
-
 export interface StageField {
   id: string;
   stage_key: string;
@@ -41,45 +31,6 @@ export const getStageFields = async (
     .eq('stage_key', stageKey)
     .order('sort_order');
   return data ?? [];
-};
-
-// Get substages with their actual data for a brand and stage
-export const getSubstagesWithData = async (
-  brandId: string,
-  stageKey: string,
-  substageLabels: string[]
-): Promise<SubstageWithData[]> => {
-  // Get field definitions ordered by substage_index
-  const { data: fields } = await (supabase as any)
-    .from('journey_stage_fields')
-    .select('*')
-    .eq('stage_key', stageKey)
-    .order('substage_index');
-
-  if (!fields || fields.length === 0) return [];
-
-  // Get captured data for this brand and stage
-  const { data: captured } = await (supabase as any)
-    .from('brand_stage_data')
-    .select('field_key, value')
-    .eq('brand_id', brandId)
-    .eq('stage_key', stageKey);
-
-  const capturedMap: Record<string, string> = {};
-  (captured ?? []).forEach((row: any) => {
-    if (row.value) capturedMap[row.field_key] = row.value;
-  });
-
-  // Combine field definitions with captured data
-  return fields.map((field: any, index: number) => ({
-    index: field.substage_index ?? index,
-    label: substageLabels[field.substage_index ?? index] ?? field.field_label,
-    fieldKey: field.field_key,
-    fieldLabel: field.field_label,
-    fieldDescription: field.field_description,
-    value: capturedMap[field.field_key] ?? null,
-    isComplete: !!(capturedMap[field.field_key]?.trim())
-  }));
 };
 
 // Get all field definitions for all stages at once
