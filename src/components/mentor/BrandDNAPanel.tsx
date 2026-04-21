@@ -120,8 +120,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
-                  opacity: 0.35,
-                  borderBottom: '0.5px solid rgba(255,255,255,0.04)',
+                  opacity: 0.45,
+                  borderBottom: '0.5px solid var(--color-border-tertiary)',
                   cursor: 'not-allowed'
                 }}>
                   <span style={{ fontSize: '14px' }}>{stage.emoji}</span>
