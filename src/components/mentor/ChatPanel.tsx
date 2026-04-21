@@ -60,7 +60,10 @@ interface ChatPanelProps {
   streamingMessageId?: string | null;
   streamingText?: string;
   // SAVE_PROMPT pill: write a captured field to brand_stage_data
-  onSaveStagePrompt?: (prompt: ParsedSavePrompt) => Promise<void> | void;
+  onSaveStagePrompt?: (prompt: ParsedSavePrompt, messageId?: string) => Promise<void> | void;
+  // Set of `${messageId}::${fieldKey}` keys already accepted (loaded from DB)
+  // — drives the persistent "Saved" pill across reloads.
+  savedStagePromptKeys?: Set<string>;
 }
 
 export function ChatPanel({
