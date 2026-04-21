@@ -233,6 +233,11 @@ const Mentor = () => {
   });
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState('');
+  // Brands currently generating their very first AI message after onboarding —
+  // used to suppress the empty-state greeting and show the streaming/thinking UI instead.
+  const [firstMessageBrands, setFirstMessageBrands] = useState<Set<string>>(new Set());
+  const firstMessageBrandsRef = useRef(firstMessageBrands);
+  useEffect(() => { firstMessageBrandsRef.current = firstMessageBrands; }, [firstMessageBrands]);
   const lastMessageRef = useRef<string>("");
   const slowTimerRef = useRef<ReturnType<typeof setTimeout>>();
   
@@ -326,9 +331,14 @@ const Mentor = () => {
         },
       }));
 
-      // Set empty mode if no messages and no mode was explicitly assigned
+      // Set empty mode if no messages and no mode was explicitly assigned —
+      // but skip when we are about to inject the first AI message after onboarding.
       setEmptyBrands(prev => {
-        if (uiMessages.length === 0 && !prev[activeBrandId]) {
+        if (
+          uiMessages.length === 0 &&
+          !prev[activeBrandId] &&
+          !firstMessageBrandsRef.current.has(activeBrandId)
+        ) {
           return { ...prev, [activeBrandId]: "new" };
         }
         return prev;
@@ -380,6 +390,10 @@ const Mentor = () => {
     checkOnboarding();
   }, [activeBrandId, activeBrand, onboardingCheckedFor]);
 
+  // Ref so we can call triggerFirstAIMessage (defined later) from
+  // handleOnboardingComplete without dealing with hoisting / dependency ordering.
+  const triggerFirstAIMessageRef = useRef<((brandId: string) => Promise<void>) | null>(null);
+
   const handleOnboardingComplete = useCallback(async () => {
     setShowOnboarding(false);
     // Refresh brands so any extracted name / stage updates flow through
@@ -392,6 +406,24 @@ const Mentor = () => {
       return next;
     });
     setForceRefresh(prev => prev + 1);
+
+    // Clear the empty-state greeting for this brand — we are about to populate
+    // the conversation with the first AI message instead.
+    setEmptyBrands(prev => {
+      const next = { ...prev };
+      delete next[activeBrandId];
+      return next;
+    });
+
+    // Mark this brand as generating its first message so the UI shows the
+    // streaming/thinking ChatPanel instead of the empty state.
+    setFirstMessageBrands(prev => new Set(prev).add(activeBrandId));
+
+    // Wait for brand data + conversation to reload, then trigger the hidden
+    // CONTEXT_LOADED message to start the conversation.
+    setTimeout(() => {
+      triggerFirstAIMessageRef.current?.(activeBrandId);
+    }, 300);
   }, [activeBrandId, refreshBrands, refreshBrandDNA]);
 
   // ─── Handle CTA query param (idea / brand mode) ───────────────────────────
@@ -893,6 +925,129 @@ Be selective — only mark significant shifts, not minor tangents.`,
     }
   }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone, refreshBrands]);
 
+  // ─── First AI message after onboarding ────────────────────────────────────
+  // Sends a hidden trigger message to the AI to generate the opening message
+  // that acknowledges the loaded context. The trigger user message is NOT
+  // saved to the DB and never appears in the UI — only the AI response does.
+  const triggerFirstAIMessage = useCallback(async (brandId: string) => {
+    if (!user) return;
+
+    // Wait briefly for conversation to be created/loaded if not yet ready
+    let conversation = conversationMapRef.current[brandId];
+    if (!conversation) {
+      for (let i = 0; i < 10 && !conversation; i++) {
+        await new Promise(r => setTimeout(r, 200));
+        conversation = conversationMapRef.current[brandId];
+      }
+    }
+    if (!conversation) {
+      setFirstMessageBrands(prev => {
+        const next = new Set(prev);
+        next.delete(brandId);
+        return next;
+      });
+      return;
+    }
+
+    // Resolve the latest brand record (refreshBrands has just run)
+    const { data: latestBrand } = await (supabase as any)
+      .from('brands')
+      .select('*')
+      .eq('id', brandId)
+      .single();
+    const brandForAI = latestBrand ?? activeBrand;
+    if (!brandForAI) {
+      setFirstMessageBrands(prev => {
+        const next = new Set(prev);
+        next.delete(brandId);
+        return next;
+      });
+      return;
+    }
+
+    const dnaContext = await getBrandDNA(brandId);
+
+    const thinker = createThinkingSequence(
+      'mentor_chat',
+      !!(dnaContext?.brand_voice || dnaContext?.positioning_statement),
+      true,
+      (state) => setThinkingState(state)
+    );
+
+    const triggerMessage = "[CONTEXT_LOADED] The founder has just completed onboarding. You have been given their project context. Acknowledge what you now know about their project and ask one focused question to start the conversation.";
+
+    try {
+      let streamingStarted = false;
+
+      const aiResult = await getMentorAIResponse(
+        user.id,
+        brandForAI,
+        dnaContext,
+        [],
+        triggerMessage,
+        (chunkText) => {
+          if (!streamingStarted) {
+            streamingStarted = true;
+            thinker.stop();
+            setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+            setStreamingMessageId(`streaming-${Date.now()}`);
+          }
+          setStreamingText(chunkText);
+        },
+        async (newName) => {
+          await refreshBrands();
+          toast(`Project named "${newName}"`, { duration: 3000 });
+        }
+      );
+
+      thinker.stop();
+      setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+      setStreamingMessageId(null);
+      setStreamingText('');
+
+      if (aiResult) {
+        const aiMsg = await saveMessage(conversation.id, 'assistant', aiResult.text);
+        if (aiMsg) {
+          const aiMessage: Message = { id: aiMsg.id, role: "ai", content: aiResult.text };
+          setBrandDataMap(prev => {
+            const data = prev[brandId];
+            if (!data) {
+              return {
+                ...prev,
+                [brandId]: {
+                  brand: { id: brandId, name: brandForAI.name, colorClass: "", startedDate: "" },
+                  messages: [aiMessage],
+                  milestones: [],
+                  milestoneMarkers: [],
+                  savePrompts: [],
+                  dnaFields: emptyDNAFields,
+                },
+              };
+            }
+            return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMessage] } };
+          });
+        }
+      }
+    } catch (e) {
+      thinker.stop();
+      setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+      setStreamingMessageId(null);
+      setStreamingText('');
+      console.error('Failed to generate first AI message after onboarding:', e);
+    } finally {
+      setFirstMessageBrands(prev => {
+        const next = new Set(prev);
+        next.delete(brandId);
+        return next;
+      });
+    }
+  }, [user, activeBrand, refreshBrands]);
+
+  useEffect(() => {
+    triggerFirstAIMessageRef.current = triggerFirstAIMessage;
+  }, [triggerFirstAIMessage]);
+
+
   const handleRetry = useCallback(() => {
     const brandId = activeBrandId;
     const messages = brandDataMap[brandId]?.messages || [];
@@ -1296,55 +1451,68 @@ Be selective — only mark significant shifts, not minor tangents.`,
           </button>
         )}
 
-        {activeEmptyMode ? (
-          // Show empty state greeting
-          <MentorEmptyState mode={activeEmptyMode} onSubmit={handleEmptySubmit} />
-        ) : activeBrandData && activeBrandData.messages.length > 0 ? (
-          // Show real messages from DB
-          <ChatPanel
-            brand={currentActiveBrand}
-            stageName={currentStageData?.name}
-            messages={activeBrandData.messages}
-            milestones={activeBrandData.milestones}
-            milestoneMarkers={activeBrandData.milestoneMarkers}
-            savePrompts={activeBrandData.savePrompts}
-            onSaveDNA={handleSaveDNA}
-            scrollToMilestoneId={scrollToMilestoneId}
-            onMilestoneScrolled={handleMilestoneScrolled}
-            isMobile={isMobile}
-            isTyping={isTyping}
-            onSendMessage={handleSendMessage}
-            error={chatError}
-            onRetry={handleRetry}
-            slowThinking={slowThinking}
-            unansweredMessageId={unansweredMessageId}
-            inputValue={inputValue}
-            onInputValueChange={setInputValue}
-            messageRefsMap={messageRefsMap}
-            activeChoicePrompts={activeChoicePrompts}
-            onChoiceSelect={handleChoiceSelection}
-            thinkingState={thinkingState}
-            streamingMessageId={streamingMessageId}
-            streamingText={streamingText}
-          />
-        ) : (
-          // Show empty state greeting and demo conversation as preview only
-          <div className="flex flex-col h-full w-full items-center justify-center">
-            <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
-            <div className="w-full max-w-[560px] mt-8">
-              <div className="rounded-xl bg-card border border-border p-6">
-                <div className="font-semibold text-[15px] mb-3 text-muted-foreground">Demo conversation preview</div>
-                {demoMessages.map((msg) => (
-                  <div key={msg.id} className="mb-3">
-                    <div className={`rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words ${msg.role === "founder" ? "bg-primary/10 ml-auto" : "bg-card border border-border"}`}>
-                      <span className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words">{msg.content}</span>
+        {(() => {
+          const isGeneratingFirstMessage = firstMessageBrands.has(activeBrandId);
+
+          // While the first AI message is being generated after onboarding,
+          // suppress the empty-state greeting and show the ChatPanel with
+          // its thinking/streaming UI instead.
+          if (!isGeneratingFirstMessage && activeEmptyMode) {
+            return <MentorEmptyState mode={activeEmptyMode} onSubmit={handleEmptySubmit} />;
+          }
+
+          if (
+            isGeneratingFirstMessage ||
+            (activeBrandData && activeBrandData.messages.length > 0)
+          ) {
+            return (
+              <ChatPanel
+                brand={currentActiveBrand}
+                stageName={currentStageData?.name}
+                messages={activeBrandData?.messages ?? []}
+                milestones={activeBrandData?.milestones ?? []}
+                milestoneMarkers={activeBrandData?.milestoneMarkers ?? []}
+                savePrompts={activeBrandData?.savePrompts ?? []}
+                onSaveDNA={handleSaveDNA}
+                scrollToMilestoneId={scrollToMilestoneId}
+                onMilestoneScrolled={handleMilestoneScrolled}
+                isMobile={isMobile}
+                isTyping={isTyping}
+                onSendMessage={handleSendMessage}
+                error={chatError}
+                onRetry={handleRetry}
+                slowThinking={slowThinking}
+                unansweredMessageId={unansweredMessageId}
+                inputValue={inputValue}
+                onInputValueChange={setInputValue}
+                messageRefsMap={messageRefsMap}
+                activeChoicePrompts={activeChoicePrompts}
+                onChoiceSelect={handleChoiceSelection}
+                thinkingState={thinkingState}
+                streamingMessageId={streamingMessageId}
+                streamingText={streamingText}
+              />
+            );
+          }
+
+          return (
+            <div className="flex flex-col h-full w-full items-center justify-center">
+              <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
+              <div className="w-full max-w-[560px] mt-8">
+                <div className="rounded-xl bg-card border border-border p-6">
+                  <div className="font-semibold text-[15px] mb-3 text-muted-foreground">Demo conversation preview</div>
+                  {demoMessages.map((msg) => (
+                    <div key={msg.id} className="mb-3">
+                      <div className={`rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words ${msg.role === "founder" ? "bg-primary/10 ml-auto" : "bg-card border border-border"}`}>
+                        <span className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words">{msg.content}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {showRightInline ? (
