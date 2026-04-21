@@ -494,6 +494,8 @@ const Mentor = () => {
 
     // Note: We're not managing savePrompts state in this version
     await refreshBrandDNA();
+    // Tell the right-panel substage view to re-fetch from brand_stage_data
+    setForceRefresh(prev => prev + 1);
   };
 
   // ─── Milestone auto-detection ─────────────────────────────────────────────
@@ -908,6 +910,9 @@ Be selective — only mark significant shifts, not minor tangents.`,
       const updated = await getCustomDNAFields(activeBrand.id);
       setCustomDNAFields(updated);
     }
+
+    // Tell the right-panel substage view to re-fetch from brand_stage_data
+    setForceRefresh(prev => prev + 1);
 
     // Send the selection as a user message
     const selectionMessage = `I like "${selectedLabel}".`;
