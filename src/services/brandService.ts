@@ -57,7 +57,7 @@ export const updateJourneyStage = async (
   triggerType: 'mentor_suggestion' | 'user_selected' | 'auto_detected',
   context?: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { data: brand } = await supabase
+  const { data: brand } = await (supabase as any)
     .from('brands')
     .select('journey_stage')
     .eq('id', brandId)
@@ -74,7 +74,7 @@ export const updateJourneyStage = async (
       context: context ?? null
     });
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('brands')
     .update({
       journey_stage: newStageKey,
@@ -122,7 +122,7 @@ export const completeSubstage = async (
 
 // Admin functions
 export const getAllJourneyStages = async (): Promise<JourneyStageData[]> => {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('journey_stages')
     .select('*')
     .order('sort_order', { ascending: true });
@@ -133,7 +133,7 @@ export const updateJourneyStageConfig = async (
   stageId: string,
   updates: Partial<JourneyStageData>
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('journey_stages')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', stageId);
@@ -143,7 +143,7 @@ export const updateJourneyStageConfig = async (
 export const createJourneyStage = async (
   stage: Omit<JourneyStageData, 'id'>
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('journey_stages')
     .insert(stage);
   return { success: !error, error: error?.message };
@@ -328,7 +328,7 @@ export const updateBrandName = async (
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('brands')
     .update({ 
       name: capitalisedName, 

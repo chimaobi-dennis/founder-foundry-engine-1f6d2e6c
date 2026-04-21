@@ -141,7 +141,7 @@ export const syncToBrandDNA = async (
   const dnaField = dnaMappings[`${stageKey}.${fieldKey}`];
   if (!dnaField) return;
 
-  await supabase
+  await (supabase as any)
     .from('brand_dna')
     .upsert({
       brand_id: brandId,

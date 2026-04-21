@@ -763,7 +763,7 @@ export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
 export const getUserModelPreferences = async (
   userId: string
 ): Promise<Record<TaskType, AIModel | null>> => {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('user_model_preferences')
     .select(`
       task_type,
@@ -784,7 +784,7 @@ export const setUserModelPreference = async (
   taskType: TaskType,
   modelId: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('user_model_preferences')
     .upsert({
       user_id: userId,
@@ -801,7 +801,7 @@ export const setUserModelPreference = async (
 // ─── Admin — provider and model management ───────────────
 
 export const getAllProviders = async (): Promise<AIProvider[]> => {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('ai_providers')
     .select('*')
     .order('created_at');
@@ -809,7 +809,7 @@ export const getAllProviders = async (): Promise<AIProvider[]> => {
 };
 
 export const getAllModels = async (): Promise<AIModel[]> => {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('ai_models')
     .select('*, ai_providers(*)')
     .order('sort_order');
@@ -819,7 +819,7 @@ export const getAllModels = async (): Promise<AIModel[]> => {
 export const createProvider = async (
   provider: Partial<AIProvider>
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('ai_providers')
     .insert(provider);
   return { success: !error, error: error?.message };
@@ -829,7 +829,7 @@ export const updateProvider = async (
   id: string,
   updates: Partial<AIProvider>
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('ai_providers')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id);
@@ -839,7 +839,7 @@ export const updateProvider = async (
 export const createModel = async (
   model: Partial<AIModel>
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('ai_models')
     .insert(model);
   return { success: !error, error: error?.message };
@@ -849,7 +849,7 @@ export const updateModel = async (
   id: string,
   updates: Partial<AIModel>
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('ai_models')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id);
@@ -860,7 +860,7 @@ export const setTaskDefault = async (
   taskType: TaskType,
   modelId: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from('ai_task_defaults')
     .upsert({
       task_type: taskType,
@@ -877,7 +877,7 @@ export const setTaskDefault = async (
 export const getModelsForTask = async (
   taskType: TaskType
 ): Promise<AIModel[]> => {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('ai_models')
     .select('*, ai_providers(*)')
     .eq('is_enabled', true)
@@ -887,7 +887,7 @@ export const getModelsForTask = async (
 };
 
 export const getAllEnabledModels = async (): Promise<AIModel[]> => {
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('ai_models')
     .select('*, ai_providers(*)')
     .eq('is_enabled', true)
