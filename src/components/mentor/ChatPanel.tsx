@@ -77,6 +77,79 @@ interface ChatPanelProps {
   onRetryMessage?: (messageId: string) => Promise<void> | void;
 }
 
+// Per-message actions menu — appears next to each bubble on hover.
+// Provides copy / retry (AI only) / delete actions.
+function MessageActionsMenu({
+  messageId,
+  role,
+  text,
+  onRetry,
+  onDelete,
+}: {
+  messageId: string;
+  role: "ai" | "founder";
+  text: string;
+  onRetry?: (id: string) => Promise<void> | void;
+  onDelete?: (id: string) => Promise<void> | void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text ?? "");
+      toast("Copied to clipboard", { duration: 1500 });
+    } catch {
+      toast.error("Could not copy");
+    }
+  }, [text]);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <button
+          aria-label="Message actions"
+          className={cn(
+            "h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-opacity flex-shrink-0 mt-1",
+            // Always visible when open; otherwise only on hover/focus of the bubble row.
+            open
+              ? "opacity-100"
+              : "opacity-0 group-hover/msg:opacity-100 focus:opacity-100"
+          )}
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem onSelect={handleCopy} className="gap-2 text-[13px]">
+          <Copy size={14} />
+          Copy text
+        </DropdownMenuItem>
+        {role === "ai" && onRetry && (
+          <DropdownMenuItem
+            onSelect={() => { void onRetry(messageId); }}
+            className="gap-2 text-[13px]"
+          >
+            <RotateCcw size={14} />
+            Retry response
+          </DropdownMenuItem>
+        )}
+        {onDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => { void onDelete(messageId); }}
+              className="gap-2 text-[13px] text-destructive focus:text-destructive"
+            >
+              <Trash2 size={14} />
+              Delete message
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function ChatPanel({
   brand,
   stageName,
