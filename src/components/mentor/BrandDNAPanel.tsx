@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { completeSubstage, getStageProgress } from '@/services/brandService';
 import { createMilestone } from '@/services/mentorService';
 import { SubstageChecklist } from './SubstageChecklist';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface BrandDNAPanelProps {
   fields: any[];
@@ -659,7 +660,26 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   {/* Fields */}
                   {isExpanded && (
                   <div style={{ padding: '0 16px 14px' }}>
-                    {fields.map(field => {
+                    {stageDataLoading && fields.length === 0 ? (
+                      // Skeleton field cards while stage data loads
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div
+                          key={`skeleton-${i}`}
+                          style={{
+                            marginBottom: '10px',
+                            padding: '10px 12px',
+                            background: 'var(--color-background-secondary)',
+                            borderRadius: '8px',
+                            border: '0.5px solid var(--color-border-tertiary)'
+                          }}
+                        >
+                          <Skeleton style={{ height: '10px', width: '40%', marginBottom: '8px' }} />
+                          <Skeleton style={{ height: '10px', width: '90%', marginBottom: '4px' }} />
+                          <Skeleton style={{ height: '10px', width: `${60 + ((i * 11) % 25)}%` }} />
+                        </div>
+                      ))
+                    ) : (
+                    fields.map(field => {
                       const value = data[field.field_key];
                       const isEditing = editingField?.stageKey === stage.stage_key && 
                                         editingField?.fieldKey === field.field_key;
