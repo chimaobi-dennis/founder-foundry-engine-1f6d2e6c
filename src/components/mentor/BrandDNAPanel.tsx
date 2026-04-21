@@ -454,17 +454,22 @@ export function BrandDNAPanel({
                   background: 'linear-gradient(135deg, rgba(212,160,23,0.06) 0%, rgba(212,160,23,0.02) 100%)',
                   borderLeft: '2px solid #D4A017'
                 }}>
-                  {/* Stage header — clickable to toggle */}
-                  <div
-                    onClick={() => toggleStageExpand(stage.stage_key)}
-                    style={{ padding: '14px 16px 10px', cursor: 'pointer' }}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '6px'
-                    }}>
+                  {/* Stage header — clickable to toggle. Only the header row
+                      (not the expanded body) carries the toggle handler so
+                      clicks inside the expanded content do not collapse the
+                      stage. */}
+                  <div style={{ padding: '14px 16px 10px' }}>
+                    <div
+                      onClick={() => toggleStageExpand(stage.stage_key)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '6px',
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                      }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '18px' }}>{stage.emoji}</span>
                         <div>
@@ -518,16 +523,34 @@ export function BrandDNAPanel({
                           complete
                         </div>
                       </div>
-                      <span style={{
-                        fontSize: '10px',
-                        color: 'var(--color-text-tertiary)',
-                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        transition: 'transform 200ms ease',
-                        display: 'inline-block',
-                        marginLeft: '8px'
-                      }}>
+                      {/* Toggle arrow — also a real button so the explicit
+                          target always works even if some ancestor swallows
+                          the event. */}
+                      <button
+                        type="button"
+                        aria-label={isExpanded ? 'Collapse stage' : 'Expand stage'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStageExpand(stage.stage_key);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px',
+                          marginLeft: '4px',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          color: 'var(--color-text-tertiary)',
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 200ms ease',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1
+                        }}
+                      >
                         ▼
-                      </span>
+                      </button>
                     </div>
 
                     {isExpanded && (<>
