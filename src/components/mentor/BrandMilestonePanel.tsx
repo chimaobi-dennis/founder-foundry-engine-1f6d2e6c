@@ -699,6 +699,82 @@ export function BrandMilestonePanel({
             })
           )}
         </div>
+
+        {/* Memory — last section before footer */}
+        <div className="px-4 pt-2">
+          <div style={{
+            height: '0.5px',
+            background: 'var(--color-border-tertiary)',
+            margin: '0 0 12px'
+          }} />
+          <p style={{
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-secondary)',
+            marginBottom: '8px'
+          }}>
+            MEMORY
+          </p>
+          <p style={{
+            fontSize: '12px',
+            color: 'var(--color-text-secondary)',
+            lineHeight: '1.6',
+            marginBottom: '8px'
+          }}>
+            {buildMemorySummary(realActiveBrand, activeBrandDNA)}
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {activeBrandDNA?.brand_voice && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Voice
+              </span>
+            )}
+            {activeBrandDNA?.positioning_statement && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Positioning
+              </span>
+            )}
+            {activeBrandDNA?.target_audience && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Audience
+              </span>
+            )}
+            {activeBrandDNA?.core_promise && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Promise
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
