@@ -852,7 +852,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         setUnansweredMessageId(userMsg.id);
       }
     }
-  }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone]);
+  }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone, refreshBrands]);
 
   const handleRetry = useCallback(() => {
     const brandId = activeBrandId;
