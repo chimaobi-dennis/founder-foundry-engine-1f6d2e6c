@@ -24,6 +24,27 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const [editValue, setEditValue] = useState('');
   const [savingField, setSavingField] = useState<string | null>(null);
   const [showRightStagePicker, setShowRightStagePicker] = useState(false);
+  const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
+  const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
+
+  // Load substage completion for the active stage
+  useEffect(() => {
+    const stageKey = activeBrand?.journey_stage ?? 'spark';
+    if (!activeBrand?.id) {
+      setStageProgress({});
+      return;
+    }
+    let cancelled = false;
+    getStageProgress(activeBrand.id, stageKey).then(rows => {
+      if (cancelled) return;
+      const map: Record<number, boolean> = {};
+      rows.forEach(r => {
+        if (r.isCompleted) map[r.substageIndex] = true;
+      });
+      setStageProgress(map);
+    });
+    return () => { cancelled = true; };
+  }, [activeBrand?.id, activeBrand?.journey_stage]);
 
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
