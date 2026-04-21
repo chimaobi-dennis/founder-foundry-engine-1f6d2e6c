@@ -43,6 +43,8 @@ interface BrandMilestonePanelProps {
   onEditMilestoneCategory?: (id: string, newCategory: MilestoneCategory) => void;
   realActiveBrand?: Brand | null;
   activeBrandDNA?: BrandDNA | null;
+  /** Optional — accepted for parity with the right panel; not used here. */
+  conversation?: { id: string } | null;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
