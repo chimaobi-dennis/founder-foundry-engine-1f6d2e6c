@@ -347,13 +347,13 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                       }} />
                     </div>
 
-                    {/* Stage completion hint */}
+                    {/* Stage completion hint — compact 2-line teaser */}
                     <div style={{
                       padding: '8px 10px',
                       background: 'rgba(212,160,23,0.06)',
                       borderRadius: '6px',
                       border: '0.5px solid var(--stage-done-border)',
-                      marginBottom: '4px'
+                      marginBottom: '10px'
                     }}>
                       <div style={{
                         fontSize: '10px',
@@ -365,30 +365,160 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                       }}>
                         This stage is done when we have:
                       </div>
-                      <div style={{ 
-                        fontSize: '11px', 
+                      <div style={{
+                        fontSize: '11px',
                         color: 'var(--color-text-secondary)',
                         lineHeight: 1.5
                       }}>
-                        {stage.substages.slice(0, 3).map((sub: string, i: number) => (
-                          <div key={i} style={{ 
-                            display: 'flex', 
+                        {(showAllDoneWhen ? stage.substages : stage.substages.slice(0, 2)).map((sub: string, i: number) => (
+                          <div key={i} style={{
+                            display: 'flex',
                             alignItems: 'flex-start',
                             gap: '6px',
                             marginBottom: '2px'
                           }}>
-                            <span style={{ 
-                              color: data[fields[i]?.field_key] ? '#4CAF50' : 'rgba(212,160,23,0.5)',
+                            <span style={{
+                              color: stageProgress[i] ? '#4CAF50' : 'rgba(212,160,23,0.5)',
                               flexShrink: 0,
                               marginTop: '1px'
                             }}>
-                              {data[fields[i]?.field_key] ? '✓' : '○'}
+                              {stageProgress[i] ? '✓' : '○'}
                             </span>
                             <span>{sub}</span>
                           </div>
                         ))}
+                        {stage.substages.length > 2 && (
+                          <button
+                            onClick={() => setShowAllDoneWhen(v => !v)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: '2px 0 0',
+                              cursor: 'pointer',
+                              color: '#D4A017',
+                              fontSize: '10px',
+                              fontWeight: 600
+                            }}
+                          >
+                            {showAllDoneWhen ? 'Show less' : `See all (${stage.substages.length})`}
+                          </button>
+                        )}
                       </div>
                     </div>
+
+                    {/* Substage checklist — interactive */}
+                    {stage.substages && stage.substages.length > 0 && (
+                      <div style={{
+                        margin: '0 0 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                      }}>
+                        {stage.substages.map((substage: string, idx: number) => {
+                          const isCompleted = stageProgress[idx] === true;
+                          const isNext = !isCompleted &&
+                            Object.values(stageProgress).filter(Boolean).length === idx;
+
+                          return (
+                            <div
+                              key={idx}
+                              onClick={async () => {
+                                if (!activeBrand || isCompleted) return;
+                                await completeSubstage(
+                                  activeBrand.id,
+                                  activeBrand.journey_stage ?? 'spark',
+                                  idx
+                                );
+                                setStageProgress(prev => ({ ...prev, [idx]: true }));
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '8px',
+                                padding: '6px 8px',
+                                borderRadius: '6px',
+                                cursor: isCompleted ? 'default' : 'pointer',
+                                background: isNext ? 'rgba(212,160,23,0.06)' : 'transparent',
+                                border: isNext
+                                  ? '0.5px solid rgba(212,160,23,0.15)'
+                                  : '0.5px solid transparent',
+                                transition: 'all 150ms'
+                              }}
+                              onMouseEnter={e => {
+                                if (!isCompleted) {
+                                  (e.currentTarget as HTMLElement).style.background = 'rgba(212,160,23,0.08)';
+                                }
+                              }}
+                              onMouseLeave={e => {
+                                (e.currentTarget as HTMLElement).style.background =
+                                  isNext ? 'rgba(212,160,23,0.06)' : 'transparent';
+                              }}
+                            >
+                              <div style={{
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '50%',
+                                flexShrink: 0,
+                                marginTop: '1px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: isCompleted ? '#4CAF50' : 'transparent',
+                                border: isCompleted
+                                  ? '2px solid #4CAF50'
+                                  : isNext
+                                    ? '2px solid #D4A017'
+                                    : '1.5px solid var(--color-border-secondary)',
+                                transition: 'all 200ms'
+                              }}>
+                                {isCompleted && (
+                                  <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, lineHeight: 1 }}>✓</span>
+                                )}
+                                {!isCompleted && isNext && (
+                                  <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#D4A017' }} />
+                                )}
+                              </div>
+                              <span style={{
+                                fontSize: '11px',
+                                lineHeight: 1.4,
+                                color: isCompleted
+                                  ? 'var(--color-text-tertiary)'
+                                  : isNext
+                                    ? 'var(--color-text-primary)'
+                                    : 'var(--color-text-secondary)',
+                                textDecoration: isCompleted ? 'line-through' : 'none',
+                                fontWeight: isNext ? 500 : 400,
+                                flex: 1
+                              }}>
+                                {substage}
+                              </span>
+                              {isNext && (
+                                <span style={{
+                                  fontSize: '9px',
+                                  color: '#D4A017',
+                                  background: 'rgba(212,160,23,0.12)',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px',
+                                  fontWeight: 600,
+                                  letterSpacing: '0.03em',
+                                  flexShrink: 0,
+                                  alignSelf: 'center'
+                                }}>
+                                  next
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Divider before field list */}
+                    <div style={{
+                      height: '0.5px',
+                      background: 'var(--color-border-tertiary)',
+                      margin: '4px 0 4px'
+                    }} />
                   </div>
 
                   {/* Fields */}
