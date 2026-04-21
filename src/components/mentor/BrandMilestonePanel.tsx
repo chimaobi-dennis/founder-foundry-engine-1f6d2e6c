@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Brand, BrandDNA, completeSubstage, getStageProgress } from "@/services/brandService";
+import { Brand, BrandDNA } from "@/services/brandService";
 import {
   ProjectAsset,
   getProjectAssets,
@@ -30,7 +30,6 @@ import {
   togglePinAsset,
   deleteProjectAsset,
 } from "@/services/projectAssetsService";
-import { createMilestone } from "@/services/mentorService";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
@@ -44,7 +43,6 @@ interface BrandMilestonePanelProps {
   onEditMilestoneCategory?: (id: string, newCategory: MilestoneCategory) => void;
   realActiveBrand?: Brand | null;
   activeBrandDNA?: BrandDNA | null;
-  conversation?: { id: string } | null;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
@@ -68,7 +66,6 @@ export function BrandMilestonePanel({
   onEditMilestoneCategory,
   realActiveBrand,
   activeBrandDNA,
-  conversation,
 }: BrandMilestonePanelProps) {
   const { brands: realBrands, journeyStages, currentStageData } = useBrand();
   const { user } = useAuth();
@@ -78,32 +75,12 @@ export function BrandMilestonePanel({
   const [editValue, setEditValue] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
   // Project Assets state
   const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
   const [uploading, setUploading] = useState(false);
   const [showAllAssets, setShowAllAssets] = useState(false);
   const [deleteAssetId, setDeleteAssetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Load substage completion state whenever brand/stage changes
-  useEffect(() => {
-    const stageKey = realActiveBrand?.journey_stage ?? 'spark';
-    if (!realActiveBrand?.id) {
-      setStageProgress({});
-      return;
-    }
-    let cancelled = false;
-    getStageProgress(realActiveBrand.id, stageKey).then(rows => {
-      if (cancelled) return;
-      const map: Record<number, boolean> = {};
-      rows.forEach(r => {
-        if (r.isCompleted) map[r.substageIndex] = true;
-      });
-      setStageProgress(map);
-    });
-    return () => { cancelled = true; };
-  }, [realActiveBrand?.id, realActiveBrand?.journey_stage]);
 
   // Load project assets whenever brand changes
   useEffect(() => {
@@ -174,52 +151,6 @@ export function BrandMilestonePanel({
     const source = asset.source === 'ai_generated' ? 'AI generated' : 'Uploaded';
     const stage = formatStageName(asset.stage_key);
     return stage ? `${source} · ${stage}` : source;
-  };
-
-  const handleSubstageComplete = async (
-    substageIndex: number,
-    substageName: string,
-    stageKey: string
-  ) => {
-    if (!realActiveBrand || !conversation || stageProgress[substageIndex]) return;
-
-    // Mark substage complete in brand_stage_progress
-    await completeSubstage(
-      realActiveBrand.id,
-      stageKey,
-      substageIndex
-    );
-
-    // Update local progress state immediately
-    setStageProgress(prev => ({ ...prev, [substageIndex]: true }));
-
-    // Map stage key to milestone category
-    const stageCategoryMap: Record<string, string> = {
-      spark: 'brand_discovery',
-      shape: 'product_positioning',
-      validate: 'customer_insight',
-      brand: 'brand_discovery',
-      launch: 'campaign_strategy',
-      grow: 'growth_brainstorm'
-    };
-
-    const category = stageCategoryMap[stageKey] ?? 'free_form';
-
-    // Auto-create milestone from substage completion
-    const milestone = await createMilestone(
-      realActiveBrand.id,
-      conversation.id,
-      substageName,
-      category,
-      undefined, // no specific message_id for substage milestones
-      stageKey // passed as context = stage_key
-    );
-
-    if (milestone && onSelectMilestone) {
-      // Note: We can't directly add to the milestones array here since it's passed as prop
-      // The parent component will need to refresh milestones
-      onSelectMilestone(milestone.id);
-    }
   };
 
   const getCategoryColor = (category: string): string => {
