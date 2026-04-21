@@ -129,6 +129,69 @@ export const getStageCompletion = (
   return Math.round((filledCount / fields.length) * 100);
 };
 
+// ─── Substages with captured data ────────────────────────────────────────
+// A substage is the read-only display label for a stage step. Each substage
+// is paired (by index/sort_order) with a journey_stage_field. When that
+// field has a value in brand_stage_data, the substage is considered complete.
+// Substages are NEVER manually checkable — completion is derived from data.
+
+export interface SubstageWithData {
+  /** Substage label as defined on journey_stages.substages */
+  label: string;
+  /** Index in the substages array */
+  index: number;
+  /** The matched journey_stage_field key (if any) */
+  fieldKey: string | null;
+  /** The matched field's prompt/description text */
+  fieldDescription: string | null;
+  /** The captured value from brand_stage_data, or null when not yet captured */
+  value: string | null;
+  /** True when value is a non-empty string */
+  isComplete: boolean;
+}
+
+export const getSubstagesWithData = async (
+  brandId: string,
+  stageKey: string,
+  substages: string[]
+): Promise<SubstageWithData[]> => {
+  if (!substages || substages.length === 0) return [];
+
+  // Fetch field definitions and captured values in parallel
+  const [fieldsRes, dataRes] = await Promise.all([
+    (supabase as any)
+      .from('journey_stage_fields')
+      .select('*')
+      .eq('stage_key', stageKey)
+      .order('sort_order'),
+    (supabase as any)
+      .from('brand_stage_data')
+      .select('field_key, value')
+      .eq('brand_id', brandId)
+      .eq('stage_key', stageKey)
+  ]);
+
+  const fields: StageField[] = fieldsRes.data ?? [];
+  const captured: Record<string, string> = {};
+  (dataRes.data ?? []).forEach((row: { field_key: string; value: string | null }) => {
+    if (row.value) captured[row.field_key] = row.value;
+  });
+
+  // Pair each substage with its field by positional index (sort_order)
+  return substages.map((label, index) => {
+    const field = fields[index] ?? null;
+    const value = field ? (captured[field.field_key] ?? null) : null;
+    return {
+      label,
+      index,
+      fieldKey: field?.field_key ?? null,
+      fieldDescription: field?.field_description ?? null,
+      value: value && value.trim().length > 0 ? value : null,
+      isComplete: !!(value && value.trim().length > 0)
+    };
+  });
+};
+
 // Sync brand_dna fields from stage data
 // When a stage field maps to a DNA field keep them in sync
 export const syncToBrandDNA = async (
