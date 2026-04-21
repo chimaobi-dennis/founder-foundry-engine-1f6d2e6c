@@ -347,7 +347,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                                   fontSize: '12px',
                                   borderRadius: '6px',
                                   border: '0.5px solid #D4A017',
-                                  background: 'rgba(0,0,0,0.3)',
+                                  background: 'var(--color-background-secondary)',
                                   color: 'var(--color-text-primary)',
                                   resize: 'vertical',
                                   lineHeight: 1.5,
