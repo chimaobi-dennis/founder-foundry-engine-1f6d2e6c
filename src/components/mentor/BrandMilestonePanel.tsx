@@ -332,10 +332,10 @@ export function BrandMilestonePanel({
             {stagePickerOpen && (
               <div style={{
                 marginTop: '8px',
-                border: '0.5px solid var(--color-border-secondary)',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                background: 'var(--color-background-secondary)'
+                background: 'transparent',
+                border: 'none',
+                borderRadius: 0,
+                padding: '4px 0'
               }}>
                 {journeyStages.map(stage => {
                   const isCurrent = stage.stage_key === realActiveBrand?.journey_stage;
