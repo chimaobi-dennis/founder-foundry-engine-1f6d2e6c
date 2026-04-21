@@ -353,6 +353,12 @@ export function ChatPanel({
             const isShowingSaved = showingSaved.has(msg.id);
             const showTimestamp = i === 8;
 
+            // Parse SAVE_PROMPT blocks out of AI messages so the founder
+            // never sees the raw JSON token. The pill is rendered below.
+            const parsed = msg.role === "ai"
+              ? parseAIMessage(msg.content)
+              : { cleanText: msg.content, savePrompts: [] as ParsedSavePrompt[] };
+
             return (
               <div key={msg.id} className="min-w-0 w-full max-w-full overflow-hidden" style={{ boxSizing: "border-box" }}>
                 {/* Milestone marker */}
@@ -402,9 +408,116 @@ export function ChatPanel({
                       className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
                       style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
                     >
-                      {msg.content}
+                      {parsed.cleanText}
                     </p>
                   </div>
+
+                  {/* SAVE_PROMPT pills parsed from AI message */}
+                  {msg.role === "ai" && parsed.savePrompts.map((sp) => {
+                    const key = `${msg.id}::${sp.fieldKey}`;
+                    const wasSaved = stagePromptSaved.has(key);
+                    if (stagePromptDismissed.has(key)) return null;
+                    if (wasSaved) {
+                      return (
+                        <div key={key} className="flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-md bg-primary/10">
+                          <Check size={12} className="text-primary" />
+                          <span className="text-[11px] font-ui text-primary font-medium">
+                            Saved to Journey Record · {sp.label}
+                          </span>
+                        </div>
+                      );
+                    }
+                    const editingValue = stagePromptEditing[key];
+                    const isEditing = editingValue !== undefined;
+                    const currentValue = isEditing ? editingValue : sp.value;
+                    return (
+                      <div
+                        key={key}
+                        className="w-full flex flex-col gap-2 mt-2 max-w-[75%]"
+                        style={{ minWidth: 0, boxSizing: "border-box" }}
+                      >
+                        <div
+                          className="flex flex-col gap-2 px-3 py-2.5 rounded-lg border bg-card/80"
+                          style={{
+                            borderColor: 'rgba(212,160,23,0.35)',
+                            background: 'rgba(212,160,23,0.06)',
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Save size={13} className="text-primary flex-shrink-0" />
+                            <span className="text-[12px] font-ui font-medium text-foreground flex-1 min-w-0 truncate">
+                              {sp.label}
+                            </span>
+                          </div>
+                          {isEditing ? (
+                            <textarea
+                              value={currentValue}
+                              onChange={(e) =>
+                                setStagePromptEditing(prev => ({ ...prev, [key]: e.target.value }))
+                              }
+                              rows={3}
+                              className="w-full text-[12.5px] font-ui text-foreground bg-background/60 border border-border rounded-md px-2 py-1.5 outline-none focus:border-primary"
+                              style={{ resize: 'vertical' }}
+                            />
+                          ) : (
+                            <p className="text-[12.5px] font-ui text-muted-foreground whitespace-pre-wrap break-words">
+                              {currentValue}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 justify-end pt-1">
+                            <button
+                              onClick={() =>
+                                setStagePromptDismissed(prev => new Set(prev).add(key))
+                              }
+                              className="text-[11px] font-ui text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Dismiss
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (isEditing) {
+                                  setStagePromptEditing(prev => {
+                                    const n = { ...prev };
+                                    delete n[key];
+                                    return n;
+                                  });
+                                } else {
+                                  setStagePromptEditing(prev => ({ ...prev, [key]: sp.value }));
+                                }
+                              }}
+                              className="h-6 px-2.5 rounded-md border border-border text-[11px] font-ui text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1"
+                            >
+                              <Pencil size={11} />
+                              {isEditing ? 'Cancel' : 'Edit'}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const valueToSave = (currentValue ?? '').trim();
+                                if (!valueToSave) return;
+                                setStagePromptSaved(prev => new Set(prev).add(key));
+                                try {
+                                  await onSaveStagePrompt?.({
+                                    ...sp,
+                                    value: valueToSave,
+                                  });
+                                } catch (e) {
+                                  setStagePromptSaved(prev => {
+                                    const n = new Set(prev);
+                                    n.delete(key);
+                                    return n;
+                                  });
+                                }
+                              }}
+                              className="h-6 px-3 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-semibold hover:bg-primary/90 transition-colors flex items-center gap-1"
+                            >
+                              <Check size={11} />
+                              Accept
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                   
                   {/* Inline retry button for unanswered/failed messages */}
                   {msg.role === "founder" && (msg.id === unansweredMessageId || (msg as any).ai_response_failed) && (
