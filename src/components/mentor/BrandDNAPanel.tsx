@@ -641,6 +641,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                     <SubstageChecklist
                       substages={stage.substages ?? []}
                       progress={stageProgress}
+                      loading={progressLoading}
                       onComplete={(idx, substage) =>
                         handleSubstageComplete(idx, substage, stage.stage_key)
                       }
