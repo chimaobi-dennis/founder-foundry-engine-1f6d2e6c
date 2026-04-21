@@ -7,8 +7,9 @@ import { useBrand } from '@/contexts/BrandContext';
 import { saveStageField, getSubstagesWithData, SubstageWithData, getAllStageFields, getBrandStageData } from '@/services/journeyDataService';
 =======
 import { supabase } from '@/integrations/supabase/client';
-import { getSubstagesWithData, type SubstageWithData } from '@/services/journeyDataService';
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
+import { completeSubstage, getStageProgress } from '@/services/brandService';
+import { createMilestone } from '@/services/mentorService';
+import { SubstageChecklist } from './SubstageChecklist';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface BrandDNAPanelProps {
@@ -32,11 +33,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const [editValue, setEditValue] = useState('');
   const [savingField, setSavingField] = useState<string | null>(null);
   const [showRightStagePicker, setShowRightStagePicker] = useState(false);
-<<<<<<< HEAD
-  const [substagesWithData, setSubstagesWithData] = useState<Record<string, SubstageWithData[]>>({});
-  const [substagesLoading, setSubstagesLoading] = useState(true);
-=======
-  const [substagesWithData, setSubstagesWithData] = useState<SubstageWithData[]>([]);
+  const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
   const [progressLoading, setProgressLoading] = useState(true);
 >>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
   const [stageDataLoading, setStageDataLoading] = useState(true);
@@ -58,19 +55,14 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const handleStageChange = async (newStageKey: string) => {
     if (newStageKey === activeBrand?.journey_stage) return;
 
-<<<<<<< HEAD
-    const currentSubstages = substagesWithData[activeBrand?.journey_stage ?? ''] ?? [];
-    const completedCount = currentSubstages.filter(s => s.isComplete).length;
+    const currentSubstages = currentStageData?.substages ?? [];
+    const completedCount = Object.values(stageProgress).filter(Boolean).length;
     const incompleteCount = currentSubstages.length - completedCount;
 
     if (incompleteCount > 0) {
-      const incompleteSubstages = currentSubstages.filter(s => !s.isComplete).map(s => s.label);
-=======
-    const incompleteSubstages = substagesWithData.filter(s => !s.isComplete);
-    const incompleteCount = incompleteSubstages.length;
-
-    if (incompleteCount > 0) {
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
+      const incompleteSubstages = currentSubstages.filter(
+        (_: string, index: number) => !stageProgress[index]
+      );
       setStageChangeWarning({
         targetStageKey: newStageKey,
         incompleteSubstages: incompleteSubstages.map(s => s.label),
@@ -84,65 +76,71 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     setShowRightStagePicker(false);
   };
 
-<<<<<<< HEAD
-  // Load substages with data for all stages
-  useEffect(() => {
-    if (!activeBrand?.id) {
-      setSubstagesWithData({});
-      setSubstagesLoading(false);
-=======
-  // Load substages-with-data for the active stage. Re-runs whenever the brand,
-  // stage, current stage definition, or external refresh trigger changes.
+  // Load substage completion for the active stage
   useEffect(() => {
     const stageKey = activeBrand?.journey_stage ?? 'spark';
-    const substages = currentStageData?.substages ?? [];
-    if (!activeBrand?.id || substages.length === 0) {
-      setSubstagesWithData([]);
+    if (!activeBrand?.id) {
+      setStageProgress({});
       setProgressLoading(false);
 >>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
       return;
     }
 
     let cancelled = false;
-<<<<<<< HEAD
-    setSubstagesLoading(true);
-
-    const loadAllSubstages = async () => {
-      const substagesMap: Record<string, SubstageWithData[]> = {};
-
-      for (const stage of journeyStages) {
-        const substages = await getSubstagesWithData(
-          activeBrand.id,
-          stage.stage_key,
-          stage.substages ?? []
-        );
-        substagesMap[stage.stage_key] = substages;
-      }
-
-      if (!cancelled) {
-        setSubstagesWithData(substagesMap);
-        setSubstagesLoading(false);
-      }
-    };
-
-    loadAllSubstages().catch(() => {
-      if (!cancelled) setSubstagesLoading(false);
-    });
-
-    return () => { cancelled = true; };
-  }, [activeBrand?.id, journeyStages]);
-=======
     setProgressLoading(true);
-    getSubstagesWithData(activeBrand.id, stageKey, substages).then(rows => {
+    getStageProgress(activeBrand.id, stageKey).then(rows => {
       if (cancelled) return;
-      setSubstagesWithData(rows);
+      const map: Record<number, boolean> = {};
+      rows.forEach(r => {
+        if (r.isCompleted) map[r.substageIndex] = true;
+      });
+      setStageProgress(map);
       setProgressLoading(false);
     }).catch(() => {
       if (!cancelled) setProgressLoading(false);
     });
     return () => { cancelled = true; };
-  }, [activeBrand?.id, activeBrand?.journey_stage, currentStageData?.stage_key, dataRefreshTrigger]);
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
+  }, [activeBrand?.id, activeBrand?.journey_stage]);
+
+  const handleSubstageComplete = async (
+    substageIndex: number,
+    substageName: string,
+    stageKey: string
+  ) => {
+    if (!activeBrand || !conversation || stageProgress[substageIndex]) return;
+
+    // Mark substage complete in brand_stage_progress
+    await completeSubstage(
+      activeBrand.id,
+      stageKey,
+      substageIndex
+    );
+
+    // Update local progress state immediately
+    setStageProgress(prev => ({ ...prev, [substageIndex]: true }));
+
+    // Map stage key to milestone category
+    const stageCategoryMap: Record<string, string> = {
+      spark: 'brand_discovery',
+      shape: 'product_positioning',
+      validate: 'customer_insight',
+      brand: 'brand_discovery',
+      launch: 'campaign_strategy',
+      grow: 'growth_brainstorm'
+    };
+
+    const category = stageCategoryMap[stageKey] ?? 'free_form';
+
+    // Auto-create milestone from substage completion
+    await createMilestone(
+      activeBrand.id,
+      conversation.id,
+      substageName,
+      category,
+      undefined, // no specific message_id for substage milestones
+      stageKey // passed as context = stage_key
+    );
+  };
 
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
@@ -594,13 +592,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         color: 'var(--color-text-secondary)',
                         lineHeight: 1.5
                       }}>
-<<<<<<< HEAD
-                        {(showAllDoneWhen ? substagesWithData[stage.stage_key] ?? [] : (substagesWithData[stage.stage_key] ?? []).slice(0, 2)).map((sub: SubstageWithData, i: number) => (
+                        {(showAllDoneWhen ? stage.substages : stage.substages.slice(0, 2)).map((sub: string, i: number) => (
                           <div key={i} style={{
-=======
-                        {(showAllDoneWhen ? substagesWithData : substagesWithData.slice(0, 2)).map((sub) => (
-                          <div key={sub.index} style={{
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
                             display: 'flex',
                             alignItems: 'flex-start',
                             gap: '6px',
@@ -616,11 +609,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                             <span>{sub.label}</span>
                           </div>
                         ))}
-<<<<<<< HEAD
-                        {(substagesWithData[stage.stage_key] ?? []).length > 2 && (
-=======
-                        {substagesWithData.length > 2 && (
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
+                        {stage.substages.length > 2 && (
                           <button
                             onClick={() => setShowAllDoneWhen(v => !v)}
                             style={{
@@ -633,112 +622,21 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                               fontWeight: 600
                             }}
                           >
-<<<<<<< HEAD
-                            {showAllDoneWhen ? 'Show less' : `See all (${(substagesWithData[stage.stage_key] ?? []).length})`}
-=======
-                            {showAllDoneWhen ? 'Show less' : `See all (${substagesWithData.length})`}
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
+                            {showAllDoneWhen ? 'Show less' : `See all (${stage.substages.length})`}
                           </button>
                         )}
                       </div>
                     </div>
-<<<<<<< HEAD
 
-                    {/* Substage checklist — data-driven display */}
-                    {substagesLoading ? (
-                      <div style={{ padding: '8px 10px' }}>
-                        <Skeleton style={{ height: '12px', width: '80%', marginBottom: '6px' }} />
-                        <Skeleton style={{ height: '12px', width: '70%', marginBottom: '6px' }} />
-                        <Skeleton style={{ height: '12px', width: '60%' }} />
-                      </div>
-                    ) : (
-                      (substagesWithData[stage.stage_key] ?? []).length > 0 && (
-                        <div style={{
-                          margin: '0 0 12px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '4px'
-                        }}>
-                          {(substagesWithData[stage.stage_key] ?? []).map((substage: SubstageWithData, idx: number) => {
-                            const stageSubstages = substagesWithData[stage.stage_key] ?? [];
-                            const isNext = !substage.isComplete &&
-                              stageSubstages.filter(s => s.isComplete).length === idx;
-
-                            return (
-                              <div
-                                key={idx}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'flex-start',
-                                  gap: '8px',
-                                  padding: '6px 8px',
-                                  borderRadius: '6px',
-                                  background: isNext ? 'rgba(212,160,23,0.06)' : 'transparent',
-                                  border: isNext
-                                    ? '0.5px solid rgba(212,160,23,0.15)'
-                                    : '0.5px solid transparent',
-                                  transition: 'all 150ms'
-                                }}
-                              >
-                                <div style={{
-                                  width: '16px',
-                                  height: '16px',
-                                  borderRadius: '50%',
-                                  flexShrink: 0,
-                                  marginTop: '1px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: substage.isComplete ? '#4CAF50' : 'transparent',
-                                  border: substage.isComplete
-                                    ? '2px solid #4CAF50'
-                                    : isNext
-                                      ? '2px solid #D4A017'
-                                      : '1.5px solid var(--color-border-secondary)',
-                                  transition: 'all 200ms'
-                                }}>
-                                  {substage.isComplete && (
-                                    <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, lineHeight: 1 }}>✓</span>
-                                  )}
-                                  {!substage.isComplete && isNext && (
-                                    <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#D4A017' }} />
-                                  )}
-                                </div>
-                                <span style={{
-                                  fontSize: '11px',
-                                  lineHeight: 1.4,
-                                  color: substage.isComplete
-                                    ? 'var(--color-text-tertiary)'
-                                    : isNext
-                                      ? 'var(--color-text-primary)'
-                                      : 'var(--color-text-secondary)',
-                                  textDecoration: substage.isComplete ? 'line-through' : 'none',
-                                  fontWeight: isNext ? 500 : 400,
-                                  flex: 1
-                                }}>
-                                  {substage.label}
-                                </span>
-                                {isNext && (
-                                  <span style={{
-                                    fontSize: '9px',
-                                    color: '#D4A017',
-                                    background: 'rgba(212,160,23,0.12)',
-                                    padding: '1px 5px',
-                                    borderRadius: '3px',
-                                    fontWeight: 600,
-                                    letterSpacing: '0.03em',
-                                    flexShrink: 0,
-                                    alignSelf: 'center'
-                                  }}>
-                                    next
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )
-                    )}
+                    {/* Substage checklist — interactive */}
+                    <SubstageChecklist
+                      substages={stage.substages ?? []}
+                      progress={stageProgress}
+                      loading={progressLoading}
+                      onComplete={(idx, substage) =>
+                        handleSubstageComplete(idx, substage, stage.stage_key)
+                      }
+                    />
 
                     {/* Divider before field list */}
                     <div style={{
@@ -746,8 +644,6 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                       background: 'var(--color-border-tertiary)',
                       margin: '4px 0 4px'
                     }} />
-=======
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
                     </>)}
                   </div>
 
@@ -880,7 +776,6 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                             )}
                           </div>
 
-<<<<<<< HEAD
                           {isEditing ? (
                             <div>
                               <textarea
@@ -908,51 +803,22 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                                     if (!activeBrand) return;
                                     const key = `${stage.stage_key}.${field.field_key}`;
                                     setSavingField(key);
-
-                                    // Map stage key to milestone category
-                                    const stageCategoryMap: Record<string, string> = {
-                                      spark: 'brand_discovery',
-                                      shape: 'product_positioning',
-                                      validate: 'customer_insight',
-                                      brand: 'brand_discovery',
-                                      launch: 'campaign_strategy',
-                                      grow: 'growth_brainstorm'
-                                    };
-
-                                    const category = stageCategoryMap[stage.stage_key] ?? 'free_form';
-
-                                    const result = await saveStageField(
-                                      activeBrand.id,
-                                      stage.stage_key,
-                                      field.field_key,
-                                      editValue,
-                                      undefined, // no message_id for manual edits
-                                      conversation?.id,
-                                      field.field_label,
-                                      category
-                                    );
-
-                                    if (result.success) {
-                                      setCapturedData(prev => ({
-                                        ...prev,
-                                        [stage.stage_key]: {
-                                          ...prev[stage.stage_key],
-                                          [field.field_key]: editValue
-                                        }
-                                      }));
-
-                                      // Refresh substages with data for this stage
-                                      const updatedSubstages = await getSubstagesWithData(
-                                        activeBrand.id,
-                                        stage.stage_key,
-                                        stage.substages ?? []
-                                      );
-                                      setSubstagesWithData(prev => ({
-                                        ...prev,
-                                        [stage.stage_key]: updatedSubstages
-                                      }));
-                                    }
-
+                                    await (supabase as any)
+                                      .from('brand_stage_data')
+                                      .upsert({
+                                        brand_id: activeBrand.id,
+                                        stage_key: stage.stage_key,
+                                        field_key: field.field_key,
+                                        value: editValue,
+                                        updated_at: new Date().toISOString()
+                                      }, { onConflict: 'brand_id,stage_key,field_key' });
+                                    setCapturedData(prev => ({
+                                      ...prev,
+                                      [stage.stage_key]: {
+                                        ...prev[stage.stage_key],
+                                        [field.field_key]: editValue
+                                      }
+                                    }));
                                     setSavingField(null);
                                     setEditingField(null);
                                   }}
@@ -998,38 +864,29 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                                 >
                                   Cancel
                                 </button>
-=======
-                          {/* Captured data — shown when value exists */}
-                          {substage.value && (
-                            <div style={{
-                              marginTop: '8px',
-                              marginLeft: '24px',
-                              padding: '8px 10px',
-                              background: 'var(--color-background-secondary)',
-                              borderRadius: '6px',
-                              border: '0.5px solid var(--color-border-tertiary)'
-                            }}>
-                              <div style={{
-                                fontSize: '9px',
-                                color: '#D4A017',
-                                fontWeight: 600,
-                                letterSpacing: '0.06em',
-                                textTransform: 'uppercase',
-                                marginBottom: '4px'
-                              }}>
-                                ✓ Captured
-                              </div>
-                              <div style={{
-                                fontSize: '12px',
-                                color: 'var(--color-text-primary)',
-                                lineHeight: 1.5
-                              }}>
-                                {substage.value.length > 150
-                                  ? substage.value.slice(0, 150) + '...'
-                                  : substage.value}
->>>>>>> 0c7e2df2354ceccc6e3e390167f6fc60cd4ce5c6
                               </div>
                             </div>
+                          ) : value ? (
+                            <p style={{
+                              fontSize: '12px',
+                              color: 'var(--color-text-primary)',
+                              lineHeight: 1.6,
+                              margin: 0
+                            }}>
+                              {value.length > 140 
+                                ? value.slice(0, 140) + '...' 
+                                : value}
+                            </p>
+                          ) : (
+                            <p style={{
+                              fontSize: '11px',
+                              color: 'var(--color-text-tertiary)',
+                              fontStyle: 'italic',
+                              margin: 0,
+                              lineHeight: 1.5
+                            }}>
+                              {field.field_description}
+                            </p>
                           )}
                         </div>
                       );
