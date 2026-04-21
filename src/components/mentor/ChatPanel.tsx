@@ -72,6 +72,9 @@ interface ChatPanelProps {
   // Set of `${messageId}::${fieldKey}` keys already accepted (loaded from DB)
   // — drives the persistent "Saved" pill across reloads.
   savedStagePromptKeys?: Set<string>;
+  // Per-message actions
+  onDeleteMessage?: (messageId: string) => Promise<void> | void;
+  onRetryMessage?: (messageId: string) => Promise<void> | void;
 }
 
 export function ChatPanel({
