@@ -769,6 +769,15 @@ Be selective — only mark significant shifts, not minor tangents.`,
             setStreamingMessageId(`streaming-${Date.now()}`);
           }
           setStreamingText(chunkText);
+        },
+        async (newName) => {
+          // Project was auto-named — refresh silently
+          await refreshBrands();
+
+          // Subtle confirmation — not intrusive
+          toast(`Project named "${newName}"`, {
+            duration: 3000,
+          });
         }
       );
 
