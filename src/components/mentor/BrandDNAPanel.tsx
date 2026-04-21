@@ -28,6 +28,43 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const [showRightStagePicker, setShowRightStagePicker] = useState(false);
   const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
   const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
+  const [stageChangeWarning, setStageChangeWarning] = useState<{
+    targetStageKey: string;
+    incompleteSubstages: string[];
+    incompleteCount: number;
+  } | null>(null);
+
+  const toggleStageExpand = (stageKey: string) => {
+    setExpandedStages(prev =>
+      prev.includes(stageKey)
+        ? prev.filter(s => s !== stageKey)
+        : [...prev, stageKey]
+    );
+  };
+
+  const handleStageChange = async (newStageKey: string) => {
+    if (newStageKey === activeBrand?.journey_stage) return;
+
+    const currentSubstages = currentStageData?.substages ?? [];
+    const completedCount = Object.values(stageProgress).filter(Boolean).length;
+    const incompleteCount = currentSubstages.length - completedCount;
+
+    if (incompleteCount > 0) {
+      const incompleteSubstages = currentSubstages.filter(
+        (_: string, index: number) => !stageProgress[index]
+      );
+      setStageChangeWarning({
+        targetStageKey: newStageKey,
+        incompleteSubstages,
+        incompleteCount
+      });
+      setShowRightStagePicker(false);
+      return;
+    }
+
+    await updateStage(newStageKey, 'user_selected');
+    setShowRightStagePicker(false);
+  };
 
   // Load substage completion for the active stage
   useEffect(() => {
