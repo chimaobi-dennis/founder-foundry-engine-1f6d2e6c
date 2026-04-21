@@ -232,7 +232,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                       padding: '8px 10px',
                       background: 'rgba(212,160,23,0.06)',
                       borderRadius: '6px',
-                      border: '0.5px solid rgba(212,160,23,0.12)',
+                      border: '0.5px solid var(--stage-done-border)',
                       marginBottom: '4px'
                     }}>
                       <div style={{
