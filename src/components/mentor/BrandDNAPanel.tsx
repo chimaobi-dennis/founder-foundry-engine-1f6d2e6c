@@ -284,12 +284,12 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                           marginBottom: '10px',
                           padding: '10px 12px',
                           background: value 
-                            ? 'rgba(255,255,255,0.03)' 
-                            : 'rgba(255,255,255,0.01)',
+                            ? 'var(--color-card-secondary)' 
+                            : 'var(--color-background-secondary)',
                           borderRadius: '8px',
                           border: `0.5px solid ${value 
                             ? 'rgba(212,160,23,0.2)' 
-                            : 'rgba(255,255,255,0.05)'}`,
+                            : 'var(--color-border-tertiary)'}`,
                           transition: 'border-color 200ms'
                         }}>
                           <div style={{
