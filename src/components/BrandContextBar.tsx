@@ -60,7 +60,7 @@ export function BrandContextBar() {
           className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
           style={{ backgroundColor: activeBrand.primary_color }}
         />
-        <span className="text-[12px] font-ui text-foreground">{activeBrand.name}</span>
+        <span key={activeBrand.name} className="text-[12px] font-ui text-foreground animate-name-fade">{activeBrand.name}</span>
         <ChevronDown size={12} className="text-muted-foreground" />
       </button>
 
