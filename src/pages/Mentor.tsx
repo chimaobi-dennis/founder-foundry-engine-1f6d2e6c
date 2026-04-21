@@ -553,6 +553,64 @@ const Mentor = () => {
     setForceRefresh(prev => prev + 1);
   };
 
+  // ─── SAVE_PROMPT handler — writes parsed AI save pill to brand_stage_data ──
+  const handleSaveStagePrompt = useCallback(async (prompt: ParsedSavePrompt) => {
+    if (!activeBrand) return;
+
+    // Resolve stage_key: prefer the one provided by the AI, else find by
+    // matching field_key in our cached stage field definitions, else fall
+    // back to the active journey stage.
+    let stageKey = prompt.stageKey;
+    if (!stageKey) {
+      for (const [sk, fields] of Object.entries(allStageFields)) {
+        if ((fields as any[]).some(f => f.field_key === prompt.fieldKey)) {
+          stageKey = sk;
+          break;
+        }
+      }
+    }
+    if (!stageKey) stageKey = activeBrand.journey_stage ?? 'spark';
+
+    const cleanValue = stripMarkdown(prompt.value);
+
+    const conversation = conversationMapRef.current[activeBrand.id];
+
+    try {
+      const { success, error } = await saveStageField(
+        activeBrand.id,
+        stageKey,
+        prompt.fieldKey,
+        cleanValue,
+        undefined,
+        conversation?.id,
+        prompt.label,
+        'brand_discovery'
+      );
+      if (!success) throw new Error(error || 'Save failed');
+
+      setCapturedData(prev => ({
+        ...prev,
+        [stageKey!]: { ...(prev[stageKey!] ?? {}), [prompt.fieldKey]: cleanValue },
+      }));
+
+      // Refresh the right-panel substage progress immediately
+      setForceRefresh(prev => prev + 1);
+
+      toast(`Saved "${prompt.label}"`, { duration: 2000 });
+    } catch (e) {
+      await logError({
+        userId: user?.id,
+        errorType: 'other',
+        module: 'mentor',
+        message: e instanceof Error ? e.message : 'Failed to save stage prompt',
+        context: { fieldKey: prompt.fieldKey, stageKey },
+      });
+      toast.error('Could not save — try again');
+      throw e;
+    }
+  }, [activeBrand, allStageFields, user]);
+
+
   // ─── Milestone auto-detection ─────────────────────────────────────────────
 
   const detectMilestone = useCallback(async (
