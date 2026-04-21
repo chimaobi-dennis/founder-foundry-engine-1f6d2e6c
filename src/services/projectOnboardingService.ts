@@ -233,10 +233,9 @@ export const saveExtractedContext = async (
   // Save brand DNA fields that map from stage data
   const brandFields = extracted.fields['brand'] ?? {};
   if (brandFields.brand_name) {
-    await supabase
+    await (supabase as any)
       .from('brand_dna')
-      .upsert({ brand_id: brandId, brand_voice: brandFields.brand_voice })
-      .eq('brand_id', brandId);
+      .upsert({ brand_id: brandId, brand_voice: brandFields.brand_voice }, { onConflict: 'brand_id' });
   }
 
   // Save the uploaded file as a project asset if provided
@@ -245,7 +244,7 @@ export const saveExtractedContext = async (
   }
 
   // Mark onboarding as complete
-  await supabase
+  await (supabase as any)
     .from('brands')
     .update({
       onboarding_completed: true,
@@ -259,7 +258,7 @@ export const saveExtractedContext = async (
 
 // Mark fresh start (no prior context)
 export const markFreshStart = async (brandId: string): Promise<void> => {
-  await supabase
+  await (supabase as any)
     .from('brands')
     .update({
       onboarding_completed: true,
