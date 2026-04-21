@@ -339,6 +339,20 @@ export const updateBrandName = async (
   return { success: !error, error: error?.message };
 };
 
+// Check if a project is still using the default untitled name
+export const isUntitledProject = (name: string): boolean => {
+  const lower = name.toLowerCase();
+  return lower === 'untitled project' || lower === 'untitled brand';
+};
+
+// Update project name (alias for updateBrandName for semantic clarity)
+export const updateProjectName = async (
+  brandId: string,
+  name: string
+): Promise<{ success: boolean; error?: string }> => {
+  return updateBrandName(brandId, name);
+};
+
 // Update brand completeness score
 export const updateCompletenessScore = async (brandId: string): Promise<void> => {
   const { data: dna } = await (supabase as any)

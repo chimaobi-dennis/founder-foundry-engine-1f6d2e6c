@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, type TaskType, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logAIError } from './errorService';
 import { getAssetsForAIContext } from './projectAssetsService';
+import { isUntitledProject, updateProjectName } from './brandService';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -274,13 +275,61 @@ export const clearMessageFailedFlag = async (
 
 // ─── AI response using centralized AI service ─────────────
 
+export const generateProjectTitle = async (
+  userId: string,
+  brandId: string,
+  brandName: string,
+  firstUserMessage: string,
+  firstAIResponse: string
+): Promise<string | null> => {
+  // Only run if project is still untitled
+  if (!isUntitledProject(brandName)) return null;
+
+  const result = await callAI({
+    taskType: 'mentor_chat',
+    userId,
+    systemPrompt: `You generate short, descriptive project titles. You receive a founder's first message and the mentor's response. You output exactly 3 words that capture the essence of what is being built. 
+
+Rules:
+- Exactly 3 words. Never more, never less.
+- Each word starts with a capital letter
+- No punctuation
+- No generic words like "The", "A", "An", "My", "New"
+- Should sound like a real product or company name
+- Examples: "Smart Founder OS", "Origin Brand Platform", "Solo Architect Tool", "Nordic Wellness App", "Legal Doc Engine"
+- Output only the 3 words. Nothing else.`,
+    messages: [
+      {
+        role: 'user',
+        content: `Founder's first message: "${firstUserMessage}"\n\nMentor's response: "${firstAIResponse.slice(0, 300)}"\n\nGenerate a 3-word project title:`
+      }
+    ],
+    maxTokens: 20
+  });
+
+  if (!result.success || !result.text) return null;
+
+  // Clean the response — take first 3 words only
+  const words = result.text
+    .trim()
+    .replace(/[^a-zA-Z\s]/g, '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3);
+
+  if (words.length < 2) return null;
+
+  return words.join(' ');
+};
+
 export const getMentorAIResponse = async (
   userId: string,
   brand: any,
   dna: any,
   conversationHistory: { role: string; content: string }[],
   userMessage: string,
-  onChunk?: (text: string) => void
+  onChunk?: (text: string) => void,
+  onProjectNamed?: (name: string) => void
 ): Promise<MentorAIResult | null> => {
   let systemPrompt = await getSystemPrompt('mentor_chat');
 
@@ -375,6 +424,35 @@ export const getMentorAIResponse = async (
 
   // cleanText is what gets saved to the database
   // choicePrompt is the extracted structured data
+
+  // After getting a successful response check if we should auto-name
+  const isFirstExchange = conversationHistory.length === 0 ||
+    conversationHistory.filter(m => m.role === 'assistant').length === 0;
+
+  const messageIsSubstantive = userMessage.trim().split(' ').length >= 5;
+
+  if (
+    isFirstExchange &&
+    messageIsSubstantive &&
+    isUntitledProject(brand?.name ?? '')
+  ) {
+    // Fire and forget — do not await, do not block the response
+    generateProjectTitle(
+      userId,
+      brand.id,
+      brand.name,
+      userMessage,
+      cleanText
+    ).then(async (title) => {
+      if (title) {
+        const { success } = await updateProjectName(brand.id, title);
+        if (success && onProjectNamed) {
+          onProjectNamed(title);
+        }
+      }
+    });
+  }
+
   return { text: cleanText, choicePrompt };
 };
 
