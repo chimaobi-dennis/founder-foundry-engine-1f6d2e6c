@@ -236,6 +236,8 @@ const Mentor = () => {
   // Brands currently generating their very first AI message after onboarding —
   // used to suppress the empty-state greeting and show the streaming/thinking UI instead.
   const [firstMessageBrands, setFirstMessageBrands] = useState<Set<string>>(new Set());
+  const firstMessageBrandsRef = useRef(firstMessageBrands);
+  useEffect(() => { firstMessageBrandsRef.current = firstMessageBrands; }, [firstMessageBrands]);
   const lastMessageRef = useRef<string>("");
   const slowTimerRef = useRef<ReturnType<typeof setTimeout>>();
   
