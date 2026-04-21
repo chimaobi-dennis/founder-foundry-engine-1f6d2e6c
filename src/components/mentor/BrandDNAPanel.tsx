@@ -533,7 +533,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                       }} />
                     </div>
 
-                    {/* Stage completion hint — compact 2-line teaser */}
+                    {/* Stage completion hint — reflects real captured-data state */}
                     <div style={{
                       padding: '8px 10px',
                       background: 'rgba(212,160,23,0.06)',
@@ -556,24 +556,24 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         color: 'var(--color-text-secondary)',
                         lineHeight: 1.5
                       }}>
-                        {(showAllDoneWhen ? stage.substages : stage.substages.slice(0, 2)).map((sub: string, i: number) => (
-                          <div key={i} style={{
+                        {(showAllDoneWhen ? substagesWithData : substagesWithData.slice(0, 2)).map((sub) => (
+                          <div key={sub.index} style={{
                             display: 'flex',
                             alignItems: 'flex-start',
                             gap: '6px',
                             marginBottom: '2px'
                           }}>
                             <span style={{
-                              color: stageProgress[i] ? '#4CAF50' : 'rgba(212,160,23,0.5)',
+                              color: sub.isComplete ? '#4CAF50' : 'rgba(212,160,23,0.5)',
                               flexShrink: 0,
                               marginTop: '1px'
                             }}>
-                              {stageProgress[i] ? '✓' : '○'}
+                              {sub.isComplete ? '✓' : '○'}
                             </span>
-                            <span>{sub}</span>
+                            <span>{sub.label}</span>
                           </div>
                         ))}
-                        {stage.substages.length > 2 && (
+                        {substagesWithData.length > 2 && (
                           <button
                             onClick={() => setShowAllDoneWhen(v => !v)}
                             style={{
@@ -586,36 +586,21 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                               fontWeight: 600
                             }}
                           >
-                            {showAllDoneWhen ? 'Show less' : `See all (${stage.substages.length})`}
+                            {showAllDoneWhen ? 'Show less' : `See all (${substagesWithData.length})`}
                           </button>
                         )}
                       </div>
                     </div>
-
-                    {/* Substage checklist — interactive */}
-                    <SubstageChecklist
-                      substages={stage.substages ?? []}
-                      progress={stageProgress}
-                      loading={progressLoading}
-                      onComplete={(idx, substage) =>
-                        handleSubstageComplete(idx, substage, stage.stage_key)
-                      }
-                    />
-
-                    {/* Divider before field list */}
-                    <div style={{
-                      height: '0.5px',
-                      background: 'var(--color-border-tertiary)',
-                      margin: '4px 0 4px'
-                    }} />
                     </>)}
                   </div>
 
-                  {/* Fields */}
+                  {/* Substage cards — read-only, data-driven.
+                      Each substage doubles as its field. The card shows the
+                      label, a prompt-style description when no value exists,
+                      or the captured value once data has been saved.        */}
                   {isExpanded && (
                   <div style={{ padding: '0 16px 14px' }}>
-                    {stageDataLoading && fields.length === 0 ? (
-                      // Skeleton field cards while stage data loads
+                    {progressLoading && substagesWithData.length === 0 ? (
                       Array.from({ length: 3 }).map((_, i) => (
                         <div
                           key={`skeleton-${i}`}
@@ -633,179 +618,141 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         </div>
                       ))
                     ) : (
-                    fields.map(field => {
-                      const value = data[field.field_key];
-                      const isEditing = editingField?.stageKey === stage.stage_key && 
-                                        editingField?.fieldKey === field.field_key;
-                      const isSaving = savingField === `${stage.stage_key}.${field.field_key}`;
+                    substagesWithData.map((substage, index) => {
+                      const isNext = !substage.isComplete &&
+                        substagesWithData.slice(0, index).every(s => s.isComplete);
 
                       return (
-                        <div key={field.field_key} style={{
-                          marginBottom: '10px',
-                          padding: '10px 12px',
-                          background: value 
-                            ? 'var(--color-card-secondary)' 
-                            : 'var(--color-background-secondary)',
-                          borderRadius: '8px',
-                          border: `0.5px solid ${value 
-                            ? 'rgba(212,160,23,0.2)' 
-                            : 'var(--color-border-tertiary)'}`,
-                          transition: 'border-color 200ms'
-                        }}>
+                        <div
+                          key={substage.index}
+                          style={{
+                            marginBottom: '10px',
+                            padding: '10px 12px',
+                            background: substage.isComplete
+                              ? 'var(--color-card-secondary)'
+                              : isNext
+                                ? 'rgba(212,160,23,0.06)'
+                                : 'var(--color-background-secondary)',
+                            borderRadius: '8px',
+                            border: `0.5px solid ${
+                              substage.isComplete
+                                ? 'rgba(212,160,23,0.2)'
+                                : isNext
+                                  ? 'rgba(212,160,23,0.25)'
+                                  : 'var(--color-border-tertiary)'
+                            }`,
+                            transition: 'all 200ms'
+                          }}
+                        >
+                          {/* Substage header row */}
                           <div style={{
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: value ? '6px' : '4px'
+                            alignItems: 'flex-start',
+                            gap: '8px'
                           }}>
-                            <span style={{
-                              fontSize: '10px',
-                              letterSpacing: '0.07em',
-                              textTransform: 'uppercase',
-                              fontWeight: 600,
-                              color: value ? '#D4A017' : 'var(--color-text-tertiary)',
+                            {/* Status indicator */}
+                            <div style={{
+                              width: '16px',
+                              height: '16px',
+                              borderRadius: '50%',
+                              flexShrink: 0,
+                              marginTop: '1px',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '4px'
+                              justifyContent: 'center',
+                              background: substage.isComplete ? '#4CAF50' : 'transparent',
+                              border: substage.isComplete
+                                ? '2px solid #4CAF50'
+                                : isNext
+                                  ? '2px solid #D4A017'
+                                  : '1.5px solid var(--color-border-secondary)'
                             }}>
-                              {value && <span style={{ fontSize: '8px' }}>✓</span>}
-                              {field.field_label}
-                            </span>
-                            {value && !isEditing && (
-                              <button
-                                onClick={() => {
-                                  setEditingField({ 
-                                    stageKey: stage.stage_key, 
-                                    fieldKey: field.field_key 
-                                  });
-                                  setEditValue(value);
-                                }}
-                                style={{
-                                  fontSize: '10px',
+                              {substage.isComplete ? (
+                                <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, lineHeight: 1 }}>✓</span>
+                              ) : isNext ? (
+                                <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#D4A017' }} />
+                              ) : null}
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              {/* Substage label */}
+                              <div style={{
+                                fontSize: '12px',
+                                fontWeight: substage.isComplete ? 500 : isNext ? 600 : 500,
+                                color: substage.isComplete
+                                  ? 'var(--color-text-primary)'
+                                  : isNext
+                                    ? 'var(--color-text-primary)'
+                                    : 'var(--color-text-secondary)',
+                                lineHeight: 1.4
+                              }}>
+                                {substage.label}
+                              </div>
+
+                              {/* Prompt text when no data */}
+                              {!substage.value && substage.fieldDescription && (
+                                <div style={{
+                                  fontSize: '11px',
                                   color: 'var(--color-text-tertiary)',
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  padding: '0',
-                                  textDecoration: 'underline'
-                                }}
-                              >
-                                edit
-                              </button>
+                                  marginTop: '4px',
+                                  lineHeight: 1.5,
+                                  fontStyle: isNext ? 'normal' : 'italic'
+                                }}>
+                                  {isNext
+                                    ? `Tell your mentor: ${substage.fieldDescription}`
+                                    : substage.fieldDescription}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* "discuss" badge for the next item without data */}
+                            {isNext && !substage.value && (
+                              <span style={{
+                                fontSize: '9px',
+                                color: '#D4A017',
+                                background: 'rgba(212,160,23,0.12)',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                fontWeight: 600,
+                                letterSpacing: '0.04em',
+                                flexShrink: 0,
+                                alignSelf: 'flex-start'
+                              }}>
+                                discuss
+                              </span>
                             )}
                           </div>
 
-                          {isEditing ? (
-                            <div>
-                              <textarea
-                                value={editValue}
-                                onChange={e => setEditValue(e.target.value)}
-                                style={{
-                                  width: '100%',
-                                  minHeight: '70px',
-                                  padding: '7px 9px',
-                                  fontSize: '12px',
-                                  borderRadius: '6px',
-                                  border: '0.5px solid #D4A017',
-                                  background: 'var(--color-background-secondary)',
-                                  color: 'var(--color-text-primary)',
-                                  resize: 'vertical',
-                                  lineHeight: 1.5,
-                                  outline: 'none'
-                                }}
-                                autoFocus
-                              />
-                              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                                <button
-                                  disabled={isSaving}
-                                  onClick={async () => {
-                                    if (!activeBrand) return;
-                                    const key = `${stage.stage_key}.${field.field_key}`;
-                                    setSavingField(key);
-                                    await (supabase as any)
-                                      .from('brand_stage_data')
-                                      .upsert({
-                                        brand_id: activeBrand.id,
-                                        stage_key: stage.stage_key,
-                                        field_key: field.field_key,
-                                        value: editValue,
-                                        updated_at: new Date().toISOString()
-                                      }, { onConflict: 'brand_id,stage_key,field_key' });
-                                    setCapturedData(prev => ({
-                                      ...prev,
-                                      [stage.stage_key]: {
-                                        ...prev[stage.stage_key],
-                                        [field.field_key]: editValue
-                                      }
-                                    }));
-                                    setSavingField(null);
-                                    setEditingField(null);
-                                  }}
-                                  style={{
-                                    fontSize: '11px',
-                                    padding: '4px 12px',
-                                    background: '#D4A017',
-                                    color: '#0D1B2A',
-                                    border: 'none',
-                                    borderRadius: '5px',
-                                    cursor: isSaving ? 'not-allowed' : 'pointer',
-                                    opacity: isSaving ? 0.7 : 1,
-                                    fontWeight: 600,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
-                                  }}
-                                >
-                                  {isSaving && (
-                                    <span style={{
-                                      width: '8px',
-                                      height: '8px',
-                                      border: '1.5px solid currentColor',
-                                      borderTopColor: 'transparent',
-                                      borderRadius: '50%',
-                                      display: 'inline-block',
-                                      animation: 'spin 0.6s linear infinite'
-                                    }} />
-                                  )}
-                                  {isSaving ? 'Saving...' : 'Save'}
-                                </button>
-                                <button
-                                  onClick={() => setEditingField(null)}
-                                  style={{
-                                    fontSize: '11px',
-                                    padding: '4px 10px',
-                                    background: 'transparent',
-                                    border: '0.5px solid var(--color-border-secondary)',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer',
-                                    color: 'var(--color-text-secondary)'
-                                  }}
-                                >
-                                  Cancel
-                                </button>
+                          {/* Captured data — shown when value exists */}
+                          {substage.value && (
+                            <div style={{
+                              marginTop: '8px',
+                              marginLeft: '24px',
+                              padding: '8px 10px',
+                              background: 'var(--color-background-secondary)',
+                              borderRadius: '6px',
+                              border: '0.5px solid var(--color-border-tertiary)'
+                            }}>
+                              <div style={{
+                                fontSize: '9px',
+                                color: '#D4A017',
+                                fontWeight: 600,
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase',
+                                marginBottom: '4px'
+                              }}>
+                                ✓ Captured
+                              </div>
+                              <div style={{
+                                fontSize: '12px',
+                                color: 'var(--color-text-primary)',
+                                lineHeight: 1.5
+                              }}>
+                                {substage.value.length > 150
+                                  ? substage.value.slice(0, 150) + '...'
+                                  : substage.value}
                               </div>
                             </div>
-                          ) : value ? (
-                            <p style={{
-                              fontSize: '12px',
-                              color: 'var(--color-text-primary)',
-                              lineHeight: 1.6,
-                              margin: 0
-                            }}>
-                              {value.length > 140 
-                                ? value.slice(0, 140) + '...' 
-                                : value}
-                            </p>
-                          ) : (
-                            <p style={{
-                              fontSize: '11px',
-                              color: 'var(--color-text-tertiary)',
-                              fontStyle: 'italic',
-                              margin: 0,
-                              lineHeight: 1.5
-                            }}>
-                              {field.field_description}
-                            </p>
                           )}
                         </div>
                       );
