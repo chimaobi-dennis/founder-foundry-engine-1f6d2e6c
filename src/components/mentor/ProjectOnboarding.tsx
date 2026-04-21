@@ -6,10 +6,14 @@ import {
   extractProjectContext,
   saveExtractedContext,
   markFreshStart,
+  fetchWebsiteContent,
   type ExtractedProjectData,
   type OnboardingContext
 } from "@/services/projectOnboardingService";
 import { getAllStageFields, type StageField } from "@/services/journeyDataService";
+import { uploadProjectFile } from "@/services/projectAssetsService";
+import { logError } from "@/services/errorService";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface ProjectOnboardingProps {
@@ -43,6 +47,7 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
   const [extracted, setExtracted] = useState<ExtractedProjectData | null>(null);
   const [stageFieldsMap, setStageFieldsMap] = useState<Record<string, StageField[]>>({});
   const [saving, setSaving] = useState(false);
+  const [fetchedUrlContent, setFetchedUrlContent] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,6 +99,13 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
     setStep("processing");
     setProcessingStep(0);
 
+    // Pre-fetch URL content so we can store it on the asset later
+    let urlContent: string | null = null;
+    if (websiteUrl.trim()) {
+      urlContent = await fetchWebsiteContent(websiteUrl.trim());
+      setFetchedUrlContent(urlContent);
+    }
+
     const ctx: OnboardingContext = {
       text: pastedText.trim() || undefined,
       websiteUrl: websiteUrl.trim() || undefined,
@@ -113,6 +125,107 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
     setStep("results");
   };
 
+  const saveOnboardingAssets = async (stageKey: string | undefined) => {
+    if (!user) return;
+
+    // 1. File upload → storage + asset row
+    if (uploadedFile) {
+      try {
+        const result = await uploadProjectFile(
+          user.id,
+          brandId,
+          uploadedFile,
+          stageKey
+        );
+        if (result.success && result.asset) {
+          // Patch source + mime to match spec ("upload" + actual mime type)
+          await (supabase as any)
+            .from("project_assets")
+            .update({
+              source: "upload",
+              file_type: uploadedFile.type || result.asset.file_type,
+            })
+            .eq("id", result.asset.id);
+        } else if (result.error) {
+          throw new Error(result.error);
+        }
+      } catch (e: any) {
+        await logError({
+          userId: user.id,
+          errorType: "storage",
+          module: "mentor",
+          errorMessage: `Onboarding file upload failed: ${e?.message ?? e}`,
+          context: { brandId, fileName: uploadedFile.name },
+        });
+      }
+    }
+
+    // 2. Website URL → asset row with content_text
+    if (websiteUrl.trim()) {
+      try {
+        const url = websiteUrl.trim();
+        const { error } = await (supabase as any)
+          .from("project_assets")
+          .insert({
+            brand_id: brandId,
+            user_id: user.id,
+            name: url,
+            file_type: "text/url",
+            source: "upload",
+            content_text: fetchedUrlContent,
+            stage_key: stageKey ?? null,
+            file_url: url,
+          });
+        if (error) throw error;
+      } catch (e: any) {
+        await logError({
+          userId: user.id,
+          errorType: "database",
+          module: "mentor",
+          errorMessage: `Onboarding URL asset save failed: ${e?.message ?? e}`,
+          context: { brandId, url: websiteUrl.trim() },
+        });
+      }
+    }
+
+    // 3. Pasted text → asset row with content_text
+    if (pastedText.trim()) {
+      try {
+        const text = pastedText.trim();
+        let name = "Onboarding notes";
+        if (text.length < 60) {
+          name = text;
+        } else {
+          // first 60 chars trimmed at word boundary
+          const slice = text.slice(0, 60);
+          const lastSpace = slice.lastIndexOf(" ");
+          name = (lastSpace > 20 ? slice.slice(0, lastSpace) : slice).trim();
+          if (!name) name = "Onboarding notes";
+        }
+        const { error } = await (supabase as any)
+          .from("project_assets")
+          .insert({
+            brand_id: brandId,
+            user_id: user.id,
+            name,
+            file_type: "text/plain",
+            source: "upload",
+            content_text: text,
+            stage_key: stageKey ?? null,
+          });
+        if (error) throw error;
+      } catch (e: any) {
+        await logError({
+          userId: user.id,
+          errorType: "database",
+          module: "mentor",
+          errorMessage: `Onboarding pasted text asset save failed: ${e?.message ?? e}`,
+          context: { brandId },
+        });
+      }
+    }
+  };
+
   const handleConfirmSave = async () => {
     if (!user || !extracted) return;
     setSaving(true);
@@ -122,6 +235,10 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
       extracted,
       uploadedFile ?? undefined
     );
+
+    // Save onboarding source(s) as project assets — never block the user
+    await saveOnboardingAssets(extracted.detectedStage);
+
     toast.success(`Loaded ${fieldsCount} data points — your mentor is ready`);
     setSaving(false);
     onComplete();

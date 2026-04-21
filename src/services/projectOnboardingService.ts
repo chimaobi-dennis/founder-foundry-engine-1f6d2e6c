@@ -238,10 +238,9 @@ export const saveExtractedContext = async (
       .upsert({ brand_id: brandId, brand_voice: brandFields.brand_voice }, { onConflict: 'brand_id' });
   }
 
-  // Save the uploaded file as a project asset if provided
-  if (file) {
-    await uploadProjectFile(userId, brandId, file, extracted.detectedStage);
-  }
+  // Note: project asset saving (file/URL/text) is handled by the caller
+  // in ProjectOnboarding.handleConfirmSave so the per-source metadata
+  // (source="upload", content_text, file_url) can be applied correctly.
 
   // Mark onboarding as complete
   await (supabase as any)
