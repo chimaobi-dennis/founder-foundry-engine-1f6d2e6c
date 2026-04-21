@@ -59,6 +59,8 @@ interface ChatPanelProps {
   thinkingState?: ThinkingState;
   streamingMessageId?: string | null;
   streamingText?: string;
+  // SAVE_PROMPT pill: write a captured field to brand_stage_data
+  onSaveStagePrompt?: (prompt: ParsedSavePrompt) => Promise<void> | void;
 }
 
 export function ChatPanel({
