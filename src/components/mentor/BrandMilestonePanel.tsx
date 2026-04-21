@@ -30,6 +30,7 @@ import {
   togglePinAsset,
   deleteProjectAsset,
 } from "@/services/projectAssetsService";
+import { createMilestone } from "@/services/mentorService";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
@@ -43,6 +44,7 @@ interface BrandMilestonePanelProps {
   onEditMilestoneCategory?: (id: string, newCategory: MilestoneCategory) => void;
   realActiveBrand?: Brand | null;
   activeBrandDNA?: BrandDNA | null;
+  conversation?: { id: string } | null;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
@@ -66,6 +68,7 @@ export function BrandMilestonePanel({
   onEditMilestoneCategory,
   realActiveBrand,
   activeBrandDNA,
+  conversation,
 }: BrandMilestonePanelProps) {
   const { brands: realBrands, journeyStages, currentStageData } = useBrand();
   const { user } = useAuth();
@@ -171,6 +174,77 @@ export function BrandMilestonePanel({
     const source = asset.source === 'ai_generated' ? 'AI generated' : 'Uploaded';
     const stage = formatStageName(asset.stage_key);
     return stage ? `${source} · ${stage}` : source;
+  };
+
+  const handleSubstageComplete = async (
+    substageIndex: number,
+    substageName: string,
+    stageKey: string
+  ) => {
+    if (!realActiveBrand || !conversation || stageProgress[substageIndex]) return;
+
+    // Mark substage complete in brand_stage_progress
+    await completeSubstage(
+      realActiveBrand.id,
+      stageKey,
+      substageIndex
+    );
+
+    // Update local progress state immediately
+    setStageProgress(prev => ({ ...prev, [substageIndex]: true }));
+
+    // Map stage key to milestone category
+    const stageCategoryMap: Record<string, string> = {
+      spark: 'brand_discovery',
+      shape: 'product_positioning',
+      validate: 'customer_insight',
+      brand: 'brand_discovery',
+      launch: 'campaign_strategy',
+      grow: 'growth_brainstorm'
+    };
+
+    const category = stageCategoryMap[stageKey] ?? 'free_form';
+
+    // Auto-create milestone from substage completion
+    const milestone = await createMilestone(
+      realActiveBrand.id,
+      conversation.id,
+      substageName,
+      category,
+      undefined, // no specific message_id for substage milestones
+      stageKey // passed as context = stage_key
+    );
+
+    if (milestone && onSelectMilestone) {
+      // Note: We can't directly add to the milestones array here since it's passed as prop
+      // The parent component will need to refresh milestones
+      onSelectMilestone(milestone.id);
+    }
+  };
+
+  const getCategoryColor = (category: string): string => {
+    const colors: Record<string, string> = {
+      brand_discovery: '#D4A017',
+      campaign_strategy: '#4A90D9',
+      customer_insight: '#7B68EE',
+      product_positioning: '#20B2AA',
+      growth_brainstorm: '#FF8C00',
+      pitch_preparation: '#DC143C',
+      free_form: '#8A96A3'
+    };
+    return colors[category] ?? '#8A96A3';
+  };
+
+  const formatRelativeDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    return date.toLocaleDateString('en-SE', { day: 'numeric', month: 'short' });
   };
 
 

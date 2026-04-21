@@ -36,6 +36,9 @@ export interface Milestone {
   category: MilestoneCategory;
   name: string;
   timeAgo: string;
+  stage_key: string | null;
+  is_substage_milestone: boolean;
+  created_at: string;
 }
 
 export interface Message {

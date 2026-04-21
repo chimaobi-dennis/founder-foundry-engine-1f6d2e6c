@@ -293,6 +293,9 @@ const Mentor = () => {
         category: DB_TO_UI_CATEGORY[m.category] || "Brand Discovery",
         name: m.name,
         timeAgo: formatTimeAgo(m.created_at),
+        stage_key: m.stage_key ?? null,
+        is_substage_milestone: m.is_substage_milestone ?? false,
+        created_at: m.created_at,
       }));
 
       const milestoneMarkers: MilestoneMarker[] = dbMilestones
@@ -549,7 +552,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         if (saved) milestoneId = saved.id;
       }
 
-      const newMilestone: Milestone = { id: milestoneId, category: uiCategory, name, timeAgo: "Just now" };
+      const newMilestone: Milestone = { id: milestoneId, category: uiCategory, name, timeAgo: "Just now", stage_key: null, is_substage_milestone: false, created_at: new Date().toISOString() };
 
       setBrandDataMap(prev => {
         const bd = prev[brandId];
@@ -1196,6 +1199,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             onRenameMilestone={handleRenameMilestone}
             onDeleteMilestone={handleDeleteMilestone}
             onEditMilestoneCategory={handleEditMilestoneCategory}
+            conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
           />
         </aside>
       ) : (
@@ -1214,6 +1218,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               onRenameMilestone={handleRenameMilestone}
               onDeleteMilestone={handleDeleteMilestone}
               onEditMilestoneCategory={handleEditMilestoneCategory}
+              conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
             />
           </SheetContent>
         </Sheet>
@@ -1298,6 +1303,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             onClearField={handleClearDNAField}
             customFields={customDNAFields}
             onSaveCustomField={handleSaveCustomDNAField}
+            conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
           />
         </aside>
       ) : (
@@ -1311,6 +1317,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               onClearField={handleClearDNAField}
               customFields={customDNAFields}
               onSaveCustomField={handleSaveCustomDNAField}
+              conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
             />
           </SheetContent>
         </Sheet>

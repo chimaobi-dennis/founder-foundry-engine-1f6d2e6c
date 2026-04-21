@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBrand } from '@/contexts/BrandContext';
 import { supabase } from '@/integrations/supabase/client';
 import { completeSubstage, getStageProgress } from '@/services/brandService';
+import { createMilestone } from '@/services/mentorService';
 
 interface BrandDNAPanelProps {
   fields: any[];
@@ -13,9 +14,10 @@ interface BrandDNAPanelProps {
   onClearField?: (fieldKey: string) => void;
   customFields?: any[];
   onSaveCustomField?: (fieldKey: string, fieldLabel: string, fieldValue: string) => void;
+  conversation?: { id: string } | null;
 }
 
-export function BrandDNAPanel({ fields, highlightField, onEditField, onClearField, customFields = [], onSaveCustomField }: BrandDNAPanelProps) {
+export function BrandDNAPanel({ fields, highlightField, onEditField, onClearField, customFields = [], onSaveCustomField, conversation }: BrandDNAPanelProps) {
   const { activeBrand, journeyStages, currentStageData, updateStage } = useBrand();
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
   const [capturedData, setCapturedData] = useState<Record<string, Record<string, string>>>({});
@@ -45,6 +47,46 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     });
     return () => { cancelled = true; };
   }, [activeBrand?.id, activeBrand?.journey_stage]);
+
+  const handleSubstageComplete = async (
+    substageIndex: number,
+    substageName: string,
+    stageKey: string
+  ) => {
+    if (!activeBrand || !conversation || stageProgress[substageIndex]) return;
+
+    // Mark substage complete in brand_stage_progress
+    await completeSubstage(
+      activeBrand.id,
+      stageKey,
+      substageIndex
+    );
+
+    // Update local progress state immediately
+    setStageProgress(prev => ({ ...prev, [substageIndex]: true }));
+
+    // Map stage key to milestone category
+    const stageCategoryMap: Record<string, string> = {
+      spark: 'brand_discovery',
+      shape: 'product_positioning',
+      validate: 'customer_insight',
+      brand: 'brand_discovery',
+      launch: 'campaign_strategy',
+      grow: 'growth_brainstorm'
+    };
+
+    const category = stageCategoryMap[stageKey] ?? 'free_form';
+
+    // Auto-create milestone from substage completion
+    await createMilestone(
+      activeBrand.id,
+      conversation.id,
+      substageName,
+      category,
+      undefined, // no specific message_id for substage milestones
+      stageKey // passed as context = stage_key
+    );
+  };
 
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
@@ -423,13 +465,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                             <div
                               key={idx}
                               onClick={async () => {
-                                if (!activeBrand || isCompleted) return;
-                                await completeSubstage(
-                                  activeBrand.id,
-                                  activeBrand.journey_stage ?? 'spark',
-                                  idx
-                                );
-                                setStageProgress(prev => ({ ...prev, [idx]: true }));
+                                await handleSubstageComplete(idx, substage, stage.stage_key);
                               }}
                               style={{
                                 display: 'flex',

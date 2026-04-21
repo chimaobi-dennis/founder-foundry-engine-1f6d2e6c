@@ -30,6 +30,8 @@ export interface Milestone {
   category: string;
   message_id: string | null;
   created_at: string;
+  stage_key: string | null;
+  is_substage_milestone: boolean;
 }
 
 export interface ChoicePrompt {
@@ -150,7 +152,8 @@ export const createMilestone = async (
   conversationId: string,
   name: string,
   category: string,
-  messageId?: string
+  messageId?: string,
+  context?: string
 ): Promise<Milestone | null> => {
   const { data, error } = await (supabase as any)
     .from('milestones')
@@ -160,6 +163,8 @@ export const createMilestone = async (
       name,
       category,
       message_id: messageId ?? null,
+      stage_key: context ?? null,
+      is_substage_milestone: !!context
     })
     .select()
     .single();

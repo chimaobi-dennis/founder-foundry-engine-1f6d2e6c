@@ -8,11 +8,11 @@ export const brands: MentorBrand[] = [
 export const roastData: BrandData = {
   brand: brands[0],
   milestones: [
-    { id: "m1", category: "Brand Discovery", name: "Identity and skeptic positioning", timeAgo: "2 days ago" },
-    { id: "m2", category: "Brand Discovery", name: "Packaging direction", timeAgo: "5 days ago" },
-    { id: "m3", category: "Customer Insight", name: "Target audience profile", timeAgo: "1 week ago" },
-    { id: "m4", category: "Product Positioning", name: "Ritual and consistency positioning", timeAgo: "2 weeks ago" },
-    { id: "m5", category: "Campaign Strategy", name: "Launch strategy", timeAgo: "3 weeks ago" },
+    { id: "m1", category: "Brand Discovery", name: "Identity and skeptic positioning", timeAgo: "2 days ago", stage_key: null, is_substage_milestone: false, created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+    { id: "m2", category: "Brand Discovery", name: "Packaging direction", timeAgo: "5 days ago", stage_key: null, is_substage_milestone: false, created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
+    { id: "m3", category: "Customer Insight", name: "Target audience profile", timeAgo: "1 week ago", stage_key: null, is_substage_milestone: false, created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
+    { id: "m4", category: "Product Positioning", name: "Ritual and consistency positioning", timeAgo: "2 weeks ago", stage_key: null, is_substage_milestone: false, created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString() },
+    { id: "m5", category: "Campaign Strategy", name: "Launch strategy", timeAgo: "3 weeks ago", stage_key: null, is_substage_milestone: false, created_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString() },
   ],
   messages: [
     { id: "1", role: "ai", content: "Let us start where it matters. You are building a wellness brand in Sweden — a market that is simultaneously very open to health products and deeply skeptical of wellness marketing. How are you planning to avoid sounding like every other adaptogen brand?" },
@@ -55,7 +55,7 @@ export const roastData: BrandData = {
 export const lagosData: BrandData = {
   brand: brands[1],
   milestones: [
-    { id: "lm1", category: "Brand Discovery", name: "Initial brand exploration", timeAgo: "3 days ago" },
+    { id: "lm1", category: "Brand Discovery", name: "Initial brand exploration", timeAgo: "3 days ago", stage_key: null, is_substage_milestone: false, created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
   ],
   messages: [
     { id: "l1", role: "ai", content: "Welcome. Let us talk about Sthlm Studio. You are building a SaaS tool for creative freelancers in Stockholm — tell me why this one will be different from everything else on the market." },
