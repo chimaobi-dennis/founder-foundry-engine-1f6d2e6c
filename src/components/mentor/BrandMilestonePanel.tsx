@@ -285,30 +285,168 @@ export function BrandMilestonePanel({
             }}>
               {stageInfo.description}
             </p>
-            <div style={{ marginBottom: '8px' }}>
-              {stageInfo.substages.map((substage, idx) => (
-                <div key={idx} style={{
-                  height: '22px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
+            {/* Substage checklist */}
+            <div style={{
+              margin: '10px 0 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px'
+            }}>
+              {stageInfo.substages?.map((substage: string, index: number) => {
+                const isCompleted = stageProgress[index] === true;
+                const isNext = !isCompleted &&
+                  Object.values(stageProgress).filter(Boolean).length === index;
+
+                return (
+                  <div
+                    key={index}
+                    onClick={async () => {
+                      if (!realActiveBrand || isCompleted) return;
+                      await completeSubstage(
+                        realActiveBrand.id,
+                        realActiveBrand.journey_stage ?? 'spark',
+                        index
+                      );
+                      setStageProgress(prev => ({ ...prev, [index]: true }));
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '8px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      cursor: isCompleted ? 'default' : 'pointer',
+                      background: isNext
+                        ? 'rgba(212,160,23,0.06)'
+                        : 'transparent',
+                      border: isNext
+                        ? '0.5px solid rgba(212,160,23,0.15)'
+                        : '0.5px solid transparent',
+                      transition: 'all 150ms'
+                    }}
+                    onMouseEnter={e => {
+                      if (!isCompleted) {
+                        (e.currentTarget as HTMLElement).style.background =
+                          'rgba(212,160,23,0.08)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.background =
+                        isNext ? 'rgba(212,160,23,0.06)' : 'transparent';
+                    }}
+                  >
+                    {/* Checkbox circle */}
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '50%',
+                      flexShrink: 0,
+                      marginTop: '1px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: isCompleted
+                        ? '#4CAF50'
+                        : 'transparent',
+                      border: isCompleted
+                        ? '2px solid #4CAF50'
+                        : isNext
+                          ? '2px solid #D4A017'
+                          : '1.5px solid var(--color-border-secondary)',
+                      transition: 'all 200ms'
+                    }}>
+                      {isCompleted && (
+                        <span style={{
+                          fontSize: '9px',
+                          color: 'white',
+                          fontWeight: 700,
+                          lineHeight: 1
+                        }}>
+                          ✓
+                        </span>
+                      )}
+                      {!isCompleted && isNext && (
+                        <div style={{
+                          width: '5px',
+                          height: '5px',
+                          borderRadius: '50%',
+                          background: '#D4A017'
+                        }} />
+                      )}
+                    </div>
+
+                    {/* Substage text */}
+                    <span style={{
+                      fontSize: '11px',
+                      lineHeight: 1.4,
+                      color: isCompleted
+                        ? 'var(--color-text-tertiary)'
+                        : isNext
+                          ? 'var(--color-text-primary)'
+                          : 'var(--color-text-secondary)',
+                      textDecoration: isCompleted ? 'line-through' : 'none',
+                      fontWeight: isNext ? 500 : 400,
+                      flex: 1
+                    }}>
+                      {substage}
+                    </span>
+
+                    {/* "next" badge */}
+                    {isNext && (
+                      <span style={{
+                        fontSize: '9px',
+                        color: '#D4A017',
+                        background: 'rgba(212,160,23,0.12)',
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                        fontWeight: 600,
+                        letterSpacing: '0.03em',
+                        flexShrink: 0,
+                        alignSelf: 'center'
+                      }}>
+                        next
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Progress summary below the list */}
+            {stageInfo.substages && stageInfo.substages.length > 0 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0 8px',
+                marginBottom: '12px'
+              }}>
+                <div style={{
+                  flex: 1,
+                  height: '2px',
+                  background: 'var(--color-border-tertiary)',
+                  borderRadius: '1px',
+                  overflow: 'hidden'
                 }}>
                   <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: idx <= stageIndex ? '#D4A017' : 'transparent',
-                    border: idx <= stageIndex ? 'none' : '0.5px solid var(--color-border-secondary)'
+                    height: '100%',
+                    width: `${(Object.values(stageProgress).filter(Boolean).length /
+                      stageInfo.substages.length) * 100}%`,
+                    background: 'linear-gradient(90deg, #D4A017, #E8C060)',
+                    borderRadius: '1px',
+                    transition: 'width 400ms ease'
                   }} />
-                  <span style={{
-                    fontSize: '11px',
-                    color: 'var(--color-text-secondary)'
-                  }}>
-                    {substage}
-                  </span>
                 </div>
-              ))}
-            </div>
+                <span style={{
+                  fontSize: '10px',
+                  color: 'var(--color-text-tertiary)',
+                  flexShrink: 0
+                }}>
+                  {Object.values(stageProgress).filter(Boolean).length}/
+                  {stageInfo.substages.length}
+                </span>
+              </div>
+            )}
             <button
               onClick={() => setStagePickerOpen(!stagePickerOpen)}
               style={{
