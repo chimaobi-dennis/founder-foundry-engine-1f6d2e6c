@@ -1,9 +1,17 @@
-import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil } from "lucide-react";
+import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil, MoreHorizontal, Copy, RotateCcw, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 import { MentorBrand, Message, InlineSavePrompt, MilestoneMarker, Milestone, MilestoneCategory, categoryTextColors } from "./types";
 import { parseAIMessage, type ParsedSavePrompt } from "@/lib/savePromptParser";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 export interface ChoicePrompt {
   id: string;
@@ -64,6 +72,82 @@ interface ChatPanelProps {
   // Set of `${messageId}::${fieldKey}` keys already accepted (loaded from DB)
   // — drives the persistent "Saved" pill across reloads.
   savedStagePromptKeys?: Set<string>;
+  // Per-message actions
+  onDeleteMessage?: (messageId: string) => Promise<void> | void;
+  onRetryMessage?: (messageId: string) => Promise<void> | void;
+}
+
+// Per-message actions menu — appears next to each bubble on hover.
+// Provides copy / retry (AI only) / delete actions.
+function MessageActionsMenu({
+  messageId,
+  role,
+  text,
+  onRetry,
+  onDelete,
+}: {
+  messageId: string;
+  role: "ai" | "founder";
+  text: string;
+  onRetry?: (id: string) => Promise<void> | void;
+  onDelete?: (id: string) => Promise<void> | void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text ?? "");
+      toast("Copied to clipboard", { duration: 1500 });
+    } catch {
+      toast.error("Could not copy");
+    }
+  }, [text]);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <button
+          aria-label="Message actions"
+          className={cn(
+            "h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-opacity flex-shrink-0 mt-1",
+            // Always visible when open; otherwise only on hover/focus of the bubble row.
+            open
+              ? "opacity-100"
+              : "opacity-0 group-hover/msg:opacity-100 focus:opacity-100"
+          )}
+        >
+          <MoreHorizontal size={14} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem onSelect={handleCopy} className="gap-2 text-[13px]">
+          <Copy size={14} />
+          Copy text
+        </DropdownMenuItem>
+        {role === "ai" && onRetry && (
+          <DropdownMenuItem
+            onSelect={() => { void onRetry(messageId); }}
+            className="gap-2 text-[13px]"
+          >
+            <RotateCcw size={14} />
+            Retry response
+          </DropdownMenuItem>
+        )}
+        {onDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => { void onDelete(messageId); }}
+              className="gap-2 text-[13px] text-destructive focus:text-destructive"
+            >
+              <Trash2 size={14} />
+              Delete message
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 export function ChatPanel({
@@ -93,6 +177,8 @@ export function ChatPanel({
   streamingText = '',
   onSaveStagePrompt,
   savedStagePromptKeys,
+  onDeleteMessage,
+  onRetryMessage,
 }: ChatPanelProps) {
   // Use external input value if provided, otherwise use internal state
   const [internalInputValue, setInternalInputValue] = useState("");
@@ -419,19 +505,33 @@ export function ChatPanel({
                 >
                   <div
                     className={cn(
-                      "rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words",
-                      msg.role === "founder"
-                        ? "bg-primary/10"
-                        : "bg-card border border-border"
+                      "group/msg flex items-start gap-1.5 max-w-[75%] min-w-0",
+                      msg.role === "founder" ? "flex-row-reverse" : "flex-row"
                     )}
-                    style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                   >
-                    <p
-                      className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
-                      style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                    <div
+                      className={cn(
+                        "rounded-xl px-4 py-3 min-w-0 break-words",
+                        msg.role === "founder"
+                          ? "bg-primary/10"
+                          : "bg-card border border-border"
+                      )}
+                      style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                     >
-                      {parsed.cleanText}
-                    </p>
+                      <p
+                        className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
+                        style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                      >
+                        {parsed.cleanText}
+                      </p>
+                    </div>
+                    <MessageActionsMenu
+                      messageId={msg.id}
+                      role={msg.role}
+                      text={parsed.cleanText}
+                      onRetry={onRetryMessage}
+                      onDelete={onDeleteMessage}
+                    />
                   </div>
 
                   {/* SAVE_PROMPT pills parsed from AI message */}
