@@ -229,6 +229,10 @@ const Mentor = () => {
   const [forceRefresh, setForceRefresh] = useState(0);
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
   const [capturedData, setCapturedData] = useState<Record<string, Record<string, string>>>({});
+  // Keys of save prompts already accepted, formatted as `${messageId}::${fieldKey}`.
+  // Sourced from brand_stage_data.captured_from_message_id so the "Saved" pill
+  // persists across reloads.
+  const [savedStagePromptKeys, setSavedStagePromptKeys] = useState<Set<string>>(new Set());
   const [thinkingState, setThinkingState] = useState<ThinkingState>({
     isThinking: false,
     currentMessage: '',
