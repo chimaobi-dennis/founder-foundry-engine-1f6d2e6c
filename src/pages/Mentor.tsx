@@ -29,6 +29,9 @@ import {
   getCustomDNAFields,
   generateLovablePrompt,
 } from "@/services/mentorService";
+import { saveStageField } from "@/services/journeyDataService";
+import { logError } from "@/services/errorService";
+import type { ParsedSavePrompt } from "@/lib/savePromptParser";
 import { createThinkingSequence, ThinkingState } from '@/services/streamingService';
 import { callAI } from "@/services/aiService";
 import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
