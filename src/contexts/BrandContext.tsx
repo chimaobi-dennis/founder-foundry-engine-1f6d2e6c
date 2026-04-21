@@ -1,19 +1,23 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { 
-  Brand, BrandDNA,
-  getUserBrands, getActiveBrand, 
+import {
+  Brand, BrandDNA, JourneyStage, JourneyStageData,
+  getUserBrands, getActiveBrand,
   setActiveBrand, getBrandDNA,
-  createBrand
+  createBrand, updateJourneyStage, getJourneyStages
 } from '@/services/brandService';
 
 interface BrandContextType {
   brands: Brand[];
   activeBrand: Brand | null;
   activeBrandDNA: BrandDNA | null;
+  journeyStages: JourneyStageData[];
+  currentStageData: JourneyStageData | null;
   isLoading: boolean;
   switchBrand: (brandId: string) => Promise<void>;
   refreshBrands: () => Promise<void>;
+  refreshBrandDNA: () => Promise<void>;
+  updateStage: (stage: JourneyStage, trigger: 'mentor_suggestion' | 'user_selected' | 'auto_detected') => Promise<void>;
   createNewBrand: (name: string) => Promise<Brand | null>;
 }
 
@@ -21,9 +25,13 @@ const BrandContext = createContext<BrandContextType>({
   brands: [],
   activeBrand: null,
   activeBrandDNA: null,
+  journeyStages: [],
+  currentStageData: null,
   isLoading: true,
   switchBrand: async () => {},
   refreshBrands: async () => {},
+  refreshBrandDNA: async () => {},
+  updateStage: async () => {},
   createNewBrand: async () => null
 });
 
@@ -32,7 +40,25 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [activeBrand, setActiveBrandState] = useState<Brand | null>(null);
   const [activeBrandDNA, setActiveBrandDNA] = useState<BrandDNA | null>(null);
+  const [journeyStages, setJourneyStages] = useState<JourneyStageData[]>([]);
+  const [currentStageData, setCurrentStageData] = useState<JourneyStageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch stages once on mount
+  useEffect(() => {
+    getJourneyStages().then(stages => {
+      setJourneyStages(stages);
+    });
+  }, []);
+
+  // Update currentStageData when activeBrand or stages change
+  useEffect(() => {
+    if (activeBrand && journeyStages.length > 0) {
+      const stageKey = activeBrand.journey_stage ?? 'spark';
+      const stage = journeyStages.find(s => s.stage_key === stageKey) ?? null;
+      setCurrentStageData(stage);
+    }
+  }, [activeBrand, journeyStages]);
 
   const loadBrands = async () => {
     if (!user) return;
@@ -79,14 +105,33 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
     return null;
   };
 
+  const refreshBrandDNA = async () => {
+    if (!activeBrand) return;
+    const dna = await getBrandDNA(activeBrand.id);
+    setActiveBrandDNA(dna);
+  };
+
+  const updateStage = async (
+    stage: JourneyStage,
+    trigger: 'mentor_suggestion' | 'user_selected' | 'auto_detected'
+  ) => {
+    if (!activeBrand) return;
+    await updateJourneyStage(activeBrand.id, stage, trigger);
+    await loadBrands(); // Refresh to get updated stage
+  };
+
   return (
     <BrandContext.Provider value={{
       brands,
       activeBrand,
       activeBrandDNA,
+      journeyStages,
+      currentStageData,
       isLoading,
       switchBrand,
       refreshBrands: loadBrands,
+      refreshBrandDNA,
+      updateStage,
       createNewBrand
     }}>
       {children}

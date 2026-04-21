@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, ChevronRight, ChevronDown, LogOut, Check, Sparkles, Clock, Shield } from "lucide-react";
+import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, ChevronRight, ChevronDown, LogOut, Check, Sparkles, Clock, Shield, Cpu } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
@@ -98,7 +98,12 @@ export function TopBar() {
           </button>
 
           {dropdownOpen && (
-            <div className="absolute top-12 right-0 w-[280px] rounded-2xl bg-card border border-card-border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute top-12 right-0 w-[280px] rounded-2xl bg-card border border-card-border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200" style={{ maxHeight: '85vh', overflowY: 'auto', scrollbarWidth: 'none' }}>
+              <style>{`
+                div[style*="max-height"]::-webkit-scrollbar {
+                  display: none;
+                }
+              `}</style>
               {/* User identity */}
               <div className="p-5 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-lg font-ui font-semibold flex-shrink-0">
@@ -118,7 +123,7 @@ export function TopBar() {
 
               {/* Brand switcher */}
               <div className="p-4">
-                <p className="text-[11px] font-ui uppercase tracking-[0.1em] text-muted-foreground mb-2.5">Your brands</p>
+                <p className="text-[11px] font-ui uppercase tracking-[0.1em] text-muted-foreground mb-2.5">Your projects</p>
                 <div className="space-y-0.5">
                   {brands.map((brand) => (
                     <button
@@ -136,7 +141,7 @@ export function TopBar() {
                   <p className="text-[11px] font-ui text-muted-foreground mt-2">Create your first brand by starting a Mentor session.</p>
                 )}
                 <button className="w-full flex items-center gap-2 px-2 py-2 mt-1 rounded-md text-[12px] font-ui text-primary/70 hover:text-primary hover:bg-muted/50 transition-colors duration-200">
-                  + Add new brand
+                  + Add new project
                 </button>
               </div>
 
@@ -167,6 +172,17 @@ export function TopBar() {
                     <ChevronRight size={14} className="text-muted-foreground" />
                   </button>
                 ))}
+                
+                <button
+                  onClick={() => { setDropdownOpen(false); navigate("/settings/ai-models"); }}
+                  className="w-full flex items-center justify-between px-5 py-2.5 text-[13px] font-ui text-foreground hover:bg-muted/50 transition-colors duration-200"
+                >
+                  <span className="flex items-center gap-2">
+                    <Cpu size={14} className="text-primary" />
+                    AI Models
+                  </span>
+                  <ChevronRight size={14} className="text-muted-foreground" />
+                </button>
 
                 {/* Switch to Admin — only for admins */}
                 {profile?.role === "admin" && (

@@ -28,6 +28,13 @@ export default function AdminTemplates() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(searchParams.get("filter") || "all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+
+  const setActionLoading = (key: string, value: boolean) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }));
+  };
+
+  const isActionLoading = (key: string) => loadingStates[key] === true;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detail, setDetail] = useState<any>(null);
@@ -83,6 +90,8 @@ export default function AdminTemplates() {
   const handleAction = async (action: "publish" | "unpublish" | "request_changes") => {
     if (!detail) return;
     if (action === "request_changes" && !notes.trim()) return;
+    const loadingKey = `${action}-template-${detail.id}`;
+    setActionLoading(loadingKey, true);
     setActioning(true);
     const newStatus = action === "publish" ? "published" : action === "unpublish" ? "unpublished" : "draft";
     
@@ -123,9 +132,10 @@ export default function AdminTemplates() {
     }
     
     setActioning(false);
+    setActionLoading(loadingKey, false);
     if (res.success) {
-      const actionText = action === "publish" ? "Template published" : 
-                        action === "unpublish" ? "Template unpublished" : "Changes requested";
+      const actionText = action === "publish" ? "Published" : 
+                        action === "unpublish" ? "Unpublished" : "Changes requested";
       toast({ title: actionText, description: "Admin notes and signature saved" });
       setDrawerOpen(false);
       fetchTemplates();
@@ -234,10 +244,34 @@ export default function AdminTemplates() {
                           <button onClick={() => openReview(t.id)} className="text-xs font-ui px-3 py-1 rounded-md" style={{ background: "#D4A017", color: "#0D1B2A" }}>Review</button>
                         )}
                         {t.status === "published" && (
-                          <button onClick={() => { setDetail(t); handleAction("unpublish"); }} className="text-xs font-ui px-3 py-1 rounded-md" style={{ border: "0.5px solid #2A3A4A", color: "#8A96A3" }}>Unpublish</button>
+                          <button 
+                            onClick={() => { setDetail(t); handleAction("unpublish"); }} 
+                            disabled={isActionLoading(`unpublish-template-${t.id}`)}
+                            className="text-xs font-ui px-3 py-1 rounded-md disabled:opacity-50" 
+                            style={{ 
+                              border: "0.5px solid #2A3A4A", 
+                              color: "#8A96A3",
+                              opacity: isActionLoading(`unpublish-template-${t.id}`) ? 0.7 : 1,
+                              cursor: isActionLoading(`unpublish-template-${t.id}`) ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            {isActionLoading(`unpublish-template-${t.id}`) ? '...' : 'Unpublish'}
+                          </button>
                         )}
                         {t.status === "unpublished" && (
-                          <button onClick={() => { setDetail(t); handleAction("publish"); }} className="text-xs font-ui px-3 py-1 rounded-md" style={{ background: "#1A2A1A", color: "#4ADE80" }}>Publish</button>
+                          <button 
+                            onClick={() => { setDetail(t); handleAction("publish"); }} 
+                            disabled={isActionLoading(`publish-template-${t.id}`)}
+                            className="text-xs font-ui px-3 py-1 rounded-md disabled:opacity-50" 
+                            style={{ 
+                              background: "#1A2A1A", 
+                              color: "#4ADE80",
+                              opacity: isActionLoading(`publish-template-${t.id}`) ? 0.7 : 1,
+                              cursor: isActionLoading(`publish-template-${t.id}`) ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            {isActionLoading(`publish-template-${t.id}`) ? '...' : 'Publish'}
+                          </button>
                         )}
                       </TableCell>
                     </TableRow>
@@ -431,20 +465,42 @@ export default function AdminTemplates() {
                     <>
                       <button
                         onClick={() => handleAction("publish")}
-                        disabled={actioning}
+                        disabled={isActionLoading(`publish-template-${detail.id}`) || isActionLoading(`request-changes-template-${detail.id}`)}
                         className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
-                        style={{ background: "#16A34A", color: "#fff" }}
+                        style={{ 
+                          background: "#16A34A", 
+                          color: "#fff",
+                          opacity: isActionLoading(`publish-template-${detail.id}`) ? 0.7 : 1,
+                          cursor: isActionLoading(`publish-template-${detail.id}`) ? 'not-allowed' : 'pointer',
+                        }}
                       >
-                        {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check size={16} />}
-                        Approve & Publish
+                        {isActionLoading(`publish-template-${detail.id}`) ? (
+                          <span style={{
+                            width: '12px',
+                            height: '12px',
+                            border: '2px solid currentColor',
+                            borderTopColor: 'transparent',
+                            borderRadius: '50%',
+                            display: 'inline-block',
+                            animation: 'spin 0.6s linear infinite',
+                            flexShrink: 0
+                          }} />
+                        ) : <Check size={16} />}
+                        {isActionLoading(`publish-template-${detail.id}`) ? 'Publishing...' : 'Approve & Publish'}
                       </button>
                       <button
                         onClick={() => handleAction("request_changes")}
-                        disabled={actioning || !notes.trim()}
+                        disabled={isActionLoading(`publish-template-${detail.id}`) || isActionLoading(`request-changes-template-${detail.id}`) || !notes.trim()}
                         className="flex-1 h-10 rounded-lg text-sm font-ui font-medium disabled:opacity-50"
-                        style={{ border: "0.5px solid #D4A017", color: "#D4A017", background: "transparent" }}
+                        style={{ 
+                          border: "0.5px solid #D4A017", 
+                          color: "#D4A017", 
+                          background: "transparent",
+                          opacity: isActionLoading(`request-changes-template-${detail.id}`) ? 0.7 : 1,
+                          cursor: isActionLoading(`request-changes-template-${detail.id}`) ? 'not-allowed' : 'pointer',
+                        }}
                       >
-                        Request Changes
+                        {isActionLoading(`request-changes-template-${detail.id}`) ? 'Sending...' : 'Request Changes'}
                       </button>
                     </>
                   )}
@@ -452,24 +508,57 @@ export default function AdminTemplates() {
                   {detail.status === "published" && (
                     <button
                       onClick={() => handleAction("unpublish")}
-                      disabled={actioning}
+                      disabled={isActionLoading(`unpublish-template-${detail.id}`)}
                       className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      style={{ border: "0.5px solid #F87171", color: "#F87171", background: "transparent" }}
+                      style={{ 
+                        border: "0.5px solid #F87171", 
+                        color: "#F87171", 
+                        background: "transparent",
+                        opacity: isActionLoading(`unpublish-template-${detail.id}`) ? 0.7 : 1,
+                        cursor: isActionLoading(`unpublish-template-${detail.id}`) ? 'not-allowed' : 'pointer',
+                      }}
                     >
-                      {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      Unpublish Template
+                      {isActionLoading(`unpublish-template-${detail.id}`) ? (
+                        <span style={{
+                          width: '12px',
+                          height: '12px',
+                          border: '2px solid currentColor',
+                          borderTopColor: 'transparent',
+                          borderRadius: '50%',
+                          display: 'inline-block',
+                          animation: 'spin 0.6s linear infinite',
+                          flexShrink: 0
+                        }} />
+                      ) : null}
+                      {isActionLoading(`unpublish-template-${detail.id}`) ? 'Unpublishing...' : 'Unpublish Template'}
                     </button>
                   )}
                   
                   {detail.status === "unpublished" && (
                     <button
                       onClick={() => handleAction("publish")}
-                      disabled={actioning}
+                      disabled={isActionLoading(`publish-template-${detail.id}`)}
                       className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      style={{ background: "#16A34A", color: "#fff" }}
+                      style={{ 
+                        background: "#16A34A", 
+                        color: "#fff",
+                        opacity: isActionLoading(`publish-template-${detail.id}`) ? 0.7 : 1,
+                        cursor: isActionLoading(`publish-template-${detail.id}`) ? 'not-allowed' : 'pointer',
+                      }}
                     >
-                      {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check size={16} />}
-                      Republish Template
+                      {isActionLoading(`publish-template-${detail.id}`) ? (
+                        <span style={{
+                          width: '12px',
+                          height: '12px',
+                          border: '2px solid currentColor',
+                          borderTopColor: 'transparent',
+                          borderRadius: '50%',
+                          display: 'inline-block',
+                          animation: 'spin 0.6s linear infinite',
+                          flexShrink: 0
+                        }} />
+                      ) : <Check size={16} />}
+                      {isActionLoading(`publish-template-${detail.id}`) ? 'Publishing...' : 'Republish Template'}
                     </button>
                   )}
                 </div>

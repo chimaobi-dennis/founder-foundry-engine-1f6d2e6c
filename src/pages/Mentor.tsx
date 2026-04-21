@@ -3,7 +3,9 @@ import { Menu, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBrand } from "@/contexts/BrandContext";
-import { getBrandDNA, updateBrandDNAField, BrandDNA } from "@/services/brandService";
+import { useAuth } from "@/contexts/AuthContext";
+import { addBreadcrumb } from "@/services/errorService";
+import { getBrandDNA, updateBrandDNAField, updateBrandName, BrandDNA, type JourneyStage } from "@/services/brandService";
 import {
   getOrCreateConversation,
   getMessages,
@@ -13,8 +15,22 @@ import {
   deleteMilestone,
   updateMilestoneName,
   updateMilestoneCategoryDB,
+  getUnansweredMessage,
+  markMessageAsFailed,
+  clearMessageFailedFlag,
+  getMentorAIResponse,
+  getMessagesForAIContext,
   MentorConversation,
+  ChoicePrompt,
+  saveChoicePrompt,
+  answerChoicePrompt,
+  getChoicePromptsForConversation,
+  saveCustomDNAField,
+  getCustomDNAFields,
+  generateLovablePrompt,
 } from "@/services/mentorService";
+import { createThinkingSequence, ThinkingState } from '@/services/streamingService';
+import { callAI } from "@/services/aiService";
 import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
@@ -30,7 +46,6 @@ import {
   MilestoneMarker,
   MilestoneCategory,
 } from "@/components/mentor/types";
-import { callAI } from "@/lib/ai";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -124,8 +139,8 @@ function buildDNAFields(
 // ─── DNA save-prompt detection ───────────────────────────────────────────────
 
 const DNA_PATTERNS: { field: string; patterns: RegExp[] }[] = [
-  { field: "Voice",            patterns: [/brand voice.{0,10}(is|should be|:)\s*(.{10,80})/i, /voice.{0,10}(is|should be)\s*(.{10,80})/i] },
-  { field: "Positioning",      patterns: [/positioning.{0,10}(is|should be|:)\s*(.{10,80})/i, /position.{0,10}(is|should be)\s*(.{10,80})/i] },
+  { field: "Brand voice",      patterns: [/voice.{0,10}(is|should be|:)\s*(.{10,80})/i] },
+  { field: "Positioning",     patterns: [/position yourself as\s*(.{10,80})/i, /your positioning is\s*(.{10,80})/i, /positioning statement.{0,10}(is|:)\s*(.{10,80})/i] },
   { field: "Target audience",  patterns: [/target.{0,10}(audience|customer).{0,10}(is|are|:)\s*(.{10,80})/i] },
   { field: "Core promise",     patterns: [/promise.{0,10}(is|should be|:)\s*(.{10,80})/i, /core promise.{0,10}(is|:)\s*(.{10,80})/i] },
   { field: "Brand references", patterns: [/reference.{0,10}(is|are|:)\s*(.{10,80})/i] },
@@ -160,7 +175,8 @@ const Mentor = () => {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
 
-  const { brands: realBrands, activeBrand, switchBrand, createNewBrand, refreshBrands, isLoading } = useBrand();
+  const { brands: realBrands, activeBrand, activeBrandDNA, switchBrand, createNewBrand, refreshBrands, refreshBrandDNA, isLoading, currentStageData } = useBrand();
+  const { user } = useAuth();
 
   const brands: MentorBrand[] = realBrands.map(brand => ({
     id: brand.id,
@@ -180,6 +196,20 @@ const Mentor = () => {
       }
     : null;
 
+  // Track previous brand for breadcrumb
+  const previousBrandRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeBrandId && previousBrandRef.current && previousBrandRef.current !== activeBrandId) {
+      addBreadcrumb('switched_brand', 'mentor', { 
+        fromBrandId: previousBrandRef.current,
+        toBrandId: activeBrandId 
+      });
+    }
+    if (activeBrandId) {
+      previousBrandRef.current = activeBrandId;
+    }
+  }, [activeBrandId]);
+
   const [brandDataMap, setBrandDataMap] = useState<Record<string, BrandData>>({});
   const [conversationMap, setConversationMap] = useState<Record<string, MentorConversation>>({});
   const [loadedBrands, setLoadedBrands] = useState<Set<string>>(new Set());
@@ -188,8 +218,25 @@ const Mentor = () => {
   const [typingBrands, setTypingBrands] = useState<Set<string>>(new Set());
   const [chatError, setChatError] = useState<string | null>(null);
   const [slowThinking, setSlowThinking] = useState(false);
+  const [activeChoicePrompts, setActiveChoicePrompts] = useState<ChoicePrompt[]>([]);
+  const [customDNAFields, setCustomDNAFields] = useState<any[]>([]);
+  const [forceRefresh, setForceRefresh] = useState(0);
+  const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
+  const [capturedData, setCapturedData] = useState<Record<string, Record<string, string>>>({});
+  const [thinkingState, setThinkingState] = useState<ThinkingState>({
+    isThinking: false,
+    currentMessage: '',
+    progress: 0
+  });
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState('');
   const lastMessageRef = useRef<string>("");
   const slowTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  
+  // Unanswered message tracking
+  const [unansweredMessageId, setUnansweredMessageId] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState("");
+  const messageRefsMap = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Ref so callbacks can always access the latest conversation map without stale closure
   const conversationMapRef = useRef(conversationMap);
@@ -201,6 +248,8 @@ const Mentor = () => {
     if (!activeBrandId || !activeBrand || loadedBrands.has(activeBrandId)) return;
 
     const loadBrandData = async () => {
+      addBreadcrumb('opened_mentor', 'mentor', { brandId: activeBrandId });
+      
       const conversation = await getOrCreateConversation(activeBrandId);
       if (!conversation) return;
 
@@ -212,6 +261,26 @@ const Mentor = () => {
         getMilestones(activeBrandId),
         getBrandDNA(activeBrandId),
       ]);
+
+      const [choicePrompts, customFields] = await Promise.all([
+        getChoicePromptsForConversation(conversation.id),
+        getCustomDNAFields(activeBrandId),
+      ]);
+
+      // Load stage fields directly from Supabase
+      const { data: stageFieldsData } = await (supabase as any)
+        .from('journey_stage_fields')
+        .select('*')
+        .order('sort_order');
+      const groupedStageFields: Record<string, any[]> = {};
+      (stageFieldsData ?? []).forEach((field: any) => {
+        if (!groupedStageFields[field.stage_key]) groupedStageFields[field.stage_key] = [];
+        groupedStageFields[field.stage_key].push(field);
+      });
+
+      setActiveChoicePrompts(choicePrompts);
+      setCustomDNAFields(customFields);
+      setAllStageFields(groupedStageFields);
 
       const uiMessages: Message[] = dbMessages.map(m => ({
         id: m.id,
@@ -258,6 +327,23 @@ const Mentor = () => {
         }
         return prev;
       });
+
+      // Check for unanswered messages
+      const unanswered = await getUnansweredMessage(conversation.id);
+      if (unanswered) {
+        // Pre-fill the input with the unanswered message
+        setInputValue(unanswered.content);
+        // Mark it visually as unanswered
+        setUnansweredMessageId(unanswered.id);
+        
+        // Scroll to unanswered message after a short delay
+        setTimeout(() => {
+          const el = messageRefsMap.current[unanswered.id];
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 500);
+      }
 
       setLoadedBrands(prev => new Set(prev).add(activeBrandId));
     };
@@ -358,6 +444,55 @@ const Mentor = () => {
     }
   }, [refreshBrands]);
 
+  const handleSaveToBrandDNA = async (
+    field: string,
+    value: string,
+    promptId: string
+  ) => {
+    if (!activeBrand) return;
+
+    const cleanValue = stripMarkdown(value);
+
+    // Find which stage this field belongs to
+    let stageKey = activeBrand.journey_stage ?? 'brand';
+    let fieldKey = field;
+
+    // Check all stage fields for a match
+    for (const [sk, fields] of Object.entries(allStageFields)) {
+      const match = fields.find(
+        f => f.field_key === field || f.maps_to_dna_field === field
+      );
+      if (match) {
+        stageKey = sk;
+        fieldKey = match.field_key;
+        break;
+      }
+    }
+
+    // Save to stage data directly via Supabase
+    await (supabase as any)
+      .from('brand_stage_data')
+      .upsert({
+        brand_id: activeBrand.id,
+        stage_key: stageKey,
+        field_key: fieldKey,
+        value: cleanValue,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'brand_id,stage_key,field_key' });
+
+    // Also save to brand_dna for backward compatibility
+    await persistDNAField(activeBrand.id, field, cleanValue);
+
+    // Update local state
+    setCapturedData(prev => ({
+      ...prev,
+      [stageKey]: { ...prev[stageKey], [fieldKey]: cleanValue }
+    }));
+
+    // Note: We're not managing savePrompts state in this version
+    await refreshBrandDNA();
+  };
+
   // ─── Milestone auto-detection ─────────────────────────────────────────────
 
   const detectMilestone = useCallback(async (
@@ -372,9 +507,13 @@ const Mentor = () => {
         .map(m => ({ role: m.role === "founder" ? "user" : "assistant", content: m.content }));
       const existingNames = (currentData?.milestones || []).map(m => m.name).join(", ");
 
-      const result = await callAI([{
-        role: "user",
-        content: `You are a conversation analyst. Analyze this conversation and determine if the topic has shifted to a new area that deserves a milestone marker.
+      const result = await callAI({
+        taskType: 'mentor_chat',
+        userId: user?.id,
+        systemPrompt: 'You are a conversation analyst.',
+        messages: [{
+          role: "user",
+          content: `You are a conversation analyst. Analyze this conversation and determine if the topic has shifted to a new area that deserves a milestone marker.
 
 Existing milestones: ${existingNames || "None"}
 
@@ -389,11 +528,13 @@ Categories: Brand Discovery, Campaign Strategy, Customer Insight, Product Positi
 If no milestone is needed, respond with: NO_MILESTONE
 
 Be selective — only mark significant shifts, not minor tangents.`,
-      }], 200);
+        }],
+        maxTokens: 200
+      });
 
-      if (!result || result.includes("NO_MILESTONE")) return;
+      if (!result.success || !result.text || result.text.includes("NO_MILESTONE")) return;
 
-      const match = result.match(/MILESTONE:\s*(.+?)\s*\|\s*(.+)/);
+      const match = result.text.match(/MILESTONE:\s*(.+?)\s*\|\s*(.+)/);
       if (!match) return;
 
       const uiCategory = match[1].trim() as MilestoneCategory;
@@ -425,7 +566,18 @@ Be selective — only mark significant shifts, not minor tangents.`,
     } catch (e) {
       console.error("Milestone detection failed:", e);
     }
-  }, [brandDataMap]);
+  }, [brandDataMap, user]);
+
+  // Helper to determine if response is strategically significant
+  const isStrategicallySignificant = (text: string): boolean => {
+    const keywords = [
+      'positioning', 'brand voice', 'core promise',
+      'target audience', 'strategy', 'insight',
+      'this is your', 'write that down', 'that is your'
+    ];
+    const lower = text.toLowerCase();
+    return keywords.some(k => lower.includes(k));
+  };
 
   // ─── AI response handler ──────────────────────────────────────────────────
 
@@ -435,35 +587,30 @@ Be selective — only mark significant shifts, not minor tangents.`,
     setSlowThinking(false);
     slowTimerRef.current = setTimeout(() => setSlowThinking(true), 6000);
 
+    addBreadcrumb('ai_responding', 'mentor', { 
+      taskType: 'mentor_chat',
+      historyLength: allMessages.length,
+      brandId 
+    });
+
     try {
       const dnaContext = getDNAContext();
-      const systemContext = `You are a sharp, experienced business mentor and brand strategist working with a founder on their brand. You are direct, honest, and occasionally challenging. You push back on bad ideas constructively. You sound like a trusted advisor — not an AI assistant.
-
-Current brand context:
-Brand: ${dnaContext.brand_name || "Unknown brand"}
-Industry: ${dnaContext.industry || "Not yet defined"}
-Voice: ${dnaContext.voice || "Not yet defined"}
-Positioning: ${dnaContext.positioning || "Not yet defined"}
-Target audience: ${dnaContext.target_audience || "Not yet defined"}
-Core promise: ${dnaContext.core_promise || "Not yet defined"}
-
-Rules:
-- Maximum 3 sentences per response
-- End most responses with one sharp follow-up question
-- Never use bullet points
-- Never say great question or similar
-- Sound like a person not an AI`;
-
-      const conversationMessages = allMessages.slice(-8).map(m => ({
+      const conversationHistory = allMessages.slice(-8).map(m => ({
         role: m.role === "founder" ? "user" : "assistant",
         content: m.content,
       }));
 
-      const response = await callAI([
-        { role: "user", content: systemContext },
-        { role: "assistant", content: "Understood. Ready." },
-        ...conversationMessages,
-      ], 800);
+      const lastUserMessage = conversationHistory
+        .filter(m => m.role === "user")
+        .pop()?.content || "";
+
+      const response = await getMentorAIResponse(
+        user?.id || "",
+        activeBrand,
+        dnaContext,
+        conversationHistory,
+        lastUserMessage
+      );
 
       if (!response) throw new Error("Could not connect — try again");
 
@@ -471,30 +618,49 @@ Rules:
       const conversation = conversationMapRef.current[brandId];
       let aiMsgId: string;
       if (conversation) {
-        const saved = await saveMessage(conversation.id, "assistant", response);
+        const saved = await saveMessage(conversation.id, "assistant", response.text);
         aiMsgId = saved?.id ?? `ai-${++msgCounter}`;
       } else {
         aiMsgId = `ai-${++msgCounter}`;
       }
 
-      const aiMsg: Message = { id: aiMsgId, role: "ai", content: response };
+      const aiMsg: Message = { id: aiMsgId, role: "ai", content: response.text };
       setBrandDataMap(prev => {
         const data = prev[brandId];
         if (!data) return prev;
         return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMsg] } };
       });
 
+      // Clear unanswered state — message is now answered
+      setUnansweredMessageId(null);
+      setInputValue("");
+
+      // Handle choice prompt if present
+      if (response.choicePrompt && conversation) {
+        const saved = await saveChoicePrompt(
+          conversation.id,
+          aiMsgId,
+          response.choicePrompt.type,
+          response.choicePrompt.question,
+          response.choicePrompt.options,
+          response.choicePrompt.dnaField ?? undefined
+        );
+        if (saved) {
+          setActiveChoicePrompts(prev => [...prev, saved]);
+        }
+      }
+
       // Detect and attach inline save prompts
-      const savePrompt = detectSavePrompts(response, aiMsgId);
+      const savePrompt = detectSavePrompts(response.text, aiMsgId);
       if (!savePrompt) {
-        const lower = response.toLowerCase();
+        const lower = response.text.toLowerCase();
         let fallbackPrompt: InlineSavePrompt | null = null;
         if (lower.includes("brand voice") || lower.includes("you sound like") || lower.includes("your voice")) {
-          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save brand voice insight", dnaField: "Voice", value: response.slice(0, 100) };
+          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save brand voice insight", dnaField: "Voice", value: response.text.slice(0, 100) };
         } else if (lower.includes("position") || lower.includes("third space") || lower.includes("gap")) {
-          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save positioning insight", dnaField: "Positioning", value: response.slice(0, 100) };
+          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save positioning insight", dnaField: "Positioning", value: response.text.slice(0, 100) };
         } else if (lower.includes("promise") || lower.includes("built for") || lower.includes("made for")) {
-          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save brand promise", dnaField: "Core promise", value: response.slice(0, 100) };
+          fallbackPrompt = { afterMessageId: aiMsgId, label: "Save brand promise", dnaField: "Core promise", value: response.text.slice(0, 100) };
         }
         if (fallbackPrompt) {
           setBrandDataMap(prev => {
@@ -516,6 +682,13 @@ Rules:
 
     } catch (e) {
       setChatError(e instanceof Error ? e.message : "Could not connect — try again");
+      
+      // Mark the last user message as failed
+      const lastUserMsg = allMessages.filter(m => m.role === "founder").pop();
+      if (lastUserMsg) {
+        await markMessageAsFailed(lastUserMsg.id);
+        setUnansweredMessageId(lastUserMsg.id);
+      }
     } finally {
       clearTimeout(slowTimerRef.current);
       setSlowThinking(false);
@@ -525,30 +698,147 @@ Rules:
         return next;
       });
     }
-  }, [getDNAContext, detectMilestone]);
+  }, [getDNAContext, detectMilestone, user, activeBrand]);
 
   // ─── Send message ─────────────────────────────────────────────────────────
 
-  const handleSendMessage = useCallback((text: string) => {
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!content.trim() || !activeBrand || !user) return;
+    setInputValue('');
+
     const brandId = activeBrandId;
-    setChatError(null);
-    lastMessageRef.current = text;
-
-    // Fire-and-forget DB save for founder message (temp ID is fine; only AI message IDs
-    // are referenced by milestones and save prompts)
     const conversation = conversationMapRef.current[brandId];
-    if (conversation) saveMessage(conversation.id, "user", text);
+    if (!conversation) return;
 
-    const founderMsg: Message = { id: `f-${++msgCounter}`, role: "founder", content: text };
+    // Save user message
+    const userMsg = await saveMessage(conversation.id, 'user', content);
+    if (!userMsg) return;
+
+    // Add user message to state
+    const founderMsg: Message = { id: userMsg.id, role: "founder", content };
     setBrandDataMap(prev => {
       const data = prev[brandId];
       if (!data) return prev;
       return { ...prev, [brandId]: { ...data, messages: [...data.messages, founderMsg] } };
     });
 
-    const allMessages = [...(brandDataMap[brandId]?.messages || []), founderMsg];
-    handleAIResponse(brandId, allMessages);
-  }, [activeBrandId, brandDataMap, handleAIResponse]);
+    // Get current messages for context
+    const currentMessages = brandDataMap[brandId]?.messages || [];
+    const dnaContext = getDNAContext();
+
+    // Determine context for thinking sequence
+    const isFirstMessage = currentMessages.filter(m => m.role === "ai").length === 0;
+    const hasDNA = !!(dnaContext?.brand_voice || dnaContext?.positioning_statement);
+
+    // Start thinking IMMEDIATELY — do not wait
+    const thinker = createThinkingSequence(
+      'mentor_chat',
+      hasDNA,
+      isFirstMessage,
+      (state) => {
+        setThinkingState(state);
+      }
+    );
+
+    // No delay before calling AI — thinking and AI call run in parallel
+    try {
+      const conversationHistory = currentMessages.slice(-8).map(m => ({
+        role: m.role === "founder" ? "user" : "assistant",
+        content: m.content,
+      }));
+
+      let streamingStarted = false;
+
+      const aiResult = await getMentorAIResponse(
+        user.id,
+        activeBrand,
+        dnaContext,
+        conversationHistory,
+        content,
+        (chunkText) => {
+          if (!streamingStarted) {
+            // First chunk arrived — stop thinking, start streaming
+            streamingStarted = true;
+            thinker.stop();
+            setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+            setStreamingMessageId(`streaming-${Date.now()}`);
+          }
+          setStreamingText(chunkText);
+        }
+      );
+
+      // Streaming complete
+      thinker.stop();
+      setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+      setStreamingMessageId(null);
+      setStreamingText('');
+
+      if (aiResult) {
+        const aiMsg = await saveMessage(conversation.id, 'assistant', aiResult.text);
+        if (aiMsg) {
+          const aiMessage: Message = { id: aiMsg.id, role: "ai", content: aiResult.text };
+          setBrandDataMap(prev => {
+            const data = prev[brandId];
+            if (!data) return prev;
+            return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMessage] } };
+          });
+
+          setUnansweredMessageId(null);
+
+          if (aiResult.choicePrompt) {
+            const saved = await saveChoicePrompt(
+              conversation.id,
+              aiMsg.id,
+              aiResult.choicePrompt.type,
+              aiResult.choicePrompt.question,
+              aiResult.choicePrompt.options,
+              aiResult.choicePrompt.dnaField ?? undefined
+            );
+            if (saved) setActiveChoicePrompts(prev => [...prev, saved]);
+          }
+
+          // Detect save prompts
+          const savePrompt = detectSavePrompts(aiResult.text, aiMsg.id);
+          if (!savePrompt) {
+            const lower = aiResult.text.toLowerCase();
+            let fallbackPrompt: InlineSavePrompt | null = null;
+            if (lower.includes("brand voice") || lower.includes("you sound like") || lower.includes("your voice")) {
+              fallbackPrompt = { afterMessageId: aiMsg.id, label: "Save brand voice insight", dnaField: "Voice", value: aiResult.text.slice(0, 100) };
+            } else if (lower.includes("position") || lower.includes("third space") || lower.includes("gap")) {
+              fallbackPrompt = { afterMessageId: aiMsg.id, label: "Save positioning insight", dnaField: "Positioning", value: aiResult.text.slice(0, 100) };
+            } else if (lower.includes("promise") || lower.includes("built for") || lower.includes("made for")) {
+              fallbackPrompt = { afterMessageId: aiMsg.id, label: "Save brand promise", dnaField: "Core promise", value: aiResult.text.slice(0, 100) };
+            }
+            if (fallbackPrompt) {
+              setBrandDataMap(prev => {
+                const data = prev[brandId];
+                if (!data) return prev;
+                return { ...prev, [brandId]: { ...data, savePrompts: [...data.savePrompts, fallbackPrompt!] } };
+              });
+            }
+          } else {
+            setBrandDataMap(prev => {
+              const data = prev[brandId];
+              if (!data) return prev;
+              return { ...prev, [brandId]: { ...data, savePrompts: [...data.savePrompts, savePrompt] } };
+            });
+          }
+
+          // Detect milestone
+          detectMilestone(brandId, aiMsg.id, [...currentMessages, aiMessage], aiResult.text);
+        }
+      }
+    } catch (error) {
+      thinker.stop();
+      setThinkingState({ isThinking: false, currentMessage: '', progress: 0 });
+      setStreamingMessageId(null);
+      setStreamingText('');
+      if (userMsg) {
+        await markMessageAsFailed(userMsg.id);
+        setUnansweredMessageId(userMsg.id);
+      }
+    }
+  }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone]);
 
   const handleRetry = useCallback(() => {
     const brandId = activeBrandId;
@@ -558,6 +848,75 @@ Rules:
       handleAIResponse(brandId, messages);
     }
   }, [activeBrandId, brandDataMap, handleAIResponse]);
+
+  const handleChoiceSelection = useCallback(async (
+    prompt: ChoicePrompt,
+    selectedValue: string,
+    selectedLabel: string
+  ) => {
+    // Mark as answered
+    await answerChoicePrompt(prompt.id, selectedValue);
+
+    // Update activeChoicePrompts state
+    setActiveChoicePrompts(prev =>
+      prev.map(p => p.id === prompt.id
+        ? { ...p, selected_option: selectedValue, is_answered: true }
+        : p
+      )
+    );
+
+    if (!activeBrand) return;
+
+    const standardDNAFields = [
+      'brand_voice',
+      'positioning_statement',
+      'core_promise',
+      'target_audience',
+      'brand_references',
+      'campaign_strategy',
+      'customer_insight',
+      'product_positioning',
+      'tone_descriptors',
+      'brand_feel'
+    ];
+
+    const capitalise = (str: string): string =>
+      str.split(' ')
+        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+
+    if (prompt.prompt_type === 'brand_name' || prompt.dna_field === 'brand_name') {
+      const capitalisedName = capitalise(selectedValue);
+      await updateBrandName(activeBrand.id, capitalisedName);
+      await refreshBrands();
+      setForceRefresh(prev => prev + 1);
+    } else if (prompt.dna_field && standardDNAFields.includes(prompt.dna_field)) {
+      // Standard DNA field — save to brand_dna table
+      await updateBrandDNAField(activeBrand.id, prompt.dna_field as keyof BrandDNA, selectedValue);
+      await refreshBrandDNA();
+    } else if (prompt.dna_field) {
+      // Truly custom field — save to brand_dna_custom_fields
+      await saveCustomDNAField(
+        activeBrand.id,
+        prompt.dna_field,
+        prompt.dna_field.replace(/_/g, ' '),
+        selectedValue
+      );
+      const updated = await getCustomDNAFields(activeBrand.id);
+      setCustomDNAFields(updated);
+    }
+
+    // Send the selection as a user message
+    const selectionMessage = `I like "${selectedLabel}".`;
+    await handleSendMessage(selectionMessage);
+  }, [activeBrand, refreshBrands, refreshBrandDNA, handleSendMessage]);
+
+  const handleSaveCustomDNAField = async (fieldKey: string, fieldLabel: string, fieldValue: string) => {
+    if (!activeBrand) return;
+    await saveCustomDNAField(activeBrand.id, fieldKey, fieldLabel, fieldValue);
+    const updated = await getCustomDNAFields(activeBrand.id);
+    setCustomDNAFields(updated);
+  };
 
   // ─── Empty state submit (first message) ──────────────────────────────────
 
@@ -682,7 +1041,19 @@ Rules:
 
   // ─── DNA handlers ─────────────────────────────────────────────────────────
 
+  const stripMarkdown = (text: string): string => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1') // bold
+      .replace(/\*(.*?)\*/g, '$1')     // italic
+      .replace(/__(.*?)__/g, '$1')     // underline
+      .replace(/`(.*?)`/g, '$1')       // code
+      .trim();
+  };
+
   const handleSaveDNA = useCallback(async (field: string, value: string) => {
+    // Strip markdown before saving
+    const cleanValue = stripMarkdown(value);
+
     setBrandDataMap(prev => {
       const data = prev[activeBrandId];
       if (!data) return prev;
@@ -691,14 +1062,14 @@ Rules:
         [activeBrandId]: {
           ...data,
           dnaFields: data.dnaFields.map(f =>
-            f.key === field ? { ...f, value, savedFrom: "Brand Discovery", savedTimeAgo: "Just now" } : f
+            f.key === field ? { ...f, value: cleanValue, savedFrom: "Brand Discovery", savedTimeAgo: "Just now" } : f
           ),
         },
       };
     });
     setHighlightDNAField(field);
     setTimeout(() => setHighlightDNAField(null), 1500);
-    await persistDNAField(activeBrandId, field, value);
+    await persistDNAField(activeBrandId, field, cleanValue);
   }, [activeBrandId, persistDNAField]);
 
   const handleEditDNAField = useCallback(async (fieldKey: string, newValue: string) => {
@@ -787,7 +1158,7 @@ Rules:
               className="flex-1 h-12 rounded-lg bg-primary text-primary-foreground font-semibold text-[15px] hover:bg-primary/90 transition-colors"
               onClick={handleAddBrand}
             >
-              + New Brand
+              + New Project
             </button>
             <button
               className="flex-1 h-12 rounded-lg border border-primary text-primary font-semibold text-[15px] hover:bg-primary/10 transition-colors"
@@ -816,6 +1187,8 @@ Rules:
           <BrandMilestonePanel
             brands={brands}
             activeBrand={currentActiveBrand}
+            realActiveBrand={activeBrand}
+            activeBrandDNA={activeBrandDNA}
             onSelectBrand={handleSelectBrand}
             onAddBrand={handleAddBrand}
             milestones={activeBrandData?.milestones || []}
@@ -832,6 +1205,8 @@ Rules:
             <BrandMilestonePanel
               brands={brands}
               activeBrand={currentActiveBrand}
+              realActiveBrand={activeBrand}
+              activeBrandDNA={activeBrandDNA}
               onSelectBrand={(b) => { handleSelectBrand(b); setLeftOpen(false); }}
               onAddBrand={() => { handleAddBrand(); setLeftOpen(false); }}
               milestones={activeBrandData?.milestones || []}
@@ -870,6 +1245,7 @@ Rules:
           // Show real messages from DB
           <ChatPanel
             brand={currentActiveBrand}
+            stageName={currentStageData?.name}
             messages={activeBrandData.messages}
             milestones={activeBrandData.milestones}
             milestoneMarkers={activeBrandData.milestoneMarkers}
@@ -883,6 +1259,15 @@ Rules:
             error={chatError}
             onRetry={handleRetry}
             slowThinking={slowThinking}
+            unansweredMessageId={unansweredMessageId}
+            inputValue={inputValue}
+            onInputValueChange={setInputValue}
+            messageRefsMap={messageRefsMap}
+            activeChoicePrompts={activeChoicePrompts}
+            onChoiceSelect={handleChoiceSelection}
+            thinkingState={thinkingState}
+            streamingMessageId={streamingMessageId}
+            streamingText={streamingText}
           />
         ) : (
           // Show empty state greeting and demo conversation as preview only
@@ -911,6 +1296,8 @@ Rules:
             highlightField={highlightDNAField}
             onEditField={handleEditDNAField}
             onClearField={handleClearDNAField}
+            customFields={customDNAFields}
+            onSaveCustomField={handleSaveCustomDNAField}
           />
         </aside>
       ) : (
@@ -922,6 +1309,8 @@ Rules:
               highlightField={highlightDNAField}
               onEditField={handleEditDNAField}
               onClearField={handleClearDNAField}
+              customFields={customDNAFields}
+              onSaveCustomField={handleSaveCustomDNAField}
             />
           </SheetContent>
         </Sheet>

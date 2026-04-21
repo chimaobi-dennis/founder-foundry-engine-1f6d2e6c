@@ -21,6 +21,13 @@ export default function AdminUsers() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [roleMenuOpen, setRoleMenuOpen] = useState<string | null>(null);
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+
+  const setActionLoading = (key: string, value: boolean) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }));
+  };
+
+  const isActionLoading = (key: string) => loadingStates[key] === true;
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -49,6 +56,8 @@ export default function AdminUsers() {
   }, [users, search]);
 
   const handleChangeRole = async (userId: string, newRole: string) => {
+    const loadingKey = `change-role-${userId}`;
+    setActionLoading(loadingKey, true);
     try {
       // Try admin service first (bypasses RLS)
       const res = await updateUserRoleAdmin(userId, newRole);
@@ -71,6 +80,7 @@ export default function AdminUsers() {
         toast({ title: "Error", description: res.error, variant: "destructive" });
       }
     }
+    setActionLoading(loadingKey, false);
   };
 
   const cardBg = { background: "#0D1520", border: "0.5px solid #1A2A3A" };
@@ -168,10 +178,22 @@ export default function AdminUsers() {
                               <button
                                 key={r}
                                 onClick={() => handleChangeRole(u.id, r)}
-                                className="w-full text-left px-3 py-1.5 text-[12px] font-ui capitalize hover:bg-[#1A2530] transition-colors"
+                                disabled={isActionLoading(`change-role-${u.id}`)}
+                                className="w-full text-left px-3 py-1.5 text-[12px] font-ui capitalize hover:bg-[#1A2530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
                                 style={{ color: (u.role || "founder") === r ? "#D4A017" : "#F5F0E8" }}
                               >
                                 {r}
+                                {isActionLoading(`change-role-${u.id}`) && (
+                                  <span style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    border: '2px solid #D4A017',
+                                    borderTopColor: 'transparent',
+                                    borderRadius: '50%',
+                                    display: 'inline-block',
+                                    animation: 'spin 0.6s linear infinite'
+                                  }} />
+                                )}
                               </button>
                             ))}
                           </div>

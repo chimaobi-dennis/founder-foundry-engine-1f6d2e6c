@@ -19,6 +19,7 @@ import ProStudio from "./pages/ProStudio";
 import CampaignKit from "./pages/CampaignKit";
 import Library from "./pages/Library";
 import BrandDNA from "./pages/BrandDNA";
+import SettingsAIModels from "./pages/SettingsAIModels";
 import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -30,6 +31,10 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminApplications from "./pages/admin/AdminApplications";
+import AdminAIModels from "./pages/admin/AdminAIModels";
+import AdminKnowledgeBase from "./pages/admin/AdminKnowledgeBase";
+import AdminJourneyStages from "./pages/admin/AdminJourneyStages";
+import AdminErrorLogs from "./pages/admin/AdminErrorLogs";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +93,10 @@ const App = () => (
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="product/templates" element={<AdminTemplates />} />
                         <Route path="product/applications" element={<AdminApplications />} />
+                        <Route path="product/ai-models" element={<AdminAIModels />} />
+                        <Route path="knowledge-base" element={<AdminKnowledgeBase />} />
+                        <Route path="journey-stages" element={<AdminJourneyStages />} />
+                        <Route path="errors" element={<AdminErrorLogs />} />
                       </Route>
                       {/* Main app shell */}
                       <Route element={<Layout />}>
@@ -100,6 +109,7 @@ const App = () => (
                         <Route path="/doc-studio" element={<DocStudio />} />
                         <Route path="/reel-builder" element={<ReelBuilder />} />
                         <Route path="/brand-dna" element={<BrandDNA />} />
+                        <Route path="/settings/ai-models" element={<SettingsAIModels />} />
                         <Route path="/creator/apply" element={<CreatorApply />} />
                         <Route path="/creator" element={<CreatorStudio />} />
                         <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />

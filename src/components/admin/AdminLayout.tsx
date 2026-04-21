@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
 import { useEffect } from "react";
 import {
-  LayoutGrid, Users, User, Star, Layers, Clock, Inbox, Tag, Award, Settings, LogOut,
+  LayoutGrid, Users, User, Star, Layers, Clock, Inbox, Tag, Award, Settings, LogOut, Cpu, Book, Bug, Map,
 } from "lucide-react";
 
 const sections = [
@@ -23,6 +23,10 @@ const sections = [
     items: [
       { label: "Templates", icon: Layers, path: "/admin/product/templates" },
       { label: "Creator applications", icon: Inbox, path: "/admin/product/applications", countKey: "pendingApplications" as const },
+      { label: "AI Models", icon: Cpu, path: "/admin/product/ai-models" },
+      { label: "Knowledge Base", icon: Book, path: "/admin/knowledge-base" },
+      { label: "Journey Stages", icon: Map, path: "/admin/journey-stages" },
+      { label: "Error Logs", icon: Bug, path: "/admin/errors" },
     ],
   },
 ];
@@ -158,4 +162,20 @@ export function AdminLayout() {
       </div>
     </div>
   );
+}
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+`;
+if (!document.head.querySelector('style[data-admin-animations]')) {
+  style.setAttribute('data-admin-animations', 'true');
+  document.head.appendChild(style);
 }

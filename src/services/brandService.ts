@@ -1,5 +1,154 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Keep this type for TypeScript but it is no longer the source of truth
+export type JourneyStage = string;
+
+export interface JourneyStageData {
+  id: string;
+  stage_key: string;
+  name: string;
+  emoji: string;
+  description: string;
+  sort_order: number;
+  is_active: boolean;
+  mentor_focus: string | null;
+  relevant_modules: string[];
+  suggested_next_steps: {
+    label: string;
+    route: string;
+    icon: string;
+  }[];
+  substages: string[];
+}
+
+// Fetch all active journey stages from DB
+export const getJourneyStages = async (): Promise<JourneyStageData[]> => {
+  const { data, error } = await (supabase as any)
+    .from('journey_stages')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching journey stages:', error);
+    return [];
+  }
+
+  return data ?? [];
+};
+
+// Get a single stage by key
+export const getJourneyStageByKey = async (
+  stageKey: string
+): Promise<JourneyStageData | null> => {
+  const { data } = await (supabase as any)
+    .from('journey_stages')
+    .select('*')
+    .eq('stage_key', stageKey)
+    .single();
+
+  return data ?? null;
+};
+
+// Update brand journey stage
+export const updateJourneyStage = async (
+  brandId: string,
+  newStageKey: string,
+  triggerType: 'mentor_suggestion' | 'user_selected' | 'auto_detected',
+  context?: string
+): Promise<{ success: boolean; error?: string }> => {
+  const { data: brand } = await supabase
+    .from('brands')
+    .select('journey_stage')
+    .eq('id', brandId)
+    .single();
+
+  // Log the stage change
+  await (supabase as any)
+    .from('brand_journey_events')
+    .insert({
+      brand_id: brandId,
+      from_stage: brand?.journey_stage ?? null,
+      to_stage: newStageKey,
+      trigger_type: triggerType,
+      context: context ?? null
+    });
+
+  const { error } = await supabase
+    .from('brands')
+    .update({
+      journey_stage: newStageKey,
+      journey_stage_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', brandId);
+
+  return { success: !error, error: error?.message };
+};
+
+// Get stage progress for a brand
+export const getStageProgress = async (
+  brandId: string,
+  stageKey: string
+): Promise<{ substageIndex: number; isCompleted: boolean }[]> => {
+  const { data } = await (supabase as any)
+    .from('brand_stage_progress')
+    .select('*')
+    .eq('brand_id', brandId)
+    .eq('stage_key', stageKey)
+    .order('substage_index');
+
+  return data ?? [];
+};
+
+// Mark a substage as complete
+export const completeSubstage = async (
+  brandId: string,
+  stageKey: string,
+  substageIndex: number
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await (supabase as any)
+    .from('brand_stage_progress')
+    .upsert({
+      brand_id: brandId,
+      stage_key: stageKey,
+      substage_index: substageIndex,
+      is_completed: true,
+      completed_at: new Date().toISOString()
+    }, { onConflict: 'brand_id,stage_key,substage_index' });
+
+  return { success: !error, error: error?.message };
+};
+
+// Admin functions
+export const getAllJourneyStages = async (): Promise<JourneyStageData[]> => {
+  const { data } = await supabase
+    .from('journey_stages')
+    .select('*')
+    .order('sort_order', { ascending: true });
+  return data ?? [];
+};
+
+export const updateJourneyStageConfig = async (
+  stageId: string,
+  updates: Partial<JourneyStageData>
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase
+    .from('journey_stages')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', stageId);
+  return { success: !error, error: error?.message };
+};
+
+export const createJourneyStage = async (
+  stage: Omit<JourneyStageData, 'id'>
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase
+    .from('journey_stages')
+    .insert(stage);
+  return { success: !error, error: error?.message };
+};
+
 export interface Brand {
   id: string;
   user_id: string;
@@ -14,6 +163,8 @@ export interface Brand {
   is_active: boolean;
   completeness_score: number;
   active_product_image_id?: string;
+  journey_stage?: JourneyStage | null;
+  journey_stage_updated_at?: string | null;
   created_at: string;
 }
 
@@ -164,6 +315,28 @@ export const updateBrandDNAField = async (
   }
 
   return { success: true };
+};
+
+// Update brand name with capitalisation
+export const updateBrandName = async (
+  brandId: string,
+  name: string
+): Promise<{ success: boolean; error?: string }> => {
+  // Capitalise first letter of each word
+  const capitalisedName = name
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
+  const { error } = await supabase
+    .from('brands')
+    .update({ 
+      name: capitalisedName, 
+      updated_at: new Date().toISOString() 
+    })
+    .eq('id', brandId);
+
+  return { success: !error, error: error?.message };
 };
 
 // Update brand completeness score

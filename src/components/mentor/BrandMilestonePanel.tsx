@@ -1,9 +1,9 @@
-import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
+import { Flag, Plus, ChevronDown, MoreHorizontal, Pencil, Trash2, Check, X, Code } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBrand } from "@/contexts/BrandContext";
 import { MentorBrand, Milestone, MilestoneCategory, categoryColors } from "./types";
+import type { JourneyStageData } from "@/services/brandService";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -21,6 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Brand } from "@/services/brandService";
+import { BrandDNA } from "@/services/brandService";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
@@ -32,6 +34,8 @@ interface BrandMilestonePanelProps {
   onRenameMilestone?: (id: string, newName: string) => void;
   onDeleteMilestone?: (id: string) => void;
   onEditMilestoneCategory?: (id: string, newCategory: MilestoneCategory) => void;
+  realActiveBrand?: Brand | null;
+  activeBrandDNA?: BrandDNA | null;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
@@ -53,20 +57,65 @@ export function BrandMilestonePanel({
   onRenameMilestone,
   onDeleteMilestone,
   onEditMilestoneCategory,
+  realActiveBrand,
+  activeBrandDNA,
 }: BrandMilestonePanelProps) {
-  const { brands: realBrands } = useBrand();
+  const { brands: realBrands, updateStage, journeyStages, currentStageData } = useBrand();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [stagePickerOpen, setStagePickerOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper to build memory summary
+  const buildMemorySummary = (brand: Brand | null, dna: BrandDNA | null): string => {
+    const parts: string[] = [];
+
+    if (brand?.name && brand.name !== 'Untitled Brand') {
+      parts.push(`Building ${brand.name}`);
+    }
+    if (brand?.industry) parts.push(`in ${brand.industry}`);
+    if (dna?.target_audience) parts.push(`for ${dna.target_audience}`);
+    if (dna?.core_promise) parts.push(`Promise: ${dna.core_promise}`);
+    if (dna?.brand_voice) parts.push(`Voice: ${dna.brand_voice}`);
+
+    return parts.length > 0
+      ? parts.join('. ') + '.'
+      : 'Keep talking — your brand memory builds as you share more.';
+  };
+
+  const currentStage = realActiveBrand?.journey_stage ?? 'spark';
+  const stageInfo = currentStageData ?? {
+    id: 'spark',
+    stage_key: 'spark',
+    name: 'Spark',
+    emoji: '🔥',
+    description: 'You have an idea. Now we need to understand the problem deeply.',
+    sort_order: 0,
+    is_active: true,
+    mentor_focus: null,
+    relevant_modules: [],
+    suggested_next_steps: [],
+    substages: []
+  };
+  const stageIndex = journeyStages.findIndex(s => s.stage_key === currentStage);
+
   // Helper to get brand color from real brands
   const getBrandColor = (brandId: string) => {
     const realBrand = realBrands.find(b => b.id === brandId);
     return realBrand?.primary_color || '#666';
   };
+
+  // Helper to capitalise brand name for display
+  const capitaliseBrandName = (name: string): string => {
+    return name.split(' ')
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  const displayBrandName = capitaliseBrandName(activeBrand.name);
 
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -95,20 +144,25 @@ export function BrandMilestonePanel({
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Brand switcher */}
+    <div className="h-full flex flex-col" style={{ overflow: 'hidden' }}>
+      <style>{`
+        .mentor-left-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      {/* Fixed top section — brand switcher and New project button */}
       <div className="p-4 space-y-3 flex-shrink-0">
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="w-full h-11 rounded-lg border border-border bg-card px-3 flex items-center gap-2.5 hover:border-card-border-hover transition-colors"
           >
-            <div 
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+            <div
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: getBrandColor(activeBrand.id) }}
             />
             <div className="flex-1 text-left min-w-0">
-              <p className="text-[13px] font-ui font-medium text-foreground truncate">{activeBrand.name}</p>
+              <p className="text-[13px] font-ui font-medium text-foreground truncate">{displayBrandName}</p>
               <p className="text-[10px] font-ui text-muted-foreground">Started {activeBrand.startedDate}</p>
             </div>
             <ChevronDown size={14} className="text-muted-foreground flex-shrink-0" />
@@ -119,17 +173,14 @@ export function BrandMilestonePanel({
                 <button
                   key={brand.id}
                   onClick={() => { onSelectBrand(brand); setDropdownOpen(false); }}
-                  className={cn(
-                    "w-full px-3 py-2.5 flex items-center gap-2.5 text-left hover:bg-muted/50 transition-colors",
-                    brand.id === activeBrand.id && "bg-muted/30"
-                  )}
+                  className="w-full h-11 px-3 flex items-center gap-2.5 hover:bg-muted/50 transition-colors"
                 >
-                  <div 
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: getBrandColor(brand.id) }}
                   />
                   <div className="min-w-0">
-                    <p className={cn("text-[13px] font-ui truncate", brand.id === activeBrand.id ? "text-primary font-medium" : "text-foreground")}>{brand.name}</p>
+                    <p className={cn("text-[13px] font-ui truncate", brand.id === activeBrand.id ? "text-primary font-medium" : "text-foreground")}>{capitaliseBrandName(brand.name)}</p>
                     <p className="text-[10px] font-ui text-muted-foreground">Started {brand.startedDate}</p>
                   </div>
                 </button>
@@ -143,22 +194,325 @@ export function BrandMilestonePanel({
           className="w-full h-9 rounded-lg border border-primary text-primary font-ui text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-primary/10 transition-colors"
         >
           <Plus size={15} />
-          New brand
+          New project
         </button>
       </div>
 
-      <div className="px-4 flex-shrink-0">
-        <div className="border-t border-border" />
-        <div className="flex items-center gap-1.5 mt-3 mb-2">
-          <Flag size={11} className="text-muted-foreground" />
-          <p className="text-[11px] font-ui uppercase tracking-[0.1em] text-muted-foreground">
-            Milestones
-          </p>
-        </div>
-      </div>
+      {/* Scrollable middle section — stage info, change stage, memory, milestones */}
+      <div
+        className="mentor-left-scroll"
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          paddingBottom: '80px'
+        }}
+      >
+        {/* Journey Stage */}
+        <div className="px-4" style={{ marginTop: '12px' }}>
+          <div style={{
+            marginBottom: '8px'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '6px'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span style={{ fontSize: '18px' }}>{stageInfo.emoji}</span>
+                <span style={{
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  fontFamily: 'DM Sans, sans-serif',
+                  color: '#D4A017'
+                }}>
+                  {stageInfo.name}
+                </span>
+              </div>
+              <span style={{
+                fontSize: '11px',
+                color: 'var(--color-text-secondary)'
+              }}>
+                Stage {stageIndex + 1} of 6
+              </span>
+            </div>
+            <div style={{
+              height: '3px',
+              borderRadius: '2px',
+              background: '#1A2A3A',
+              margin: '6px 0',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                height: '100%',
+                background: '#D4A017',
+                borderRadius: '2px',
+                width: `${((stageIndex + 1) / 6) * 100}%`
+              }} />
+            </div>
+            <p style={{
+              fontSize: '11px',
+              color: 'var(--color-text-secondary)',
+              lineHeight: '1.5',
+              marginBottom: '8px'
+            }}>
+              {stageInfo.description}
+            </p>
+            <div style={{ marginBottom: '8px' }}>
+              {stageInfo.substages.map((substage, idx) => (
+                <div key={idx} style={{
+                  height: '22px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <div style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: idx <= stageIndex ? '#D4A017' : 'transparent',
+                    border: idx <= stageIndex ? 'none' : '0.5px solid var(--color-border-secondary)'
+                  }} />
+                  <span style={{
+                    fontSize: '11px',
+                    color: 'var(--color-text-secondary)'
+                  }}>
+                    {substage}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setStagePickerOpen(!stagePickerOpen)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 10px',
+                background: stagePickerOpen
+                  ? 'rgba(212,160,23,0.15)'
+                  : 'rgba(212,160,23,0.08)',
+                border: '0.5px solid rgba(212,160,23,0.3)',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                color: '#D4A017',
+                fontWeight: 500,
+                transition: 'all 150ms',
+                width: '100%',
+                justifyContent: 'space-between'
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(212,160,23,0.15)';
+              }}
+              onMouseLeave={e => {
+                if (!stagePickerOpen) {
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(212,160,23,0.08)';
+                }
+              }}
+            >
+              <span>Change stage</span>
+              <span style={{
+                fontSize: '10px',
+                transition: 'transform 200ms',
+                transform: stagePickerOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                display: 'inline-block'
+              }}>
+                ▼
+              </span>
+            </button>
+            {stagePickerOpen && (
+              <div style={{
+                marginTop: '8px',
+                border: '0.5px solid var(--color-border-secondary)',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                background: 'var(--color-background-secondary)'
+              }}>
+                {journeyStages.map(stage => {
+                  const isCurrent = stage.stage_key === activeBrand?.journey_stage;
 
-      {/* Milestones */}
-      <ScrollArea className="flex-1 min-h-0">
+                  return (
+                    <div
+                      key={stage.stage_key}
+                      onClick={async () => {
+                        if (!isCurrent) {
+                          await updateStage(stage.stage_key, 'user_selected');
+                          setStagePickerOpen(false);
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        cursor: isCurrent ? 'default' : 'pointer',
+                        background: isCurrent
+                          ? 'rgba(212,160,23,0.12)'
+                          : 'transparent',
+                        border: isCurrent
+                          ? '0.5px solid rgba(212,160,23,0.3)'
+                          : '0.5px solid transparent',
+                        transition: 'all 150ms',
+                        marginBottom: '4px'
+                      }}
+                      onMouseEnter={e => {
+                        if (!isCurrent) {
+                          (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+                          (e.currentTarget as HTMLElement).style.border = '0.5px solid rgba(255,255,255,0.08)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!isCurrent) {
+                          (e.currentTarget as HTMLElement).style.background = 'transparent';
+                          (e.currentTarget as HTMLElement).style.border = '0.5px solid transparent';
+                        }
+                      }}
+                    >
+                      <span style={{ fontSize: '16px', flexShrink: 0 }}>
+                        {stage.emoji}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          fontSize: '13px',
+                          fontWeight: isCurrent ? 600 : 400,
+                          color: isCurrent
+                            ? '#D4A017'
+                            : 'var(--color-text-primary)'
+                        }}>
+                          {stage.name}
+                        </div>
+                        <div style={{
+                          fontSize: '10px',
+                          color: 'var(--color-text-tertiary)',
+                          marginTop: '1px'
+                        }}>
+                          {stage.description.split('.')[0]}
+                        </div>
+                      </div>
+                      {isCurrent && (
+                        <span style={{
+                          fontSize: '9px',
+                          background: 'rgba(212,160,23,0.2)',
+                          color: '#D4A017',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          flexShrink: 0
+                        }}>
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div style={{
+            height: '0.5px',
+            background: 'var(--color-border-tertiary)',
+            margin: '12px 0'
+          }} />
+        </div>
+
+        {/* Memory */}
+        <div className="px-4">
+          <p style={{
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-secondary)',
+            marginBottom: '8px'
+          }}>
+            MEMORY
+          </p>
+          <p style={{
+            fontSize: '12px',
+            color: 'var(--color-text-secondary)',
+            lineHeight: '1.6',
+            marginBottom: '8px'
+          }}>
+            {buildMemorySummary(realActiveBrand, activeBrandDNA)}
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {activeBrandDNA?.brand_voice && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Voice
+              </span>
+            )}
+            {activeBrandDNA?.positioning_statement && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Positioning
+              </span>
+            )}
+            {activeBrandDNA?.target_audience && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Audience
+              </span>
+            )}
+            {activeBrandDNA?.core_promise && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Promise
+              </span>
+            )}
+          </div>
+          <div style={{
+            height: '0.5px',
+            background: 'var(--color-border-tertiary)',
+            margin: '12px 0'
+          }} />
+        </div>
+
+        <div className="px-4">
+          <div className="border-t border-border" />
+          <div className="flex items-center gap-1.5 mt-3 mb-2">
+            <Flag size={11} className="text-muted-foreground" />
+            <p className="text-[11px] font-ui uppercase tracking-[0.1em] text-muted-foreground">
+              Milestones
+            </p>
+          </div>
+        </div>
+
+        {/* Milestones */}
         <div className="px-2 pb-4 space-y-0.5">
           {milestones.length === 0 ? (
             <p className="px-3 py-4 text-[12px] font-ui text-muted-foreground italic">
@@ -276,7 +630,7 @@ export function BrandMilestonePanel({
             })
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
         <AlertDialogContent>

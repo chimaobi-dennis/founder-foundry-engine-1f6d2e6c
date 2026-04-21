@@ -25,6 +25,13 @@ export default function AdminApplications() {
   const [detail, setDetail] = useState<any>(null);
   const [notes, setNotes] = useState("");
   const [actioning, setActioning] = useState(false);
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+
+  const setActionLoading = (key: string, value: boolean) => {
+    setLoadingStates(prev => ({ ...prev, [key]: value }));
+  };
+
+  const isActionLoading = (key: string) => loadingStates[key] === true;
 
   const cardBg = { background: "#0D1520", border: "0.5px solid #1A2A3A" };
 
@@ -53,11 +60,14 @@ export default function AdminApplications() {
 
   const handleApprove = async () => {
     if (!detail || !notes.trim()) return;
+    const loadingKey = `approve-application-${detail.id}`;
+    setActionLoading(loadingKey, true);
     setActioning(true);
     const res = await approveCreator(detail.id, notes);
     setActioning(false);
+    setActionLoading(loadingKey, false);
     if (res.success) {
-      toast({ title: "Creator approved" });
+      toast({ title: "Approved" });
       setDrawerOpen(false);
       fetchApps();
     } else {
@@ -67,11 +77,14 @@ export default function AdminApplications() {
 
   const handleReject = async () => {
     if (!detail || !notes.trim()) return;
+    const loadingKey = `reject-application-${detail.id}`;
+    setActionLoading(loadingKey, true);
     setActioning(true);
     const res = await rejectCreator(detail.id, notes);
     setActioning(false);
+    setActionLoading(loadingKey, false);
     if (res.success) {
-      toast({ title: "Application rejected" });
+      toast({ title: "Rejected" });
       setDrawerOpen(false);
       fetchApps();
     } else {
@@ -226,21 +239,43 @@ export default function AdminApplications() {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={handleApprove}
-                    disabled={actioning || !notes.trim()}
+                    disabled={isActionLoading(`approve-application-${detail.id}`) || isActionLoading(`reject-application-${detail.id}`) || !notes.trim()}
                     className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    style={{ background: "#16A34A", color: "#fff" }}
+                    style={{ 
+                      background: "#16A34A", 
+                      color: "#fff",
+                      opacity: isActionLoading(`approve-application-${detail.id}`) ? 0.7 : 1,
+                      cursor: isActionLoading(`approve-application-${detail.id}`) ? 'not-allowed' : 'pointer',
+                    }}
                   >
-                    {actioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check size={16} />}
-                    Approve
+                    {isActionLoading(`approve-application-${detail.id}`) ? (
+                      <span style={{
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid currentColor',
+                        borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        display: 'inline-block',
+                        animation: 'spin 0.6s linear infinite',
+                        flexShrink: 0
+                      }} />
+                    ) : <Check size={16} />}
+                    {isActionLoading(`approve-application-${detail.id}`) ? 'Approving...' : 'Approve'}
                   </button>
                   <button
                     onClick={handleReject}
-                    disabled={actioning || !notes.trim()}
+                    disabled={isActionLoading(`approve-application-${detail.id}`) || isActionLoading(`reject-application-${detail.id}`) || !notes.trim()}
                     className="flex-1 h-10 rounded-lg text-sm font-ui font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    style={{ border: "0.5px solid #F87171", color: "#F87171", background: "transparent" }}
+                    style={{ 
+                      border: "0.5px solid #F87171", 
+                      color: "#F87171", 
+                      background: "transparent",
+                      opacity: isActionLoading(`reject-application-${detail.id}`) ? 0.7 : 1,
+                      cursor: isActionLoading(`reject-application-${detail.id}`) ? 'not-allowed' : 'pointer',
+                    }}
                   >
+                    {isActionLoading(`reject-application-${detail.id}`) ? 'Rejecting...' : 'Reject'}
                     <X size={16} />
-                    Reject
                   </button>
                 </div>
               )}
