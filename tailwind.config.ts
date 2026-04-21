@@ -21,6 +21,17 @@ export default {
         ui: ["DM Sans", "sans-serif"],
       },
       colors: {
+        brand: {
+          amber: "hsl(var(--brand-amber))",
+          "amber-soft": "hsl(var(--brand-amber-soft))",
+          "amber-deep": "hsl(var(--brand-amber-deep))",
+          navy: "hsl(var(--brand-navy))",
+          "navy-soft": "hsl(var(--brand-navy-soft))",
+          cream: "hsl(var(--brand-cream))",
+          ink: "hsl(var(--brand-ink))",
+          bone: "hsl(var(--brand-bone))",
+          slate: "hsl(var(--brand-slate))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
