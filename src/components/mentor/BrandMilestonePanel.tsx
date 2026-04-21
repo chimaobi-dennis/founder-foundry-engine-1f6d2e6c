@@ -315,234 +315,8 @@ export function BrandMilestonePanel({
           paddingBottom: '80px'
         }}
       >
-        {/* Journey Stage */}
+        {/* Project Assets — first section */}
         <div className="px-4" style={{ marginTop: '12px' }}>
-          <div style={{
-            marginBottom: '8px'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '6px'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                <span style={{ fontSize: '18px' }}>{stageInfo.emoji}</span>
-                <span style={{
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  fontFamily: 'DM Sans, sans-serif',
-                  color: '#D4A017'
-                }}>
-                  {stageInfo.name}
-                </span>
-              </div>
-              <span style={{
-                fontSize: '11px',
-                color: 'var(--color-text-secondary)'
-              }}>
-                Stage {stageIndex + 1} of 6
-              </span>
-            </div>
-            <div style={{
-              height: '3px',
-              borderRadius: '2px',
-              background: '#1A2A3A',
-              margin: '6px 0',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                height: '100%',
-                background: '#D4A017',
-                borderRadius: '2px',
-                width: `${((stageIndex + 1) / 6) * 100}%`
-              }} />
-            </div>
-            <p style={{
-              fontSize: '11px',
-              color: 'var(--color-text-secondary)',
-              lineHeight: '1.5',
-              marginBottom: '8px'
-            }}>
-              {stageInfo.description}
-            </p>
-            {/* Substage checklist */}
-            <div style={{
-              margin: '10px 0 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px'
-            }}>
-              {stageInfo.substages?.map((substage: string, index: number) => {
-                const isCompleted = stageProgress[index] === true;
-                const isNext = !isCompleted &&
-                  Object.values(stageProgress).filter(Boolean).length === index;
-
-                return (
-                  <div
-                    key={index}
-                    onClick={async () => {
-                      if (!realActiveBrand || isCompleted) return;
-                      await completeSubstage(
-                        realActiveBrand.id,
-                        realActiveBrand.journey_stage ?? 'spark',
-                        index
-                      );
-                      setStageProgress(prev => ({ ...prev, [index]: true }));
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '8px',
-                      padding: '6px 8px',
-                      borderRadius: '6px',
-                      cursor: isCompleted ? 'default' : 'pointer',
-                      background: isNext
-                        ? 'rgba(212,160,23,0.06)'
-                        : 'transparent',
-                      border: isNext
-                        ? '0.5px solid rgba(212,160,23,0.15)'
-                        : '0.5px solid transparent',
-                      transition: 'all 150ms'
-                    }}
-                    onMouseEnter={e => {
-                      if (!isCompleted) {
-                        (e.currentTarget as HTMLElement).style.background =
-                          'rgba(212,160,23,0.08)';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.background =
-                        isNext ? 'rgba(212,160,23,0.06)' : 'transparent';
-                    }}
-                  >
-                    {/* Checkbox circle */}
-                    <div style={{
-                      width: '16px',
-                      height: '16px',
-                      borderRadius: '50%',
-                      flexShrink: 0,
-                      marginTop: '1px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: isCompleted
-                        ? '#4CAF50'
-                        : 'transparent',
-                      border: isCompleted
-                        ? '2px solid #4CAF50'
-                        : isNext
-                          ? '2px solid #D4A017'
-                          : '1.5px solid var(--color-border-secondary)',
-                      transition: 'all 200ms'
-                    }}>
-                      {isCompleted && (
-                        <span style={{
-                          fontSize: '9px',
-                          color: 'white',
-                          fontWeight: 700,
-                          lineHeight: 1
-                        }}>
-                          ✓
-                        </span>
-                      )}
-                      {!isCompleted && isNext && (
-                        <div style={{
-                          width: '5px',
-                          height: '5px',
-                          borderRadius: '50%',
-                          background: '#D4A017'
-                        }} />
-                      )}
-                    </div>
-
-                    {/* Substage text */}
-                    <span style={{
-                      fontSize: '11px',
-                      lineHeight: 1.4,
-                      color: isCompleted
-                        ? 'var(--color-text-tertiary)'
-                        : isNext
-                          ? 'var(--color-text-primary)'
-                          : 'var(--color-text-secondary)',
-                      textDecoration: isCompleted ? 'line-through' : 'none',
-                      fontWeight: isNext ? 500 : 400,
-                      flex: 1
-                    }}>
-                      {substage}
-                    </span>
-
-                    {/* "next" badge */}
-                    {isNext && (
-                      <span style={{
-                        fontSize: '9px',
-                        color: '#D4A017',
-                        background: 'rgba(212,160,23,0.12)',
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        fontWeight: 600,
-                        letterSpacing: '0.03em',
-                        flexShrink: 0,
-                        alignSelf: 'center'
-                      }}>
-                        next
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Progress summary below the list */}
-            {stageInfo.substages && stageInfo.substages.length > 0 && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '0 8px',
-                marginBottom: '12px'
-              }}>
-                <div style={{
-                  flex: 1,
-                  height: '2px',
-                  background: 'var(--color-border-tertiary)',
-                  borderRadius: '1px',
-                  overflow: 'hidden'
-                }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${(Object.values(stageProgress).filter(Boolean).length /
-                      stageInfo.substages.length) * 100}%`,
-                    background: 'linear-gradient(90deg, #D4A017, #E8C060)',
-                    borderRadius: '1px',
-                    transition: 'width 400ms ease'
-                  }} />
-                </div>
-                <span style={{
-                  fontSize: '10px',
-                  color: 'var(--color-text-tertiary)',
-                  flexShrink: 0
-                }}>
-                  {Object.values(stageProgress).filter(Boolean).length}/
-                  {stageInfo.substages.length}
-                </span>
-              </div>
-            )}
-          </div>
-          <div style={{
-            height: '0.5px',
-            background: 'var(--color-border-tertiary)',
-            margin: '12px 0'
-          }} />
-        </div>
-
-        {/* Project Assets */}
-        <div className="px-4">
           <p style={{
             fontSize: '10px',
             textTransform: 'uppercase',
@@ -738,79 +512,62 @@ export function BrandMilestonePanel({
           }} />
         </div>
 
-
+        {/* Compact stage status — read only */}
         <div className="px-4">
-          <p style={{
-            fontSize: '10px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--color-text-secondary)',
-            marginBottom: '8px'
+          <div style={{
+            padding: '10px 12px',
+            borderRadius: '8px',
+            background: 'rgba(212,160,23,0.05)',
+            border: '0.5px solid rgba(212,160,23,0.15)',
+            margin: '0 0 12px'
           }}>
-            MEMORY
-          </p>
-          <p style={{
-            fontSize: '12px',
-            color: 'var(--color-text-secondary)',
-            lineHeight: '1.6',
-            marginBottom: '8px'
-          }}>
-            {buildMemorySummary(realActiveBrand, activeBrandDNA)}
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-            {activeBrandDNA?.brand_voice && (
-              <span style={{
-                borderRadius: '20px',
-                padding: '2px 8px',
-                fontSize: '10px',
-                background: 'rgba(212,160,23,0.1)',
-                color: '#D4A017',
-                border: '0.5px solid rgba(212,160,23,0.2)'
-              }}>
-                Voice
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '6px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '14px' }}>{stageInfo.emoji}</span>
+                <span style={{
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: 'var(--color-text-primary)'
+                }}>
+                  {stageInfo.name}
+                </span>
+              </div>
+              <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+                Stage {stageIndex + 1} of {journeyStages.length}
               </span>
-            )}
-            {activeBrandDNA?.positioning_statement && (
-              <span style={{
-                borderRadius: '20px',
-                padding: '2px 8px',
-                fontSize: '10px',
-                background: 'rgba(212,160,23,0.1)',
-                color: '#D4A017',
-                border: '0.5px solid rgba(212,160,23,0.2)'
-              }}>
-                Positioning
-              </span>
-            )}
-            {activeBrandDNA?.target_audience && (
-              <span style={{
-                borderRadius: '20px',
-                padding: '2px 8px',
-                fontSize: '10px',
-                background: 'rgba(212,160,23,0.1)',
-                color: '#D4A017',
-                border: '0.5px solid rgba(212,160,23,0.2)'
-              }}>
-                Audience
-              </span>
-            )}
-            {activeBrandDNA?.core_promise && (
-              <span style={{
-                borderRadius: '20px',
-                padding: '2px 8px',
-                fontSize: '10px',
-                background: 'rgba(212,160,23,0.1)',
-                color: '#D4A017',
-                border: '0.5px solid rgba(212,160,23,0.2)'
-              }}>
-                Promise
-              </span>
-            )}
+            </div>
+            {/* Thin progress bar */}
+            <div style={{
+              height: '2px',
+              background: 'rgba(212,160,23,0.15)',
+              borderRadius: '1px'
+            }}>
+              <div style={{
+                width: `${(Object.values(stageProgress).filter(Boolean).length /
+                  (stageInfo.substages?.length || 1)) * 100}%`,
+                height: '100%',
+                background: '#D4A017',
+                borderRadius: '1px',
+                transition: 'width 400ms ease'
+              }} />
+            </div>
+            <div style={{
+              fontSize: '10px',
+              color: 'var(--color-text-tertiary)',
+              marginTop: '4px'
+            }}>
+              {stageInfo.description?.split('.')[0]}
+            </div>
           </div>
           <div style={{
             height: '0.5px',
             background: 'var(--color-border-tertiary)',
-            margin: '12px 0'
+            margin: '0 0 12px'
           }} />
         </div>
 
@@ -941,6 +698,82 @@ export function BrandMilestonePanel({
               );
             })
           )}
+        </div>
+
+        {/* Memory — last section before footer */}
+        <div className="px-4 pt-2">
+          <div style={{
+            height: '0.5px',
+            background: 'var(--color-border-tertiary)',
+            margin: '0 0 12px'
+          }} />
+          <p style={{
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--color-text-secondary)',
+            marginBottom: '8px'
+          }}>
+            MEMORY
+          </p>
+          <p style={{
+            fontSize: '12px',
+            color: 'var(--color-text-secondary)',
+            lineHeight: '1.6',
+            marginBottom: '8px'
+          }}>
+            {buildMemorySummary(realActiveBrand, activeBrandDNA)}
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            {activeBrandDNA?.brand_voice && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Voice
+              </span>
+            )}
+            {activeBrandDNA?.positioning_statement && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Positioning
+              </span>
+            )}
+            {activeBrandDNA?.target_audience && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Audience
+              </span>
+            )}
+            {activeBrandDNA?.core_promise && (
+              <span style={{
+                borderRadius: '20px',
+                padding: '2px 8px',
+                fontSize: '10px',
+                background: 'rgba(212,160,23,0.1)',
+                color: '#D4A017',
+                border: '0.5px solid rgba(212,160,23,0.2)'
+              }}>
+                Promise
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
