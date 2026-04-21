@@ -67,15 +67,21 @@ export function BrandMilestonePanel({
   realActiveBrand,
   activeBrandDNA,
 }: BrandMilestonePanelProps) {
-  const { brands: realBrands, updateStage, journeyStages, currentStageData } = useBrand();
+  const { brands: realBrands, journeyStages, currentStageData } = useBrand();
+  const { user } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [stagePickerOpen, setStagePickerOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
+  // Project Assets state
+  const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [showAllAssets, setShowAllAssets] = useState(false);
+  const [deleteAssetId, setDeleteAssetId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load substage completion state whenever brand/stage changes
   useEffect(() => {
