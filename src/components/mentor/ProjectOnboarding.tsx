@@ -6,10 +6,14 @@ import {
   extractProjectContext,
   saveExtractedContext,
   markFreshStart,
+  fetchWebsiteContent,
   type ExtractedProjectData,
   type OnboardingContext
 } from "@/services/projectOnboardingService";
 import { getAllStageFields, type StageField } from "@/services/journeyDataService";
+import { uploadProjectFile } from "@/services/projectAssetsService";
+import { logError } from "@/services/errorService";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface ProjectOnboardingProps {
