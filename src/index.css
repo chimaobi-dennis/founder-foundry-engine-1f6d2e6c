@@ -7,6 +7,25 @@
 @layer base {
   /* ── Light mode (default) ────────────────────────────── */
   :root {
+    /* Mentor / Journey Record semantic tokens (light defaults) */
+    --stage-option-bg: rgba(0, 0, 0, 0.04);
+    --stage-option-border: rgba(0, 0, 0, 0.08);
+    --stage-option-bg-hover: rgba(0, 0, 0, 0.07);
+
+    --color-text-primary: hsl(240 25% 14%);
+    --color-text-secondary: hsl(220 9% 35%);
+    --color-text-tertiary: hsl(220 9% 50%);
+
+    --color-background-primary: hsl(30 23% 94%);
+    --color-background-secondary: hsl(30 18% 90%);
+    --color-card-secondary: hsl(0 0% 100%);
+
+    --color-border-secondary: rgba(0, 0, 0, 0.1);
+    --color-border-tertiary: rgba(0, 0, 0, 0.06);
+
+    --stage-done-border: rgba(212, 160, 23, 0.2);
+    --completion-amber: #B8860B;
+
     --background: 30 23% 94%;
     --foreground: 240 25% 14%;
 
@@ -55,6 +74,25 @@
 
   /* ── Dark mode ───────────────────────────────────────── */
   .dark {
+    /* Mentor / Journey Record semantic tokens (dark overrides) */
+    --stage-option-bg: rgba(255, 255, 255, 0.04);
+    --stage-option-border: rgba(255, 255, 255, 0.07);
+    --stage-option-bg-hover: rgba(255, 255, 255, 0.07);
+
+    --color-text-primary: hsl(36 33% 94%);
+    --color-text-secondary: hsl(212 12% 70%);
+    --color-text-tertiary: hsl(212 12% 55%);
+
+    --color-background-primary: hsl(213 52% 11%);
+    --color-background-secondary: hsl(210 37% 14%);
+    --color-card-secondary: hsl(210 37% 16%);
+
+    --color-border-secondary: rgba(255, 255, 255, 0.1);
+    --color-border-tertiary: rgba(255, 255, 255, 0.05);
+
+    --stage-done-border: rgba(212, 160, 23, 0.12);
+    --completion-amber: #D4A017;
+
     --background: 213 52% 11%;
     --foreground: 36 33% 94%;
 
@@ -145,6 +183,20 @@
   .scrollbar-chat::-webkit-scrollbar-thumb {
     background: hsl(43 78% 46% / 0.4);
     border-radius: 4px;
+  }
+
+  /* Hide scrollbar on Mentor Journey Record right panel */
+  .journey-record-scroll [data-radix-scroll-area-scrollbar] {
+    display: none !important;
+  }
+  .journey-record-scroll [data-radix-scroll-area-viewport] {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .journey-record-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 }
 

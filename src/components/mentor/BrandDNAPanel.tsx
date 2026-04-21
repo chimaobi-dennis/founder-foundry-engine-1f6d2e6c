@@ -98,7 +98,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         <p className="text-[12px] font-ui text-muted-foreground mt-0.5">Your founder journey, captured as you go.</p>
       </div>
 
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="flex-1 min-h-0 journey-record-scroll">
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {journeyStages.map((stage, index) => {
             const isActive = stage.stage_key === activeBrand?.journey_stage;
@@ -120,8 +120,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
-                  opacity: 0.35,
-                  borderBottom: '0.5px solid rgba(255,255,255,0.04)',
+                  opacity: 0.45,
+                  borderBottom: '0.5px solid var(--color-border-tertiary)',
                   cursor: 'not-allowed'
                 }}>
                   <span style={{ fontSize: '14px' }}>{stage.emoji}</span>
@@ -195,7 +195,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         <div style={{ 
                           fontSize: '18px', 
                           fontWeight: 700,
-                          color: completion === 100 ? '#4CAF50' : '#D4A017',
+                          color: completion === 100 ? '#4CAF50' : 'var(--completion-amber)',
                           lineHeight: 1
                         }}>
                           {completion}%
@@ -232,7 +232,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                       padding: '8px 10px',
                       background: 'rgba(212,160,23,0.06)',
                       borderRadius: '6px',
-                      border: '0.5px solid rgba(212,160,23,0.12)',
+                      border: '0.5px solid var(--stage-done-border)',
                       marginBottom: '4px'
                     }}>
                       <div style={{
@@ -284,12 +284,12 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                           marginBottom: '10px',
                           padding: '10px 12px',
                           background: value 
-                            ? 'rgba(255,255,255,0.03)' 
-                            : 'rgba(255,255,255,0.01)',
+                            ? 'var(--color-card-secondary)' 
+                            : 'var(--color-background-secondary)',
                           borderRadius: '8px',
                           border: `0.5px solid ${value 
                             ? 'rgba(212,160,23,0.2)' 
-                            : 'rgba(255,255,255,0.05)'}`,
+                            : 'var(--color-border-tertiary)'}`,
                           transition: 'border-color 200ms'
                         }}>
                           <div style={{
@@ -347,7 +347,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                                   fontSize: '12px',
                                   borderRadius: '6px',
                                   border: '0.5px solid #D4A017',
-                                  background: 'rgba(0,0,0,0.3)',
+                                  background: 'var(--color-background-secondary)',
                                   color: 'var(--color-text-primary)',
                                   resize: 'vertical',
                                   lineHeight: 1.5,
@@ -415,7 +415,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                                     fontSize: '11px',
                                     padding: '4px 10px',
                                     background: 'transparent',
-                                    border: '0.5px solid rgba(255,255,255,0.1)',
+                                    border: '0.5px solid var(--color-border-secondary)',
                                     borderRadius: '5px',
                                     cursor: 'pointer',
                                     color: 'var(--color-text-secondary)'
@@ -439,7 +439,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                           ) : (
                             <p style={{
                               fontSize: '11px',
-                              color: 'rgba(255,255,255,0.25)',
+                              color: 'var(--color-text-tertiary)',
                               fontStyle: 'italic',
                               margin: 0,
                               lineHeight: 1.5
@@ -472,12 +472,12 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   alignItems: 'center',
                   gap: '10px',
                   cursor: 'pointer',
-                  borderBottom: '0.5px solid rgba(255,255,255,0.04)',
+                  borderBottom: '0.5px solid var(--color-border-tertiary)',
                   background: 'transparent',
                   transition: 'background 150ms'
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)';
+                  (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
                 }}
                 onMouseLeave={e => {
                   (e.currentTarget as HTMLElement).style.background = 'transparent';
@@ -520,7 +520,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                         borderRadius: '50%',
                         background: data[f.field_key] 
                           ? '#4CAF50' 
-                          : 'rgba(255,255,255,0.1)'
+                          : 'var(--color-border-secondary)'
                       }} />
                     ))}
                   </div>

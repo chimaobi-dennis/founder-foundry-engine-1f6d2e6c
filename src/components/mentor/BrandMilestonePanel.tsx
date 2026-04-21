@@ -358,23 +358,21 @@ export function BrandMilestonePanel({
                         cursor: isCurrent ? 'default' : 'pointer',
                         background: isCurrent
                           ? 'rgba(212,160,23,0.12)'
-                          : 'transparent',
+                          : 'var(--stage-option-bg)',
                         border: isCurrent
                           ? '0.5px solid rgba(212,160,23,0.3)'
-                          : '0.5px solid transparent',
+                          : '0.5px solid var(--stage-option-border)',
                         transition: 'all 150ms',
                         marginBottom: '4px'
                       }}
                       onMouseEnter={e => {
                         if (!isCurrent) {
-                          (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
-                          (e.currentTarget as HTMLElement).style.border = '0.5px solid rgba(255,255,255,0.08)';
+                          (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg-hover)';
                         }
                       }}
                       onMouseLeave={e => {
                         if (!isCurrent) {
-                          (e.currentTarget as HTMLElement).style.background = 'transparent';
-                          (e.currentTarget as HTMLElement).style.border = '0.5px solid transparent';
+                          (e.currentTarget as HTMLElement).style.background = 'var(--stage-option-bg)';
                         }
                       }}
                     >
