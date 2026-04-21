@@ -1,8 +1,9 @@
-import { Send, Paperclip, Mic, Flag, Save, Check, X } from "lucide-react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 import { MentorBrand, Message, InlineSavePrompt, MilestoneMarker, Milestone, MilestoneCategory, categoryTextColors } from "./types";
+import { parseAIMessage, type ParsedSavePrompt } from "@/lib/savePromptParser";
 
 export interface ChoicePrompt {
   id: string;
