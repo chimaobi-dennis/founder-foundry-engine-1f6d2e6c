@@ -184,6 +184,20 @@
     background: hsl(43 78% 46% / 0.4);
     border-radius: 4px;
   }
+
+  /* Hide scrollbar on Mentor Journey Record right panel */
+  .journey-record-scroll [data-radix-scroll-area-scrollbar] {
+    display: none !important;
+  }
+  .journey-record-scroll [data-radix-scroll-area-viewport] {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .journey-record-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
 }
 
 @keyframes amber-pulse {
