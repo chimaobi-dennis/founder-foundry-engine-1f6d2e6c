@@ -21,8 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Brand } from "@/services/brandService";
-import { BrandDNA } from "@/services/brandService";
+import { Brand, BrandDNA, completeSubstage, getStageProgress } from "@/services/brandService";
 
 interface BrandMilestonePanelProps {
   brands: MentorBrand[];
