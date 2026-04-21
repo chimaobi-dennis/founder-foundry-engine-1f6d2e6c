@@ -432,19 +432,33 @@ export function ChatPanel({
                 >
                   <div
                     className={cn(
-                      "rounded-xl px-4 py-3 max-w-[75%] min-w-0 break-words",
-                      msg.role === "founder"
-                        ? "bg-primary/10"
-                        : "bg-card border border-border"
+                      "group/msg flex items-start gap-1.5 max-w-[75%] min-w-0",
+                      msg.role === "founder" ? "flex-row-reverse" : "flex-row"
                     )}
-                    style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                   >
-                    <p
-                      className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
-                      style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                    <div
+                      className={cn(
+                        "rounded-xl px-4 py-3 min-w-0 break-words",
+                        msg.role === "founder"
+                          ? "bg-primary/10"
+                          : "bg-card border border-border"
+                      )}
+                      style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                     >
-                      {parsed.cleanText}
-                    </p>
+                      <p
+                        className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
+                        style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                      >
+                        {parsed.cleanText}
+                      </p>
+                    </div>
+                    <MessageActionsMenu
+                      messageId={msg.id}
+                      role={msg.role}
+                      text={parsed.cleanText}
+                      onRetry={onRetryMessage}
+                      onDelete={onDeleteMessage}
+                    />
                   </div>
 
                   {/* SAVE_PROMPT pills parsed from AI message */}
