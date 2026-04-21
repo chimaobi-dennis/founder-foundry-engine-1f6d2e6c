@@ -338,7 +338,7 @@ export function BrandMilestonePanel({
                 background: 'var(--color-background-secondary)'
               }}>
                 {journeyStages.map(stage => {
-                  const isCurrent = stage.stage_key === activeBrand?.journey_stage;
+                  const isCurrent = stage.stage_key === realActiveBrand?.journey_stage;
 
                   return (
                     <div
