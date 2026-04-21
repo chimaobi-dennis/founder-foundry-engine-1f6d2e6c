@@ -724,9 +724,11 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                       background: 'var(--color-border-tertiary)',
                       margin: '4px 0 4px'
                     }} />
+                    </>)}
                   </div>
 
                   {/* Fields */}
+                  {isExpanded && (
                   <div style={{ padding: '0 16px 14px' }}>
                     {fields.map(field => {
                       const value = data[field.field_key];
