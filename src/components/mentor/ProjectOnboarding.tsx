@@ -47,6 +47,7 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
   const [extracted, setExtracted] = useState<ExtractedProjectData | null>(null);
   const [stageFieldsMap, setStageFieldsMap] = useState<Record<string, StageField[]>>({});
   const [saving, setSaving] = useState(false);
+  const [fetchedUrlContent, setFetchedUrlContent] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
