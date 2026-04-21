@@ -600,9 +600,9 @@ const Mentor = () => {
     } catch (e) {
       await logError({
         userId: user?.id,
-        errorType: 'other',
+        errorType: 'database',
         module: 'mentor',
-        message: e instanceof Error ? e.message : 'Failed to save stage prompt',
+        errorMessage: e instanceof Error ? e.message : 'Failed to save stage prompt',
         context: { fieldKey: prompt.fieldKey, stageKey },
       });
       toast.error('Could not save — try again');
