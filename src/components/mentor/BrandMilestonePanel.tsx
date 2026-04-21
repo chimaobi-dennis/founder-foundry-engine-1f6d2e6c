@@ -204,7 +204,7 @@ export function BrandMilestonePanel({
   const buildMemorySummary = (brand: Brand | null, dna: BrandDNA | null): string => {
     const parts: string[] = [];
 
-    if (brand?.name && brand.name !== 'Untitled Brand') {
+    if (brand?.name && brand.name !== 'Untitled Project') {
       parts.push(`Building ${brand.name}`);
     }
     if (brand?.industry) parts.push(`in ${brand.industry}`);

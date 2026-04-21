@@ -361,7 +361,7 @@ const Mentor = () => {
     const mode = searchParams.get("mode") as MentorMode;
     if (mode === "idea" || mode === "brand") {
       const init = async () => {
-        const newBrand = await createNewBrand("Untitled Brand");
+        const newBrand = await createNewBrand("Untitled Project");
         if (newBrand) {
           setEmptyBrands(prev => ({ ...prev, [newBrand.id]: mode }));
         }
@@ -405,7 +405,7 @@ const Mentor = () => {
   };
 
   const handleAddBrand = async () => {
-    const newBrand = await createNewBrand("Untitled Brand");
+    const newBrand = await createNewBrand("Untitled Project");
     if (newBrand) {
       // Let the activeBrandId useEffect load the data; just set the empty mode
       setEmptyBrands(prev => ({ ...prev, [newBrand.id]: "idea" }));

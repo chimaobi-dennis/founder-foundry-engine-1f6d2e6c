@@ -18,7 +18,7 @@ export function BrandContextBar() {
   }, []);
 
   const handleCreateBrand = async () => {
-    const newBrand = await createNewBrand('Untitled Brand');
+    const newBrand = await createNewBrand('Untitled Project');
     if (newBrand) {
       setOpen(false);
       navigate('/mentor?mode=idea');
