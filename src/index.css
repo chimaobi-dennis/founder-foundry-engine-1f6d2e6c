@@ -5,8 +5,46 @@
 @tailwind utilities;
 
 @layer base {
-  /* ── Light mode (default) ────────────────────────────── */
+  /* ── Brand palette (theme-agnostic raw values) ───────── */
   :root {
+    /* Brand colors — HSL triplets for use with hsl(var(--brand-*)) */
+    --brand-amber: 43 78% 46%;          /* #D4A017 */
+    --brand-amber-soft: 43 78% 56%;
+    --brand-amber-deep: 43 78% 38%;
+    --brand-navy: 213 52% 11%;          /* #0D1B2A */
+    --brand-navy-soft: 210 37% 16%;     /* #1A2A3A card dark */
+    --brand-cream: 30 23% 94%;          /* #F5F2EC bg light */
+    --brand-ink: 240 25% 14%;           /* #1A1A2E text light */
+    --brand-bone: 36 33% 94%;           /* #F5F0E8 text dark */
+    --brand-slate: 212 12% 59%;         /* #8A96A3 muted */
+
+    /* Spacing scale (4px base) */
+    --space-0: 0;
+    --space-1: 0.25rem;   /* 4px */
+    --space-2: 0.5rem;    /* 8px */
+    --space-3: 0.75rem;   /* 12px */
+    --space-4: 1rem;      /* 16px */
+    --space-5: 1.25rem;   /* 20px */
+    --space-6: 1.5rem;    /* 24px */
+    --space-8: 2rem;      /* 32px */
+    --space-10: 2.5rem;   /* 40px */
+    --space-12: 3rem;     /* 48px */
+    --space-16: 4rem;     /* 64px */
+
+    /* Radius scale */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-full: 9999px;
+
+    /* Elevation */
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.08);
+    --shadow-amber: 0 4px 14px -2px hsl(var(--brand-amber) / 0.35);
+
+  /* ── Light mode ──────────────────────────────────────── */
     /* Mentor / Journey Record semantic tokens (light defaults) */
     --stage-option-bg: rgba(0, 0, 0, 0.04);
     --stage-option-border: rgba(0, 0, 0, 0.08);
