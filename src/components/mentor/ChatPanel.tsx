@@ -88,6 +88,7 @@ export function ChatPanel({
   thinkingState = { isThinking: false, currentMessage: '', progress: 0 },
   streamingMessageId = null,
   streamingText = '',
+  onSaveStagePrompt,
 }: ChatPanelProps) {
   // Use external input value if provided, otherwise use internal state
   const [internalInputValue, setInternalInputValue] = useState("");
