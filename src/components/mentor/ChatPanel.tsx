@@ -437,7 +437,7 @@ export function ChatPanel({
                   {/* SAVE_PROMPT pills parsed from AI message */}
                   {msg.role === "ai" && parsed.savePrompts.map((sp) => {
                     const key = `${msg.id}::${sp.fieldKey}`;
-                    const wasSaved = stagePromptSaved.has(key);
+                    const wasSaved = isStagePromptSaved(key);
                     if (stagePromptDismissed.has(key)) return null;
                     if (wasSaved) {
                       return (
