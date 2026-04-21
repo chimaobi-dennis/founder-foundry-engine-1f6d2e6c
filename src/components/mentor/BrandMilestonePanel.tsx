@@ -102,6 +102,78 @@ export function BrandMilestonePanel({
     return () => { cancelled = true; };
   }, [realActiveBrand?.id, realActiveBrand?.journey_stage]);
 
+  // Load project assets whenever brand changes
+  useEffect(() => {
+    if (!realActiveBrand?.id) {
+      setProjectAssets([]);
+      return;
+    }
+    let cancelled = false;
+    getProjectAssets(realActiveBrand.id).then(assets => {
+      if (!cancelled) setProjectAssets(assets);
+    });
+    return () => { cancelled = true; };
+  }, [realActiveBrand?.id]);
+
+  const refreshAssets = async () => {
+    if (!realActiveBrand?.id) return;
+    const assets = await getProjectAssets(realActiveBrand.id);
+    setProjectAssets(assets);
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || !user || !realActiveBrand) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        await uploadProjectFile(
+          user.id,
+          realActiveBrand.id,
+          file,
+          realActiveBrand.journey_stage ?? undefined
+        );
+      }
+      await refreshAssets();
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleTogglePin = async (asset: ProjectAsset) => {
+    await togglePinAsset(asset.id, !asset.is_pinned);
+    await refreshAssets();
+  };
+
+  const handleDeleteAsset = async (asset: ProjectAsset) => {
+    await deleteProjectAsset(asset.id, asset.storage_path ?? undefined);
+    await refreshAssets();
+  };
+
+  const getAssetIcon = (asset: ProjectAsset): string => {
+    if (asset.source === 'ai_generated') return '✦';
+    switch (asset.file_type) {
+      case 'document': return '📄';
+      case 'image': return '🖼';
+      case 'pdf': return '📋';
+      case 'spreadsheet': return '📊';
+      case 'presentation': return '📑';
+      default: return '📎';
+    }
+  };
+
+  const formatStageName = (stageKey: string | null): string => {
+    if (!stageKey) return '';
+    const s = journeyStages.find(js => js.stage_key === stageKey);
+    return s?.name ?? (stageKey.charAt(0).toUpperCase() + stageKey.slice(1));
+  };
+
+  const formatSourceLabel = (asset: ProjectAsset): string => {
+    const source = asset.source === 'ai_generated' ? 'AI generated' : 'Uploaded';
+    const stage = formatStageName(asset.stage_key);
+    return stage ? `${source} · ${stage}` : source;
+  };
+
+
   // Helper to build memory summary
   const buildMemorySummary = (brand: Brand | null, dna: BrandDNA | null): string => {
     const parts: string[] = [];
