@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { completeSubstage, getStageProgress } from '@/services/brandService';
 import { createMilestone } from '@/services/mentorService';
 import { SubstageChecklist } from './SubstageChecklist';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface BrandDNAPanelProps {
   fields: any[];
@@ -28,6 +29,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   const [savingField, setSavingField] = useState<string | null>(null);
   const [showRightStagePicker, setShowRightStagePicker] = useState(false);
   const [stageProgress, setStageProgress] = useState<Record<number, boolean>>({});
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [stageDataLoading, setStageDataLoading] = useState(true);
   const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
   const [stageChangeWarning, setStageChangeWarning] = useState<{
     targetStageKey: string;
@@ -72,9 +75,11 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     const stageKey = activeBrand?.journey_stage ?? 'spark';
     if (!activeBrand?.id) {
       setStageProgress({});
+      setProgressLoading(false);
       return;
     }
     let cancelled = false;
+    setProgressLoading(true);
     getStageProgress(activeBrand.id, stageKey).then(rows => {
       if (cancelled) return;
       const map: Record<number, boolean> = {};
@@ -82,6 +87,9 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         if (r.isCompleted) map[r.substageIndex] = true;
       });
       setStageProgress(map);
+      setProgressLoading(false);
+    }).catch(() => {
+      if (!cancelled) setProgressLoading(false);
     });
     return () => { cancelled = true; };
   }, [activeBrand?.id, activeBrand?.journey_stage]);
@@ -141,7 +149,13 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
   };
 
   useEffect(() => {
-    if (!activeBrand) return;
+    if (!activeBrand) {
+      setStageDataLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setStageDataLoading(true);
 
     Promise.all([
       (async () => {
@@ -169,9 +183,15 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         return structured;
       })()
     ]).then(([fields, data]) => {
+      if (cancelled) return;
       setAllStageFields(fields);
       setCapturedData(data);
+      setStageDataLoading(false);
+    }).catch(() => {
+      if (!cancelled) setStageDataLoading(false);
     });
+
+    return () => { cancelled = true; };
   }, [activeBrand?.id]);
 
   // Auto-expand current stage
@@ -622,6 +642,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                     <SubstageChecklist
                       substages={stage.substages ?? []}
                       progress={stageProgress}
+                      loading={progressLoading}
                       onComplete={(idx, substage) =>
                         handleSubstageComplete(idx, substage, stage.stage_key)
                       }
@@ -639,7 +660,26 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                   {/* Fields */}
                   {isExpanded && (
                   <div style={{ padding: '0 16px 14px' }}>
-                    {fields.map(field => {
+                    {stageDataLoading && fields.length === 0 ? (
+                      // Skeleton field cards while stage data loads
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div
+                          key={`skeleton-${i}`}
+                          style={{
+                            marginBottom: '10px',
+                            padding: '10px 12px',
+                            background: 'var(--color-background-secondary)',
+                            borderRadius: '8px',
+                            border: '0.5px solid var(--color-border-tertiary)'
+                          }}
+                        >
+                          <Skeleton style={{ height: '10px', width: '40%', marginBottom: '8px' }} />
+                          <Skeleton style={{ height: '10px', width: '90%', marginBottom: '4px' }} />
+                          <Skeleton style={{ height: '10px', width: `${60 + ((i * 11) % 25)}%` }} />
+                        </div>
+                      ))
+                    ) : (
+                    fields.map(field => {
                       const value = data[field.field_key];
                       const isEditing = editingField?.stageKey === stage.stage_key && 
                                         editingField?.fieldKey === field.field_key;
@@ -815,7 +855,8 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
                           )}
                         </div>
                       );
-                    })}
+                    })
+                    )}
                   </div>
                   )}
                 </div>
