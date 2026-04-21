@@ -98,7 +98,7 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         <p className="text-[12px] font-ui text-muted-foreground mt-0.5">Your founder journey, captured as you go.</p>
       </div>
 
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="flex-1 min-h-0 journey-record-scroll">
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {journeyStages.map((stage, index) => {
             const isActive = stage.stage_key === activeBrand?.journey_stage;
