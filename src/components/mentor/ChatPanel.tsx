@@ -60,7 +60,10 @@ interface ChatPanelProps {
   streamingMessageId?: string | null;
   streamingText?: string;
   // SAVE_PROMPT pill: write a captured field to brand_stage_data
-  onSaveStagePrompt?: (prompt: ParsedSavePrompt) => Promise<void> | void;
+  onSaveStagePrompt?: (prompt: ParsedSavePrompt, messageId?: string) => Promise<void> | void;
+  // Set of `${messageId}::${fieldKey}` keys already accepted (loaded from DB)
+  // — drives the persistent "Saved" pill across reloads.
+  savedStagePromptKeys?: Set<string>;
 }
 
 export function ChatPanel({
@@ -89,6 +92,7 @@ export function ChatPanel({
   streamingMessageId = null,
   streamingText = '',
   onSaveStagePrompt,
+  savedStagePromptKeys,
 }: ChatPanelProps) {
   // Use external input value if provided, otherwise use internal state
   const [internalInputValue, setInternalInputValue] = useState("");
@@ -242,6 +246,24 @@ export function ChatPanel({
   const promptsByMessage = Object.fromEntries(savePrompts.map(sp => [sp.afterMessageId, sp]));
   const promptsByMessageId = Object.fromEntries(activeChoicePrompts.map(cp => [cp.message_id, cp]));
 
+  // Deduplicate messages by id — optimistic insertion + DB refetch can lead
+  // to the same row appearing twice in `messages`. Keep the first occurrence.
+  const dedupedMessages = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Message[] = [];
+    for (const m of messages) {
+      if (m.id && seen.has(m.id)) continue;
+      if (m.id) seen.add(m.id);
+      out.push(m);
+    }
+    return out;
+  }, [messages]);
+
+  // Combined "saved" set: locally accepted in this session + persisted in DB.
+  const isStagePromptSaved = useCallback((key: string) => (
+    stagePromptSaved.has(key) || (savedStagePromptKeys?.has(key) ?? false)
+  ), [stagePromptSaved, savedStagePromptKeys]);
+
   const ChoicePromptCard = ({ prompt, onSelect }: {
     prompt: ChoicePrompt;
     onSelect: (value: string, label: string) => void;
@@ -344,7 +366,7 @@ export function ChatPanel({
         )} style={{ maxWidth: "100%", overflowX: "hidden", boxSizing: "border-box" }}>
           <p className="text-[11px] font-ui text-muted-foreground text-center py-3">Today at 14:23</p>
 
-          {messages.map((msg, i) => {
+          {dedupedMessages.map((msg, i) => {
             const marker = markersByMessage[msg.id];
             const milestone = marker ? milestoneMap[marker.milestoneId] : null;
             const prompt = promptsByMessage[msg.id];
@@ -415,14 +437,14 @@ export function ChatPanel({
                   {/* SAVE_PROMPT pills parsed from AI message */}
                   {msg.role === "ai" && parsed.savePrompts.map((sp) => {
                     const key = `${msg.id}::${sp.fieldKey}`;
-                    const wasSaved = stagePromptSaved.has(key);
+                    const wasSaved = isStagePromptSaved(key);
                     if (stagePromptDismissed.has(key)) return null;
                     if (wasSaved) {
                       return (
                         <div key={key} className="flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-md bg-primary/10">
                           <Check size={12} className="text-primary" />
                           <span className="text-[11px] font-ui text-primary font-medium">
-                            Saved to Journey Record · {sp.label}
+                            Saved to Brand DNA · {sp.label}
                           </span>
                         </div>
                       );
@@ -496,10 +518,10 @@ export function ChatPanel({
                                 if (!valueToSave) return;
                                 setStagePromptSaved(prev => new Set(prev).add(key));
                                 try {
-                                  await onSaveStagePrompt?.({
-                                    ...sp,
-                                    value: valueToSave,
-                                  });
+                                  await onSaveStagePrompt?.(
+                                    { ...sp, value: valueToSave },
+                                    msg.id
+                                  );
                                 } catch (e) {
                                   setStagePromptSaved(prev => {
                                     const n = new Set(prev);
