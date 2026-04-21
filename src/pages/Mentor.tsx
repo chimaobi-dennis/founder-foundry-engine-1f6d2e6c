@@ -233,6 +233,9 @@ const Mentor = () => {
   });
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState('');
+  // Brands currently generating their very first AI message after onboarding —
+  // used to suppress the empty-state greeting and show the streaming/thinking UI instead.
+  const [firstMessageBrands, setFirstMessageBrands] = useState<Set<string>>(new Set());
   const lastMessageRef = useRef<string>("");
   const slowTimerRef = useRef<ReturnType<typeof setTimeout>>();
   
