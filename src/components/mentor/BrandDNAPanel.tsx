@@ -74,9 +74,11 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
     const stageKey = activeBrand?.journey_stage ?? 'spark';
     if (!activeBrand?.id) {
       setStageProgress({});
+      setProgressLoading(false);
       return;
     }
     let cancelled = false;
+    setProgressLoading(true);
     getStageProgress(activeBrand.id, stageKey).then(rows => {
       if (cancelled) return;
       const map: Record<number, boolean> = {};
@@ -84,6 +86,9 @@ export function BrandDNAPanel({ fields, highlightField, onEditField, onClearFiel
         if (r.isCompleted) map[r.substageIndex] = true;
       });
       setStageProgress(map);
+      setProgressLoading(false);
+    }).catch(() => {
+      if (!cancelled) setProgressLoading(false);
     });
     return () => { cancelled = true; };
   }, [activeBrand?.id, activeBrand?.journey_stage]);
