@@ -95,7 +95,7 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const createNewBrand = async (name: string): Promise<Brand | null> => {
+  const createNewBrand = async (name: string = 'Untitled Project'): Promise<Brand | null> => {
     if (!user) return null;
     const { success, brand } = await createBrand(user.id, name);
     if (success && brand) {

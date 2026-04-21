@@ -1159,7 +1159,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
       <div className="flex-1 min-h-0 flex items-center justify-center px-4">
         <div className="w-[90%] max-w-[560px] rounded-2xl p-8 bg-card dark:bg-[#1A2A3A] border-[0.5px] border-[#E8E2D9] dark:border-[#2A3A4A]">
           <div className="w-2 h-2 rounded-full bg-primary animate-amber-pulse mb-4" />
-          <p className="font-display text-[18px] leading-[1.7] text-foreground mb-2">No brand selected — start by creating your first brand</p>
+          <p className="font-display text-[18px] leading-[1.7] text-foreground mb-2">No project selected — start by creating your first project</p>
           <div className="my-6 h-px bg-border dark:border-[#2A3A4A] w-full" style={{ height: "0.5px" }} />
           <div className="flex gap-3">
             <button
