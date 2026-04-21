@@ -358,6 +358,42 @@ const Mentor = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBrandId]);
 
+  // ─── Onboarding check ──────────────────────────────────────────────────────
+  // When a brand is active and has not completed onboarding, show the overlay
+  useEffect(() => {
+    if (!activeBrandId || !activeBrand) return;
+    if (onboardingCheckedFor.has(activeBrandId)) return;
+
+    const checkOnboarding = async () => {
+      const { data } = await (supabase as any)
+        .from('brands')
+        .select('onboarding_completed')
+        .eq('id', activeBrandId)
+        .single();
+
+      setOnboardingCheckedFor(prev => new Set(prev).add(activeBrandId));
+      if (data && data.onboarding_completed === false) {
+        setShowOnboarding(true);
+      }
+    };
+
+    checkOnboarding();
+  }, [activeBrandId, activeBrand, onboardingCheckedFor]);
+
+  const handleOnboardingComplete = useCallback(async () => {
+    setShowOnboarding(false);
+    // Refresh brands so any extracted name / stage updates flow through
+    await refreshBrands();
+    await refreshBrandDNA();
+    // Force re-load of brand data and right-panel substages
+    setLoadedBrands(prev => {
+      const next = new Set(prev);
+      next.delete(activeBrandId);
+      return next;
+    });
+    setForceRefresh(prev => prev + 1);
+  }, [activeBrandId, refreshBrands, refreshBrandDNA]);
+
   // ─── Handle CTA query param (idea / brand mode) ───────────────────────────
 
   useEffect(() => {
