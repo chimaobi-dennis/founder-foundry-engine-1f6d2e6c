@@ -104,6 +104,8 @@ export function ChatPanel({
   streamingText = '',
   onSaveStagePrompt,
   savedStagePromptKeys,
+  onDeleteMessage,
+  onRetryMessage,
 }: ChatPanelProps) {
   // Use external input value if provided, otherwise use internal state
   const [internalInputValue, setInternalInputValue] = useState("");
