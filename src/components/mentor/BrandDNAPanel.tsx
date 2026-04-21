@@ -15,13 +15,14 @@ interface BrandDNAPanelProps {
 }
 
 export function BrandDNAPanel({ fields, highlightField, onEditField, onClearField, customFields = [], onSaveCustomField }: BrandDNAPanelProps) {
-  const { activeBrand, journeyStages, currentStageData } = useBrand();
+  const { activeBrand, journeyStages, currentStageData, updateStage } = useBrand();
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
   const [capturedData, setCapturedData] = useState<Record<string, Record<string, string>>>({});
   const [expandedStages, setExpandedStages] = useState<string[]>([]);
   const [editingField, setEditingField] = useState<{ stageKey: string; fieldKey: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [savingField, setSavingField] = useState<string | null>(null);
+  const [showRightStagePicker, setShowRightStagePicker] = useState(false);
 
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
