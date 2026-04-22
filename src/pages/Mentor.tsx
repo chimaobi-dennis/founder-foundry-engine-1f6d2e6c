@@ -320,6 +320,7 @@ const Mentor = () => {
         id: m.id,
         role: m.role === "user" ? "founder" : "ai",
         content: m.content,
+        failed: !!(m as any).ai_response_failed,
       }));
 
       const uiMilestones: Milestone[] = dbMilestones.map(m => ({
