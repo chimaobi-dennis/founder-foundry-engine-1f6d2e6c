@@ -81,18 +81,24 @@ interface ChatPanelProps {
 }
 
 // Per-message actions menu — appears next to each bubble on hover.
-// Provides copy / retry (AI only) / delete actions.
+// Provides copy / edit (user only) / retry / regenerate / delete actions.
 function MessageActionsMenu({
   messageId,
   role,
   text,
+  showRetry,
   onRetry,
+  onEdit,
   onDelete,
 }: {
   messageId: string;
   role: "ai" | "founder";
   text: string;
+  // Only show Retry on a user message when its AI response failed AND it is
+  // the last user message in the timeline. AI messages always allow Regenerate.
+  showRetry?: boolean;
   onRetry?: (id: string) => Promise<void> | void;
+  onEdit?: (id: string) => void;
   onDelete?: (id: string) => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
@@ -105,6 +111,8 @@ function MessageActionsMenu({
       toast.error("Could not copy");
     }
   }, [text]);
+
+  const isAI = role === "ai";
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -127,15 +135,40 @@ function MessageActionsMenu({
           <Copy size={14} />
           Copy text
         </DropdownMenuItem>
-        {role === "ai" && onRetry && (
+
+        {/* AI: regenerate the response */}
+        {isAI && onRetry && (
           <DropdownMenuItem
             onSelect={() => { void onRetry(messageId); }}
             className="gap-2 text-[13px]"
           >
             <RotateCcw size={14} />
-            Retry response
+            Regenerate
           </DropdownMenuItem>
         )}
+
+        {/* User: retry (only when last + AI failed) */}
+        {!isAI && showRetry && onRetry && (
+          <DropdownMenuItem
+            onSelect={() => { void onRetry(messageId); }}
+            className="gap-2 text-[13px]"
+          >
+            <RotateCcw size={14} />
+            Retry
+          </DropdownMenuItem>
+        )}
+
+        {/* User: inline edit */}
+        {!isAI && onEdit && (
+          <DropdownMenuItem
+            onSelect={() => { onEdit(messageId); }}
+            className="gap-2 text-[13px]"
+          >
+            <Pencil size={14} />
+            Edit
+          </DropdownMenuItem>
+        )}
+
         {onDelete && (
           <>
             <DropdownMenuSeparator />
