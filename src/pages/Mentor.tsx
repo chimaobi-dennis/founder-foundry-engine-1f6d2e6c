@@ -879,11 +879,25 @@ Be selective — only mark significant shifts, not minor tangents.`,
     } catch (e) {
       setChatError(e instanceof Error ? e.message : "Could not connect — try again");
       
-      // Mark the last user message as failed
+      // Mark the last user message as failed in DB AND in local state so the
+      // inline retry pill renders immediately without requiring a reload.
       const lastUserMsg = allMessages.filter(m => m.role === "founder").pop();
       if (lastUserMsg) {
         await markMessageAsFailed(lastUserMsg.id);
         setUnansweredMessageId(lastUserMsg.id);
+        setBrandDataMap(prev => {
+          const bd = prev[brandId];
+          if (!bd) return prev;
+          return {
+            ...prev,
+            [brandId]: {
+              ...bd,
+              messages: bd.messages.map(m =>
+                m.id === lastUserMsg.id ? { ...m, failed: true } : m
+              ),
+            },
+          };
+        });
       }
     } finally {
       clearTimeout(slowTimerRef.current);
