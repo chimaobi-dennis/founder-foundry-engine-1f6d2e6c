@@ -75,6 +75,9 @@ interface ChatPanelProps {
   // Per-message actions
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   onRetryMessage?: (messageId: string) => Promise<void> | void;
+  // Inline edit of an existing user message — updates the row in place and
+  // regenerates the AI response. Never inserts a duplicate user row.
+  onEditMessage?: (messageId: string, newContent: string) => Promise<void> | void;
 }
 
 // Per-message actions menu — appears next to each bubble on hover.
