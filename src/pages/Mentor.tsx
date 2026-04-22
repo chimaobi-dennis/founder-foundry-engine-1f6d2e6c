@@ -795,10 +795,31 @@ Be selective — only mark significant shifts, not minor tangents.`,
       }
 
       const aiMsg: Message = { id: aiMsgId, role: "ai", content: response.text };
+
+      // Clear the failed flag on the user message that triggered this turn —
+      // both locally and in the DB — so the inline retry pill disappears.
+      const lastUserMsgForClear = allMessages.filter(m => m.role === "founder").pop();
+      if (lastUserMsgForClear?.id) {
+        clearMessageFailedFlag(lastUserMsgForClear.id).catch(() => {});
+      }
+
       setBrandDataMap(prev => {
         const data = prev[brandId];
         if (!data) return prev;
-        return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMsg] } };
+        return {
+          ...prev,
+          [brandId]: {
+            ...data,
+            messages: [
+              ...data.messages.map(m =>
+                lastUserMsgForClear && m.id === lastUserMsgForClear.id
+                  ? { ...m, failed: false }
+                  : m
+              ),
+              aiMsg,
+            ],
+          },
+        };
       });
 
       // Clear unanswered state — message is now answered
