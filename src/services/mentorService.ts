@@ -396,6 +396,24 @@ export const getMentorAIResponse = async (
     }
   }
 
+  // Fetch stage field definitions for the current stage
+  let stageFieldKeys = '';
+  let stageFields: any[] = [];
+  if (brand?.journey_stage) {
+    const { data: stageFieldsData } = await (supabase as any)
+      .from('journey_stage_fields')
+      .select('field_key, field_label, field_description, substage_index')
+      .eq('stage_key', brand.journey_stage)
+      .order('substage_index');
+
+    if (stageFieldsData && stageFieldsData.length > 0) {
+      stageFields = stageFieldsData;
+      stageFieldKeys = stageFields
+        .map(f => `field_key: ${f.field_key} — ${f.field_label || f.field_description || ''}`)
+        .join('\n');
+    }
+  }
+
   systemPrompt = injectPromptVariables(systemPrompt, {
     brand_name: brand?.name ?? '',
     industry: brand?.industry ?? '',
@@ -409,9 +427,10 @@ export const getMentorAIResponse = async (
     journey_stage: brand?.journey_stage ?? 'spark',
     stage_focus: stageFocus,
     current_substages: currentSubstages,
-    next_uncaptured_substage: nextUncapturedSubstage
+    next_uncaptured_substage: nextUncapturedSubstage,
+    stage_field_keys: stageFieldKeys
   });
-
+  console.log('systemPrompt', systemPrompt);
   // Inject project assets context
   const assetsContext = await getAssetsForAIContext(brand.id);
   if (assetsContext) {
@@ -463,7 +482,7 @@ export const getMentorAIResponse = async (
   const choicePromptMatch = result.text.match(
     /<CHOICE_PROMPT>([\s\S]*?)<\/CHOICE_PROMPT>/
   );
-
+  console.log('AI response', result.text);
   let choicePrompt = null;
   let cleanText = result.text;
 
@@ -500,23 +519,33 @@ export const getMentorAIResponse = async (
       if (saveData.field && saveData.value) {
         const stageKey = saveData.stage_key || brand.journey_stage;
         
-        await (supabase as any)
-          .from('brand_stage_data')
-          .upsert({
-            brand_id: brand.id,
-            stage_key: stageKey,
-            field_key: saveData.field,
+        // Validate that the field_key exists in the current stage's field definitions
+        const isValidField = stageFields.some(f => f.field_key === saveData.field);
+        
+        if (isValidField) {
+          // Field is valid — save to brand_stage_data
+          await (supabase as any)
+            .from('brand_stage_data')
+            .upsert({
+              brand_id: brand.id,
+              stage_key: stageKey,
+              field_key: saveData.field,
+              value: saveData.value,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'brand_id,stage_key,field_key' });
+
+          capturedField = {
+            fieldKey: saveData.field,
             value: saveData.value,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'brand_id,stage_key,field_key' });
+            stageKey: stageKey
+          };
 
-        capturedField = {
-          fieldKey: saveData.field,
-          value: saveData.value,
-          stageKey: stageKey
-        };
-
-        console.log('Auto-captured field to brand_stage_data:', capturedField);
+          console.log('Auto-captured field to brand_stage_data:', capturedField);
+        } else {
+          // Field is not valid for this stage — skip brand_stage_data save
+          // The value could still be saved via Brand DNA or memory through the UI pills
+          console.log(`Field "${saveData.field}" not found in stage "${stageKey}" field definitions — skipping brand_stage_data save`);
+        }
       }
     } catch (e) {
       console.error('Failed to parse SAVE_PROMPT JSON:', e);
