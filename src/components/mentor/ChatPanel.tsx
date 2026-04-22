@@ -215,6 +215,7 @@ export function ChatPanel({
   savedStagePromptKeys,
   onDeleteMessage,
   onRetryMessage,
+  onEditMessage,
 }: ChatPanelProps) {
   // Use external input value if provided, otherwise use internal state
   const [internalInputValue, setInternalInputValue] = useState("");
