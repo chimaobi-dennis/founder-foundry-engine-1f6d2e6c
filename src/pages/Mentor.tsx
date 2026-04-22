@@ -845,6 +845,11 @@ Be selective — only mark significant shifts, not minor tangents.`,
         });
       }
 
+      // Auto-captured field → refresh substages immediately
+      if (response.capturedField) {
+        setForceRefresh(n => n + 1);
+      }
+
       // Detect milestone in background (fire and forget)
       detectMilestone(brandId, aiMsgId, allMessages, response.text);
 
@@ -1001,6 +1006,11 @@ Be selective — only mark significant shifts, not minor tangents.`,
             });
           }
 
+          // Auto-captured field → refresh substages in both side panels
+          if (aiResult.capturedField) {
+            setForceRefresh(n => n + 1);
+          }
+
           // Detect milestone
           detectMilestone(brandId, aiMsg.id, [...currentMessages, aiMessage], aiResult.text);
         }
@@ -1150,6 +1160,11 @@ Be selective — only mark significant shifts, not minor tangents.`,
             }
             return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMessage] } };
           });
+
+          // Auto-captured field → refresh substages in side panels
+          if (aiResult.capturedField) {
+            setForceRefresh(n => n + 1);
+          }
         }
       }
     } catch (e) {
@@ -1616,6 +1631,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             onDeleteMilestone={handleDeleteMilestone}
             onEditMilestoneCategory={handleEditMilestoneCategory}
             conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
+            dataRefreshTrigger={forceRefresh}
           />
         </aside>
       ) : (
@@ -1635,6 +1651,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               onDeleteMilestone={handleDeleteMilestone}
               onEditMilestoneCategory={handleEditMilestoneCategory}
               conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
+              dataRefreshTrigger={forceRefresh}
             />
           </SheetContent>
         </Sheet>

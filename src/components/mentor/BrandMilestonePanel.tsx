@@ -46,6 +46,8 @@ interface BrandMilestonePanelProps {
   activeBrandDNA?: BrandDNA | null;
   /** Optional — accepted for parity with the right panel; not used here. */
   conversation?: { id: string } | null;
+  /** Bumped by the parent after any save so the substage progress re-fetches */
+  dataRefreshTrigger?: number;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
@@ -69,6 +71,7 @@ export function BrandMilestonePanel({
   onEditMilestoneCategory,
   realActiveBrand,
   activeBrandDNA,
+  dataRefreshTrigger = 0,
 }: BrandMilestonePanelProps) {
   const { brands: realBrands, journeyStages, currentStageData, switchBrand } = useBrand();
   const { user } = useAuth();
@@ -103,7 +106,7 @@ export function BrandMilestonePanel({
       if (!cancelled) setStageSubstages(rows);
     });
     return () => { cancelled = true; };
-  }, [realActiveBrand?.id, realActiveBrand?.journey_stage, currentStageData]);
+  }, [realActiveBrand?.id, realActiveBrand?.journey_stage, currentStageData, dataRefreshTrigger]);
 
   // Load project assets whenever brand changes
   useEffect(() => {
