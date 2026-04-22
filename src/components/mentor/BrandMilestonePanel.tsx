@@ -46,6 +46,8 @@ interface BrandMilestonePanelProps {
   activeBrandDNA?: BrandDNA | null;
   /** Optional — accepted for parity with the right panel; not used here. */
   conversation?: { id: string } | null;
+  /** Bumped by the parent after any save so the substage progress re-fetches */
+  dataRefreshTrigger?: number;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
