@@ -845,6 +845,11 @@ Be selective — only mark significant shifts, not minor tangents.`,
         });
       }
 
+      // Auto-captured field → refresh substages immediately
+      if (response.capturedField) {
+        setForceRefresh(n => n + 1);
+      }
+
       // Detect milestone in background (fire and forget)
       detectMilestone(brandId, aiMsgId, allMessages, response.text);
 
