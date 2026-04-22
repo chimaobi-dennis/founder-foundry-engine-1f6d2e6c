@@ -406,6 +406,7 @@ export const getMentorAIResponse = async (
     current_substages: currentSubstages,
     next_uncaptured_substage: nextUncapturedSubstage
   });
+  console.log('systemPrompt', systemPrompt);
 
   // Inject project assets context
   const assetsContext = await getAssetsForAIContext(brand.id);
@@ -420,7 +421,11 @@ export const getMentorAIResponse = async (
     conversationHistory.filter(m => m.role === 'assistant').length === 0;
 
   if (isFirstExchange && brand?.context_source && brand.context_source !== 'fresh_start') {
-    systemPrompt += `\n\nCONTEXT NOTE: The founder just shared their prior work during project setup. Their Journey Record has been pre-populated with data extracted from their content. Acknowledge this briefly in your first response — something like "I have read through what you shared. Based on that, here is where I think we are..." — then ask one sharp question to deepen your understanding of their most important current challenge. Do not repeat back everything you read — just show you understood it.`;
+    systemPrompt += `\n\nCONTEXT NOTE: The founder just shared their prior work during project setup. 
+    Their Journey Record has been pre-populated with data extracted from their content. 
+    Acknowledge this briefly in your first response — something like "I have read through what you shared. 
+    Based on that, here is where I think we are..." — then ask one sharp question to deepen your understanding of their most important current challenge. 
+    Do not repeat back everything you read — just show you understood it.`;
   }
 
   const result = await callAI({
@@ -449,7 +454,7 @@ export const getMentorAIResponse = async (
     );
     return null;
   }
-
+console.log('AI Response:', result.text);
   // Extract choice prompt if present
   const choicePromptMatch = result.text.match(
     /<CHOICE_PROMPT>([\s\S]*?)<\/CHOICE_PROMPT>/
