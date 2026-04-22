@@ -382,6 +382,20 @@ export function ChatPanel({
     return out;
   }, [messages]);
 
+  // Inline-edit state for user messages: messageId → draft text. Undefined
+  // means the message is not currently being edited.
+  const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
+
+  // Id of the last user message in the timeline. The Retry action in the
+  // user message menu is only available when (this is the last user msg)
+  // AND (its AI response failed) — matching the inline retry pill.
+  const lastUserMessageId = useMemo(() => {
+    for (let i = dedupedMessages.length - 1; i >= 0; i--) {
+      if (dedupedMessages[i].role === "founder") return dedupedMessages[i].id;
+    }
+    return null;
+  }, [dedupedMessages]);
+
   // Combined "saved" set: locally accepted in this session + persisted in DB.
   const isStagePromptSaved = useCallback((key: string) => (
     stagePromptSaved.has(key) || (savedStagePromptKeys?.has(key) ?? false)
