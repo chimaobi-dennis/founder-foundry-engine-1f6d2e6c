@@ -996,10 +996,23 @@ Be selective — only mark significant shifts, not minor tangents.`,
         const aiMsg = await saveMessage(conversation.id, 'assistant', aiResult.text);
         if (aiMsg) {
           const aiMessage: Message = { id: aiMsg.id, role: "ai", content: aiResult.text };
+          // Clear any failed flag on the user message that just succeeded.
+          clearMessageFailedFlag(userMsg.id).catch(() => {});
           setBrandDataMap(prev => {
             const data = prev[brandId];
             if (!data) return prev;
-            return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMessage] } };
+            return {
+              ...prev,
+              [brandId]: {
+                ...data,
+                messages: [
+                  ...data.messages.map(m =>
+                    m.id === userMsg.id ? { ...m, failed: false } : m
+                  ),
+                  aiMessage,
+                ],
+              },
+            };
           });
 
           setUnansweredMessageId(null);
@@ -1060,6 +1073,21 @@ Be selective — only mark significant shifts, not minor tangents.`,
       if (userMsg) {
         await markMessageAsFailed(userMsg.id);
         setUnansweredMessageId(userMsg.id);
+        // Reflect failure in local state so the inline retry pill renders
+        // immediately — no page reload required.
+        setBrandDataMap(prev => {
+          const bd = prev[brandId];
+          if (!bd) return prev;
+          return {
+            ...prev,
+            [brandId]: {
+              ...bd,
+              messages: bd.messages.map(m =>
+                m.id === userMsg.id ? { ...m, failed: true } : m
+              ),
+            },
+          };
+        });
       }
     }
   }, [activeBrand, activeBrandId, user, getDNAContext, detectMilestone, refreshBrands]);
