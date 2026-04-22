@@ -1636,6 +1636,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               onDeleteMilestone={handleDeleteMilestone}
               onEditMilestoneCategory={handleEditMilestoneCategory}
               conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
+              dataRefreshTrigger={forceRefresh}
             />
           </SheetContent>
         </Sheet>
