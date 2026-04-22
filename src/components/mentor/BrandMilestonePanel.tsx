@@ -106,7 +106,7 @@ export function BrandMilestonePanel({
       if (!cancelled) setStageSubstages(rows);
     });
     return () => { cancelled = true; };
-  }, [realActiveBrand?.id, realActiveBrand?.journey_stage, currentStageData]);
+  }, [realActiveBrand?.id, realActiveBrand?.journey_stage, currentStageData, dataRefreshTrigger]);
 
   // Load project assets whenever brand changes
   useEffect(() => {
