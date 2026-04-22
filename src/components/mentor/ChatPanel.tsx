@@ -569,20 +569,86 @@ export function ChatPanel({
                       )}
                       style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                     >
-                      <p
-                        className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
-                        style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
-                      >
-                        {parsed.cleanText}
-                      </p>
+                      {msg.role === "founder" && editingMessages[msg.id] !== undefined ? (
+                        <div className="flex flex-col gap-2 min-w-[240px]">
+                          <textarea
+                            value={editingMessages[msg.id]}
+                            onChange={(e) =>
+                              setEditingMessages(prev => ({ ...prev, [msg.id]: e.target.value }))
+                            }
+                            rows={3}
+                            className="w-full text-[13.5px] font-ui text-foreground bg-background/60 border border-border rounded-md px-2 py-1.5 outline-none focus:border-primary"
+                            style={{ resize: 'vertical' }}
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              onClick={() =>
+                                setEditingMessages(prev => {
+                                  const n = { ...prev };
+                                  delete n[msg.id];
+                                  return n;
+                                })
+                              }
+                              className="h-6 px-2.5 rounded-md border border-border text-[11px] font-ui text-foreground hover:bg-muted/50 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const draft = (editingMessages[msg.id] ?? '').trim();
+                                if (!draft || draft === msg.content) {
+                                  setEditingMessages(prev => {
+                                    const n = { ...prev };
+                                    delete n[msg.id];
+                                    return n;
+                                  });
+                                  return;
+                                }
+                                setEditingMessages(prev => {
+                                  const n = { ...prev };
+                                  delete n[msg.id];
+                                  return n;
+                                });
+                                try {
+                                  await onEditMessage?.(msg.id, draft);
+                                } catch {
+                                  toast.error('Could not update message');
+                                }
+                              }}
+                              className="h-6 px-3 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-semibold hover:bg-primary/90 transition-colors"
+                            >
+                              Save & resend
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p
+                          className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
+                          style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                        >
+                          {parsed.cleanText}
+                        </p>
+                      )}
                     </div>
-                    <MessageActionsMenu
-                      messageId={msg.id}
-                      role={msg.role}
-                      text={parsed.cleanText}
-                      onRetry={onRetryMessage}
-                      onDelete={onDeleteMessage}
-                    />
+                    {/* Hide the actions menu while inline editing this message */}
+                    {!(msg.role === "founder" && editingMessages[msg.id] !== undefined) && (
+                      <MessageActionsMenu
+                        messageId={msg.id}
+                        role={msg.role}
+                        text={parsed.cleanText}
+                        showRetry={
+                          msg.role === "founder" &&
+                          msg.id === lastUserMessageId &&
+                          (msg.failed === true || msg.id === unansweredMessageId)
+                        }
+                        onRetry={onRetryMessage}
+                        onEdit={onEditMessage ? (id) => {
+                          setEditingMessages(prev => ({ ...prev, [id]: msg.content }));
+                        } : undefined}
+                        onDelete={onDeleteMessage}
+                      />
+                    )}
                   </div>
 
                   {/* SAVE_PROMPT pills parsed from AI message */}
