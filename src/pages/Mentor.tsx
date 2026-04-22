@@ -1160,6 +1160,11 @@ Be selective — only mark significant shifts, not minor tangents.`,
             }
             return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMessage] } };
           });
+
+          // Auto-captured field → refresh substages in side panels
+          if (aiResult.capturedField) {
+            setForceRefresh(n => n + 1);
+          }
         }
       }
     } catch (e) {
