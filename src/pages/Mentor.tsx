@@ -11,6 +11,7 @@ import {
   getMessages,
   saveMessage,
   deleteMessage,
+  updateMessageContent,
   getMilestones,
   createMilestone,
   deleteMilestone,
