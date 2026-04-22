@@ -1303,9 +1303,11 @@ Be selective — only mark significant shifts, not minor tangents.`,
     toast('Message deleted', { duration: 1500 });
   }, [activeBrandId, brandDataMap]);
 
-  // Regenerate the AI response for a given AI message: delete the old AI
-  // message (and anything after it), then re-run the AI from the conversation
-  // truncated to the prior user turn.
+  // Per-message Retry / Regenerate.
+  // - For an AI message: delete it and regenerate from the prior user turn.
+  // - For a user message (only the last one, when its AI response failed):
+  //   re-trigger the AI response WITHOUT inserting a duplicate user row —
+  //   we simply re-run the AI on the existing conversation history.
   const handleRetryMessage = useCallback(async (messageId: string) => {
     const brandId = activeBrandId;
     const data = brandDataMap[brandId];
@@ -1314,12 +1316,85 @@ Be selective — only mark significant shifts, not minor tangents.`,
     const idx = data.messages.findIndex(m => m.id === messageId);
     if (idx < 0) return;
     const target = data.messages[idx];
-    if (target.role !== 'ai') return;
 
-    // Truncate to everything before this AI message
-    const truncated = data.messages.slice(0, idx);
+    if (target.role === 'ai') {
+      // Truncate to everything before this AI message
+      const truncated = data.messages.slice(0, idx);
 
-    // Drop the old AI message + its attachments locally
+      setBrandDataMap(prev => {
+        const bd = prev[brandId];
+        if (!bd) return prev;
+        return {
+          ...prev,
+          [brandId]: {
+            ...bd,
+            messages: truncated,
+            savePrompts: bd.savePrompts.filter(sp => sp.afterMessageId !== messageId),
+            milestoneMarkers: bd.milestoneMarkers.filter(mm => mm.beforeMessageId !== messageId),
+          },
+        };
+      });
+
+      // Best-effort delete from DB so we don't end up with orphans
+      const { success } = await deleteMessage(messageId);
+      if (!success) {
+        console.warn('Could not delete old AI message before regenerate');
+      }
+
+      setChatError(null);
+      handleAIResponse(brandId, truncated);
+      return;
+    }
+
+    // User message retry: keep the existing message row, do NOT re-insert.
+    // Re-run the AI using the conversation truncated to and including the
+    // failed user message.
+    const upToUser = data.messages.slice(0, idx + 1);
+    setChatError(null);
+    handleAIResponse(brandId, upToUser);
+  }, [activeBrandId, brandDataMap, handleAIResponse]);
+
+  // Inline edit of an existing user message: update the row in place, drop
+  // any subsequent messages (the AI response and beyond) from both UI and
+  // DB, then regenerate the AI response from the edited text.
+  const handleEditUserMessage = useCallback(async (
+    messageId: string,
+    newContent: string
+  ) => {
+    const brandId = activeBrandId;
+    const data = brandDataMap[brandId];
+    if (!data) return;
+
+    const trimmed = newContent.trim();
+    if (!trimmed) return;
+
+    const idx = data.messages.findIndex(m => m.id === messageId);
+    if (idx < 0) return;
+    const target = data.messages[idx];
+    if (target.role !== 'founder') return;
+    if (trimmed === target.content) return; // no change
+
+    // Messages we will drop from after the edited turn (the prior AI reply
+    // and anything else that followed). Delete from DB best-effort.
+    const subsequent = data.messages.slice(idx + 1);
+    const subsequentIds = new Set(subsequent.map(m => m.id));
+
+    // Update the existing row in place — no new insert.
+    const { success, error } = await updateMessageContent(messageId, trimmed);
+    if (!success) {
+      toast.error(error || 'Could not save edit');
+      return;
+    }
+
+    // Clear failed flag (the user just edited and is about to retry).
+    clearMessageFailedFlag(messageId).catch(() => {});
+
+    // Rebuild local state: replace the message content, drop everything after.
+    const newMessages: Message[] = [
+      ...data.messages.slice(0, idx),
+      { ...target, content: trimmed, failed: false },
+    ];
+
     setBrandDataMap(prev => {
       const bd = prev[brandId];
       if (!bd) return prev;
@@ -1327,22 +1402,20 @@ Be selective — only mark significant shifts, not minor tangents.`,
         ...prev,
         [brandId]: {
           ...bd,
-          messages: truncated,
-          savePrompts: bd.savePrompts.filter(sp => sp.afterMessageId !== messageId),
-          milestoneMarkers: bd.milestoneMarkers.filter(mm => mm.beforeMessageId !== messageId),
+          messages: newMessages,
+          savePrompts: bd.savePrompts.filter(sp => !subsequentIds.has(sp.afterMessageId)),
+          milestoneMarkers: bd.milestoneMarkers.filter(mm => !subsequentIds.has(mm.beforeMessageId)),
         },
       };
     });
 
-    // Best-effort delete from DB so we don't end up with orphans
-    const { success } = await deleteMessage(messageId);
-    if (!success) {
-      // Non-fatal — proceed with regeneration regardless
-      console.warn('Could not delete old AI message before retry');
-    }
+    // Best-effort delete subsequent rows so the conversation stays consistent.
+    await Promise.all(
+      Array.from(subsequentIds).map(id => deleteMessage(id).catch(() => null))
+    );
 
     setChatError(null);
-    handleAIResponse(brandId, truncated);
+    handleAIResponse(brandId, newMessages);
   }, [activeBrandId, brandDataMap, handleAIResponse]);
 
   const handleChoiceSelection = useCallback(async (
