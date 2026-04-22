@@ -75,21 +75,30 @@ interface ChatPanelProps {
   // Per-message actions
   onDeleteMessage?: (messageId: string) => Promise<void> | void;
   onRetryMessage?: (messageId: string) => Promise<void> | void;
+  // Inline edit of an existing user message — updates the row in place and
+  // regenerates the AI response. Never inserts a duplicate user row.
+  onEditMessage?: (messageId: string, newContent: string) => Promise<void> | void;
 }
 
 // Per-message actions menu — appears next to each bubble on hover.
-// Provides copy / retry (AI only) / delete actions.
+// Provides copy / edit (user only) / retry / regenerate / delete actions.
 function MessageActionsMenu({
   messageId,
   role,
   text,
+  showRetry,
   onRetry,
+  onEdit,
   onDelete,
 }: {
   messageId: string;
   role: "ai" | "founder";
   text: string;
+  // Only show Retry on a user message when its AI response failed AND it is
+  // the last user message in the timeline. AI messages always allow Regenerate.
+  showRetry?: boolean;
   onRetry?: (id: string) => Promise<void> | void;
+  onEdit?: (id: string) => void;
   onDelete?: (id: string) => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
@@ -102,6 +111,8 @@ function MessageActionsMenu({
       toast.error("Could not copy");
     }
   }, [text]);
+
+  const isAI = role === "ai";
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -124,15 +135,40 @@ function MessageActionsMenu({
           <Copy size={14} />
           Copy text
         </DropdownMenuItem>
-        {role === "ai" && onRetry && (
+
+        {/* AI: regenerate the response */}
+        {isAI && onRetry && (
           <DropdownMenuItem
             onSelect={() => { void onRetry(messageId); }}
             className="gap-2 text-[13px]"
           >
             <RotateCcw size={14} />
-            Retry response
+            Regenerate
           </DropdownMenuItem>
         )}
+
+        {/* User: retry (only when last + AI failed) */}
+        {!isAI && showRetry && onRetry && (
+          <DropdownMenuItem
+            onSelect={() => { void onRetry(messageId); }}
+            className="gap-2 text-[13px]"
+          >
+            <RotateCcw size={14} />
+            Retry
+          </DropdownMenuItem>
+        )}
+
+        {/* User: inline edit */}
+        {!isAI && onEdit && (
+          <DropdownMenuItem
+            onSelect={() => { onEdit(messageId); }}
+            className="gap-2 text-[13px]"
+          >
+            <Pencil size={14} />
+            Edit
+          </DropdownMenuItem>
+        )}
+
         {onDelete && (
           <>
             <DropdownMenuSeparator />
@@ -179,6 +215,7 @@ export function ChatPanel({
   savedStagePromptKeys,
   onDeleteMessage,
   onRetryMessage,
+  onEditMessage,
 }: ChatPanelProps) {
   // Use external input value if provided, otherwise use internal state
   const [internalInputValue, setInternalInputValue] = useState("");
@@ -344,6 +381,20 @@ export function ChatPanel({
     }
     return out;
   }, [messages]);
+
+  // Inline-edit state for user messages: messageId → draft text. Undefined
+  // means the message is not currently being edited.
+  const [editingMessages, setEditingMessages] = useState<Record<string, string>>({});
+
+  // Id of the last user message in the timeline. The Retry action in the
+  // user message menu is only available when (this is the last user msg)
+  // AND (its AI response failed) — matching the inline retry pill.
+  const lastUserMessageId = useMemo(() => {
+    for (let i = dedupedMessages.length - 1; i >= 0; i--) {
+      if (dedupedMessages[i].role === "founder") return dedupedMessages[i].id;
+    }
+    return null;
+  }, [dedupedMessages]);
 
   // Combined "saved" set: locally accepted in this session + persisted in DB.
   const isStagePromptSaved = useCallback((key: string) => (
@@ -518,20 +569,86 @@ export function ChatPanel({
                       )}
                       style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                     >
-                      <p
-                        className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
-                        style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
-                      >
-                        {parsed.cleanText}
-                      </p>
+                      {msg.role === "founder" && editingMessages[msg.id] !== undefined ? (
+                        <div className="flex flex-col gap-2 min-w-[240px]">
+                          <textarea
+                            value={editingMessages[msg.id]}
+                            onChange={(e) =>
+                              setEditingMessages(prev => ({ ...prev, [msg.id]: e.target.value }))
+                            }
+                            rows={3}
+                            className="w-full text-[13.5px] font-ui text-foreground bg-background/60 border border-border rounded-md px-2 py-1.5 outline-none focus:border-primary"
+                            style={{ resize: 'vertical' }}
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              onClick={() =>
+                                setEditingMessages(prev => {
+                                  const n = { ...prev };
+                                  delete n[msg.id];
+                                  return n;
+                                })
+                              }
+                              className="h-6 px-2.5 rounded-md border border-border text-[11px] font-ui text-foreground hover:bg-muted/50 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const draft = (editingMessages[msg.id] ?? '').trim();
+                                if (!draft || draft === msg.content) {
+                                  setEditingMessages(prev => {
+                                    const n = { ...prev };
+                                    delete n[msg.id];
+                                    return n;
+                                  });
+                                  return;
+                                }
+                                setEditingMessages(prev => {
+                                  const n = { ...prev };
+                                  delete n[msg.id];
+                                  return n;
+                                });
+                                try {
+                                  await onEditMessage?.(msg.id, draft);
+                                } catch {
+                                  toast.error('Could not update message');
+                                }
+                              }}
+                              className="h-6 px-3 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-semibold hover:bg-primary/90 transition-colors"
+                            >
+                              Save & resend
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p
+                          className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
+                          style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                        >
+                          {parsed.cleanText}
+                        </p>
+                      )}
                     </div>
-                    <MessageActionsMenu
-                      messageId={msg.id}
-                      role={msg.role}
-                      text={parsed.cleanText}
-                      onRetry={onRetryMessage}
-                      onDelete={onDeleteMessage}
-                    />
+                    {/* Hide the actions menu while inline editing this message */}
+                    {!(msg.role === "founder" && editingMessages[msg.id] !== undefined) && (
+                      <MessageActionsMenu
+                        messageId={msg.id}
+                        role={msg.role}
+                        text={parsed.cleanText}
+                        showRetry={
+                          msg.role === "founder" &&
+                          msg.id === lastUserMessageId &&
+                          (msg.failed === true || msg.id === unansweredMessageId)
+                        }
+                        onRetry={onRetryMessage}
+                        onEdit={onEditMessage ? (id) => {
+                          setEditingMessages(prev => ({ ...prev, [id]: msg.content }));
+                        } : undefined}
+                        onDelete={onDeleteMessage}
+                      />
+                    )}
                   </div>
 
                   {/* SAVE_PROMPT pills parsed from AI message */}
@@ -642,7 +759,10 @@ export function ChatPanel({
                   })}
                   
                   {/* Inline retry button for unanswered/failed messages */}
-                  {msg.role === "founder" && (msg.id === unansweredMessageId || (msg as any).ai_response_failed) && (
+                  {msg.role === "founder" &&
+                    msg.id === lastUserMessageId &&
+                    (msg.failed === true || msg.id === unansweredMessageId) &&
+                    editingMessages[msg.id] === undefined && (
                     <div 
                       style={{
                         display: 'flex',
@@ -658,11 +778,14 @@ export function ChatPanel({
                       </span>
                       <button
                         onClick={() => {
-                          setInputValue(msg.content);
-                          // Small delay then auto-focus the input
-                          setTimeout(() => {
-                            document.querySelector<HTMLInputElement>('.mentor-input')?.focus();
-                          }, 100);
+                          if (onRetryMessage) {
+                            void onRetryMessage(msg.id);
+                          } else {
+                            setInputValue(msg.content);
+                            setTimeout(() => {
+                              document.querySelector<HTMLInputElement>('.mentor-input')?.focus();
+                            }, 100);
+                          }
                         }}
                         style={{
                           fontSize: '11px',

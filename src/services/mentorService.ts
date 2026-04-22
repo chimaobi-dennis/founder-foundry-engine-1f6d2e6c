@@ -148,6 +148,21 @@ export const deleteMessage = async (
   return { success: !error, error: error?.message };
 };
 
+// Update the content of an existing mentor message in place. Used by the
+// per-message Edit action so we never insert a duplicate row when a founder
+// rewrites a message and resubmits it.
+export const updateMessageContent = async (
+  messageId: string,
+  content: string
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await (supabase as any)
+    .from('mentor_messages')
+    .update({ content })
+    .eq('id', messageId);
+
+  return { success: !error, error: error?.message };
+};
+
 // ─── Milestones ───────────────────────────────────────────
 
 export const getMilestones = async (

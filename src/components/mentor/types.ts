@@ -45,6 +45,9 @@ export interface Message {
   id: string;
   role: "ai" | "founder";
   content: string;
+  // True when the AI failed to respond to this user message. Drives the
+  // inline retry pill underneath the bubble without requiring a DB refetch.
+  failed?: boolean;
 }
 
 export interface InlineSavePrompt {
