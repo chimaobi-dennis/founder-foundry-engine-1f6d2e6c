@@ -759,7 +759,10 @@ export function ChatPanel({
                   })}
                   
                   {/* Inline retry button for unanswered/failed messages */}
-                  {msg.role === "founder" && (msg.id === unansweredMessageId || (msg as any).ai_response_failed) && (
+                  {msg.role === "founder" &&
+                    msg.id === lastUserMessageId &&
+                    (msg.failed === true || msg.id === unansweredMessageId) &&
+                    editingMessages[msg.id] === undefined && (
                     <div 
                       style={{
                         display: 'flex',
@@ -775,11 +778,14 @@ export function ChatPanel({
                       </span>
                       <button
                         onClick={() => {
-                          setInputValue(msg.content);
-                          // Small delay then auto-focus the input
-                          setTimeout(() => {
-                            document.querySelector<HTMLInputElement>('.mentor-input')?.focus();
-                          }, 100);
+                          if (onRetryMessage) {
+                            void onRetryMessage(msg.id);
+                          } else {
+                            setInputValue(msg.content);
+                            setTimeout(() => {
+                              document.querySelector<HTMLInputElement>('.mentor-input')?.focus();
+                            }, 100);
+                          }
                         }}
                         style={{
                           fontSize: '11px',
