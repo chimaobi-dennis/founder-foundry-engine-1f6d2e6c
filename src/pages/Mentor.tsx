@@ -1858,6 +1858,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
                 savedStagePromptKeys={savedStagePromptKeys}
                 onDeleteMessage={handleDeleteMessage}
                 onRetryMessage={handleRetryMessage}
+                onEditMessage={handleEditUserMessage}
               />
             );
           }
