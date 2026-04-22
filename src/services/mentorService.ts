@@ -57,6 +57,11 @@ export interface MentorAIResult {
     dnaField: string | null;
     options: { label: string; value: string; description?: string }[];
   } | null;
+  capturedField?: {
+    fieldKey: string;
+    value: string;
+    stageKey: string;
+  } | null;
 }
 
 // ─── Conversation ─────────────────────────────────────────
@@ -406,7 +411,6 @@ export const getMentorAIResponse = async (
     current_substages: currentSubstages,
     next_uncaptured_substage: nextUncapturedSubstage
   });
-  console.log('systemPrompt', systemPrompt);
 
   // Inject project assets context
   const assetsContext = await getAssetsForAIContext(brand.id);
@@ -454,7 +458,7 @@ export const getMentorAIResponse = async (
     );
     return null;
   }
-console.log('AI Response:', result.text);
+
   // Extract choice prompt if present
   const choicePromptMatch = result.text.match(
     /<CHOICE_PROMPT>([\s\S]*?)<\/CHOICE_PROMPT>/
@@ -483,8 +487,49 @@ console.log('AI Response:', result.text);
       .trim();
   }
 
+  // Extract and auto-save SAVE_PROMPT blocks to brand_stage_data
+  // This is separate from the UI save pills which are for Brand DNA
+  let capturedField: { fieldKey: string; value: string; stageKey: string } | null = null;
+  const savePromptMatch = result.text.match(/SAVE_PROMPT:(\{.*?\})/s);
+  
+  if (savePromptMatch && brand?.id && brand?.journey_stage) {
+    try {
+      const saveData = JSON.parse(savePromptMatch[1]);
+      
+      // Validate required fields
+      if (saveData.field && saveData.value) {
+        const stageKey = saveData.stage_key || brand.journey_stage;
+        
+        await (supabase as any)
+          .from('brand_stage_data')
+          .upsert({
+            brand_id: brand.id,
+            stage_key: stageKey,
+            field_key: saveData.field,
+            value: saveData.value,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'brand_id,stage_key,field_key' });
+
+        capturedField = {
+          fieldKey: saveData.field,
+          value: saveData.value,
+          stageKey: stageKey
+        };
+
+        console.log('Auto-captured field to brand_stage_data:', capturedField);
+      }
+    } catch (e) {
+      console.error('Failed to parse SAVE_PROMPT JSON:', e);
+      console.error('Raw match:', savePromptMatch[1]);
+    }
+    
+    // Strip the SAVE_PROMPT block from cleanText
+    cleanText = cleanText.replace(/SAVE_PROMPT:\{.*?\}/s, '').trim();
+  }
+
   // cleanText is what gets saved to the database
   // choicePrompt is the extracted structured data
+  // capturedField contains auto-saved brand_stage_data info
 
   // After getting a successful response check if we should auto-name
   // (isFirstExchange already declared above)
@@ -513,7 +558,7 @@ console.log('AI Response:', result.text);
     });
   }
 
-  return { text: cleanText, choicePrompt };
+  return { text: cleanText, choicePrompt, capturedField };
 };
 
 // ─── Choice Prompts ─────────────────────────────────────────
