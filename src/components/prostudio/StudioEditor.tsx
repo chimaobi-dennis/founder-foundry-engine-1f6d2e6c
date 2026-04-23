@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useTheme } from "@/hooks/use-theme";
+import { CanvasSwitcher, type CanvasItem } from "./CanvasSwitcher";
 
 interface Layer {
   id: string;
@@ -54,6 +55,15 @@ interface Props {
   variationId: string;
   onDownload?: () => void;
   onSaveToLibrary?: () => void;
+  // Canvas switcher (universal — also used by ReelBuilder/slides in future)
+  canvases?: CanvasItem[];
+  activeCanvasId?: string | null;
+  onSelectCanvas?: (id: string) => void;
+  onAddBlankCanvas?: () => void;
+  onAddCanvasFromTemplate?: () => void;
+  onDuplicateCanvas?: (id: string) => void;
+  onDeleteCanvas?: (id: string) => void;
+  onSetMainCanvas?: (id: string) => void;
 }
 
 // Mock layers for the shell — would be parsed from generated HTML in a follow-up
