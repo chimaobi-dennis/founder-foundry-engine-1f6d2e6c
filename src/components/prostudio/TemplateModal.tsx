@@ -165,6 +165,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
+      setUploadError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
