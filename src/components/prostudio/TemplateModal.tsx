@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { useProductImages } from "@/hooks/use-product-images";
 import { useAuth } from "@/contexts/AuthContext";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { QuickEditPanel, type EditState, defaultEditState } from "./QuickEditPanel";
-import { StudioEditor } from "./StudioEditor";
+import { useStudioSession } from "@/contexts/StudioSessionContext";
 import {
   getProjectImagesForTemplate,
   getUserCredits,
@@ -82,6 +83,8 @@ function ensureProductImage(html: string | null, imageBase64?: string, imageMime
 }
 
 export function TemplateModal({ template, open, onClose, type, brandName, brandInitials }: TemplateModalProps) {
+  const navigate = useNavigate();
+  const { setSession } = useStudioSession();
   const { activeBrand } = useBrand();
   const { images: productImages, selectedImage, selectImage: selectProductImage, addImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
@@ -486,7 +489,7 @@ Output only the HTML div. Nothing else.`;
 
   const variationTints = [template.color, `${template.color}dd`, `${template.color}bb`, `${template.color}99`];
 
-  // Reset all generation/studio state when the modal is dismissed
+  // Reset all generation state when the modal is dismissed
   const handleClose = () => {
     setStudioOpen(false);
     setGenerated(false);
@@ -498,91 +501,115 @@ Output only the HTML div. Nothing else.`;
     onClose();
   };
 
-  // When studio is open we fully UNMOUNT the Dialog so its portal, overlay, and
-  // outside-click handlers cannot intercept pointer events on the studio canvas.
-  // The studio is rendered as a sibling — only one of the two is ever in the DOM.
-  if (studioOpen) {
-    return (
-      <StudioEditor
-        open={studioOpen}
-        onClose={() => setStudioOpen(false)}
-        templateName={template.name}
-        variationHtml={getEditedHtml(variations[activeVariation], activeVariation)}
-        variationId={`${template.id}-${activeVariation}`}
-        onDownload={() => downloadVariation(activeVariation)}
-        canvases={variations.map((html, i) => ({
-          id: `${template.id}-${i}`,
-          html: getEditedHtml(html, i),
-        }))}
-        activeCanvasId={`${template.id}-${activeVariation}`}
-        onSelectCanvas={(id) => {
-          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
-          if (idx >= 0) setActiveVariation(idx);
-        }}
-        onAddBlankCanvas={() => {
-          setVariations((prev) => {
-            const next = [...prev, null];
-            setActiveVariation(next.length - 1);
-            return next;
+  // Open the studio as a dedicated route. We snapshot the current variations
+  // into the StudioSession context (so they survive this modal unmounting),
+  // then navigate to /pro-studio/editor and close the modal. On exit the
+  // editor calls session.onExit which fully resets template selection here.
+  const openStudio = () => {
+    const tplId = template.id;
+    const snapshotCanvases: { id: string; html: string | null }[] = variations.map((html, i) => ({
+      id: `${tplId}-${i}`,
+      html: getEditedHtml(html, i),
+    }));
+    const initialActiveId = `${tplId}-${activeVariation}`;
+
+    setSession({
+      templateName: template.name,
+      variationId: initialActiveId,
+      variationHtml: snapshotCanvases[activeVariation]?.html ?? null,
+      onDownload: () => downloadVariation(activeVariation),
+      canvases: snapshotCanvases,
+      activeCanvasId: initialActiveId,
+      onSelectCanvas: (id) => {
+        setSession((prev: any) => {
+          if (!prev) return prev;
+          const found = prev.canvases?.find((c: any) => c.id === id);
+          return { ...prev, activeCanvasId: id, variationId: id, variationHtml: found?.html ?? null };
+        });
+      },
+      onAddBlankCanvas: () => {
+        setSession((prev: any) => {
+          if (!prev) return prev;
+          const newId = `${tplId}-blank-${Date.now()}`;
+          const nextCanvases = [...(prev.canvases || []), { id: newId, html: null }];
+          return { ...prev, canvases: nextCanvases, activeCanvasId: newId, variationId: newId, variationHtml: null };
+        });
+      },
+      onAddCanvasFromTemplate: async () => {
+        const newId = `${tplId}-gen-${Date.now()}`;
+        setSession((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            canvases: [...(prev.canvases || []), { id: newId, html: null }],
+            activeCanvasId: newId,
+            variationId: newId,
+            variationHtml: null,
+          };
+        });
+        try {
+          const basePrompt = buildBasePrompt();
+          const result = await callAI(
+            [{ role: "user", content: basePrompt + "\n\nGenerate a fresh additional variation — explore a different visual angle while staying on-brand." }],
+            3000,
+            selectedImage?.base64 || undefined,
+            selectedImage?.mimeType || "image/jpeg"
+          );
+          const cleaned = cleanAIHtml(result);
+          const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+          setSession((prev: any) => {
+            if (!prev) return prev;
+            const nextCanvases = (prev.canvases || []).map((c: any) => (c.id === newId ? { ...c, html: safe } : c));
+            return {
+              ...prev,
+              canvases: nextCanvases,
+              variationHtml: prev.activeCanvasId === newId ? safe : prev.variationHtml,
+            };
           });
-        }}
-        onAddCanvasFromTemplate={async () => {
-          let newIndex = 0;
-          setVariations((prev) => {
-            newIndex = prev.length;
-            return [...prev, null];
-          });
-          setTimeout(async () => {
-            setActiveVariation(newIndex);
-            setRegeneratingIdx(newIndex);
-            const basePrompt = buildBasePrompt();
-            try {
-              const result = await callAI(
-                [{ role: "user", content: basePrompt + "\n\nGenerate a fresh additional variation — explore a different visual angle while staying on-brand." }],
-                3000,
-                selectedImage?.base64 || undefined,
-                selectedImage?.mimeType || "image/jpeg"
-              );
-              const cleaned = cleanAIHtml(result);
-              const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-              setVariations((prev) => prev.map((v, i) => (i === newIndex ? safe : v)));
-            } catch (e) {
-              console.error("Add variant failed:", e);
-            } finally {
-              setRegeneratingIdx(null);
-            }
-          }, 0);
-        }}
-        onDuplicateCanvas={(id) => {
-          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
-          if (idx < 0) return;
-          setVariations((prev) => {
-            const next = [...prev];
-            next.splice(idx + 1, 0, prev[idx]);
-            setActiveVariation(idx + 1);
-            return next;
-          });
-        }}
-        onDeleteCanvas={(id) => {
-          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
-          if (idx < 0 || variations.length <= 1) return;
-          setVariations((prev) => prev.filter((_, i) => i !== idx));
-          setActiveVariation((prev) => Math.max(0, prev >= idx ? prev - 1 : prev));
-        }}
-        onSetMainCanvas={(id) => {
-          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
-          if (idx <= 0) return;
-          setVariations((prev) => {
-            const next = [...prev];
-            const [moved] = next.splice(idx, 1);
-            next.unshift(moved);
-            return next;
-          });
-          setActiveVariation(0);
-        }}
-      />
-    );
-  }
+        } catch (e) {
+          console.error("Add variant failed:", e);
+        }
+      },
+      onDuplicateCanvas: (id) => {
+        setSession((prev: any) => {
+          if (!prev) return prev;
+          const idx = (prev.canvases || []).findIndex((c: any) => c.id === id);
+          if (idx < 0) return prev;
+          const dup = { ...prev.canvases[idx], id: `${prev.canvases[idx].id}-dup-${Date.now()}` };
+          const nextCanvases = [...prev.canvases];
+          nextCanvases.splice(idx + 1, 0, dup);
+          return { ...prev, canvases: nextCanvases, activeCanvasId: dup.id, variationId: dup.id, variationHtml: dup.html };
+        });
+      },
+      onDeleteCanvas: (id) => {
+        setSession((prev: any) => {
+          if (!prev) return prev;
+          if ((prev.canvases || []).length <= 1) return prev;
+          const nextCanvases = prev.canvases.filter((c: any) => c.id !== id);
+          const newActive = nextCanvases[0];
+          return { ...prev, canvases: nextCanvases, activeCanvasId: newActive.id, variationId: newActive.id, variationHtml: newActive.html };
+        });
+      },
+      onSetMainCanvas: (id) => {
+        setSession((prev: any) => {
+          if (!prev) return prev;
+          const idx = (prev.canvases || []).findIndex((c: any) => c.id === id);
+          if (idx <= 0) return prev;
+          const nextCanvases = [...prev.canvases];
+          const [moved] = nextCanvases.splice(idx, 1);
+          nextCanvases.unshift(moved);
+          return { ...prev, canvases: nextCanvases, activeCanvasId: moved.id, variationId: moved.id, variationHtml: moved.html };
+        });
+      },
+      onExit: () => {
+        // Full reset of the originating template selection + generation state.
+        handleClose();
+      },
+    });
+
+    navigate("/pro-studio/editor");
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
@@ -1055,7 +1082,7 @@ Output only the HTML div. Nothing else.`;
                     <>
                       {/* Edit in Studio — primary editing entry point */}
                       <button
-                        onClick={() => setStudioOpen(true)}
+                        onClick={openStudio}
                         className="h-10 rounded-lg px-5 text-[13px] font-ui font-semibold flex items-center gap-2 transition-all hover:opacity-90 shadow-sm"
                         style={{
                           background: 'linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.9) 100%)',
