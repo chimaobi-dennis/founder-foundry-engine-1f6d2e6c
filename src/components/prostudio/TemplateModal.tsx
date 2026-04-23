@@ -788,16 +788,19 @@ Output only the HTML div. Nothing else.`;
             
             <div className="sticky md:static bottom-0 left-0 right-0 bg-card md:bg-transparent pt-3 pb-3 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 z-5 border-t md:border-t-0 border-border md:border-none">
               {(() => {
+                const totalCredits = cost.credits * variantCount;
                 const needsImage = isPhysical && !selectedImage;
-                const insufficient = userCredits !== null && userCredits < cost.credits;
+                const insufficient = userCredits !== null && userCredits < totalCredits;
                 const disabled = isGenerating || needsImage || insufficient;
+                const variantLabel = variantCount === 1 ? "1 variant" : `${variantCount} variants`;
+                const creditLabel = `${totalCredits} credit${totalCredits === 1 ? "" : "s"}`;
                 const label = isGenerating
                   ? "Generating..."
                   : insufficient
                   ? "Not enough credits — upgrade your plan"
                   : needsImage
                   ? "Select a product image to continue"
-                  : `Generate — uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`;
+                  : `Generate ${variantLabel} — uses ${creditLabel}`;
                 return (
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
@@ -814,10 +817,13 @@ Output only the HTML div. Nothing else.`;
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[260px]">
-                        <div className="text-[11px] font-ui">
+                        <div className="text-[11px] font-ui space-y-0.5">
                           {cost.breakdown.map((b, i) => (
                             <div key={i}>{b}</div>
                           ))}
+                          {variantCount > 1 && (
+                            <div>× {variantCount} variants = {creditLabel}</div>
+                          )}
                         </div>
                       </TooltipContent>
                     </Tooltip>
@@ -826,11 +832,7 @@ Output only the HTML div. Nothing else.`;
               })()}
               <div className="flex items-center justify-between gap-2 mt-2">
                 <p className="text-[11px] font-ui text-muted-foreground">
-                  {cost.breakdown.length > 1
-                    ? cost.breakdown
-                        .map(b => b.replace("Base template: ", "").replace(": ", " "))
-                        .join(" + ")
-                    : `Uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`}
+                  {`${cost.credits} per variant × ${variantCount} = ${cost.credits * variantCount} credit${cost.credits * variantCount === 1 ? "" : "s"}`}
                 </p>
                 {userCredits !== null && (
                   <p className="text-[11px] font-ui text-muted-foreground">
