@@ -949,44 +949,48 @@ Output only the HTML div. Nothing else.`;
                     </button>
                   </div>
 
-                  {/* Quick edits toggle */}
-                  <button
-                    onClick={() => setEditorOpen(p => !p)}
-                    className="h-9 rounded-lg border px-4 text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors"
-                    style={{
-                      borderColor: 'hsl(var(--primary))',
-                      color: 'hsl(var(--primary))',
-                      background: editorOpen ? 'hsl(var(--primary) / 0.08)' : 'transparent',
-                    }}
-                  >
-                    <SlidersHorizontal size={14} />
-                    {editorOpen ? 'Close editor' : 'Quick edits'}
-                  </button>
+                  {generated && !isGenerating && (
+                    <>
+                      {/* Quick edits toggle */}
+                      <button
+                        onClick={() => setEditorOpen(p => !p)}
+                        className="h-9 rounded-lg border px-4 text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors"
+                        style={{
+                          borderColor: 'hsl(var(--primary))',
+                          color: 'hsl(var(--primary))',
+                          background: editorOpen ? 'hsl(var(--primary) / 0.08)' : 'transparent',
+                        }}
+                      >
+                        <SlidersHorizontal size={14} />
+                        {editorOpen ? 'Close editor' : 'Quick edits'}
+                      </button>
 
-                  {/* Quick edit panel */}
-                  {editorOpen && (
-                    <div className="w-full">
-                      <QuickEditPanel
-                        variationIndex={activeVariation}
-                        variationHtml={variations[activeVariation]}
-                        editStates={editStates}
-                        onEditStatesChange={setEditStates}
-                        onApplyAndRegenerate={regenerateWithEdits}
-                        isRegenerating={regeneratingIdx !== null}
-                      />
-                    </div>
+                      {/* Quick edit panel */}
+                      {editorOpen && (
+                        <div className="w-full">
+                          <QuickEditPanel
+                            variationIndex={activeVariation}
+                            variationHtml={variations[activeVariation]}
+                            editStates={editStates}
+                            onEditStatesChange={setEditStates}
+                            onApplyAndRegenerate={regenerateWithEdits}
+                            isRegenerating={regeneratingIdx !== null}
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex gap-3 w-full max-w-[320px]">
+                        <Button
+                          variant="outline"
+                          className="flex-1 h-10 text-[13px] gap-1.5"
+                          onClick={() => downloadVariation(activeVariation)}
+                        >
+                          <Download size={14} /> Download
+                        </Button>
+                        <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
+                      </div>
+                    </>
                   )}
-
-                  <div className="flex gap-3 w-full max-w-[320px]">
-                    <Button
-                      variant="outline"
-                      className="flex-1 h-10 text-[13px] gap-1.5"
-                      onClick={() => downloadVariation(activeVariation)}
-                    >
-                      <Download size={14} /> Download
-                    </Button>
-                    <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
-                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
