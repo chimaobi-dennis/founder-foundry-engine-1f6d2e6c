@@ -694,6 +694,32 @@ Output only the HTML div. Nothing else.`;
                     ))}
                   </div>
                 </div>
+
+                {/* Variant count */}
+                <div className="mt-4">
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    How many variants
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setVariantCount(n)}
+                        className={cn(
+                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          variantCount === n
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] font-ui text-muted-foreground mt-1.5">
+                    Each variant is a unique interpretation of the template
+                  </p>
+                </div>
               </>
             ) : (
               <div className="space-y-3">
