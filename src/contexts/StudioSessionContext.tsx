@@ -5,6 +5,10 @@ export interface StudioSession {
   templateName: string;
   variationId: string;
   variationHtml: string | null;
+  /** Optional template output ID for the active variant (links back to `template_outputs` row). */
+  outputId?: string | null;
+  /** All output IDs for the session, indexed by canvas id. */
+  outputIdsByCanvas?: Record<string, string>;
   onDownload?: () => void;
   onSaveToLibrary?: () => void;
   brandColors?: string[];

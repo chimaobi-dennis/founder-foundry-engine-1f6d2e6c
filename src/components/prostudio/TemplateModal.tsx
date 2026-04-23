@@ -20,6 +20,7 @@ import {
   getProjectImagesForTemplate,
   getUserCredits,
   calculateTemplateCost,
+  generateTemplateOutput,
 } from "@/services/templateService";
 import { uploadProjectFile } from "@/services/projectAssetsService";
 import { toast } from "@/hooks/use-toast";
@@ -99,6 +100,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [isGenerating, setIsGenerating] = useState(false);
   const [variantCount, setVariantCount] = useState<number>(1);
   const [variations, setVariations] = useState<(string | null)[]>([null]);
+  const [outputIds, setOutputIds] = useState<(string | null)[]>([null]);
   const [generated, setGenerated] = useState(false);
   const [activeVariation, setActiveVariation] = useState(0);
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
@@ -157,6 +159,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     if (template) {
       setGenerated(false);
       setVariations(Array(variantCount).fill(null));
+      setOutputIds(Array(variantCount).fill(null));
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
@@ -168,6 +171,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   useEffect(() => {
     if (!generated && !isGenerating) {
       setVariations(Array(variantCount).fill(null));
+      setOutputIds(Array(variantCount).fill(null));
       setActiveVariation(0);
     }
   }, [variantCount, generated, isGenerating]);
@@ -333,47 +337,69 @@ Output only the HTML div. Nothing else.`;
       return;
     }
 
+    if (!template?.id || !activeBrand?.id) {
+      toast({
+        title: "Missing context",
+        description: "We couldn't identify the template or brand. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('[handleRun] Starting generation with selectedImage:', {
       hasSelectedImage: !!selectedImage,
       hasBase64: !!selectedImage?.base64,
       hasMimeType: !!selectedImage?.mimeType,
       hasUrl: !!selectedImage?.url,
-      imageName: selectedImage?.name
+      imageName: selectedImage?.name,
     });
 
     setIsGenerating(true);
     setGenerated(false);
     setVariations(Array(variantCount).fill(null));
+    setOutputIds(Array(variantCount).fill(null));
+    setActiveVariation(0);
 
-    const basePrompt = buildBasePrompt();
+    const aspectParam = selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase();
+    const intensityParam = styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
 
-    const allSuffixes = [
-      "\n\nGenerate the primary variation — execute the design direction fully and precisely.",
-      "\n\nGenerate an alternative layout variation — same mood and colors but shift the composition. Move the product to a different position. Try a different typographic treatment or layout structure.",
-      "\n\nGenerate a bold variation — push the design direction further. More contrast, stronger visual statement, more expressive typography. Same brand colors but more impact.",
-      "\n\nGenerate a fourth variation — explore a different visual angle entirely. Different camera-like framing, different background treatment, different focal hierarchy. Stay on-brand.",
-    ];
-    const suffixes = allSuffixes.slice(0, variantCount);
+    let firstArrived = false;
 
     try {
-      // Stream results in as each completes so right-panel slots fill progressively
-      await Promise.all(
-        suffixes.map(async (suffix, idx) => {
-          const result = await callAI(
-            [{ role: "user", content: basePrompt + suffix }],
-            3000,
-            selectedImage?.base64 || undefined,
-            selectedImage?.mimeType || "image/jpeg"
-          );
-          const cleaned = cleanAIHtml(result);
-          const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-          setVariations(prev => prev.map((v, i) => (i === idx ? safe : v)));
-        })
-      );
+      const { variants, outputIds: ids, error } = await generateTemplateOutput({
+        templateId: template.id,
+        brandId: activeBrand.id,
+        productImageUrl: selectedImage?.url || "",
+        aspectRatio: aspectParam,
+        styleIntensity: intensityParam,
+        variantCount,
+        imageBase64: selectedImage?.base64,
+        imageMimeType: selectedImage?.mimeType || "image/jpeg",
+        onVariant: ({ index, html, outputId }) => {
+          // Inject product image fallback if model omitted it
+          const safe = ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+          setVariations(prev => prev.map((v, i) => (i === index ? safe : v)));
+          setOutputIds(prev => prev.map((v, i) => (i === index ? outputId : v)));
+          // Show the first completed variant immediately in the main preview
+          if (!firstArrived) {
+            firstArrived = true;
+            setActiveVariation(index);
+          }
+        },
+      });
+
+      if (error) {
+        toast({ title: "Generation failed", description: error, variant: "destructive" });
+        return;
+      }
+
+      // Final reconciliation in case any variant skipped the streaming callback
+      setVariations(prev => prev.map((v, i) => v ?? (variants[i] ? ensureProductImage(variants[i], selectedImage?.base64, selectedImage?.mimeType || "image/jpeg") : null)));
+      setOutputIds(prev => prev.map((v, i) => v ?? (ids[i] || null)));
       setGenerated(true);
-      setActiveVariation(0);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Generation failed:", e);
+      toast({ title: "Generation failed", description: e?.message || "Unknown error", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -494,6 +520,7 @@ Output only the HTML div. Nothing else.`;
     setStudioOpen(false);
     setGenerated(false);
     setVariations(Array(variantCount).fill(null));
+    setOutputIds(Array(variantCount).fill(null));
     setActiveVariation(0);
     setIsGenerating(false);
     setEditorOpen(false);
@@ -513,10 +540,19 @@ Output only the HTML div. Nothing else.`;
     }));
     const initialActiveId = `${tplId}-${activeVariation}`;
 
+    // Map canvas id → template_outputs.id for round-trip persistence later
+    const outputIdsByCanvas: Record<string, string> = {};
+    snapshotCanvases.forEach((c, i) => {
+      const oid = outputIds[i];
+      if (oid) outputIdsByCanvas[c.id] = oid;
+    });
+
     setSession({
       templateName: template.name,
       variationId: initialActiveId,
       variationHtml: snapshotCanvases[activeVariation]?.html ?? null,
+      outputId: outputIds[activeVariation] ?? null,
+      outputIdsByCanvas,
       onDownload: () => downloadVariation(activeVariation),
       canvases: snapshotCanvases,
       activeCanvasId: initialActiveId,
@@ -524,7 +560,13 @@ Output only the HTML div. Nothing else.`;
         setSession((prev: any) => {
           if (!prev) return prev;
           const found = prev.canvases?.find((c: any) => c.id === id);
-          return { ...prev, activeCanvasId: id, variationId: id, variationHtml: found?.html ?? null };
+          return {
+            ...prev,
+            activeCanvasId: id,
+            variationId: id,
+            variationHtml: found?.html ?? null,
+            outputId: prev.outputIdsByCanvas?.[id] ?? null,
+          };
         });
       },
       onAddBlankCanvas: () => {
@@ -1009,7 +1051,7 @@ Output only the HTML div. Nothing else.`;
                         style={{ animation: "spin 1s linear infinite" }}
                       />
                       <span className="text-[13px] font-ui text-muted-foreground">
-                        Generating {variantCount} variation{variantCount === 1 ? "" : "s"} with AI…
+                        Generating {variantCount} variant{variantCount === 1 ? "" : "s"}…
                       </span>
                     </div>
                   )}

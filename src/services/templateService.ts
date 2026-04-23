@@ -451,16 +451,27 @@ export interface GenerateTemplateParams {
   aspectRatio: string;
   styleIntensity: string;
   variantCount: number;
+  /** Optional base64 + mime of the product image so the model can SEE it (multi-modal). */
+  imageBase64?: string;
+  imageMimeType?: string;
+  /** Optional callback fired as each variant completes (streaming/progressive UI). */
+  onVariant?: (info: { index: number; html: string; outputId: string }) => void;
 }
 
-// Generate template output using AI
+// Generate template output using AI.
+// Variants are generated in parallel; if `onVariant` is supplied it fires as
+// soon as each individual variant resolves so the UI can stream results in
+// rather than wait for the whole batch.
 export async function generateTemplateOutput({
   templateId,
   brandId,
   productImageUrl,
   aspectRatio,
   styleIntensity,
-  variantCount
+  variantCount,
+  imageBase64,
+  imageMimeType,
+  onVariant
 }: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; error?: string }> {
   try {
     // Fetch template generation prompt
@@ -480,7 +491,7 @@ export async function generateTemplateOutput({
       .eq('brand_id', brandId)
       .single();
 
-    if (dnaError && dnaError.code !== 'PGRST116') throw dnaError; // PGRST116 = not found, ok to be null
+    if (dnaError && dnaError.code !== 'PGRST116') throw dnaError;
 
     // Fetch brand colors
     const { data: brand, error: brandError } = await db
@@ -498,14 +509,15 @@ export async function generateTemplateOutput({
     const primaryColor = brand?.primary_color || '#000000';
     const secondaryColor = brand?.secondary_color || '#FFFFFF';
 
-    // Generate variants
-    const variants: string[] = [];
-    const outputIds: string[] = [];
+    // Generate all variants in parallel and stream completions via onVariant.
+    const variants: string[] = new Array(variantCount).fill('');
+    const outputIds: string[] = new Array(variantCount).fill('');
 
-    for (let i = 0; i < variantCount; i++) {
-      const variantIndex = i + 1;
+    await Promise.all(
+      Array.from({ length: variantCount }).map(async (_, i) => {
+        const variantIndex = i + 1;
 
-      const prompt = `You are a professional graphic designer and frontend developer.
+        const prompt = `You are a professional graphic designer and frontend developer.
 Generate a complete, self-contained HTML/CSS design for the following brief.
 
 TEMPLATE STYLE: ${generationPrompt}
@@ -533,40 +545,46 @@ RULES:
 - The product image must be visible and prominent
 - Do not use external assets other than the product image URL and Google Fonts`;
 
-      const result = await callAI({
-        taskType: 'template_generation',
-        messages: [{ role: 'user', content: prompt }],
-        maxTokens: 8000
-      });
+        const result = await callAI({
+          taskType: 'template_generation',
+          messages: [{ role: 'user', content: prompt }],
+          maxTokens: 8000,
+          imageBase64,
+          imageMimeType
+        });
 
-      if (!result.success || !result.text) {
-        throw result.error || 'Failed to generate template variant';
-      }
+        if (!result.success || !result.text) {
+          throw result.error || 'Failed to generate template variant';
+        }
 
-      const htmlContent = result.text.trim();
+        // Strip any code fences the model adds despite instructions.
+        let htmlContent = result.text.trim();
+        htmlContent = htmlContent.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
-      // Save to template_outputs
-      const { data: outputData, error: outputError } = await db
-        .from('template_outputs')
-        .insert({
-          template_id: templateId,
-          brand_id: brandId,
-          output_type: 'html',
-          output_data: htmlContent,
-          generation_params: {
-            aspectRatio,
-            styleIntensity,
-            variantIndex
-          }
-        })
-        .select('id')
-        .single();
+        // Save to template_outputs
+        const { data: outputData, error: outputError } = await db
+          .from('template_outputs')
+          .insert({
+            template_id: templateId,
+            brand_id: brandId,
+            output_type: 'html',
+            output_data: htmlContent,
+            generation_params: {
+              aspectRatio,
+              styleIntensity,
+              variantIndex
+            }
+          })
+          .select('id')
+          .single();
 
-      if (outputError) throw outputError;
+        if (outputError) throw outputError;
 
-      variants.push(htmlContent);
-      outputIds.push(outputData.id);
-    }
+        variants[i] = htmlContent;
+        outputIds[i] = outputData.id;
+        onVariant?.({ index: i, html: htmlContent, outputId: outputData.id });
+      })
+    );
 
     return { variants, outputIds };
   } catch (error: any) {
