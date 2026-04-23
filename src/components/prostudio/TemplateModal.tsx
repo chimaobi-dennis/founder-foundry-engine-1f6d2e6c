@@ -93,7 +93,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
 
   // AI generation state
   const [isGenerating, setIsGenerating] = useState(false);
-  const [variations, setVariations] = useState<(string | null)[]>([null, null, null]);
+  const [variantCount, setVariantCount] = useState<number>(1);
+  const [variations, setVariations] = useState<(string | null)[]>([null]);
   const [generated, setGenerated] = useState(false);
   const [activeVariation, setActiveVariation] = useState(0);
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
@@ -148,12 +149,22 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   useEffect(() => {
     if (template) {
       setGenerated(false);
-      setVariations([null, null, null]);
+      setVariations(Array(variantCount).fill(null));
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
+
+  // Adjust variations array length when variantCount changes (pre-generation only)
+  useEffect(() => {
+    if (!generated && !isGenerating) {
+      setVariations(Array(variantCount).fill(null));
+      setActiveVariation(0);
+    }
+  }, [variantCount, generated, isGenerating]);
+
 
   // Helper to convert public URL → base64 (so AI can ingest it)
   const urlToBase64 = async (url: string): Promise<{ base64: string; mimeType: string } | null> => {
@@ -325,36 +336,33 @@ Output only the HTML div. Nothing else.`;
 
     setIsGenerating(true);
     setGenerated(false);
-    setVariations([null, null, null]);
+    setVariations(Array(variantCount).fill(null));
 
     const basePrompt = buildBasePrompt();
 
-    const suffixes = [
+    const allSuffixes = [
       "\n\nGenerate the primary variation — execute the design direction fully and precisely.",
       "\n\nGenerate an alternative layout variation — same mood and colors but shift the composition. Move the product to a different position. Try a different typographic treatment or layout structure.",
       "\n\nGenerate a bold variation — push the design direction further. More contrast, stronger visual statement, more expressive typography. Same brand colors but more impact.",
+      "\n\nGenerate a fourth variation — explore a different visual angle entirely. Different camera-like framing, different background treatment, different focal hierarchy. Stay on-brand.",
     ];
+    const suffixes = allSuffixes.slice(0, variantCount);
 
     try {
-      const results = await Promise.all(
-        suffixes.map(suffix =>
-          callAI(
+      // Stream results in as each completes so right-panel slots fill progressively
+      await Promise.all(
+        suffixes.map(async (suffix, idx) => {
+          const result = await callAI(
             [{ role: "user", content: basePrompt + suffix }],
             3000,
             selectedImage?.base64 || undefined,
             selectedImage?.mimeType || "image/jpeg"
-          )
-        )
+          );
+          const cleaned = cleanAIHtml(result);
+          const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+          setVariations(prev => prev.map((v, i) => (i === idx ? safe : v)));
+        })
       );
-      console.log('[handleRun] AI generation complete, processing results');
-      const cleanedResults = results.map(cleanAIHtml);
-      console.log('[handleRun] Cleaned results, applying safety check');
-      const safeResults = cleanedResults.map((html, idx) => {
-        console.log(`[handleRun] Processing variation ${idx}`);
-        return ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-      });
-      console.log('[handleRun] All variations processed, setting state');
-      setVariations(safeResults);
       setGenerated(true);
       setActiveVariation(0);
     } catch (e) {
@@ -686,6 +694,32 @@ Output only the HTML div. Nothing else.`;
                     ))}
                   </div>
                 </div>
+
+                {/* Variant count */}
+                <div className="mt-4">
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    How many variants
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setVariantCount(n)}
+                        className={cn(
+                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          variantCount === n
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] font-ui text-muted-foreground mt-1.5">
+                    Each variant is a unique interpretation of the template
+                  </p>
+                </div>
               </>
             ) : (
               <div className="space-y-3">
@@ -754,16 +788,19 @@ Output only the HTML div. Nothing else.`;
             
             <div className="sticky md:static bottom-0 left-0 right-0 bg-card md:bg-transparent pt-3 pb-3 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 z-5 border-t md:border-t-0 border-border md:border-none">
               {(() => {
+                const totalCredits = cost.credits * variantCount;
                 const needsImage = isPhysical && !selectedImage;
-                const insufficient = userCredits !== null && userCredits < cost.credits;
+                const insufficient = userCredits !== null && userCredits < totalCredits;
                 const disabled = isGenerating || needsImage || insufficient;
+                const variantLabel = variantCount === 1 ? "1 variant" : `${variantCount} variants`;
+                const creditLabel = `${totalCredits} credit${totalCredits === 1 ? "" : "s"}`;
                 const label = isGenerating
                   ? "Generating..."
                   : insufficient
                   ? "Not enough credits — upgrade your plan"
                   : needsImage
                   ? "Select a product image to continue"
-                  : `Generate — uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`;
+                  : `Generate ${variantLabel} — uses ${creditLabel}`;
                 return (
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
@@ -780,10 +817,13 @@ Output only the HTML div. Nothing else.`;
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[260px]">
-                        <div className="text-[11px] font-ui">
+                        <div className="text-[11px] font-ui space-y-0.5">
                           {cost.breakdown.map((b, i) => (
                             <div key={i}>{b}</div>
                           ))}
+                          {variantCount > 1 && (
+                            <div>× {variantCount} variants = {creditLabel}</div>
+                          )}
                         </div>
                       </TooltipContent>
                     </Tooltip>
@@ -792,11 +832,7 @@ Output only the HTML div. Nothing else.`;
               })()}
               <div className="flex items-center justify-between gap-2 mt-2">
                 <p className="text-[11px] font-ui text-muted-foreground">
-                  {cost.breakdown.length > 1
-                    ? cost.breakdown
-                        .map(b => b.replace("Base template: ", "").replace(": ", " "))
-                        .join(" + ")
-                    : `Uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`}
+                  {`${cost.credits} per variant × ${variantCount} = ${cost.credits * variantCount} credit${cost.credits * variantCount === 1 ? "" : "s"}`}
                 </p>
                 {userCredits !== null && (
                   <p className="text-[11px] font-ui text-muted-foreground">
@@ -811,44 +847,50 @@ Output only the HTML div. Nothing else.`;
           <div ref={panelRef} className="w-full md:flex-1 bg-background flex flex-col items-center justify-start p-4 md:p-6 overflow-y-auto">
             {isPhysical ? (
               // AI-powered generation view
-              isGenerating ? (
+              (isGenerating || generated) ? (
                 <div className="flex flex-col items-center gap-4 w-full">
-                  <div className="grid grid-cols-3 gap-3 w-full max-w-[480px]">
-                    {[0, 1, 2].map(i => (
-                      <div
-                        key={i}
-                        className="aspect-square rounded-lg bg-muted/40"
-                        style={{
-                          animation: "pulse-amber 1.5s ease-in-out infinite",
-                          animationDelay: `${i * 200}ms`,
-                        }}
+                  {/* Active variation preview */}
+                  <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
+                    {variations[activeVariation] ? (
+                      <TemplatePreview
+                        html={getEditedHtml(variations[activeVariation], activeVariation)}
+                        scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
+                        id={`variation-${activeVariation}`}
                       />
-                    ))}
+                    ) : (
+                      <div
+                        className="rounded-lg bg-muted/40 flex items-center justify-center"
+                        style={{
+                          width: 600 * Math.min(previewScale, 0.85),
+                          height: 600 * Math.min(previewScale, 0.85),
+                          animation: "pulse-amber 1.5s ease-in-out infinite",
+                        }}
+                      >
+                        <span className="text-[12px] font-ui text-muted-foreground">
+                          {isGenerating ? "Generating…" : "Waiting"}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full bg-primary"
-                      style={{ animation: "spin 1s linear infinite" }}
-                    />
-                    <span className="text-[13px] font-ui text-muted-foreground">Generating 3 variations with AI...</span>
-                  </div>
+
+                  {isGenerating && (
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-2 h-2 rounded-full bg-primary"
+                        style={{ animation: "spin 1s linear infinite" }}
+                      />
+                      <span className="text-[13px] font-ui text-muted-foreground">
+                        Generating {variantCount} variation{variantCount === 1 ? "" : "s"} with AI…
+                      </span>
+                    </div>
+                  )}
                   <style>{`
                     @keyframes pulse-amber {
                       0%, 100% { opacity: 0.4; }
                       50% { opacity: 0.8; }
                     }
                   `}</style>
-                </div>
-              ) : generated ? (
-                <div className="flex flex-col items-center gap-4 w-full">
-                  {/* Active variation preview */}
-                  <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
-                    <TemplatePreview
-                      html={getEditedHtml(variations[activeVariation], activeVariation)}
-                      scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
-                      id={`variation-${activeVariation}`}
-                    />
-                  </div>
+
 
                   {/* Variation thumbnails */}
                   <div className="relative w-full -mx-4 md:-mx-6 px-8 md:px-10">
@@ -907,44 +949,48 @@ Output only the HTML div. Nothing else.`;
                     </button>
                   </div>
 
-                  {/* Quick edits toggle */}
-                  <button
-                    onClick={() => setEditorOpen(p => !p)}
-                    className="h-9 rounded-lg border px-4 text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors"
-                    style={{
-                      borderColor: 'hsl(var(--primary))',
-                      color: 'hsl(var(--primary))',
-                      background: editorOpen ? 'hsl(var(--primary) / 0.08)' : 'transparent',
-                    }}
-                  >
-                    <SlidersHorizontal size={14} />
-                    {editorOpen ? 'Close editor' : 'Quick edits'}
-                  </button>
+                  {generated && !isGenerating && (
+                    <>
+                      {/* Quick edits toggle */}
+                      <button
+                        onClick={() => setEditorOpen(p => !p)}
+                        className="h-9 rounded-lg border px-4 text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors"
+                        style={{
+                          borderColor: 'hsl(var(--primary))',
+                          color: 'hsl(var(--primary))',
+                          background: editorOpen ? 'hsl(var(--primary) / 0.08)' : 'transparent',
+                        }}
+                      >
+                        <SlidersHorizontal size={14} />
+                        {editorOpen ? 'Close editor' : 'Quick edits'}
+                      </button>
 
-                  {/* Quick edit panel */}
-                  {editorOpen && (
-                    <div className="w-full">
-                      <QuickEditPanel
-                        variationIndex={activeVariation}
-                        variationHtml={variations[activeVariation]}
-                        editStates={editStates}
-                        onEditStatesChange={setEditStates}
-                        onApplyAndRegenerate={regenerateWithEdits}
-                        isRegenerating={regeneratingIdx !== null}
-                      />
-                    </div>
+                      {/* Quick edit panel */}
+                      {editorOpen && (
+                        <div className="w-full">
+                          <QuickEditPanel
+                            variationIndex={activeVariation}
+                            variationHtml={variations[activeVariation]}
+                            editStates={editStates}
+                            onEditStatesChange={setEditStates}
+                            onApplyAndRegenerate={regenerateWithEdits}
+                            isRegenerating={regeneratingIdx !== null}
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex gap-3 w-full max-w-[320px]">
+                        <Button
+                          variant="outline"
+                          className="flex-1 h-10 text-[13px] gap-1.5"
+                          onClick={() => downloadVariation(activeVariation)}
+                        >
+                          <Download size={14} /> Download
+                        </Button>
+                        <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
+                      </div>
+                    </>
                   )}
-
-                  <div className="flex gap-3 w-full max-w-[320px]">
-                    <Button
-                      variant="outline"
-                      className="flex-1 h-10 text-[13px] gap-1.5"
-                      onClick={() => downloadVariation(activeVariation)}
-                    >
-                      <Download size={14} /> Download
-                    </Button>
-                    <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
-                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3">
