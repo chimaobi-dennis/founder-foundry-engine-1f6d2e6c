@@ -825,12 +825,19 @@ Output only the HTML div. Nothing else.`;
                       </button>
                     </div>
                   )}
-                  
+
+                  {/* Inline upload error */}
+                  {uploadError && (
+                    <div className="mt-2 text-[11px] font-ui text-destructive">
+                      {uploadError}
+                    </div>
+                  )}
+
                   {/* Status indicator */}
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className={cn(
                       "w-1.5 h-1.5 rounded-full",
-                      selectedImage?.url ? "bg-green-500" : "bg-amber-500"
+                      selectedImage?.url ? "bg-emerald-500" : "bg-amber-500"
                     )} />
                     <span className="text-[11px] font-ui text-muted-foreground">
                       {selectedImage?.url 
