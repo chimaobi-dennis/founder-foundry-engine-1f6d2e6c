@@ -266,6 +266,43 @@ export function BrandMilestonePanel({
     }
   }, [editingId]);
 
+  // Focus + select inline name editor on entry
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isEditingName]);
+
+  const startEditName = () => {
+    setNameDraft(activeBrand.name);
+    setIsEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setIsEditingName(false);
+    setNameDraft("");
+  };
+
+  const commitEditName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === activeBrand.name) {
+      cancelEditName();
+      return;
+    }
+    setSavingName(true);
+    const { success, error } = await updateProjectName(activeBrand.id, trimmed);
+    setSavingName(false);
+    setIsEditingName(false);
+    setNameDraft("");
+    if (success) {
+      await refreshBrands();
+      toast(`Renamed to "${trimmed}"`, { duration: 2000 });
+    } else {
+      toast.error(error || "Could not rename project");
+    }
+  };
+
   const startRename = (ms: Milestone) => {
     setEditingId(ms.id);
     setEditValue(ms.name);
