@@ -520,6 +520,7 @@ Output only the HTML div. Nothing else.`;
     setStudioOpen(false);
     setGenerated(false);
     setVariations(Array(variantCount).fill(null));
+    setOutputIds(Array(variantCount).fill(null));
     setActiveVariation(0);
     setIsGenerating(false);
     setEditorOpen(false);
