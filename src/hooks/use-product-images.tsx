@@ -18,41 +18,40 @@ interface ProductImagesContextType {
   selectImage: (id: string) => void;
   addImage: (img: ProductImage) => void;
   addImages: (imgs: ProductImage[]) => void;
+  setImages: (imgs: ProductImage[]) => void;
   removeImage: (id: string) => void;
 }
 
 const ProductImagesContext = createContext<ProductImagesContextType | null>(null);
 
-const NORDFORM_DEFAULTS: ProductImage[] = [
-  { id: "pi-1", name: "Daily Stack", color: "#2D4A3E", templateCount: 3 },
-  { id: "pi-2", name: "Lion's Mane", color: "#3A5A4A", templateCount: 1 },
-  { id: "pi-3", name: "Ashwagandha", color: "#1A3028", templateCount: 0 },
-];
-
 export function ProductImagesProvider({ children }: { children: ReactNode }) {
-  const [images, setImages] = useState<ProductImage[]>(NORDFORM_DEFAULTS);
-  const [selectedId, setSelectedId] = useState<string | null>("pi-1");
+  const [images, setImagesState] = useState<ProductImage[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedImage = images.find((i) => i.id === selectedId) || null;
 
   const selectImage = useCallback((id: string) => setSelectedId(id), []);
 
   const addImage = useCallback((img: ProductImage) => {
-    setImages((prev) => [...prev, img]);
+    setImagesState((prev) => [...prev, img]);
   }, []);
 
   const addImages = useCallback((imgs: ProductImage[]) => {
-    setImages((prev) => [...prev, ...imgs]);
+    setImagesState((prev) => [...prev, ...imgs]);
+  }, []);
+
+  const setImages = useCallback((imgs: ProductImage[]) => {
+    setImagesState(imgs);
   }, []);
 
   const removeImage = useCallback((id: string) => {
-    setImages((prev) => prev.filter((i) => i.id !== id));
+    setImagesState((prev) => prev.filter((i) => i.id !== id));
     setSelectedId((prev) => (prev === id ? null : prev));
     toast({ title: "Image removed from your library" });
   }, []);
 
   return (
-    <ProductImagesContext.Provider value={{ images, selectedId, selectedImage, selectImage, addImage, addImages, removeImage }}>
+    <ProductImagesContext.Provider value={{ images, selectedId, selectedImage, selectImage, addImage, addImages, setImages, removeImage }}>
       {children}
     </ProductImagesContext.Provider>
   );

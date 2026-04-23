@@ -21,8 +21,9 @@ import {
   getUserCredits,
   calculateTemplateCost,
   generateTemplateOutput,
+  uploadProductImage,
+  setActiveProductImage,
 } from "@/services/templateService";
-import { uploadProjectFile } from "@/services/projectAssetsService";
 import { toast } from "@/hooks/use-toast";
 
 const aspectOptions = ["Auto", "Square", "3:2", "9:16", "16:9"];
@@ -87,7 +88,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const navigate = useNavigate();
   const { setSession } = useStudioSession();
   const { activeBrand } = useBrand();
-  const { images: productImages, selectedImage, selectImage: selectProductImage, addImages } = useProductImages();
+  const { images: productImages, selectedImage, selectImage: selectProductImage, setImages: setProductImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const productCarouselRef = useRef<HTMLDivElement>(null);
@@ -113,6 +114,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [userCredits, setUserCredits] = useState<number | null>(null);
   const [cost, setCost] = useState<{ credits: number; breakdown: string[] }>({ credits: 1, breakdown: ["Base template: 1 credit"] });
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Carousel scroll function
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
@@ -163,6 +165,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
+      setUploadError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
@@ -203,10 +206,10 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const loadProjectAssets = useCallback(async () => {
     if (!activeBrand?.id) return;
     setAssetsLoading(true);
-    const { assets, activeProductImageId } = await getProjectImagesForTemplate(activeBrand.id);
+    const { images: assets, activeImageId } = await getProjectImagesForTemplate(activeBrand.id);
     setProjectAssets(assets);
 
-    // Sync into the shared product images context (with base64 for AI)
+    // Map DB assets → context shape (with base64 for AI)
     const mapped = await Promise.all(
       assets.map(async (a: any) => {
         const url = a.file_url as string;
@@ -231,15 +234,16 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       })
     );
 
-    // Replace context images with DB-backed list
+    // Replace context images entirely with DB-backed list (no hardcoded defaults)
+    setProductImages(mapped);
+
     if (mapped.length > 0) {
-      // Use addImages by clearing first via a fresh selection — simplest: just push and select
-      addImages(mapped);
-      const preselect = activeProductImageId && mapped.find(m => m.id === activeProductImageId);
+      const preselect = activeImageId ? mapped.find(m => m.id === activeImageId) : null;
       selectProductImage((preselect ?? mapped[0]).id);
     }
+
     setAssetsLoading(false);
-  }, [activeBrand?.id, addImages, selectProductImage]);
+  }, [activeBrand?.id, setProductImages, selectProductImage]);
 
   useEffect(() => {
     if (open && activeBrand?.id) {
@@ -693,17 +697,30 @@ Output only the HTML div. Nothing else.`;
                     if (!files || !user?.id || !activeBrand?.id) return;
                     const fileArray = Array.from(files);
                     setUploadingFile(true);
+                    setUploadError(null);
+                    let lastUploadedAssetId: string | null = null;
+                    let anyFailed = false;
                     try {
                       for (const file of fileArray) {
-                        const result = await uploadProjectFile(user.id, activeBrand.id, file);
+                        const result = await uploadProductImage(user.id, activeBrand.id, file);
                         if (!result.success) {
-                          toast({ title: "Upload failed", description: result.error, variant: "destructive" });
+                          anyFailed = true;
+                        } else if (result.asset?.id) {
+                          lastUploadedAssetId = result.asset.id;
                         }
                       }
+                      if (anyFailed) {
+                        setUploadError("Upload failed — please try again");
+                      }
+                      // Refresh from DB so context contains the new image with base64
                       await loadProjectAssets();
-                      toast({ title: "Image uploaded" });
+                      // Auto-select the most recently uploaded image and persist as active
+                      if (lastUploadedAssetId) {
+                        selectProductImage(lastUploadedAssetId);
+                        setActiveProductImage(activeBrand.id, lastUploadedAssetId);
+                      }
                     } catch (err: any) {
-                      toast({ title: "Upload failed", description: err?.message, variant: "destructive" });
+                      setUploadError("Upload failed — please try again");
                     } finally {
                       setUploadingFile(false);
                       e.target.value = "";
@@ -717,17 +734,20 @@ Output only the HTML div. Nothing else.`;
                     Product image
                   </label>
                   {productImages.length === 0 && !assetsLoading ? (
-                    /* Empty state */
+                    /* Empty state — only Upload new */
                     <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="rounded-lg border-[1.5px] border-dashed border-primary/40 p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+                      onClick={() => !uploadingFile && fileInputRef.current?.click()}
+                      className={cn(
+                        "rounded-lg border-[1.5px] border-dashed border-primary/40 p-6 flex flex-col items-center justify-center gap-2 transition-all",
+                        uploadingFile ? "opacity-60 cursor-wait" : "cursor-pointer hover:border-primary/60 hover:bg-primary/5"
+                      )}
                     >
-                      <ImageIcon size={28} className="text-primary/70" />
+                      <Upload size={24} className="text-primary" />
                       <span className="text-[13px] font-ui font-medium text-foreground">
-                        {uploadingFile ? "Uploading..." : "Upload a product photo"}
+                        {uploadingFile ? "Uploading..." : "Upload new"}
                       </span>
                       <span className="text-[11px] font-ui text-muted-foreground text-center">
-                        Upload a product photo for best results
+                        Upload a product photo to get started
                       </span>
                     </div>
                   ) : (
@@ -806,12 +826,19 @@ Output only the HTML div. Nothing else.`;
                       </button>
                     </div>
                   )}
-                  
+
+                  {/* Inline upload error */}
+                  {uploadError && (
+                    <div className="mt-2 text-[11px] font-ui text-destructive">
+                      {uploadError}
+                    </div>
+                  )}
+
                   {/* Status indicator */}
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className={cn(
                       "w-1.5 h-1.5 rounded-full",
-                      selectedImage?.url ? "bg-green-500" : "bg-amber-500"
+                      selectedImage?.url ? "bg-emerald-500" : "bg-amber-500"
                     )} />
                     <span className="text-[11px] font-ui text-muted-foreground">
                       {selectedImage?.url 
