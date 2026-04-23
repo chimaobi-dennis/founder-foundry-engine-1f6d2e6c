@@ -337,47 +337,69 @@ Output only the HTML div. Nothing else.`;
       return;
     }
 
+    if (!template?.id || !activeBrand?.id) {
+      toast({
+        title: "Missing context",
+        description: "We couldn't identify the template or brand. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('[handleRun] Starting generation with selectedImage:', {
       hasSelectedImage: !!selectedImage,
       hasBase64: !!selectedImage?.base64,
       hasMimeType: !!selectedImage?.mimeType,
       hasUrl: !!selectedImage?.url,
-      imageName: selectedImage?.name
+      imageName: selectedImage?.name,
     });
 
     setIsGenerating(true);
     setGenerated(false);
     setVariations(Array(variantCount).fill(null));
+    setOutputIds(Array(variantCount).fill(null));
+    setActiveVariation(0);
 
-    const basePrompt = buildBasePrompt();
+    const aspectParam = selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase();
+    const intensityParam = styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
 
-    const allSuffixes = [
-      "\n\nGenerate the primary variation — execute the design direction fully and precisely.",
-      "\n\nGenerate an alternative layout variation — same mood and colors but shift the composition. Move the product to a different position. Try a different typographic treatment or layout structure.",
-      "\n\nGenerate a bold variation — push the design direction further. More contrast, stronger visual statement, more expressive typography. Same brand colors but more impact.",
-      "\n\nGenerate a fourth variation — explore a different visual angle entirely. Different camera-like framing, different background treatment, different focal hierarchy. Stay on-brand.",
-    ];
-    const suffixes = allSuffixes.slice(0, variantCount);
+    let firstArrived = false;
 
     try {
-      // Stream results in as each completes so right-panel slots fill progressively
-      await Promise.all(
-        suffixes.map(async (suffix, idx) => {
-          const result = await callAI(
-            [{ role: "user", content: basePrompt + suffix }],
-            3000,
-            selectedImage?.base64 || undefined,
-            selectedImage?.mimeType || "image/jpeg"
-          );
-          const cleaned = cleanAIHtml(result);
-          const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-          setVariations(prev => prev.map((v, i) => (i === idx ? safe : v)));
-        })
-      );
+      const { variants, outputIds: ids, error } = await generateTemplateOutput({
+        templateId: template.id,
+        brandId: activeBrand.id,
+        productImageUrl: selectedImage?.url || "",
+        aspectRatio: aspectParam,
+        styleIntensity: intensityParam,
+        variantCount,
+        imageBase64: selectedImage?.base64,
+        imageMimeType: selectedImage?.mimeType || "image/jpeg",
+        onVariant: ({ index, html, outputId }) => {
+          // Inject product image fallback if model omitted it
+          const safe = ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+          setVariations(prev => prev.map((v, i) => (i === index ? safe : v)));
+          setOutputIds(prev => prev.map((v, i) => (i === index ? outputId : v)));
+          // Show the first completed variant immediately in the main preview
+          if (!firstArrived) {
+            firstArrived = true;
+            setActiveVariation(index);
+          }
+        },
+      });
+
+      if (error) {
+        toast({ title: "Generation failed", description: error, variant: "destructive" });
+        return;
+      }
+
+      // Final reconciliation in case any variant skipped the streaming callback
+      setVariations(prev => prev.map((v, i) => v ?? (variants[i] ? ensureProductImage(variants[i], selectedImage?.base64, selectedImage?.mimeType || "image/jpeg") : null)));
+      setOutputIds(prev => prev.map((v, i) => v ?? (ids[i] || null)));
       setGenerated(true);
-      setActiveVariation(0);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Generation failed:", e);
+      toast({ title: "Generation failed", description: e?.message || "Unknown error", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
