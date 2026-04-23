@@ -890,14 +890,7 @@ Output only the HTML div. Nothing else.`;
                       50% { opacity: 0.8; }
                     }
                   `}</style>
-                  {/* Active variation preview */}
-                  <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
-                    <TemplatePreview
-                      html={getEditedHtml(variations[activeVariation], activeVariation)}
-                      scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
-                      id={`variation-${activeVariation}`}
-                    />
-                  </div>
+
 
                   {/* Variation thumbnails */}
                   <div className="relative w-full -mx-4 md:-mx-6 px-8 md:px-10">
