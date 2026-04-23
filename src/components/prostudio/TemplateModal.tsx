@@ -540,10 +540,19 @@ Output only the HTML div. Nothing else.`;
     }));
     const initialActiveId = `${tplId}-${activeVariation}`;
 
+    // Map canvas id → template_outputs.id for round-trip persistence later
+    const outputIdsByCanvas: Record<string, string> = {};
+    snapshotCanvases.forEach((c, i) => {
+      const oid = outputIds[i];
+      if (oid) outputIdsByCanvas[c.id] = oid;
+    });
+
     setSession({
       templateName: template.name,
       variationId: initialActiveId,
       variationHtml: snapshotCanvases[activeVariation]?.html ?? null,
+      outputId: outputIds[activeVariation] ?? null,
+      outputIdsByCanvas,
       onDownload: () => downloadVariation(activeVariation),
       canvases: snapshotCanvases,
       activeCanvasId: initialActiveId,
@@ -551,7 +560,13 @@ Output only the HTML div. Nothing else.`;
         setSession((prev: any) => {
           if (!prev) return prev;
           const found = prev.canvases?.find((c: any) => c.id === id);
-          return { ...prev, activeCanvasId: id, variationId: id, variationHtml: found?.html ?? null };
+          return {
+            ...prev,
+            activeCanvasId: id,
+            variationId: id,
+            variationHtml: found?.html ?? null,
+            outputId: prev.outputIdsByCanvas?.[id] ?? null,
+          };
         });
       },
       onAddBlankCanvas: () => {
