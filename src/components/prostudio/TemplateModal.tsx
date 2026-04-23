@@ -159,6 +159,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     if (template) {
       setGenerated(false);
       setVariations(Array(variantCount).fill(null));
+      setOutputIds(Array(variantCount).fill(null));
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
@@ -170,6 +171,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   useEffect(() => {
     if (!generated && !isGenerating) {
       setVariations(Array(variantCount).fill(null));
+      setOutputIds(Array(variantCount).fill(null));
       setActiveVariation(0);
     }
   }, [variantCount, generated, isGenerating]);
