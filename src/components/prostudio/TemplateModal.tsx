@@ -114,6 +114,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [userCredits, setUserCredits] = useState<number | null>(null);
   const [cost, setCost] = useState<{ credits: number; breakdown: string[] }>({ credits: 1, breakdown: ["Base template: 1 credit"] });
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Carousel scroll function
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
