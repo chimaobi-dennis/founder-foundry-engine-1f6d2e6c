@@ -33,21 +33,25 @@ export function ProductImagesProvider({ children }: { children: ReactNode }) {
   const selectImage = useCallback((id: string) => setSelectedId(id), []);
 
   const addImage = useCallback((img: ProductImage) => {
-    setImages((prev) => [...prev, img]);
+    setImagesState((prev) => [...prev, img]);
   }, []);
 
   const addImages = useCallback((imgs: ProductImage[]) => {
-    setImages((prev) => [...prev, ...imgs]);
+    setImagesState((prev) => [...prev, ...imgs]);
+  }, []);
+
+  const setImages = useCallback((imgs: ProductImage[]) => {
+    setImagesState(imgs);
   }, []);
 
   const removeImage = useCallback((id: string) => {
-    setImages((prev) => prev.filter((i) => i.id !== id));
+    setImagesState((prev) => prev.filter((i) => i.id !== id));
     setSelectedId((prev) => (prev === id ? null : prev));
     toast({ title: "Image removed from your library" });
   }, []);
 
   return (
-    <ProductImagesContext.Provider value={{ images, selectedId, selectedImage, selectImage, addImage, addImages, removeImage }}>
+    <ProductImagesContext.Provider value={{ images, selectedId, selectedImage, selectImage, addImage, addImages, setImages, removeImage }}>
       {children}
     </ProductImagesContext.Provider>
   );
