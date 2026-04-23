@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { useProductImages } from "@/hooks/use-product-images";
 import { useAuth } from "@/contexts/AuthContext";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { QuickEditPanel, type EditState, defaultEditState } from "./QuickEditPanel";
-import { StudioEditor } from "./StudioEditor";
+import { useStudioSession } from "@/contexts/StudioSessionContext";
 import {
   getProjectImagesForTemplate,
   getUserCredits,
