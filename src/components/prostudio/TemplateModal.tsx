@@ -205,10 +205,10 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const loadProjectAssets = useCallback(async () => {
     if (!activeBrand?.id) return;
     setAssetsLoading(true);
-    const { assets, activeProductImageId } = await getProjectImagesForTemplate(activeBrand.id);
+    const { images: assets, activeImageId } = await getProjectImagesForTemplate(activeBrand.id);
     setProjectAssets(assets);
 
-    // Sync into the shared product images context (with base64 for AI)
+    // Map DB assets → context shape (with base64 for AI)
     const mapped = await Promise.all(
       assets.map(async (a: any) => {
         const url = a.file_url as string;
@@ -233,15 +233,16 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       })
     );
 
-    // Replace context images with DB-backed list
+    // Replace context images entirely with DB-backed list (no hardcoded defaults)
+    setProductImages(mapped);
+
     if (mapped.length > 0) {
-      // Use addImages by clearing first via a fresh selection — simplest: just push and select
-      addImages(mapped);
-      const preselect = activeProductImageId && mapped.find(m => m.id === activeProductImageId);
+      const preselect = activeImageId ? mapped.find(m => m.id === activeImageId) : null;
       selectProductImage((preselect ?? mapped[0]).id);
     }
+
     setAssetsLoading(false);
-  }, [activeBrand?.id, addImages, selectProductImage]);
+  }, [activeBrand?.id, setProductImages, selectProductImage]);
 
   useEffect(() => {
     if (open && activeBrand?.id) {
