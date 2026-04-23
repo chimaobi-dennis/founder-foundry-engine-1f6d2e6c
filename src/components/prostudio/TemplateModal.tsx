@@ -955,33 +955,19 @@ Output only the HTML div. Nothing else.`;
 
                   {generated && !isGenerating && (
                     <>
-                      {/* Quick edits toggle */}
+                      {/* Edit in Studio — primary editing entry point */}
                       <button
-                        onClick={() => setEditorOpen(p => !p)}
-                        className="h-9 rounded-lg border px-4 text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors"
+                        onClick={() => setStudioOpen(true)}
+                        className="h-10 rounded-lg px-5 text-[13px] font-ui font-semibold flex items-center gap-2 transition-all hover:opacity-90 shadow-sm"
                         style={{
-                          borderColor: 'hsl(var(--primary))',
-                          color: 'hsl(var(--primary))',
-                          background: editorOpen ? 'hsl(var(--primary) / 0.08)' : 'transparent',
+                          background: 'linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.9) 100%)',
+                          color: 'hsl(var(--primary-foreground))',
+                          boxShadow: '0 4px 14px -4px hsl(var(--primary) / 0.4)',
                         }}
                       >
-                        <SlidersHorizontal size={14} />
-                        {editorOpen ? 'Close editor' : 'Quick edits'}
+                        <Wand2 size={14} />
+                        Edit in Studio
                       </button>
-
-                      {/* Quick edit panel */}
-                      {editorOpen && (
-                        <div className="w-full">
-                          <QuickEditPanel
-                            variationIndex={activeVariation}
-                            variationHtml={variations[activeVariation]}
-                            editStates={editStates}
-                            onEditStatesChange={setEditStates}
-                            onApplyAndRegenerate={regenerateWithEdits}
-                            isRegenerating={regeneratingIdx !== null}
-                          />
-                        </div>
-                      )}
 
                       <div className="flex gap-3 w-full max-w-[320px]">
                         <Button
