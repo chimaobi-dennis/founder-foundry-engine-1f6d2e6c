@@ -155,6 +155,93 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     }
   }, [template?.id]);
 
+  // Helper to convert public URL → base64 (so AI can ingest it)
+  const urlToBase64 = async (url: string): Promise<{ base64: string; mimeType: string } | null> => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const mimeType = blob.type || "image/jpeg";
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      return { base64, mimeType };
+    } catch (e) {
+      console.error("[urlToBase64] failed", e);
+      return null;
+    }
+  };
+
+  // Load project assets + active product image when modal opens
+  const loadProjectAssets = useCallback(async () => {
+    if (!activeBrand?.id) return;
+    setAssetsLoading(true);
+    const { assets, activeProductImageId } = await getProjectImagesForTemplate(activeBrand.id);
+    setProjectAssets(assets);
+
+    // Sync into the shared product images context (with base64 for AI)
+    const mapped = await Promise.all(
+      assets.map(async (a: any) => {
+        const url = a.file_url as string;
+        let base64: string | undefined;
+        let mimeType: string | undefined = a.mime_type || "image/jpeg";
+        if (url) {
+          const conv = await urlToBase64(url);
+          if (conv) {
+            base64 = conv.base64;
+            mimeType = conv.mimeType;
+          }
+        }
+        return {
+          id: a.id as string,
+          name: a.name as string,
+          color: "#2D4A3E",
+          url,
+          base64,
+          mimeType,
+          templateCount: 0,
+        };
+      })
+    );
+
+    // Replace context images with DB-backed list
+    if (mapped.length > 0) {
+      // Use addImages by clearing first via a fresh selection — simplest: just push and select
+      addImages(mapped);
+      const preselect = activeProductImageId && mapped.find(m => m.id === activeProductImageId);
+      selectProductImage((preselect ?? mapped[0]).id);
+    }
+    setAssetsLoading(false);
+  }, [activeBrand?.id, addImages, selectProductImage]);
+
+  useEffect(() => {
+    if (open && activeBrand?.id) {
+      loadProjectAssets();
+    }
+  }, [open, activeBrand?.id, loadProjectAssets]);
+
+  // Load user credits when modal opens
+  useEffect(() => {
+    if (open && user?.id) {
+      getUserCredits(user.id).then(({ credits }) => setUserCredits(credits));
+    }
+  }, [open, user?.id]);
+
+  // Recalculate cost when aspect/intensity/template changes
+  useEffect(() => {
+    if (!template?.id || !open) return;
+    const aspectParam = selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase();
+    const intensityParam = styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
+    calculateTemplateCost(template.id, aspectParam, intensityParam).then(({ credits, breakdown }) => {
+      setCost({ credits: credits || 1, breakdown: breakdown.length ? breakdown : ["Base template: 1 credit"] });
+    });
+  }, [template?.id, selectedAspect, styleIntensity, open]);
+
   if (!template) return null;
 
   const isPhysical = type === "physical";
