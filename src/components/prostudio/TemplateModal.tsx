@@ -509,38 +509,26 @@ Output only the HTML div. Nothing else.`;
                   accept="image/jpeg,image/png,image/webp"
                   multiple
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const files = e.target.files;
-                    if (!files) return;
+                    if (!files || !user?.id || !activeBrand?.id) return;
                     const fileArray = Array.from(files);
-                    let completed = 0;
-                    const newImgs: any[] = [];
-                    
-                    fileArray.forEach((file, index) => {
-                      const url = URL.createObjectURL(file);
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        const result = ev.target?.result as string;
-                        const base64 = result.split(",")[1];
-                        const img = {
-                          id: `pi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${index}`,
-                          name: file.name.replace(/\.[^.]+$/, ""),
-                          color: "#2D4A3E",
-                          url,
-                          base64,
-                          mimeType: file.type || "image/jpeg",
-                          templateCount: 0,
-                        };
-                        newImgs.push(img);
-                        completed++;
-                        if (completed === fileArray.length) {
-                          addImages(newImgs);
-                          if (newImgs.length > 0) selectProductImage(newImgs[0].id);
+                    setUploadingFile(true);
+                    try {
+                      for (const file of fileArray) {
+                        const result = await uploadProjectFile(user.id, activeBrand.id, file);
+                        if (!result.success) {
+                          toast({ title: "Upload failed", description: result.error, variant: "destructive" });
                         }
-                      };
-                      reader.readAsDataURL(file);
-                    });
-                    e.target.value = "";
+                      }
+                      await loadProjectAssets();
+                      toast({ title: "Image uploaded" });
+                    } catch (err: any) {
+                      toast({ title: "Upload failed", description: err?.message, variant: "destructive" });
+                    } finally {
+                      setUploadingFile(false);
+                      e.target.value = "";
+                    }
                   }}
                 />
                 
