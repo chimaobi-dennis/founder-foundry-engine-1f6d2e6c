@@ -14,15 +14,12 @@ import {
   Type,
   Image as ImageIcon,
   Square,
+  Circle as CircleIcon,
   Layers as LayersIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Bold,
-  Italic,
   MousePointer2,
   Hand,
   Maximize2,
+  GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -37,15 +34,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useTheme } from "@/hooks/use-theme";
 import { CanvasSwitcher, type CanvasItem } from "./CanvasSwitcher";
-
-interface Layer {
-  id: string;
-  name: string;
-  type: "background" | "image" | "text" | "shape";
-  visible: boolean;
-  locked: boolean;
-  icon: typeof Type;
-}
+import { EditableCanvas } from "./studio/EditableCanvas";
+import {
+  TextProperties,
+  ImageProperties,
+  BackgroundProperties,
+  ShapeProperties,
+} from "./studio/PropertyPanels";
+import { SAMPLE_TEMPLATE_HTML } from "./studio/sampleTemplate";
+import type { StudioElement } from "./studio/types";
 
 interface Props {
   open: boolean;
@@ -55,6 +52,7 @@ interface Props {
   variationId: string;
   onDownload?: () => void;
   onSaveToLibrary?: () => void;
+  brandColors?: string[];
   // Canvas switcher (universal — also used by ReelBuilder/slides in future)
   canvases?: CanvasItem[];
   activeCanvasId?: string | null;
@@ -66,15 +64,12 @@ interface Props {
   onSetMainCanvas?: (id: string) => void;
 }
 
-// Mock layers for the shell — would be parsed from generated HTML in a follow-up
-const buildMockLayers = (): Layer[] => [
-  { id: "l-bg", name: "Background", type: "background", visible: true, locked: false, icon: Square },
-  { id: "l-overlay", name: "Gradient overlay", type: "shape", visible: true, locked: false, icon: Square },
-  { id: "l-product", name: "Product image", type: "image", visible: true, locked: false, icon: ImageIcon },
-  { id: "l-headline", name: "Headline", type: "text", visible: true, locked: false, icon: Type },
-  { id: "l-tagline", name: "Tagline", type: "text", visible: true, locked: false, icon: Type },
-  { id: "l-logo", name: "Brand mark", type: "image", visible: true, locked: true, icon: ImageIcon },
-];
+const ICON_FOR_TYPE = {
+  background: Square,
+  image: ImageIcon,
+  text: Type,
+  shape: CircleIcon,
+} as const;
 
 export function StudioEditor({
   open,
@@ -84,6 +79,7 @@ export function StudioEditor({
   variationId,
   onDownload,
   onSaveToLibrary,
+  brandColors,
   canvases,
   activeCanvasId,
   onSelectCanvas,
@@ -94,51 +90,47 @@ export function StudioEditor({
   onSetMainCanvas,
 }: Props) {
   const { theme } = useTheme();
-  const [layers, setLayers] = useState<Layer[]>(buildMockLayers());
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>("l-headline");
+  // For now we always render the sample template; once AI generation is wired
+  // we'll prefer variationHtml when present.
+  const html = useMemo(
+    () => variationHtml && variationHtml.includes("data-element") ? variationHtml : SAMPLE_TEMPLATE_HTML,
+    [variationHtml],
+  );
+
+  const [elements, setElements] = useState<StudioElement[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(0.7);
   const [tool, setTool] = useState<"select" | "hand">("select");
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
-  // Unsaved changes tracking
+  // Unsaved changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const autoSaveTimerRef = useRef<number | null>(null);
-
-  // Mark dirty whenever a tracked edit happens; auto-save after 1.2s
   const markDirty = useCallback(() => {
     setHasUnsavedChanges(true);
     if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = window.setTimeout(() => {
-      setHasUnsavedChanges(false);
-    }, 1200);
+    autoSaveTimerRef.current = window.setTimeout(() => setHasUnsavedChanges(false), 1200);
   }, []);
 
-  // Restore mock layers when reopened on a different variation
+  // Reset on reopen
   useEffect(() => {
     if (open) {
-      setLayers(buildMockLayers());
-      setSelectedLayerId("l-headline");
+      setSelectedId(null);
       setZoom(0.7);
       setHasUnsavedChanges(false);
       if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
     }
   }, [open, variationId]);
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
-    };
+  useEffect(() => () => {
+    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
   }, []);
 
-  // Attempt close — checks unsaved changes
   const attemptClose = useCallback(() => {
-    if (hasUnsavedChanges) {
-      setConfirmOpen(true);
-    } else {
-      onClose();
-    }
+    if (hasUnsavedChanges) setConfirmOpen(true);
+    else onClose();
   }, [hasUnsavedChanges, onClose]);
 
   const handleSaveAndExit = () => {
@@ -147,7 +139,6 @@ export function StudioEditor({
     setConfirmOpen(false);
     onClose();
   };
-
   const handleDiscardAndExit = () => {
     setHasUnsavedChanges(false);
     setConfirmOpen(false);
@@ -158,49 +149,148 @@ export function StudioEditor({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (confirmOpen) return;
-        attemptClose();
-      }
+      // Don't intercept while typing in form fields or inline-editing text
+      const t = e.target as HTMLElement | null;
+      const inField =
+        t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable || t.tagName === "SELECT");
+      if (e.key === "Escape" && !confirmOpen) attemptClose();
+      if (inField) return;
       if (e.key === "v") setTool("select");
       if (e.key === "h") setTool("hand");
       if ((e.key === "=" || e.key === "+") && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setZoom(z => Math.min(2, z + 0.1));
+        setZoom((z) => Math.min(2, z + 0.1));
       }
       if (e.key === "-" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setZoom(z => Math.max(0.2, z - 0.1));
+        setZoom((z) => Math.max(0.2, z - 0.1));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, attemptClose, confirmOpen]);
 
-  const selectedLayer = useMemo(
-    () => layers.find(l => l.id === selectedLayerId) || null,
-    [layers, selectedLayerId],
+  const selected = useMemo(
+    () => elements.find((e) => e.id === selectedId) || null,
+    [elements, selectedId],
   );
 
+  const getElementState = useCallback(
+    (id: string) => {
+      const el = elements.find((e) => e.id === id);
+      return el ? { visible: el.visible, locked: el.locked } : undefined;
+    },
+    [elements],
+  );
+
+  // ---------- mutators wired to live DOM via canvas stage ----------
+  const stageHostRef = useRef<HTMLElement | null>(null);
+  const captureStageHost = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      // The stage we actually mutate is the inner div with the injected HTML
+      const stage = node.querySelector<HTMLElement>("div[style*='transform: scale']");
+      stageHostRef.current = stage;
+    }
+  }, []);
+
+  // Find by query each call — handles re-renders / html swaps
+  const queryEl = useCallback((id: string): HTMLElement | null => {
+    const root = document.querySelector<HTMLElement>("[data-studio-stage]");
+    if (!root) return null;
+    return root.querySelector<HTMLElement>(`[data-element="${CSS.escape(id)}"]`);
+  }, []);
+
+  const apply = useCallback(
+    (style: Partial<CSSStyleDeclaration> | Record<string, string>) => {
+      if (!selectedId) return;
+      const el = queryEl(selectedId);
+      if (!el) return;
+      Object.entries(style).forEach(([k, v]) => {
+        if (v == null) return;
+        // @ts-expect-error - dynamic style assignment
+        el.style[k] = v as string;
+      });
+      bumpRefresh();
+      markDirty();
+    },
+    [selectedId, queryEl, bumpRefresh, markDirty],
+  );
+
+  const applyAttr = useCallback(
+    (attrs: Record<string, string>) => {
+      if (!selectedId) return;
+      const el = queryEl(selectedId);
+      if (!el) return;
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      bumpRefresh();
+      markDirty();
+    },
+    [selectedId, queryEl, bumpRefresh, markDirty],
+  );
+
+  const read = useCallback(
+    (prop: string): string => {
+      if (!selectedId) return "";
+      const el = queryEl(selectedId);
+      if (!el) return "";
+      // Prefer inline first, then computed
+      const inline = (el.style as unknown as Record<string, string>)[prop];
+      if (inline) return inline;
+      const cs = window.getComputedStyle(el);
+      return (cs as unknown as Record<string, string>)[prop] || "";
+    },
+    [selectedId, queryEl],
+  );
+
+  const readAttr = useCallback(
+    (attr: string): string => {
+      if (!selectedId) return "";
+      const el = queryEl(selectedId);
+      return el?.getAttribute(attr) || "";
+    },
+    [selectedId, queryEl],
+  );
+
+  // Layer ops
   const toggleVisibility = (id: string) => {
-    setLayers(prev => prev.map(l => (l.id === id ? { ...l, visible: !l.visible } : l)));
+    setElements((prev) => prev.map((e) => (e.id === id ? { ...e, visible: !e.visible } : e)));
     markDirty();
   };
   const toggleLock = (id: string) => {
-    setLayers(prev => prev.map(l => (l.id === id ? { ...l, locked: !l.locked } : l)));
+    setElements((prev) => prev.map((e) => (e.id === id ? { ...e, locked: !e.locked } : e)));
+    markDirty();
+  };
+
+  // Layer reorder via drag — updates DOM z-index
+  const dragIdx = useRef<number | null>(null);
+  const onLayerDragStart = (idx: number) => () => { dragIdx.current = idx; };
+  const onLayerDragOver = (e: React.DragEvent) => e.preventDefault();
+  const onLayerDrop = (idx: number) => () => {
+    const from = dragIdx.current;
+    dragIdx.current = null;
+    if (from == null || from === idx) return;
+    setElements((prev) => {
+      const next = [...prev];
+      const [m] = next.splice(from, 1);
+      next.splice(idx, 0, m);
+      // Apply z-index from order (top of list = highest z-index visually means front)
+      next.forEach((el, i) => {
+        const node = queryEl(el.id);
+        if (node) node.style.zIndex = String(next.length - i);
+      });
+      return next;
+    });
+    bumpRefresh();
     markDirty();
   };
 
   if (!open) return null;
 
-  // Workspace background: neutral mid-grey that adapts to theme
   const workspaceBg = theme === "dark" ? "#1A1A1A" : "#E8E8E8";
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground"
-      >
+      <div className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground">
         {/* Top toolbar */}
         <div className="h-12 flex items-center justify-between px-3 border-b border-border bg-card flex-shrink-0">
           <div className="flex items-center gap-1.5">
@@ -216,12 +306,8 @@ export function StudioEditor({
               <div className="w-5 h-5 rounded-sm flex items-center justify-center bg-primary">
                 <LayersIcon size={11} className="text-primary-foreground" />
               </div>
-              <span className="text-[12px] font-ui font-medium text-foreground">
-                {templateName}
-              </span>
-              <span className="text-[11px] font-ui text-muted-foreground">
-                · Studio
-              </span>
+              <span className="text-[12px] font-ui font-medium text-foreground">{templateName}</span>
+              <span className="text-[11px] font-ui text-muted-foreground">· Studio</span>
               {hasUnsavedChanges && (
                 <span className="text-[10px] font-ui text-primary flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -231,16 +317,11 @@ export function StudioEditor({
             </div>
           </div>
 
-          {/* Centre: tool group */}
           <div className="flex items-center gap-0.5">
-            <ToolbarButton title="Undo (⌘Z)">
-              <Undo2 size={15} />
-            </ToolbarButton>
-            <ToolbarButton title="Redo (⌘⇧Z)">
-              <Redo2 size={15} />
-            </ToolbarButton>
+            <ToolbarButton title="Undo (⌘Z)"><Undo2 size={15} /></ToolbarButton>
+            <ToolbarButton title="Redo (⌘⇧Z)"><Redo2 size={15} /></ToolbarButton>
             <div className="w-px h-5 mx-1.5 bg-border" />
-            <ToolbarButton title="Zoom out" onClick={() => setZoom(z => Math.max(0.2, z - 0.1))}>
+            <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
               <ZoomOut size={15} />
             </ToolbarButton>
             <button
@@ -251,7 +332,7 @@ export function StudioEditor({
             >
               {Math.round(zoom * 100)}%
             </button>
-            <ToolbarButton title="Zoom in" onClick={() => setZoom(z => Math.min(2, z + 0.1))}>
+            <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
               <ZoomIn size={15} />
             </ToolbarButton>
             <div className="w-px h-5 mx-1.5 bg-border" />
@@ -260,7 +341,6 @@ export function StudioEditor({
             </div>
           </div>
 
-          {/* Right: actions */}
           <div className="flex items-center gap-2">
             <button
               onClick={onDownload}
@@ -269,10 +349,7 @@ export function StudioEditor({
               <Download size={13} /> Export
             </button>
             <button
-              onClick={() => {
-                onSaveToLibrary?.();
-                setHasUnsavedChanges(false);
-              }}
+              onClick={() => { onSaveToLibrary?.(); setHasUnsavedChanges(false); }}
               className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground"
             >
               <Save size={13} /> Save to Library
@@ -282,86 +359,73 @@ export function StudioEditor({
 
         {/* Workspace */}
         <div className="flex-1 flex min-h-0">
-          {/* Left: layers panel */}
+          {/* Layers panel */}
           <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-border bg-card">
             <div className="h-9 flex items-center justify-between px-3 border-b border-border flex-shrink-0">
               <span className="text-[10px] font-ui font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Layers
               </span>
-              <span className="text-[10px] font-ui tabular-nums text-muted-foreground">
-                {layers.length}
-              </span>
+              <span className="text-[10px] font-ui tabular-nums text-muted-foreground">{elements.length}</span>
             </div>
             <div className="flex-1 overflow-y-auto py-1">
-              {layers.map(layer => {
-                const Icon = layer.icon;
-                const selected = selectedLayerId === layer.id;
+              {elements.map((el, idx) => {
+                const Icon = ICON_FOR_TYPE[el.type];
+                const sel = selectedId === el.id;
                 return (
                   <div
-                    key={layer.id}
-                    onClick={() => setSelectedLayerId(layer.id)}
+                    key={el.id}
+                    draggable
+                    onDragStart={onLayerDragStart(idx)}
+                    onDragOver={onLayerDragOver}
+                    onDrop={onLayerDrop(idx)}
+                    onClick={() => !el.locked && setSelectedId(el.id)}
                     className={cn(
-                      "group flex items-center gap-2 mx-1.5 my-0.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors border-l-2",
-                      selected
-                        ? "bg-primary/10 border-primary"
-                        : "border-transparent hover:bg-muted/60",
+                      "group flex items-center gap-2 mx-1.5 my-0.5 px-2 py-1.5 rounded-md transition-colors border-l-2",
+                      el.locked ? "cursor-not-allowed" : "cursor-pointer",
+                      sel ? "bg-primary/10 border-primary" : "border-transparent hover:bg-muted/60",
                     )}
                   >
-                    <Icon
-                      size={13}
-                      className={cn(
-                        "flex-shrink-0",
-                        selected ? "text-primary" : "text-muted-foreground",
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "text-[12px] font-ui flex-1 truncate",
-                        layer.visible ? "text-foreground" : "text-muted-foreground opacity-60",
-                      )}
-                    >
-                      {layer.name}
-                    </span>
+                    <GripVertical size={11} className="text-muted-foreground opacity-40" />
+                    <Icon size={13} className={cn("flex-shrink-0", sel ? "text-primary" : "text-muted-foreground")} />
+                    <span className={cn(
+                      "text-[12px] font-ui flex-1 truncate",
+                      el.visible ? "text-foreground" : "text-muted-foreground opacity-60",
+                    )}>{el.name}</span>
                     <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleVisibility(layer.id);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); toggleVisibility(el.id); }}
                       className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-muted-foreground hover:text-foreground"
-                      title={layer.visible ? "Hide" : "Show"}
+                      title={el.visible ? "Hide" : "Show"}
                     >
-                      {layer.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                      {el.visible ? <Eye size={12} /> : <EyeOff size={12} />}
                     </button>
                     <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleLock(layer.id);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); toggleLock(el.id); }}
                       className={cn(
                         "transition-opacity p-0.5",
-                        layer.locked
+                        el.locked
                           ? "opacity-100 text-primary"
                           : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground",
                       )}
-                      title={layer.locked ? "Unlock" : "Lock"}
+                      title={el.locked ? "Unlock" : "Lock"}
                     >
-                      {layer.locked ? <Lock size={11} /> : <Unlock size={11} />}
+                      {el.locked ? <Lock size={11} /> : <Unlock size={11} />}
                     </button>
                   </div>
                 );
               })}
+              {elements.length === 0 && (
+                <p className="text-[11px] font-ui text-muted-foreground text-center px-4 py-6">
+                  No editable elements detected
+                </p>
+              )}
             </div>
             <div className="px-3 py-2 border-t border-border flex items-center justify-between">
-              <span className="text-[10px] font-ui text-muted-foreground">
-                Auto-detected
-              </span>
-              <span className="text-[10px] font-ui px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                Beta
-              </span>
+              <span className="text-[10px] font-ui text-muted-foreground">Auto-detected</span>
+              <span className="text-[10px] font-ui px-1.5 py-0.5 rounded bg-primary/10 text-primary">Beta</span>
             </div>
           </div>
 
-          {/* Centre: canvas */}
+          {/* Canvas */}
           <div
             className="flex-1 min-w-0 flex flex-col relative"
             style={{
@@ -373,7 +437,6 @@ export function StudioEditor({
               backgroundSize: "22px 22px",
             }}
           >
-            {/* Floating tool dock */}
             <div className="absolute left-3 top-3 flex flex-col gap-1 p-1 rounded-lg z-10 bg-card border border-border shadow-sm">
               <ToolButton active={tool === "select"} onClick={() => setTool("select")} title="Select (V)">
                 <MousePointer2 size={14} />
@@ -383,120 +446,99 @@ export function StudioEditor({
               </ToolButton>
             </div>
 
-            <div
-              ref={canvasContainerRef}
-              className="flex-1 overflow-auto flex items-center justify-center p-8"
-            >
+            <div className="flex-1 overflow-auto flex items-center justify-center p-8">
               <div
+                ref={captureStageHost}
+                data-studio-stage
                 className="relative"
-                style={{
-                  width: 600 * zoom,
-                  height: 600 * zoom,
-                }}
+                style={{ width: 600 * zoom, height: 600 * zoom }}
               >
-                {/* Canvas frame shadow */}
                 <div
-                  className="absolute inset-0 rounded-sm"
+                  className="absolute inset-0 rounded-sm pointer-events-none"
                   style={{
-                    boxShadow:
-                      "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
+                    boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
                   }}
                 />
-                {/* Canvas content */}
-                <div
-                  className="overflow-hidden rounded-sm relative bg-white"
-                  style={{
-                    width: 600 * zoom,
-                    height: 600 * zoom,
-                  }}
-                >
-                  {variationHtml ? (
-                    <div
-                      style={{
-                        width: 600,
-                        height: 600,
-                        transform: `scale(${zoom})`,
-                        transformOrigin: "top left",
-                      }}
-                      dangerouslySetInnerHTML={{ __html: variationHtml }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-muted">
-                      <span className="text-[12px] font-ui text-muted-foreground">
-                        No design loaded
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Selection bounding box (mock) */}
-                  {selectedLayer && selectedLayer.id === "l-headline" && (
-                    <SelectionBox zoom={zoom} top={60} left={60} width={480} height={90} />
-                  )}
-                  {selectedLayer && selectedLayer.id === "l-tagline" && (
-                    <SelectionBox zoom={zoom} top={170} left={60} width={420} height={50} />
-                  )}
-                  {selectedLayer && selectedLayer.id === "l-product" && (
-                    <SelectionBox zoom={zoom} top={250} left={210} width={180} height={240} />
-                  )}
-                  {selectedLayer && selectedLayer.id === "l-bg" && (
-                    <SelectionBox zoom={zoom} top={2} left={2} width={596} height={596} dashed />
-                  )}
-                </div>
+                <EditableCanvas
+                  html={html}
+                  zoom={zoom}
+                  width={600}
+                  height={600}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onElementsParsed={setElements}
+                  onElementMutated={() => { bumpRefresh(); markDirty(); }}
+                  getElementState={getElementState}
+                  refreshKey={refreshKey}
+                />
               </div>
             </div>
 
-            {/* Bottom status bar */}
             <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 bg-card text-muted-foreground">
               <div className="flex items-center gap-3">
-                <span>
-                  Tool: <span className="text-foreground">{tool === "select" ? "Select" : "Pan"}</span>
-                </span>
-                {selectedLayer && (
-                  <span>
-                    Selected: <span className="text-foreground">{selectedLayer.name}</span>
-                  </span>
-                )}
+                <span>Tool: <span className="text-foreground">{tool === "select" ? "Select" : "Pan"}</span></span>
+                {selected && <span>Selected: <span className="text-foreground">{selected.name}</span></span>}
               </div>
               <div className="flex items-center gap-3 tabular-nums">
-                <span>x: 0 y: 0</span>
+                <span>{elements.length} layers</span>
                 <span>{Math.round(zoom * 100)}%</span>
               </div>
             </div>
           </div>
 
-          {/* Right: properties panel */}
-          <div className="w-[260px] flex-shrink-0 flex flex-col border-l border-border bg-card">
+          {/* Properties */}
+          <div className="w-[280px] flex-shrink-0 flex flex-col border-l border-border bg-card">
             <div className="h-9 flex items-center justify-between px-3 border-b border-border flex-shrink-0">
               <span className="text-[10px] font-ui font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Properties
               </span>
-              {selectedLayer && (
-                <span className="text-[10px] font-ui truncate max-w-[120px] text-foreground">
-                  {selectedLayer.name}
-                </span>
+              {selected && (
+                <span className="text-[10px] font-ui truncate max-w-[140px] text-foreground">{selected.name}</span>
               )}
             </div>
-
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
-              {!selectedLayer ? (
+              {!selected ? (
                 <div className="text-center py-10">
                   <Maximize2 size={20} className="mx-auto mb-2 text-muted-foreground opacity-50" />
                   <p className="text-[11px] font-ui text-muted-foreground">
-                    Select a layer to edit its properties
+                    Select an element on the canvas to edit its properties
                   </p>
                 </div>
-              ) : selectedLayer.type === "text" ? (
-                <TextProperties onChange={markDirty} />
-              ) : selectedLayer.type === "image" ? (
-                <ImageProperties onChange={markDirty} />
+              ) : selected.type === "text" ? (
+                <TextProperties
+                  key={selected.id}
+                  apply={apply}
+                  read={read}
+                  brandColors={brandColors}
+                />
+              ) : selected.type === "image" ? (
+                <ImageProperties
+                  key={selected.id}
+                  apply={apply}
+                  applyAttr={applyAttr}
+                  read={read}
+                  readAttr={readAttr}
+                />
+              ) : selected.type === "background" ? (
+                <BackgroundProperties
+                  key={selected.id}
+                  apply={apply}
+                  read={read}
+                  brandColors={brandColors}
+                />
               ) : (
-                <BackgroundProperties onChange={markDirty} />
+                <ShapeProperties
+                  key={selected.id}
+                  apply={apply}
+                  read={read}
+                  brandColors={brandColors}
+                />
               )}
             </div>
           </div>
         </div>
 
-        {/* Universal canvas switcher (image variants today; slides/scenes/pages tomorrow) */}
+        {/* Canvas switcher */}
         {canvases && canvases.length > 0 && activeCanvasId && onSelectCanvas && (
           <CanvasSwitcher
             canvases={canvases}
@@ -511,7 +553,6 @@ export function StudioEditor({
         )}
       </div>
 
-      {/* Unsaved changes confirmation */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent className="z-[110]">
           <AlertDialogHeader>
@@ -528,9 +569,7 @@ export function StudioEditor({
             >
               Discard & Exit
             </button>
-            <AlertDialogAction onClick={handleSaveAndExit}>
-              Save & Exit
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleSaveAndExit}>Save & Exit</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -538,7 +577,7 @@ export function StudioEditor({
   );
 }
 
-/* ============================== UI bits ============================== */
+/* =============================== UI bits =============================== */
 
 function ToolbarButton({
   children,
@@ -582,286 +621,5 @@ function ToolButton({
     >
       {children}
     </button>
-  );
-}
-
-function SelectionBox({
-  zoom,
-  top,
-  left,
-  width,
-  height,
-  dashed,
-}: {
-  zoom: number;
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-  dashed?: boolean;
-}) {
-  return (
-    <div
-      className="absolute pointer-events-none"
-      style={{
-        top: top * zoom,
-        left: left * zoom,
-        width: width * zoom,
-        height: height * zoom,
-        border: `1.5px ${dashed ? "dashed" : "solid"} hsl(var(--primary))`,
-        boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.3)",
-      }}
-    >
-      {!dashed &&
-        ["tl", "tr", "bl", "br"].map(pos => (
-          <div
-            key={pos}
-            className="absolute w-2 h-2 rounded-[1px] bg-primary border border-background"
-            style={{
-              top: pos.startsWith("t") ? -4 : "auto",
-              bottom: pos.startsWith("b") ? -4 : "auto",
-              left: pos.endsWith("l") ? -4 : "auto",
-              right: pos.endsWith("r") ? -4 : "auto",
-            }}
-          />
-        ))}
-    </div>
-  );
-}
-
-/* ============================ Property panels ============================ */
-
-function PropGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-[9px] font-ui font-semibold uppercase tracking-[0.1em] mb-2 text-muted-foreground">
-        {label}
-      </p>
-      {children}
-    </div>
-  );
-}
-
-function PropInput({
-  value,
-  suffix,
-  onChange,
-}: {
-  value: string;
-  suffix?: string;
-  onChange?: (v: string) => void;
-}) {
-  return (
-    <div className="flex items-center h-8 rounded-md px-2.5 text-[12px] font-ui bg-background border border-border text-foreground">
-      <input
-        value={value}
-        onChange={e => onChange?.(e.target.value)}
-        className="flex-1 bg-transparent outline-none min-w-0"
-      />
-      {suffix && <span className="text-muted-foreground">{suffix}</span>}
-    </div>
-  );
-}
-
-function ColorRow({ color }: { label: string; color: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className="w-7 h-7 rounded-md flex-shrink-0 border border-border"
-        style={{ backgroundColor: color }}
-      />
-      <div className="flex-1">
-        <PropInput value={color} />
-      </div>
-    </div>
-  );
-}
-
-function TextProperties({ onChange }: { onChange?: () => void }) {
-  const [font, setFont] = useState("Playfair Display");
-  const [size, setSize] = useState("48");
-  const [weight, setWeight] = useState("600");
-  const [align, setAlign] = useState<"left" | "center" | "right">("left");
-
-  const wrap = (fn: (v: string) => void) => (v: string) => { fn(v); onChange?.(); };
-
-  return (
-    <>
-      <PropGroup label="Typography">
-        <div className="space-y-2">
-          <PropInput value={font} onChange={wrap(setFont)} />
-          <div className="grid grid-cols-2 gap-2">
-            <PropInput value={size} suffix="px" onChange={wrap(setSize)} />
-            <PropInput value={weight} onChange={wrap(setWeight)} />
-          </div>
-        </div>
-      </PropGroup>
-
-      <PropGroup label="Alignment">
-        <div className="flex gap-1 p-1 rounded-md bg-background border border-border">
-          {[
-            { id: "left" as const, icon: AlignLeft },
-            { id: "center" as const, icon: AlignCenter },
-            { id: "right" as const, icon: AlignRight },
-          ].map(({ id, icon: I }) => (
-            <button
-              key={id}
-              onClick={() => { setAlign(id); onChange?.(); }}
-              className={cn(
-                "flex-1 h-7 rounded flex items-center justify-center transition-colors",
-                align === id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <I size={13} />
-            </button>
-          ))}
-        </div>
-      </PropGroup>
-
-      <PropGroup label="Style">
-        <div className="flex gap-1.5">
-          <button className="w-8 h-8 rounded-md flex items-center justify-center transition-colors bg-background border border-border text-foreground hover:bg-muted">
-            <Bold size={13} />
-          </button>
-          <button className="w-8 h-8 rounded-md flex items-center justify-center transition-colors bg-background border border-border text-foreground hover:bg-muted">
-            <Italic size={13} />
-          </button>
-        </div>
-      </PropGroup>
-
-      <PropGroup label="Color">
-        <ColorRow label="Fill" color="#0D1B2A" />
-      </PropGroup>
-
-      <PropGroup label="Letter spacing">
-        <PropInput value="0" suffix="px" />
-      </PropGroup>
-    </>
-  );
-}
-
-function ImageProperties({ onChange }: { onChange?: () => void }) {
-  const [opacity, setOpacity] = useState(100);
-  const [scale, setScale] = useState(100);
-
-  return (
-    <>
-      <PropGroup label="Position">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="text-[10px] font-ui mb-1 text-muted-foreground">X</p>
-            <PropInput value="210" suffix="px" />
-          </div>
-          <div>
-            <p className="text-[10px] font-ui mb-1 text-muted-foreground">Y</p>
-            <PropInput value="250" suffix="px" />
-          </div>
-        </div>
-      </PropGroup>
-
-      <PropGroup label="Dimensions">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="text-[10px] font-ui mb-1 text-muted-foreground">W</p>
-            <PropInput value="180" suffix="px" />
-          </div>
-          <div>
-            <p className="text-[10px] font-ui mb-1 text-muted-foreground">H</p>
-            <PropInput value="240" suffix="px" />
-          </div>
-        </div>
-      </PropGroup>
-
-      <PropGroup label={`Opacity — ${opacity}%`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={opacity}
-          onChange={e => { setOpacity(Number(e.target.value)); onChange?.(); }}
-          className="w-full h-1.5 appearance-none rounded-full cursor-pointer bg-background"
-          style={{ accentColor: "hsl(var(--primary))" }}
-        />
-      </PropGroup>
-
-      <PropGroup label={`Scale — ${scale}%`}>
-        <input
-          type="range"
-          min={20}
-          max={200}
-          value={scale}
-          onChange={e => { setScale(Number(e.target.value)); onChange?.(); }}
-          className="w-full h-1.5 appearance-none rounded-full cursor-pointer bg-background"
-          style={{ accentColor: "hsl(var(--primary))" }}
-        />
-      </PropGroup>
-
-      <PropGroup label="Effects">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between h-8 px-2.5 rounded-md text-[12px] font-ui bg-background border border-border text-foreground">
-            <span>Drop shadow</span>
-            <div className="w-7 h-4 rounded-full relative bg-primary">
-              <div className="absolute right-0.5 top-0.5 w-3 h-3 rounded-full bg-white" />
-            </div>
-          </div>
-        </div>
-      </PropGroup>
-    </>
-  );
-}
-
-function BackgroundProperties({ onChange }: { onChange?: () => void }) {
-  const [type, setType] = useState<"solid" | "gradient">("solid");
-
-  return (
-    <>
-      <PropGroup label="Fill type">
-        <div className="flex p-1 rounded-md bg-background border border-border">
-          {(["solid", "gradient"] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => { setType(t); onChange?.(); }}
-              className={cn(
-                "flex-1 h-7 rounded text-[11px] font-ui capitalize transition-colors",
-                type === t ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </PropGroup>
-
-      {type === "solid" ? (
-        <PropGroup label="Color">
-          <ColorRow label="Fill" color="#F5F0E8" />
-        </PropGroup>
-      ) : (
-        <>
-          <PropGroup label="Gradient stops">
-            <div className="space-y-2">
-              <ColorRow label="From" color="#2D4A3E" />
-              <ColorRow label="To" color="#F5F0E8" />
-            </div>
-          </PropGroup>
-          <PropGroup label="Angle">
-            <PropInput value="135" suffix="°" />
-          </PropGroup>
-        </>
-      )}
-
-      <PropGroup label="Dimensions">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <p className="text-[10px] font-ui mb-1 text-muted-foreground">W</p>
-            <PropInput value="600" suffix="px" />
-          </div>
-          <div>
-            <p className="text-[10px] font-ui mb-1 text-muted-foreground">H</p>
-            <PropInput value="600" suffix="px" />
-          </div>
-        </div>
-      </PropGroup>
-    </>
   );
 }
