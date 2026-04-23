@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { callAI } from './aiService';
+import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 
 const db = supabase as any;
 
@@ -432,6 +432,65 @@ export const setActiveProductImage = async (
   }
 };
 
+// Ensure template_generation system prompt exists in ai_system_prompts
+export const ensureTemplateGenerationSystemPrompt = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Check if it already exists
+    const { data: existing } = await db
+      .from('ai_system_prompts')
+      .select('id')
+      .eq('task_type', 'template_generation')
+      .single();
+
+    if (existing) {
+      return { success: true };
+    }
+
+    // Insert the default system prompt
+    const defaultPrompt = `You are a professional graphic designer and frontend developer.
+Generate a complete, self-contained HTML/CSS design for the following brief.
+
+TEMPLATE STYLE: {{generation_prompt}}
+ASPECT RATIO: {{aspectRatio}} — canvas size should reflect this
+STYLE INTENSITY: {{styleIntensity}} — subtle means minimal and clean, bold means high contrast and dramatic
+VARIANT: This is variant {{variant_index}} of {{variant_count}} — make it distinct from other variants while staying on-brand
+
+BRAND CONTEXT:
+- Brand voice: {{brand_voice}}
+- Core promise: {{core_promise}}
+- Target audience: {{target_audience}}
+- Positioning: {{positioning_statement}}
+- Primary colour: {{primary_color}}
+- Secondary colour: {{secondary_color}}
+
+PRODUCT IMAGE: {{product_image_url}} — use this as an <img> src in the design
+
+RULES:
+- Return ONLY the HTML. No explanation, no markdown, no code fences.
+- The design must be fully self-contained — all CSS inline or in a <style> tag in the same file
+- Root element must be a single <div> with width and height set to match the aspect ratio (e.g. 600x600 for square, 600x900 for 9:16)
+- Every editable element must have a data-element attribute: data-element="background", data-element="headline", data-element="tagline", data-element="product-image", data-element="brand-mark", data-element="accent-{n}" for decorative elements
+- Use the brand's primary and secondary colours throughout
+- Typography: use Google Fonts — import Playfair Display for headings, DM Sans for body
+- The product image must be visible and prominent
+- Do not use external assets other than the product image URL and Google Fonts`;
+
+    const { error } = await db
+      .from('ai_system_prompts')
+      .insert({
+        task_type: 'template_generation',
+        system_prompt: defaultPrompt,
+        is_active: true,
+        version: 1
+      });
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
 // Calculate template generation cost
 export const calculateTemplateCost = async (
   templateId: string,
@@ -573,12 +632,21 @@ export async function generateTemplateOutput({
 
     if (brandError) throw brandError;
 
-    const brandVoice = brandDNA?.brand_voice || 'Professional and friendly';
-    const corePromise = brandDNA?.core_promise || 'Quality products for our customers';
-    const targetAudience = brandDNA?.target_audience || 'General consumers';
-    const positioningStatement = brandDNA?.positioning_statement || 'A trusted brand';
-    const primaryColor = brand?.primary_color || '#000000';
-    const secondaryColor = brand?.secondary_color || '#FFFFFF';
+    // Fetch the system prompt for template_generation
+    let systemPrompt = await getSystemPrompt('template_generation');
+
+    // If system prompt doesn't exist, create it with default content
+    if (!systemPrompt) {
+      const { success: ensureSuccess, error: ensureError } = await ensureTemplateGenerationSystemPrompt();
+      if (!ensureSuccess) {
+        return { variants: [], outputIds: [], error: `Failed to create system prompt: ${ensureError}` };
+      }
+      systemPrompt = await getSystemPrompt('template_generation');
+    }
+
+    if (!systemPrompt) {
+      return { variants: [], outputIds: [], error: 'System prompt for template_generation not found and could not be created.' };
+    }
 
     // Generate all variants in parallel and stream completions via onVariant.
     const variants: string[] = new Array(variantCount).fill('');
@@ -588,37 +656,25 @@ export async function generateTemplateOutput({
       Array.from({ length: variantCount }).map(async (_, i) => {
         const variantIndex = i + 1;
 
-        const prompt = `You are a professional graphic designer and frontend developer.
-Generate a complete, self-contained HTML/CSS design for the following brief.
-
-TEMPLATE STYLE: ${generationPrompt}
-ASPECT RATIO: ${aspectRatio} — canvas size should reflect this
-STYLE INTENSITY: ${styleIntensity} — subtle means minimal and clean, bold means high contrast and dramatic
-VARIANT: This is variant ${variantIndex} of ${variantCount} — make it distinct from other variants while staying on-brand
-
-BRAND CONTEXT:
-- Brand voice: ${brandVoice}
-- Core promise: ${corePromise}
-- Target audience: ${targetAudience}
-- Positioning: ${positioningStatement}
-- Primary colour: ${primaryColor}
-- Secondary colour: ${secondaryColor}
-
-PRODUCT IMAGE: ${productImageUrl} — use this as an <img> src in the design
-
-RULES:
-- Return ONLY the HTML. No explanation, no markdown, no code fences.
-- The design must be fully self-contained — all CSS inline or in a <style> tag in the same file
-- Root element must be a single <div> with width and height set to match the aspect ratio (e.g. 600x600 for square, 600x900 for 9:16)
-- Every editable element must have a data-element attribute: data-element="background", data-element="headline", data-element="tagline", data-element="product-image", data-element="brand-mark", data-element="accent-{n}" for decorative elements
-- Use the brand's primary and secondary colours throughout
-- Typography: use Google Fonts — import Playfair Display for headings, DM Sans for body
-- The product image must be visible and prominent
-- Do not use external assets other than the product image URL and Google Fonts`;
+        // Inject template variables into the system prompt
+        const filledPrompt = injectPromptVariables(systemPrompt, {
+          generation_prompt: generationPrompt,
+          aspectRatio,
+          styleIntensity,
+          variant_index: String(variantIndex),
+          variant_count: String(variantCount),
+          brand_voice: brandDNA?.brand_voice || 'Not yet defined',
+          core_promise: brandDNA?.core_promise || 'Not yet defined',
+          target_audience: brandDNA?.target_audience || 'Not yet defined',
+          positioning_statement: brandDNA?.positioning_statement || 'Not yet defined',
+          primary_color: brand?.primary_color || '#000000',
+          secondary_color: brand?.secondary_color || '#ffffff',
+          product_image_url: productImageUrl
+        });
 
         const result = await callAI({
           taskType: 'template_generation',
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: filledPrompt }],
           maxTokens: 8000,
           imageBase64,
           imageMimeType
