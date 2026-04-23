@@ -21,8 +21,9 @@ import {
   getUserCredits,
   calculateTemplateCost,
   generateTemplateOutput,
+  uploadProductImage,
+  setActiveProductImage,
 } from "@/services/templateService";
-import { uploadProjectFile } from "@/services/projectAssetsService";
 import { toast } from "@/hooks/use-toast";
 
 const aspectOptions = ["Auto", "Square", "3:2", "9:16", "16:9"];
