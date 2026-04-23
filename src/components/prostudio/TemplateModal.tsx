@@ -100,6 +100,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [isGenerating, setIsGenerating] = useState(false);
   const [variantCount, setVariantCount] = useState<number>(1);
   const [variations, setVariations] = useState<(string | null)[]>([null]);
+  const [outputIds, setOutputIds] = useState<(string | null)[]>([null]);
   const [generated, setGenerated] = useState(false);
   const [activeVariation, setActiveVariation] = useState(0);
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
