@@ -548,7 +548,9 @@ RULES:
         const result = await callAI({
           taskType: 'template_generation',
           messages: [{ role: 'user', content: prompt }],
-          maxTokens: 8000
+          maxTokens: 8000,
+          imageBase64,
+          imageMimeType
         });
 
         if (!result.success || !result.text) {
