@@ -727,11 +727,18 @@ export function BrandDNAPanel({
                         substagesWithData.map((substage, idx) => {
                           const isNext = !substage.isComplete &&
                             substagesWithData.slice(0, idx).every(s => s.isComplete);
+                          const refKey = substage.fieldKey
+                            ? `${stage.stage_key}::${substage.fieldKey}`
+                            : null;
+                          const isRefining = !!(refKey && refiningKeys.has(refKey));
+                          const showActions = substage.isComplete && !!substage.fieldKey;
 
                           return (
                             <div
                               key={substage.index}
+                              className={showActions ? 'group/substage' : undefined}
                               style={{
+                                position: 'relative',
                                 marginBottom: '10px',
                                 padding: '10px 12px',
                                 background: substage.isComplete
@@ -741,11 +748,13 @@ export function BrandDNAPanel({
                                     : 'var(--color-background-secondary)',
                                 borderRadius: '8px',
                                 border: `0.5px solid ${
-                                  substage.isComplete
-                                    ? 'rgba(212,160,23,0.2)'
-                                    : isNext
-                                      ? 'rgba(212,160,23,0.25)'
-                                      : 'var(--color-border-tertiary)'
+                                  isRefining
+                                    ? 'rgba(212,160,23,0.45)'
+                                    : substage.isComplete
+                                      ? 'rgba(212,160,23,0.2)'
+                                      : isNext
+                                        ? 'rgba(212,160,23,0.25)'
+                                        : 'var(--color-border-tertiary)'
                                 }`,
                                 transition: 'all 200ms'
                               }}
@@ -757,23 +766,32 @@ export function BrandDNAPanel({
                                 gap: '8px'
                               }}>
                                 {/* Status indicator — read-only */}
-                                <div style={{
-                                  width: '16px',
-                                  height: '16px',
-                                  borderRadius: '50%',
-                                  flexShrink: 0,
-                                  marginTop: '1px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: substage.isComplete ? '#4CAF50' : 'transparent',
-                                  border: substage.isComplete
-                                    ? '2px solid #4CAF50'
-                                    : isNext
+                                <div
+                                  className={isRefining ? 'animate-amber-pulse' : undefined}
+                                  style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    borderRadius: '50%',
+                                    flexShrink: 0,
+                                    marginTop: '1px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: isRefining
+                                      ? '#D4A017'
+                                      : substage.isComplete
+                                        ? '#4CAF50'
+                                        : 'transparent',
+                                    border: isRefining
                                       ? '2px solid #D4A017'
-                                      : '1.5px solid var(--color-border-secondary)'
-                                }}>
-                                  {substage.isComplete ? (
+                                      : substage.isComplete
+                                        ? '2px solid #4CAF50'
+                                        : isNext
+                                          ? '2px solid #D4A017'
+                                          : '1.5px solid var(--color-border-secondary)'
+                                  }}
+                                >
+                                  {isRefining ? null : substage.isComplete ? (
                                     <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, lineHeight: 1 }}>
                                       ✓
                                     </span>
@@ -797,9 +815,26 @@ export function BrandDNAPanel({
                                       : isNext
                                         ? 'var(--color-text-primary)'
                                         : 'var(--color-text-secondary)',
-                                    lineHeight: 1.4
+                                    lineHeight: 1.4,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    flexWrap: 'wrap'
                                   }}>
-                                    {substage.label}
+                                    <span>{substage.label}</span>
+                                    {isRefining && (
+                                      <span style={{
+                                        fontSize: '9px',
+                                        color: '#D4A017',
+                                        background: 'rgba(212,160,23,0.14)',
+                                        padding: '1px 6px',
+                                        borderRadius: '3px',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.04em'
+                                      }}>
+                                        Refining…
+                                      </span>
+                                    )}
                                   </div>
 
                                   {/* Prompt text when no data is captured */}
@@ -834,6 +869,59 @@ export function BrandDNAPanel({
                                     discuss
                                   </span>
                                 )}
+
+                                {/* Hover actions on captured substages */}
+                                {showActions && (
+                                  <div
+                                    className="opacity-0 group-hover/substage:opacity-100 focus-within:opacity-100 transition-opacity"
+                                    style={{ flexShrink: 0, alignSelf: 'flex-start' }}
+                                  >
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button
+                                          type="button"
+                                          aria-label="Substage actions"
+                                          onClick={(e) => e.stopPropagation()}
+                                          style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            padding: '2px',
+                                            borderRadius: '4px',
+                                            color: 'var(--color-text-tertiary)',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                          }}
+                                        >
+                                          <MoreHorizontal size={14} />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuItem
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            triggerRedefine(substage);
+                                          }}
+                                          className="text-[12px] cursor-pointer"
+                                        >
+                                          <MessageSquare size={13} className="mr-2 text-primary" />
+                                          Redefine with Mentor
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            triggerClear(substage);
+                                          }}
+                                          className="text-[12px] cursor-pointer text-destructive focus:text-destructive"
+                                        >
+                                          <Eraser size={13} className="mr-2" />
+                                          Clear
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Captured data — shown when value exists */}
@@ -841,13 +929,13 @@ export function BrandDNAPanel({
                                 <div style={{ marginTop: '8px' }}>
                                   <div style={{
                                     fontSize: '9px',
-                                    color: '#4CAF50',
+                                    color: isRefining ? '#D4A017' : '#4CAF50',
                                     fontWeight: 600,
                                     letterSpacing: '0.06em',
                                     textTransform: 'uppercase',
                                     marginBottom: '4px'
                                   }}>
-                                    Captured
+                                    {isRefining ? 'In refinement' : 'Captured'}
                                   </div>
                                   <div style={{
                                     fontSize: '12px',
