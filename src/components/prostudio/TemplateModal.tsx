@@ -149,12 +149,22 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   useEffect(() => {
     if (template) {
       setGenerated(false);
-      setVariations([null, null, null]);
+      setVariations(Array(variantCount).fill(null));
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
+
+  // Adjust variations array length when variantCount changes (pre-generation only)
+  useEffect(() => {
+    if (!generated && !isGenerating) {
+      setVariations(Array(variantCount).fill(null));
+      setActiveVariation(0);
+    }
+  }, [variantCount, generated, isGenerating]);
+
 
   // Helper to convert public URL → base64 (so AI can ingest it)
   const urlToBase64 = async (url: string): Promise<{ base64: string; mimeType: string } | null> => {
