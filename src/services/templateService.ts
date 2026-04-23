@@ -331,14 +331,14 @@ export const incrementTemplateUsage = async (templateId: string) => {
 // Fetch product images available for template generation
 export const getProjectImagesForTemplate = async (
   brandId: string
-): Promise<{ assets: any[]; activeProductImageId: string | null; error?: string }> => {
+): Promise<{ images: any[]; activeImageId: string | null; error?: string }> => {
   try {
-    // Fetch image assets from project_assets
+    // Fetch image assets from project_assets (file_type = 'image', not MIME type)
     const { data: assets, error: assetsError } = await db
       .from('project_assets')
-      .select('*')
+      .select('id, name, file_url, file_type')
       .eq('brand_id', brandId)
-      .like('file_type', 'image/%')
+      .eq('file_type', 'image')
       .order('created_at', { ascending: false });
 
     if (assetsError) throw assetsError;
@@ -353,11 +353,82 @@ export const getProjectImagesForTemplate = async (
     if (brandError) throw brandError;
 
     return {
-      assets: assets || [],
-      activeProductImageId: brand?.active_product_image_id || null
+      images: assets || [],
+      activeImageId: brand?.active_product_image_id || null
     };
   } catch (error: any) {
-    return { assets: [], activeProductImageId: null, error: error.message };
+    return { images: [], activeImageId: null, error: error.message };
+  }
+};
+
+// Upload a product image for ProStudio template generation
+export const uploadProductImage = async (
+  userId: string,
+  brandId: string,
+  file: File
+): Promise<{ success: boolean; asset?: any; error?: string }> => {
+  try {
+    const filename = `${userId}/${brandId}/${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, '-')}`;
+
+    // Upload to project-files bucket (same bucket used by projectAssetsService)
+    const { error: uploadError } = await supabase.storage
+      .from('project-files')
+      .upload(filename, file);
+
+    if (uploadError) {
+      return { success: false, error: uploadError.message };
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('project-files')
+      .getPublicUrl(filename);
+
+    // Insert into project_assets table
+    const { data, error } = await db
+      .from('project_assets')
+      .insert({
+        brand_id: brandId,
+        user_id: userId,
+        name: file.name,
+        file_type: 'image',
+        source: 'upload',
+        file_url: publicUrl,
+        storage_path: filename,
+        mime_type: file.type,
+        file_size_bytes: file.size,
+        is_pinned: false
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // If DB insert fails, clean up the uploaded file
+      await supabase.storage.from('project-files').remove([filename]);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, asset: data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Set the active product image for a brand
+export const setActiveProductImage = async (
+  brandId: string,
+  assetId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await db
+      .from('brands')
+      .update({ active_product_image_id: assetId })
+      .eq('id', brandId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 };
 
