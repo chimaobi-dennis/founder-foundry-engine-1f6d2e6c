@@ -326,3 +326,118 @@ export const incrementTemplateUsage = async (templateId: string) => {
 
   return { error };
 };
+
+// Fetch product images available for template generation
+export const getProjectImagesForTemplate = async (
+  brandId: string
+): Promise<{ assets: any[]; activeProductImageId: string | null; error?: string }> => {
+  try {
+    // Fetch image assets from project_assets
+    const { data: assets, error: assetsError } = await db
+      .from('project_assets')
+      .select('*')
+      .eq('brand_id', brandId)
+      .like('file_type', 'image/%')
+      .order('created_at', { ascending: false });
+
+    if (assetsError) throw assetsError;
+
+    // Fetch active product image ID from brands
+    const { data: brand, error: brandError } = await db
+      .from('brands')
+      .select('active_product_image_id')
+      .eq('id', brandId)
+      .single();
+
+    if (brandError) throw brandError;
+
+    return {
+      assets: assets || [],
+      activeProductImageId: brand?.active_product_image_id || null
+    };
+  } catch (error: any) {
+    return { assets: [], activeProductImageId: null, error: error.message };
+  }
+};
+
+// Calculate template generation cost
+export const calculateTemplateCost = async (
+  templateId: string,
+  aspectRatio: string,
+  styleIntensity: string
+): Promise<{ credits: number; breakdown: string[]; error?: string }> => {
+  try {
+    // Fetch template to get base price
+    const { data: template, error: templateError } = await db
+      .from('prostudio_templates')
+      .select('price_credits, is_free')
+      .eq('id', templateId)
+      .single();
+
+    if (templateError) throw templateError;
+
+    const breakdown: string[] = [];
+    let credits = template?.is_free ? 0 : (template?.price_credits || 1);
+
+    if (!template?.is_free) {
+      breakdown.push(`Base template: ${template?.price_credits || 1} credit`);
+    } else {
+      breakdown.push('Base template: Free');
+    }
+
+    // Add cost for custom aspect ratio
+    if (aspectRatio !== 'auto') {
+      credits += 1;
+      breakdown.push('Custom aspect ratio: +1 credit');
+    }
+
+    // Add cost for bold style intensity
+    if (styleIntensity === 'bold') {
+      credits += 1;
+      breakdown.push('Bold style intensity: +1 credit');
+    }
+
+    return { credits, breakdown };
+  } catch (error: any) {
+    return { credits: 0, breakdown: [], error: error.message };
+  }
+};
+
+// Fetch user's remaining credits
+export const getUserCredits = async (
+  userId: string
+): Promise<{ credits: number | null; error?: string }> => {
+  try {
+    const { data: profile, error } = await db
+      .from('profiles')
+      .select('credits_remaining')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+
+    return { credits: profile?.credits_remaining ?? 0 };
+  } catch (error: any) {
+    return { credits: null, error: error.message };
+  }
+};
+
+// Deduct credits from user's profile
+export const deductCredits = async (
+  userId: string,
+  amount: number
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await db
+      .from('profiles')
+      .update({ credits_remaining: db.raw('credits_remaining - ' + amount) })
+      .eq('id', userId)
+      .gte('credits_remaining', amount); // Ensure they have enough credits
+
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
