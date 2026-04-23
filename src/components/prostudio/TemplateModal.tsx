@@ -89,6 +89,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const variationCarouselRef = useRef<HTMLDivElement>(null);
   const [styleIntensity, setStyleIntensity] = useState(2);
 
+  const { user } = useAuth();
+
   // AI generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [variations, setVariations] = useState<(string | null)[]>([null, null, null]);
@@ -97,6 +99,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(400);
+
+  // Live data: project images, credits, cost
+  const [projectAssets, setProjectAssets] = useState<any[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [userCredits, setUserCredits] = useState<number | null>(null);
+  const [cost, setCost] = useState<{ credits: number; breakdown: string[] }>({ credits: 1, breakdown: ["Base template: 1 credit"] });
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   // Carousel scroll function
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
