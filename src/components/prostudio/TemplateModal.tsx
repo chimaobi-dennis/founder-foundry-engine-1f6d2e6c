@@ -14,6 +14,7 @@ import { useProductImages } from "@/hooks/use-product-images";
 import { useAuth } from "@/contexts/AuthContext";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { QuickEditPanel, type EditState, defaultEditState } from "./QuickEditPanel";
+import { StudioEditor } from "./StudioEditor";
 import {
   getProjectImagesForTemplate,
   getUserCredits,
