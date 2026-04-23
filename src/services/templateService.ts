@@ -469,6 +469,8 @@ export async function generateTemplateOutput({
   aspectRatio,
   styleIntensity,
   variantCount,
+  imageBase64,
+  imageMimeType,
   onVariant
 }: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; error?: string }> {
   try {
