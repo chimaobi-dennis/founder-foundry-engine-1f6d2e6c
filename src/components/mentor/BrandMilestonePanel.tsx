@@ -332,20 +332,57 @@ export function BrandMilestonePanel({
       {/* Fixed top section — brand switcher and New project button */}
       <div className="p-4 space-y-3 flex-shrink-0">
         <div className="relative">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="w-full h-11 rounded-lg border border-border bg-card px-3 flex items-center gap-2.5 hover:border-card-border-hover transition-colors"
+          <div
+            className="group w-full h-11 rounded-lg border border-border bg-card px-3 flex items-center gap-2.5 hover:border-card-border-hover transition-colors cursor-pointer"
+            onClick={() => { if (!isEditingName) setDropdownOpen(!dropdownOpen); }}
           >
             <div
               className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: getBrandColor(activeBrand.id) }}
             />
             <div className="flex-1 text-left min-w-0">
-              <p key={displayBrandName} className="text-[13px] font-ui font-medium text-foreground truncate animate-name-fade">{displayBrandName}</p>
+              {isEditingName ? (
+                <input
+                  ref={nameInputRef}
+                  value={nameDraft}
+                  disabled={savingName}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onBlur={commitEditName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitEditName();
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelEditName();
+                    }
+                  }}
+                  className="w-full bg-transparent border-b border-primary outline-none text-[13px] font-ui font-medium text-foreground"
+                  aria-label="Edit project name"
+                />
+              ) : (
+                <div className="flex items-center gap-1 min-w-0">
+                  <p
+                    key={displayBrandName}
+                    onDoubleClick={(e) => { e.stopPropagation(); startEditName(); }}
+                    title="Double-click to rename"
+                    className="text-[13px] font-ui font-medium text-foreground truncate animate-name-fade"
+                  >
+                    {displayBrandName}
+                  </p>
+                  <Pencil
+                    size={10}
+                    className="text-muted-foreground opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0"
+                  />
+                </div>
+              )}
               <p className="text-[10px] font-ui text-muted-foreground">Started {activeBrand.startedDate}</p>
             </div>
-            <ChevronDown size={14} className="text-muted-foreground flex-shrink-0" />
-          </button>
+            {!isEditingName && (
+              <ChevronDown size={14} className="text-muted-foreground flex-shrink-0" />
+            )}
+          </div>
           {dropdownOpen && (
             <div className="absolute top-full left-0 right-0 mt-1 rounded-lg bg-card border border-border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
               {brands.map((brand) => (
