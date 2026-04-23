@@ -872,6 +872,46 @@ export const setTaskDefault = async (
   return { success: !error, error: error?.message };
 };
 
+// Ensure template_generation task has a default model (gemini-2.0-flash via google-ai-studio)
+export const ensureTemplateGenerationDefault = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Check if template_generation already has a default
+    const { data: existingDefault } = await (supabase as any)
+      .from('ai_task_defaults')
+      .select('model_id')
+      .eq('task_type', 'template_generation')
+      .single();
+
+    if (existingDefault) {
+      return { success: true }; // Already configured
+    }
+
+    // Find gemini-2.0-flash model from google-ai-studio provider
+    const { data: models } = await (supabase as any)
+      .from('ai_models')
+      .select(`
+        id,
+        model_id,
+        ai_providers (slug)
+      `)
+      .eq('model_id', 'gemini-2.0-flash')
+      .eq('is_enabled', true)
+      .single();
+
+    if (!models || !models.ai_providers || models.ai_providers.slug !== 'google-ai-studio') {
+      return { success: false, error: 'gemini-2.0-flash model not found or not enabled under google-ai-studio provider' };
+    }
+
+    // Set as default for template_generation
+    const { error } = await setTaskDefault('template_generation', models.id);
+    if (error) throw error;
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
 // ─── Get available models for UI selectors ───────────────
 
 export const getModelsForTask = async (

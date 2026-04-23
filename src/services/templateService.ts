@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { callAI } from './aiService';
 
 const db = supabase as any;
 
@@ -441,3 +442,134 @@ export const deductCredits = async (
     return { success: false, error: error.message };
   }
 };
+
+// Interface for template generation parameters
+export interface GenerateTemplateParams {
+  templateId: string;
+  brandId: string;
+  productImageUrl: string;
+  aspectRatio: string;
+  styleIntensity: string;
+  variantCount: number;
+}
+
+// Generate template output using AI
+export async function generateTemplateOutput({
+  templateId,
+  brandId,
+  productImageUrl,
+  aspectRatio,
+  styleIntensity,
+  variantCount
+}: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; error?: string }> {
+  try {
+    // Fetch template generation prompt
+    const { data: template, error: templateError } = await db
+      .from('prostudio_templates')
+      .select('generation_prompt')
+      .eq('id', templateId)
+      .single();
+
+    if (templateError) throw templateError;
+    const generationPrompt = template?.generation_prompt || 'Modern, clean design';
+
+    // Fetch brand DNA
+    const { data: brandDNA, error: dnaError } = await db
+      .from('brand_dna')
+      .select('brand_voice, core_promise, target_audience, positioning_statement')
+      .eq('brand_id', brandId)
+      .single();
+
+    if (dnaError && dnaError.code !== 'PGRST116') throw dnaError; // PGRST116 = not found, ok to be null
+
+    // Fetch brand colors
+    const { data: brand, error: brandError } = await db
+      .from('brands')
+      .select('primary_color, secondary_color')
+      .eq('id', brandId)
+      .single();
+
+    if (brandError) throw brandError;
+
+    const brandVoice = brandDNA?.brand_voice || 'Professional and friendly';
+    const corePromise = brandDNA?.core_promise || 'Quality products for our customers';
+    const targetAudience = brandDNA?.target_audience || 'General consumers';
+    const positioningStatement = brandDNA?.positioning_statement || 'A trusted brand';
+    const primaryColor = brand?.primary_color || '#000000';
+    const secondaryColor = brand?.secondary_color || '#FFFFFF';
+
+    // Generate variants
+    const variants: string[] = [];
+    const outputIds: string[] = [];
+
+    for (let i = 0; i < variantCount; i++) {
+      const variantIndex = i + 1;
+
+      const prompt = `You are a professional graphic designer and frontend developer.
+Generate a complete, self-contained HTML/CSS design for the following brief.
+
+TEMPLATE STYLE: ${generationPrompt}
+ASPECT RATIO: ${aspectRatio} — canvas size should reflect this
+STYLE INTENSITY: ${styleIntensity} — subtle means minimal and clean, bold means high contrast and dramatic
+VARIANT: This is variant ${variantIndex} of ${variantCount} — make it distinct from other variants while staying on-brand
+
+BRAND CONTEXT:
+- Brand voice: ${brandVoice}
+- Core promise: ${corePromise}
+- Target audience: ${targetAudience}
+- Positioning: ${positioningStatement}
+- Primary colour: ${primaryColor}
+- Secondary colour: ${secondaryColor}
+
+PRODUCT IMAGE: ${productImageUrl} — use this as an <img> src in the design
+
+RULES:
+- Return ONLY the HTML. No explanation, no markdown, no code fences.
+- The design must be fully self-contained — all CSS inline or in a <style> tag in the same file
+- Root element must be a single <div> with width and height set to match the aspect ratio (e.g. 600x600 for square, 600x900 for 9:16)
+- Every editable element must have a data-element attribute: data-element="background", data-element="headline", data-element="tagline", data-element="product-image", data-element="brand-mark", data-element="accent-{n}" for decorative elements
+- Use the brand's primary and secondary colours throughout
+- Typography: use Google Fonts — import Playfair Display for headings, DM Sans for body
+- The product image must be visible and prominent
+- Do not use external assets other than the product image URL and Google Fonts`;
+
+      const result = await callAI({
+        taskType: 'template_generation',
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 8000
+      });
+
+      if (!result.success || !result.text) {
+        throw result.error || 'Failed to generate template variant';
+      }
+
+      const htmlContent = result.text.trim();
+
+      // Save to template_outputs
+      const { data: outputData, error: outputError } = await db
+        .from('template_outputs')
+        .insert({
+          template_id: templateId,
+          brand_id: brandId,
+          output_type: 'html',
+          output_data: htmlContent,
+          generation_params: {
+            aspectRatio,
+            styleIntensity,
+            variantIndex
+          }
+        })
+        .select('id')
+        .single();
+
+      if (outputError) throw outputError;
+
+      variants.push(htmlContent);
+      outputIds.push(outputData.id);
+    }
+
+    return { variants, outputIds };
+  } catch (error: any) {
+    return { variants: [], outputIds: [], error: error.message };
+  }
+}
