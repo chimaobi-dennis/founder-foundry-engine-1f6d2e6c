@@ -8,6 +8,7 @@ import { BrandProvider } from "@/hooks/use-brand";
 import { ProductImagesProvider } from "@/hooks/use-product-images";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProfileProvider, useProfile } from "@/hooks/use-profile";
+import { StudioSessionProvider } from "@/contexts/StudioSessionContext";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Home from "./pages/Home";
@@ -16,6 +17,7 @@ import ReelBuilder from "./pages/ReelBuilder";
 import DocStudio from "./pages/DocStudio";
 import ContentCalendar from "./pages/ContentCalendar";
 import ProStudio from "./pages/ProStudio";
+import ProStudioEditor from "./pages/ProStudioEditor";
 import CampaignKit from "./pages/CampaignKit";
 import Library from "./pages/Library";
 import BrandDNA from "./pages/BrandDNA";
@@ -78,6 +80,7 @@ const App = () => (
         <ProfileProvider>
           <BrandProvider>
             <ProductImagesProvider>
+              <StudioSessionProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -103,6 +106,7 @@ const App = () => (
                         <Route path="/" element={<Home />} />
                         <Route path="/mentor" element={<Mentor />} />
                         <Route path="/pro-studio" element={<ProStudio />} />
+                        <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
                         <Route path="/campaign-kit" element={<CampaignKit />} />
                         <Route path="/content-calendar" element={<ContentCalendar />} />
                         <Route path="/library" element={<Library />} />
@@ -120,6 +124,7 @@ const App = () => (
                   </AuthGuard>
                 </BrowserRouter>
               </TooltipProvider>
+              </StudioSessionProvider>
             </ProductImagesProvider>
           </BrandProvider>
         </ProfileProvider>
