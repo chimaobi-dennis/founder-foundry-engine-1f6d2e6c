@@ -1,17 +1,26 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
 import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
+import { useAuth } from "@/contexts/AuthContext";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { QuickEditPanel, type EditState, defaultEditState } from "./QuickEditPanel";
+import {
+  getProjectImagesForTemplate,
+  getUserCredits,
+  calculateTemplateCost,
+} from "@/services/templateService";
+import { uploadProjectFile } from "@/services/projectAssetsService";
+import { toast } from "@/hooks/use-toast";
 
 const aspectOptions = ["Auto", "Square", "3:2", "9:16", "16:9"];
 const intensityOptions = [
