@@ -1711,6 +1711,77 @@ Be selective — only mark significant shifts, not minor tangents.`,
     });
   }, [activeBrandId, brandDataMap, persistDNAField]);
 
+  // ─── Substage actions (right-panel hover menu) ────────────────────────────
+
+  // Clear: remove the captured value for this substage from brand_stage_data,
+  // mirror-clear the brand_dna column when one exists, and refresh the panels
+  // so completion % drops immediately.
+  const handleClearSubstage = useCallback(async (
+    stageKey: string,
+    fieldKey: string,
+    fieldLabel: string
+  ) => {
+    if (!activeBrand) return;
+
+    const { error } = await (supabase as any)
+      .from('brand_stage_data')
+      .delete()
+      .eq('brand_id', activeBrand.id)
+      .eq('stage_key', stageKey)
+      .eq('field_key', fieldKey);
+
+    if (error) {
+      toast.error('Could not clear — try again');
+      return;
+    }
+
+    // Mirror-clear DNA when a mapping exists (match label or maps_to_dna_field)
+    const stageFieldDefs = (allStageFields[stageKey] ?? []) as any[];
+    const fieldDef = stageFieldDefs.find(f => f.field_key === fieldKey);
+    const dnaCandidates = [
+      fieldLabel,
+      fieldDef?.maps_to_dna_field,
+      fieldDef?.field_label,
+    ].filter(Boolean) as string[];
+    for (const candidate of dnaCandidates) {
+      if (DNA_UI_TO_DB[candidate]) {
+        await persistDNAField(activeBrand.id, candidate, null).catch(() => {});
+        break;
+      }
+    }
+
+    // Drop from local capturedData so any cached views update instantly
+    setCapturedData(prev => {
+      const next = { ...prev };
+      if (next[stageKey]) {
+        const { [fieldKey]: _, ...rest } = next[stageKey];
+        next[stageKey] = rest;
+      }
+      return next;
+    });
+
+    await refreshBrandDNA();
+    setForceRefresh(n => n + 1);
+    toast(`Cleared "${fieldLabel}"`, { duration: 2000 });
+  }, [activeBrand, allStageFields, persistDNAField, refreshBrandDNA]);
+
+  // Redefine: inject a user message into the chat that asks the mentor to
+  // revisit a specific captured substage. The AI naturally picks this up and
+  // its next SAVE_PROMPT for the same field_key restores the green check.
+  const handleRedefineSubstage = useCallback((
+    _stageKey: string,
+    _fieldKey: string,
+    fieldLabel: string,
+    currentValue: string
+  ) => {
+    const trimmedValue = currentValue.length > 200
+      ? currentValue.slice(0, 200) + '…'
+      : currentValue;
+    const message = `I'd like to redefine: ${fieldLabel}. Current answer: ${trimmedValue}. Let's revisit this.`;
+    handleSendMessage(message);
+  }, [handleSendMessage]);
+
+
   // ─── Layout ───────────────────────────────────────────────────────────────
 
   const showLeftInline = !isMobile;
