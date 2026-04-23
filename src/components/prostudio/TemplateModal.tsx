@@ -753,15 +753,57 @@ Output only the HTML div. Nothing else.`;
             )}
             
             <div className="sticky md:static bottom-0 left-0 right-0 bg-card md:bg-transparent pt-3 pb-3 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 z-5 border-t md:border-t-0 border-border md:border-none">
-              <Button
-                onClick={handleRun}
-                disabled={isGenerating}
-                className="w-full h-12 rounded-lg text-[14px] font-ui font-medium"
-                style={{ backgroundColor: template.color }}
-              >
-                {isGenerating ? "Generating..." : "Run template"}
-              </Button>
-              <p className="text-[11px] font-ui text-muted-foreground text-center mt-2">Uses 1 credit</p>
+              {(() => {
+                const needsImage = isPhysical && !selectedImage;
+                const insufficient = userCredits !== null && userCredits < cost.credits;
+                const disabled = isGenerating || needsImage || insufficient;
+                const label = isGenerating
+                  ? "Generating..."
+                  : insufficient
+                  ? "Not enough credits — upgrade your plan"
+                  : needsImage
+                  ? "Select a product image to continue"
+                  : `Generate — uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`;
+                return (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="block">
+                          <Button
+                            onClick={handleRun}
+                            disabled={disabled}
+                            className="w-full h-12 rounded-lg text-[14px] font-ui font-medium"
+                            style={{ backgroundColor: template.color }}
+                          >
+                            {label}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[260px]">
+                        <div className="text-[11px] font-ui">
+                          {cost.breakdown.map((b, i) => (
+                            <div key={i}>{b}</div>
+                          ))}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })()}
+              <div className="flex items-center justify-between gap-2 mt-2">
+                <p className="text-[11px] font-ui text-muted-foreground">
+                  {cost.breakdown.length > 1
+                    ? cost.breakdown
+                        .map(b => b.replace("Base template: ", "").replace(": ", " "))
+                        .join(" + ")
+                    : `Uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`}
+                </p>
+                {userCredits !== null && (
+                  <p className="text-[11px] font-ui text-muted-foreground">
+                    You have {userCredits} credit{userCredits === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
