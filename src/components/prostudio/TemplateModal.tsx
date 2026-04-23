@@ -1097,16 +1097,18 @@ Output only the HTML div. Nothing else.`;
           </div>
         </div>
       </DialogContent>
-
-      {/* Full-screen Studio editor overlay */}
-      <StudioEditor
-        open={studioOpen}
-        onClose={() => setStudioOpen(false)}
-        templateName={template.name}
-        variationHtml={getEditedHtml(variations[activeVariation], activeVariation)}
-        variationId={`${template.id}-${activeVariation}`}
-        onDownload={() => downloadVariation(activeVariation)}
-      />
     </Dialog>
+
+    {/* Full-screen Studio editor overlay — rendered OUTSIDE the Dialog so
+        clicks on the studio do not register as outside-clicks of the Dialog. */}
+    <StudioEditor
+      open={studioOpen}
+      onClose={() => setStudioOpen(false)}
+      templateName={template.name}
+      variationHtml={getEditedHtml(variations[activeVariation], activeVariation)}
+      variationId={`${template.id}-${activeVariation}`}
+      onDownload={() => downloadVariation(activeVariation)}
+    />
+    </>
   );
 }
