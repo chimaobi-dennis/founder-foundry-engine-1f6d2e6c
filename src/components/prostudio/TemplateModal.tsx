@@ -1082,7 +1082,7 @@ Output only the HTML div. Nothing else.`;
                     <>
                       {/* Edit in Studio — primary editing entry point */}
                       <button
-                        onClick={() => setStudioOpen(true)}
+                        onClick={openStudio}
                         className="h-10 rounded-lg px-5 text-[13px] font-ui font-semibold flex items-center gap-2 transition-all hover:opacity-90 shadow-sm"
                         style={{
                           background: 'linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.9) 100%)',
