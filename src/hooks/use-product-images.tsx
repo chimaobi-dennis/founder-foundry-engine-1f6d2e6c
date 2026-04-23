@@ -18,20 +18,15 @@ interface ProductImagesContextType {
   selectImage: (id: string) => void;
   addImage: (img: ProductImage) => void;
   addImages: (imgs: ProductImage[]) => void;
+  setImages: (imgs: ProductImage[]) => void;
   removeImage: (id: string) => void;
 }
 
 const ProductImagesContext = createContext<ProductImagesContextType | null>(null);
 
-const NORDFORM_DEFAULTS: ProductImage[] = [
-  { id: "pi-1", name: "Daily Stack", color: "#2D4A3E", templateCount: 3 },
-  { id: "pi-2", name: "Lion's Mane", color: "#3A5A4A", templateCount: 1 },
-  { id: "pi-3", name: "Ashwagandha", color: "#1A3028", templateCount: 0 },
-];
-
 export function ProductImagesProvider({ children }: { children: ReactNode }) {
-  const [images, setImages] = useState<ProductImage[]>(NORDFORM_DEFAULTS);
-  const [selectedId, setSelectedId] = useState<string | null>("pi-1");
+  const [images, setImagesState] = useState<ProductImage[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const selectedImage = images.find((i) => i.id === selectedId) || null;
 
