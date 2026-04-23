@@ -1051,7 +1051,7 @@ Output only the HTML div. Nothing else.`;
                         style={{ animation: "spin 1s linear infinite" }}
                       />
                       <span className="text-[13px] font-ui text-muted-foreground">
-                        Generating {variantCount} variation{variantCount === 1 ? "" : "s"} with AI…
+                        Generating {variantCount} variant{variantCount === 1 ? "" : "s"}…
                       </span>
                     </div>
                   )}
