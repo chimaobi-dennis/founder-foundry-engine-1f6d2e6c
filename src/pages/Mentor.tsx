@@ -1970,23 +1970,6 @@ Be selective — only mark significant shifts, not minor tangents.`,
               onSaveCustomField={handleSaveCustomDNAField}
               conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
               dataRefreshTrigger={forceRefresh}
-              onClearSubstage={handleClearSubstage}
-              onRedefineSubstage={handleRedefineSubstage}
-            />
-        </aside>
-      ) : (
-        <Sheet open={rightOpen} onOpenChange={setRightOpen}>
-          <SheetContent side="right" className="w-80 p-0">
-            <SheetTitle className="sr-only">Brand DNA</SheetTitle>
-            <BrandDNAPanel
-              fields={activeBrandData?.dnaFields || emptyDNAFields}
-              highlightField={highlightDNAField}
-              onEditField={handleEditDNAField}
-              onClearField={handleClearDNAField}
-              customFields={customDNAFields}
-              onSaveCustomField={handleSaveCustomDNAField}
-              conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
-              dataRefreshTrigger={forceRefresh}
             />
           </SheetContent>
         </Sheet>
