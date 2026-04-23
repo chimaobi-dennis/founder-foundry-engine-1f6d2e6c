@@ -847,36 +847,49 @@ Output only the HTML div. Nothing else.`;
           <div ref={panelRef} className="w-full md:flex-1 bg-background flex flex-col items-center justify-start p-4 md:p-6 overflow-y-auto">
             {isPhysical ? (
               // AI-powered generation view
-              isGenerating ? (
+              (isGenerating || generated) ? (
                 <div className="flex flex-col items-center gap-4 w-full">
-                  <div className="grid grid-cols-3 gap-3 w-full max-w-[480px]">
-                    {[0, 1, 2].map(i => (
-                      <div
-                        key={i}
-                        className="aspect-square rounded-lg bg-muted/40"
-                        style={{
-                          animation: "pulse-amber 1.5s ease-in-out infinite",
-                          animationDelay: `${i * 200}ms`,
-                        }}
+                  {/* Active variation preview */}
+                  <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
+                    {variations[activeVariation] ? (
+                      <TemplatePreview
+                        html={getEditedHtml(variations[activeVariation], activeVariation)}
+                        scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
+                        id={`variation-${activeVariation}`}
                       />
-                    ))}
+                    ) : (
+                      <div
+                        className="rounded-lg bg-muted/40 flex items-center justify-center"
+                        style={{
+                          width: 600 * Math.min(previewScale, 0.85),
+                          height: 600 * Math.min(previewScale, 0.85),
+                          animation: "pulse-amber 1.5s ease-in-out infinite",
+                        }}
+                      >
+                        <span className="text-[12px] font-ui text-muted-foreground">
+                          {isGenerating ? "Generating…" : "Waiting"}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-2 h-2 rounded-full bg-primary"
-                      style={{ animation: "spin 1s linear infinite" }}
-                    />
-                    <span className="text-[13px] font-ui text-muted-foreground">Generating 3 variations with AI...</span>
-                  </div>
+
+                  {isGenerating && (
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-2 h-2 rounded-full bg-primary"
+                        style={{ animation: "spin 1s linear infinite" }}
+                      />
+                      <span className="text-[13px] font-ui text-muted-foreground">
+                        Generating {variantCount} variation{variantCount === 1 ? "" : "s"} with AI…
+                      </span>
+                    </div>
+                  )}
                   <style>{`
                     @keyframes pulse-amber {
                       0%, 100% { opacity: 0.4; }
                       50% { opacity: 0.8; }
                     }
                   `}</style>
-                </div>
-              ) : generated ? (
-                <div className="flex flex-col items-center gap-4 w-full">
                   {/* Active variation preview */}
                   <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
                     <TemplatePreview
