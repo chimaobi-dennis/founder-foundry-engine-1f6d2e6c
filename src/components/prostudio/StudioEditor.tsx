@@ -495,6 +495,20 @@ export function StudioEditor({
             </div>
           </div>
         </div>
+
+        {/* Universal canvas switcher (image variants today; slides/scenes/pages tomorrow) */}
+        {canvases && canvases.length > 0 && activeCanvasId && onSelectCanvas && (
+          <CanvasSwitcher
+            canvases={canvases}
+            activeId={activeCanvasId}
+            onSelect={onSelectCanvas}
+            onAddBlank={onAddBlankCanvas}
+            onAddFromTemplate={onAddCanvasFromTemplate}
+            onDuplicate={onDuplicateCanvas}
+            onDelete={onDeleteCanvas}
+            onSetMain={onSetMainCanvas}
+          />
+        )}
       </div>
 
       {/* Unsaved changes confirmation */}
