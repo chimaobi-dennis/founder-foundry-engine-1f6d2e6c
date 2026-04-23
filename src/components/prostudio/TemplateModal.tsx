@@ -124,6 +124,9 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [editorOpen, setEditorOpen] = useState(false);
   const [editStates, setEditStates] = useState<Record<number, EditState>>({});
 
+  // Studio editor (full-screen overlay)
+  const [studioOpen, setStudioOpen] = useState(false);
+
   // Digital inputs
   const [customerName, setCustomerName] = useState("Erik L.");
   const [customerQuote, setCustomerQuote] = useState("I have tried every supplement brand. Nordform is the first one I actually trust.");
