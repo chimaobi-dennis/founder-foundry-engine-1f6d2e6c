@@ -74,7 +74,7 @@ export function BrandMilestonePanel({
   activeBrandDNA,
   dataRefreshTrigger = 0,
 }: BrandMilestonePanelProps) {
-  const { brands: realBrands, journeyStages, currentStageData, switchBrand } = useBrand();
+  const { brands: realBrands, journeyStages, currentStageData, switchBrand, refreshBrands } = useBrand();
   const { user } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -82,6 +82,11 @@ export function BrandMilestonePanel({
   const [editValue, setEditValue] = useState("");
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  // Inline project-name edit (double-click on brand switcher name)
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   // Project Assets state
   const [projectAssets, setProjectAssets] = useState<ProjectAsset[]>([]);
   const [uploading, setUploading] = useState(false);
