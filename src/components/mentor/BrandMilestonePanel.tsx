@@ -3,8 +3,9 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/contexts/BrandContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { MentorBrand, Milestone, MilestoneCategory, categoryColors } from "./types";
-import type { JourneyStageData } from "@/services/brandService";
+import { updateProjectName, type JourneyStageData } from "@/services/brandService";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
