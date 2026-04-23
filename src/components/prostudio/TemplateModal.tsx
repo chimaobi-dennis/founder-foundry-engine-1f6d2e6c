@@ -336,36 +336,33 @@ Output only the HTML div. Nothing else.`;
 
     setIsGenerating(true);
     setGenerated(false);
-    setVariations([null, null, null]);
+    setVariations(Array(variantCount).fill(null));
 
     const basePrompt = buildBasePrompt();
 
-    const suffixes = [
+    const allSuffixes = [
       "\n\nGenerate the primary variation — execute the design direction fully and precisely.",
       "\n\nGenerate an alternative layout variation — same mood and colors but shift the composition. Move the product to a different position. Try a different typographic treatment or layout structure.",
       "\n\nGenerate a bold variation — push the design direction further. More contrast, stronger visual statement, more expressive typography. Same brand colors but more impact.",
+      "\n\nGenerate a fourth variation — explore a different visual angle entirely. Different camera-like framing, different background treatment, different focal hierarchy. Stay on-brand.",
     ];
+    const suffixes = allSuffixes.slice(0, variantCount);
 
     try {
-      const results = await Promise.all(
-        suffixes.map(suffix =>
-          callAI(
+      // Stream results in as each completes so right-panel slots fill progressively
+      await Promise.all(
+        suffixes.map(async (suffix, idx) => {
+          const result = await callAI(
             [{ role: "user", content: basePrompt + suffix }],
             3000,
             selectedImage?.base64 || undefined,
             selectedImage?.mimeType || "image/jpeg"
-          )
-        )
+          );
+          const cleaned = cleanAIHtml(result);
+          const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+          setVariations(prev => prev.map((v, i) => (i === idx ? safe : v)));
+        })
       );
-      console.log('[handleRun] AI generation complete, processing results');
-      const cleanedResults = results.map(cleanAIHtml);
-      console.log('[handleRun] Cleaned results, applying safety check');
-      const safeResults = cleanedResults.map((html, idx) => {
-        console.log(`[handleRun] Processing variation ${idx}`);
-        return ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-      });
-      console.log('[handleRun] All variations processed, setting state');
-      setVariations(safeResults);
       setGenerated(true);
       setActiveVariation(0);
     } catch (e) {
