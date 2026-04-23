@@ -84,6 +84,14 @@ export function StudioEditor({
   variationId,
   onDownload,
   onSaveToLibrary,
+  canvases,
+  activeCanvasId,
+  onSelectCanvas,
+  onAddBlankCanvas,
+  onAddCanvasFromTemplate,
+  onDuplicateCanvas,
+  onDeleteCanvas,
+  onSetMainCanvas,
 }: Props) {
   const { theme } = useTheme();
   const [layers, setLayers] = useState<Layer[]>(buildMockLayers());
