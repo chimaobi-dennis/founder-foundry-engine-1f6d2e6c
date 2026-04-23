@@ -93,7 +93,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
 
   // AI generation state
   const [isGenerating, setIsGenerating] = useState(false);
-  const [variations, setVariations] = useState<(string | null)[]>([null, null, null]);
+  const [variantCount, setVariantCount] = useState<number>(1);
+  const [variations, setVariations] = useState<(string | null)[]>([null]);
   const [generated, setGenerated] = useState(false);
   const [activeVariation, setActiveVariation] = useState(0);
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
