@@ -486,12 +486,25 @@ Output only the HTML div. Nothing else.`;
 
   const variationTints = [template.color, `${template.color}dd`, `${template.color}bb`, `${template.color}99`];
 
+  // Reset all generation/studio state when the modal is dismissed
+  const handleClose = () => {
+    setStudioOpen(false);
+    setGenerated(false);
+    setVariations(Array(variantCount).fill(null));
+    setActiveVariation(0);
+    setIsGenerating(false);
+    setEditorOpen(false);
+    setEditStates({});
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <>
+    <Dialog open={open} onOpenChange={(v) => { if (!v && !studioOpen) handleClose(); }}>
       <DialogContent className="max-w-[96vw] w-[96vw] h-[90vh] md:h-[94vh] max-h-[90vh] md:max-h-[94vh] p-0 overflow-y-auto md:overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
         <DialogTitle className="sr-only">{template?.name ?? "Template"}</DialogTitle>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="fixed md:absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-muted/80 backdrop-blur-sm flex items-center justify-center hover:bg-muted transition-colors"
         >
           <X size={16} className="text-foreground" />
