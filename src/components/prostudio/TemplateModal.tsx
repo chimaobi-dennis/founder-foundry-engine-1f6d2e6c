@@ -1,17 +1,26 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
 import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
+import { useAuth } from "@/contexts/AuthContext";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { QuickEditPanel, type EditState, defaultEditState } from "./QuickEditPanel";
+import {
+  getProjectImagesForTemplate,
+  getUserCredits,
+  calculateTemplateCost,
+} from "@/services/templateService";
+import { uploadProjectFile } from "@/services/projectAssetsService";
+import { toast } from "@/hooks/use-toast";
 
 const aspectOptions = ["Auto", "Square", "3:2", "9:16", "16:9"];
 const intensityOptions = [
@@ -80,6 +89,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const variationCarouselRef = useRef<HTMLDivElement>(null);
   const [styleIntensity, setStyleIntensity] = useState(2);
 
+  const { user } = useAuth();
+
   // AI generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [variations, setVariations] = useState<(string | null)[]>([null, null, null]);
@@ -88,6 +99,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [panelWidth, setPanelWidth] = useState(400);
+
+  // Live data: project images, credits, cost
+  const [projectAssets, setProjectAssets] = useState<any[]>([]);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [userCredits, setUserCredits] = useState<number | null>(null);
+  const [cost, setCost] = useState<{ credits: number; breakdown: string[] }>({ credits: 1, breakdown: ["Base template: 1 credit"] });
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   // Carousel scroll function
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
@@ -136,6 +154,93 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setEditStates({});
     }
   }, [template?.id]);
+
+  // Helper to convert public URL → base64 (so AI can ingest it)
+  const urlToBase64 = async (url: string): Promise<{ base64: string; mimeType: string } | null> => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const mimeType = blob.type || "image/jpeg";
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      return { base64, mimeType };
+    } catch (e) {
+      console.error("[urlToBase64] failed", e);
+      return null;
+    }
+  };
+
+  // Load project assets + active product image when modal opens
+  const loadProjectAssets = useCallback(async () => {
+    if (!activeBrand?.id) return;
+    setAssetsLoading(true);
+    const { assets, activeProductImageId } = await getProjectImagesForTemplate(activeBrand.id);
+    setProjectAssets(assets);
+
+    // Sync into the shared product images context (with base64 for AI)
+    const mapped = await Promise.all(
+      assets.map(async (a: any) => {
+        const url = a.file_url as string;
+        let base64: string | undefined;
+        let mimeType: string | undefined = a.mime_type || "image/jpeg";
+        if (url) {
+          const conv = await urlToBase64(url);
+          if (conv) {
+            base64 = conv.base64;
+            mimeType = conv.mimeType;
+          }
+        }
+        return {
+          id: a.id as string,
+          name: a.name as string,
+          color: "#2D4A3E",
+          url,
+          base64,
+          mimeType,
+          templateCount: 0,
+        };
+      })
+    );
+
+    // Replace context images with DB-backed list
+    if (mapped.length > 0) {
+      // Use addImages by clearing first via a fresh selection — simplest: just push and select
+      addImages(mapped);
+      const preselect = activeProductImageId && mapped.find(m => m.id === activeProductImageId);
+      selectProductImage((preselect ?? mapped[0]).id);
+    }
+    setAssetsLoading(false);
+  }, [activeBrand?.id, addImages, selectProductImage]);
+
+  useEffect(() => {
+    if (open && activeBrand?.id) {
+      loadProjectAssets();
+    }
+  }, [open, activeBrand?.id, loadProjectAssets]);
+
+  // Load user credits when modal opens
+  useEffect(() => {
+    if (open && user?.id) {
+      getUserCredits(user.id).then(({ credits }) => setUserCredits(credits));
+    }
+  }, [open, user?.id]);
+
+  // Recalculate cost when aspect/intensity/template changes
+  useEffect(() => {
+    if (!template?.id || !open) return;
+    const aspectParam = selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase();
+    const intensityParam = styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
+    calculateTemplateCost(template.id, aspectParam, intensityParam).then(({ credits, breakdown }) => {
+      setCost({ credits: credits || 1, breakdown: breakdown.length ? breakdown : ["Base template: 1 credit"] });
+    });
+  }, [template?.id, selectedAspect, styleIntensity, open]);
 
   if (!template) return null;
 
@@ -404,38 +509,26 @@ Output only the HTML div. Nothing else.`;
                   accept="image/jpeg,image/png,image/webp"
                   multiple
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const files = e.target.files;
-                    if (!files) return;
+                    if (!files || !user?.id || !activeBrand?.id) return;
                     const fileArray = Array.from(files);
-                    let completed = 0;
-                    const newImgs: any[] = [];
-                    
-                    fileArray.forEach((file, index) => {
-                      const url = URL.createObjectURL(file);
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        const result = ev.target?.result as string;
-                        const base64 = result.split(",")[1];
-                        const img = {
-                          id: `pi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${index}`,
-                          name: file.name.replace(/\.[^.]+$/, ""),
-                          color: "#2D4A3E",
-                          url,
-                          base64,
-                          mimeType: file.type || "image/jpeg",
-                          templateCount: 0,
-                        };
-                        newImgs.push(img);
-                        completed++;
-                        if (completed === fileArray.length) {
-                          addImages(newImgs);
-                          if (newImgs.length > 0) selectProductImage(newImgs[0].id);
+                    setUploadingFile(true);
+                    try {
+                      for (const file of fileArray) {
+                        const result = await uploadProjectFile(user.id, activeBrand.id, file);
+                        if (!result.success) {
+                          toast({ title: "Upload failed", description: result.error, variant: "destructive" });
                         }
-                      };
-                      reader.readAsDataURL(file);
-                    });
-                    e.target.value = "";
+                      }
+                      await loadProjectAssets();
+                      toast({ title: "Image uploaded" });
+                    } catch (err: any) {
+                      toast({ title: "Upload failed", description: err?.message, variant: "destructive" });
+                    } finally {
+                      setUploadingFile(false);
+                      e.target.value = "";
+                    }
                   }}
                 />
                 
@@ -444,28 +537,48 @@ Output only the HTML div. Nothing else.`;
                   <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
                     Product image
                   </label>
-                  <div className="relative -mx-1">
-                    <div 
-                      ref={productCarouselRef}
-                      className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent"
-                      style={{ scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
+                  {productImages.length === 0 && !assetsLoading ? (
+                    /* Empty state */
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded-lg border-[1.5px] border-dashed border-primary/40 p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
                     >
-                      {/* Upload card */}
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+                      <ImageIcon size={28} className="text-primary/70" />
+                      <span className="text-[13px] font-ui font-medium text-foreground">
+                        {uploadingFile ? "Uploading..." : "Upload a product photo"}
+                      </span>
+                      <span className="text-[11px] font-ui text-muted-foreground text-center">
+                        Upload a product photo for best results
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="relative -mx-1">
+                      <div 
+                        ref={productCarouselRef}
+                        className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent"
+                        style={{ scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
                       >
-                        <Upload size={16} className="text-primary" />
-                        <span className="text-[9px] font-ui text-primary text-center px-1">Upload new</span>
-                      </div>
-                      
-                      {/* Existing images from context */}
-                      {productImages.map((img) => {
-                        const isSelected = selectedImage?.id === img.id;
-                        return (
-                          <div
-                            key={img.id}
-                            onClick={() => selectProductImage(img.id)}
+                        {/* Upload card */}
+                        <div
+                          onClick={() => !uploadingFile && fileInputRef.current?.click()}
+                          className={cn(
+                            "flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1 transition-all",
+                            uploadingFile ? "opacity-60 cursor-wait" : "cursor-pointer hover:border-primary/60 hover:bg-primary/5"
+                          )}
+                        >
+                          <Upload size={16} className="text-primary" />
+                          <span className="text-[9px] font-ui text-primary text-center px-1">
+                            {uploadingFile ? "Uploading..." : "Upload new"}
+                          </span>
+                        </div>
+
+                        {/* Existing images from context */}
+                        {productImages.map((img) => {
+                          const isSelected = selectedImage?.id === img.id;
+                          return (
+                            <div
+                              key={img.id}
+                              onClick={() => selectProductImage(img.id)}
                               className={cn(
                                 "flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg overflow-hidden cursor-pointer transition-all relative group",
                                 isSelected ? "ring-2 ring-primary shadow-lg" : "border border-border hover:border-primary/60"
@@ -478,12 +591,12 @@ Output only the HTML div. Nothing else.`;
                                   <span className="text-[9px] font-ui text-white/80 font-medium text-center px-1">{img.name}</span>
                                 </div>
                               )}
-                              
+
                               {/* Name overlay */}
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1">
                                 <span className="text-[8px] font-ui text-white line-clamp-1">{img.name}</span>
                               </div>
-                              
+
                               {/* Selected indicator */}
                               {isSelected && (
                                 <>
@@ -496,23 +609,24 @@ Output only the HTML div. Nothing else.`;
                             </div>
                           );
                         })}
+                      </div>
+
+                      {/* Navigation arrows for product images */}
+                      <button
+                        onClick={() => scrollCarousel(productCarouselRef, 'left')}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                        style={{ opacity: productCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
+                      >
+                        <ChevronLeft size={12} className="text-foreground" />
+                      </button>
+                      <button
+                        onClick={() => scrollCarousel(productCarouselRef, 'right')}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      >
+                        <ChevronRight size={12} className="text-foreground" />
+                      </button>
                     </div>
-                    
-                    {/* Navigation arrows for product images */}
-                    <button
-                      onClick={() => scrollCarousel(productCarouselRef, 'left')}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                      style={{ opacity: productCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
-                    >
-                      <ChevronLeft size={12} className="text-foreground" />
-                    </button>
-                    <button
-                      onClick={() => scrollCarousel(productCarouselRef, 'right')}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                    >
-                      <ChevronRight size={12} className="text-foreground" />
-                    </button>
-                  </div>
+                  )}
                   
                   {/* Status indicator */}
                   <div className="flex items-center gap-1.5 mt-2">
@@ -639,15 +753,57 @@ Output only the HTML div. Nothing else.`;
             )}
             
             <div className="sticky md:static bottom-0 left-0 right-0 bg-card md:bg-transparent pt-3 pb-3 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 z-5 border-t md:border-t-0 border-border md:border-none">
-              <Button
-                onClick={handleRun}
-                disabled={isGenerating}
-                className="w-full h-12 rounded-lg text-[14px] font-ui font-medium"
-                style={{ backgroundColor: template.color }}
-              >
-                {isGenerating ? "Generating..." : "Run template"}
-              </Button>
-              <p className="text-[11px] font-ui text-muted-foreground text-center mt-2">Uses 1 credit</p>
+              {(() => {
+                const needsImage = isPhysical && !selectedImage;
+                const insufficient = userCredits !== null && userCredits < cost.credits;
+                const disabled = isGenerating || needsImage || insufficient;
+                const label = isGenerating
+                  ? "Generating..."
+                  : insufficient
+                  ? "Not enough credits — upgrade your plan"
+                  : needsImage
+                  ? "Select a product image to continue"
+                  : `Generate — uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`;
+                return (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="block">
+                          <Button
+                            onClick={handleRun}
+                            disabled={disabled}
+                            className="w-full h-12 rounded-lg text-[14px] font-ui font-medium"
+                            style={{ backgroundColor: template.color }}
+                          >
+                            {label}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[260px]">
+                        <div className="text-[11px] font-ui">
+                          {cost.breakdown.map((b, i) => (
+                            <div key={i}>{b}</div>
+                          ))}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })()}
+              <div className="flex items-center justify-between gap-2 mt-2">
+                <p className="text-[11px] font-ui text-muted-foreground">
+                  {cost.breakdown.length > 1
+                    ? cost.breakdown
+                        .map(b => b.replace("Base template: ", "").replace(": ", " "))
+                        .join(" + ")
+                    : `Uses ${cost.credits} credit${cost.credits === 1 ? "" : "s"}`}
+                </p>
+                {userCredits !== null && (
+                  <p className="text-[11px] font-ui text-muted-foreground">
+                    You have {userCredits} credit{userCredits === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
