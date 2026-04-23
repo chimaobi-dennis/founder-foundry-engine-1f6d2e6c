@@ -498,9 +498,94 @@ Output only the HTML div. Nothing else.`;
     onClose();
   };
 
+  // When studio is open we fully UNMOUNT the Dialog so its portal, overlay, and
+  // outside-click handlers cannot intercept pointer events on the studio canvas.
+  // The studio is rendered as a sibling — only one of the two is ever in the DOM.
+  if (studioOpen) {
+    return (
+      <StudioEditor
+        open={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        templateName={template.name}
+        variationHtml={getEditedHtml(variations[activeVariation], activeVariation)}
+        variationId={`${template.id}-${activeVariation}`}
+        onDownload={() => downloadVariation(activeVariation)}
+        canvases={variations.map((html, i) => ({
+          id: `${template.id}-${i}`,
+          html: getEditedHtml(html, i),
+        }))}
+        activeCanvasId={`${template.id}-${activeVariation}`}
+        onSelectCanvas={(id) => {
+          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
+          if (idx >= 0) setActiveVariation(idx);
+        }}
+        onAddBlankCanvas={() => {
+          setVariations((prev) => {
+            const next = [...prev, null];
+            setActiveVariation(next.length - 1);
+            return next;
+          });
+        }}
+        onAddCanvasFromTemplate={async () => {
+          let newIndex = 0;
+          setVariations((prev) => {
+            newIndex = prev.length;
+            return [...prev, null];
+          });
+          setTimeout(async () => {
+            setActiveVariation(newIndex);
+            setRegeneratingIdx(newIndex);
+            const basePrompt = buildBasePrompt();
+            try {
+              const result = await callAI(
+                [{ role: "user", content: basePrompt + "\n\nGenerate a fresh additional variation — explore a different visual angle while staying on-brand." }],
+                3000,
+                selectedImage?.base64 || undefined,
+                selectedImage?.mimeType || "image/jpeg"
+              );
+              const cleaned = cleanAIHtml(result);
+              const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+              setVariations((prev) => prev.map((v, i) => (i === newIndex ? safe : v)));
+            } catch (e) {
+              console.error("Add variant failed:", e);
+            } finally {
+              setRegeneratingIdx(null);
+            }
+          }, 0);
+        }}
+        onDuplicateCanvas={(id) => {
+          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
+          if (idx < 0) return;
+          setVariations((prev) => {
+            const next = [...prev];
+            next.splice(idx + 1, 0, prev[idx]);
+            setActiveVariation(idx + 1);
+            return next;
+          });
+        }}
+        onDeleteCanvas={(id) => {
+          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
+          if (idx < 0 || variations.length <= 1) return;
+          setVariations((prev) => prev.filter((_, i) => i !== idx));
+          setActiveVariation((prev) => Math.max(0, prev >= idx ? prev - 1 : prev));
+        }}
+        onSetMainCanvas={(id) => {
+          const idx = variations.findIndex((_, i) => `${template.id}-${i}` === id);
+          if (idx <= 0) return;
+          setVariations((prev) => {
+            const next = [...prev];
+            const [moved] = next.splice(idx, 1);
+            next.unshift(moved);
+            return next;
+          });
+          setActiveVariation(0);
+        }}
+      />
+    );
+  }
+
   return (
-    <>
-    <Dialog open={open} onOpenChange={(v) => { if (!v && !studioOpen) handleClose(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-[96vw] w-[96vw] h-[90vh] md:h-[94vh] max-h-[90vh] md:max-h-[94vh] p-0 overflow-y-auto md:overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
         <DialogTitle className="sr-only">{template?.name ?? "Template"}</DialogTitle>
         <button
