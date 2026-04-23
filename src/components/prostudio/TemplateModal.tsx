@@ -88,7 +88,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const navigate = useNavigate();
   const { setSession } = useStudioSession();
   const { activeBrand } = useBrand();
-  const { images: productImages, selectedImage, selectImage: selectProductImage, addImages } = useProductImages();
+  const { images: productImages, selectedImage, selectImage: selectProductImage, setImages: setProductImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const productCarouselRef = useRef<HTMLDivElement>(null);
