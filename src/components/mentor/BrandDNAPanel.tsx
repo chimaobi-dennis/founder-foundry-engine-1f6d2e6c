@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ArrowRight } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowRight, MoreHorizontal, MessageSquare, Eraser } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBrand } from '@/contexts/BrandContext';
@@ -10,6 +10,12 @@ import {
   getBrandStageData
 } from '@/services/journeyDataService';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 interface BrandDNAPanelProps {
   fields: any[];
@@ -21,6 +27,15 @@ interface BrandDNAPanelProps {
   conversation?: { id: string } | null;
   /** Bumped by the parent after any save so the substage panel re-fetches */
   dataRefreshTrigger?: number;
+  /** Wipe a captured substage value and reset its row to uncaptured */
+  onClearSubstage?: (stageKey: string, fieldKey: string, fieldLabel: string) => void;
+  /** Inject a redefine prompt into the chat for the given substage */
+  onRedefineSubstage?: (
+    stageKey: string,
+    fieldKey: string,
+    fieldLabel: string,
+    currentValue: string
+  ) => void;
 }
 
 export function BrandDNAPanel({
@@ -31,7 +46,9 @@ export function BrandDNAPanel({
   customFields = [],
   onSaveCustomField,
   conversation,
-  dataRefreshTrigger = 0
+  dataRefreshTrigger = 0,
+  onClearSubstage,
+  onRedefineSubstage
 }: BrandDNAPanelProps) {
   const { activeBrand, journeyStages, currentStageData, updateStage } = useBrand();
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
@@ -42,11 +59,18 @@ export function BrandDNAPanel({
   const [substagesLoading, setSubstagesLoading] = useState(true);
   const [stageDataLoading, setStageDataLoading] = useState(true);
   const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
+  // Substages currently being redefined with the mentor.
+  // Key format: `${stageKey}::${fieldKey}` → original value at the time
+  // the user clicked Redefine. When the captured value changes from this
+  // snapshot (i.e. the AI saved a new SAVE_PROMPT), we exit refining state.
+  const refiningSnapshotsRef = useRef<Map<string, string>>(new Map());
+  const [refiningKeys, setRefiningKeys] = useState<Set<string>>(new Set());
   const [stageChangeWarning, setStageChangeWarning] = useState<{
     targetStageKey: string;
     incompleteSubstages: string[];
     incompleteCount: number;
   } | null>(null);
+
 
   const toggleStageExpand = (stageKey: string) => {
     setExpandedStages(prev =>
@@ -111,6 +135,44 @@ export function BrandDNAPanel({
     currentStageData,
     dataRefreshTrigger
   ]);
+
+  // Clear "refining" state for any substage whose captured value has changed
+  // since the user clicked Redefine — i.e. the AI saved a new SAVE_PROMPT
+  // for that field_key. Restores the green check automatically.
+  const stageKeyForActive = activeBrand?.journey_stage ?? 'spark';
+  useEffect(() => {
+    if (refiningKeys.size === 0) return;
+    const next = new Set(refiningKeys);
+    let changed = false;
+    refiningKeys.forEach(key => {
+      const [, fieldKey] = key.split('::');
+      const sub = substagesWithData.find(s => s.fieldKey === fieldKey);
+      const snapshot = refiningSnapshotsRef.current.get(key);
+      if (sub?.value && sub.value !== snapshot) {
+        next.delete(key);
+        refiningSnapshotsRef.current.delete(key);
+        changed = true;
+      }
+    });
+    if (changed) setRefiningKeys(next);
+  }, [substagesWithData, refiningKeys]);
+
+  const triggerRedefine = (sub: SubstageWithData) => {
+    if (!sub.fieldKey || !sub.value) return;
+    const key = `${stageKeyForActive}::${sub.fieldKey}`;
+    refiningSnapshotsRef.current.set(key, sub.value);
+    setRefiningKeys(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    onRedefineSubstage?.(stageKeyForActive, sub.fieldKey, sub.label, sub.value);
+  };
+
+  const triggerClear = (sub: SubstageWithData) => {
+    if (!sub.fieldKey) return;
+    onClearSubstage?.(stageKeyForActive, sub.fieldKey, sub.label);
+  };
 
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
@@ -665,11 +727,18 @@ export function BrandDNAPanel({
                         substagesWithData.map((substage, idx) => {
                           const isNext = !substage.isComplete &&
                             substagesWithData.slice(0, idx).every(s => s.isComplete);
+                          const refKey = substage.fieldKey
+                            ? `${stage.stage_key}::${substage.fieldKey}`
+                            : null;
+                          const isRefining = !!(refKey && refiningKeys.has(refKey));
+                          const showActions = substage.isComplete && !!substage.fieldKey;
 
                           return (
                             <div
                               key={substage.index}
+                              className={showActions ? 'group/substage' : undefined}
                               style={{
+                                position: 'relative',
                                 marginBottom: '10px',
                                 padding: '10px 12px',
                                 background: substage.isComplete
@@ -679,11 +748,13 @@ export function BrandDNAPanel({
                                     : 'var(--color-background-secondary)',
                                 borderRadius: '8px',
                                 border: `0.5px solid ${
-                                  substage.isComplete
-                                    ? 'rgba(212,160,23,0.2)'
-                                    : isNext
-                                      ? 'rgba(212,160,23,0.25)'
-                                      : 'var(--color-border-tertiary)'
+                                  isRefining
+                                    ? 'rgba(212,160,23,0.45)'
+                                    : substage.isComplete
+                                      ? 'rgba(212,160,23,0.2)'
+                                      : isNext
+                                        ? 'rgba(212,160,23,0.25)'
+                                        : 'var(--color-border-tertiary)'
                                 }`,
                                 transition: 'all 200ms'
                               }}
@@ -695,23 +766,32 @@ export function BrandDNAPanel({
                                 gap: '8px'
                               }}>
                                 {/* Status indicator — read-only */}
-                                <div style={{
-                                  width: '16px',
-                                  height: '16px',
-                                  borderRadius: '50%',
-                                  flexShrink: 0,
-                                  marginTop: '1px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: substage.isComplete ? '#4CAF50' : 'transparent',
-                                  border: substage.isComplete
-                                    ? '2px solid #4CAF50'
-                                    : isNext
+                                <div
+                                  className={isRefining ? 'animate-amber-pulse' : undefined}
+                                  style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    borderRadius: '50%',
+                                    flexShrink: 0,
+                                    marginTop: '1px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: isRefining
+                                      ? '#D4A017'
+                                      : substage.isComplete
+                                        ? '#4CAF50'
+                                        : 'transparent',
+                                    border: isRefining
                                       ? '2px solid #D4A017'
-                                      : '1.5px solid var(--color-border-secondary)'
-                                }}>
-                                  {substage.isComplete ? (
+                                      : substage.isComplete
+                                        ? '2px solid #4CAF50'
+                                        : isNext
+                                          ? '2px solid #D4A017'
+                                          : '1.5px solid var(--color-border-secondary)'
+                                  }}
+                                >
+                                  {isRefining ? null : substage.isComplete ? (
                                     <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, lineHeight: 1 }}>
                                       ✓
                                     </span>
@@ -735,9 +815,26 @@ export function BrandDNAPanel({
                                       : isNext
                                         ? 'var(--color-text-primary)'
                                         : 'var(--color-text-secondary)',
-                                    lineHeight: 1.4
+                                    lineHeight: 1.4,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    flexWrap: 'wrap'
                                   }}>
-                                    {substage.label}
+                                    <span>{substage.label}</span>
+                                    {isRefining && (
+                                      <span style={{
+                                        fontSize: '9px',
+                                        color: '#D4A017',
+                                        background: 'rgba(212,160,23,0.14)',
+                                        padding: '1px 6px',
+                                        borderRadius: '3px',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.04em'
+                                      }}>
+                                        Refining…
+                                      </span>
+                                    )}
                                   </div>
 
                                   {/* Prompt text when no data is captured */}
@@ -772,6 +869,59 @@ export function BrandDNAPanel({
                                     discuss
                                   </span>
                                 )}
+
+                                {/* Hover actions on captured substages */}
+                                {showActions && (
+                                  <div
+                                    className="opacity-0 group-hover/substage:opacity-100 focus-within:opacity-100 transition-opacity"
+                                    style={{ flexShrink: 0, alignSelf: 'flex-start' }}
+                                  >
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button
+                                          type="button"
+                                          aria-label="Substage actions"
+                                          onClick={(e) => e.stopPropagation()}
+                                          style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            padding: '2px',
+                                            borderRadius: '4px',
+                                            color: 'var(--color-text-tertiary)',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                          }}
+                                        >
+                                          <MoreHorizontal size={14} />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuItem
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            triggerRedefine(substage);
+                                          }}
+                                          className="text-[12px] cursor-pointer"
+                                        >
+                                          <MessageSquare size={13} className="mr-2 text-primary" />
+                                          Redefine with Mentor
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            triggerClear(substage);
+                                          }}
+                                          className="text-[12px] cursor-pointer text-destructive focus:text-destructive"
+                                        >
+                                          <Eraser size={13} className="mr-2" />
+                                          Clear
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                )}
                               </div>
 
                               {/* Captured data — shown when value exists */}
@@ -779,13 +929,13 @@ export function BrandDNAPanel({
                                 <div style={{ marginTop: '8px' }}>
                                   <div style={{
                                     fontSize: '9px',
-                                    color: '#4CAF50',
+                                    color: isRefining ? '#D4A017' : '#4CAF50',
                                     fontWeight: 600,
                                     letterSpacing: '0.06em',
                                     textTransform: 'uppercase',
                                     marginBottom: '4px'
                                   }}>
-                                    Captured
+                                    {isRefining ? 'In refinement' : 'Captured'}
                                   </div>
                                   <div style={{
                                     fontSize: '12px',
