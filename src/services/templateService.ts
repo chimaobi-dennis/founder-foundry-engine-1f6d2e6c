@@ -451,6 +451,9 @@ export interface GenerateTemplateParams {
   aspectRatio: string;
   styleIntensity: string;
   variantCount: number;
+  /** Optional base64 + mime of the product image so the model can SEE it (multi-modal). */
+  imageBase64?: string;
+  imageMimeType?: string;
   /** Optional callback fired as each variant completes (streaming/progressive UI). */
   onVariant?: (info: { index: number; html: string; outputId: string }) => void;
 }
