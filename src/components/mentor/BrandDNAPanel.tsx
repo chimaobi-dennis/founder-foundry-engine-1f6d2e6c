@@ -136,6 +136,44 @@ export function BrandDNAPanel({
     dataRefreshTrigger
   ]);
 
+  // Clear "refining" state for any substage whose captured value has changed
+  // since the user clicked Redefine — i.e. the AI saved a new SAVE_PROMPT
+  // for that field_key. Restores the green check automatically.
+  const stageKeyForActive = activeBrand?.journey_stage ?? 'spark';
+  useEffect(() => {
+    if (refiningKeys.size === 0) return;
+    const next = new Set(refiningKeys);
+    let changed = false;
+    refiningKeys.forEach(key => {
+      const [, fieldKey] = key.split('::');
+      const sub = substagesWithData.find(s => s.fieldKey === fieldKey);
+      const snapshot = refiningSnapshotsRef.current.get(key);
+      if (sub?.value && sub.value !== snapshot) {
+        next.delete(key);
+        refiningSnapshotsRef.current.delete(key);
+        changed = true;
+      }
+    });
+    if (changed) setRefiningKeys(next);
+  }, [substagesWithData, refiningKeys]);
+
+  const triggerRedefine = (sub: SubstageWithData) => {
+    if (!sub.fieldKey || !sub.value) return;
+    const key = `${stageKeyForActive}::${sub.fieldKey}`;
+    refiningSnapshotsRef.current.set(key, sub.value);
+    setRefiningKeys(prev => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    onRedefineSubstage?.(stageKeyForActive, sub.fieldKey, sub.label, sub.value);
+  };
+
+  const triggerClear = (sub: SubstageWithData) => {
+    if (!sub.fieldKey) return;
+    onClearSubstage?.(stageKeyForActive, sub.fieldKey, sub.label);
+  };
+
   const currentStageInfo = currentStageData ?? {
     id: 'spark',
     stage_key: 'spark',
