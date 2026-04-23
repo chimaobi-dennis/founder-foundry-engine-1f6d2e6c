@@ -20,9 +20,11 @@ export interface StudioSession {
   onExit?: () => void;
 }
 
+type SessionUpdater = StudioSession | null | ((prev: StudioSession | null) => StudioSession | null);
+
 interface Ctx {
   session: StudioSession | null;
-  setSession: (s: StudioSession | null) => void;
+  setSession: (s: SessionUpdater) => void;
 }
 
 const StudioSessionCtx = createContext<Ctx | null>(null);
