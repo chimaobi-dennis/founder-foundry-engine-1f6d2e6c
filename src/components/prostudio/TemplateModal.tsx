@@ -537,28 +537,48 @@ Output only the HTML div. Nothing else.`;
                   <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
                     Product image
                   </label>
-                  <div className="relative -mx-1">
-                    <div 
-                      ref={productCarouselRef}
-                      className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent"
-                      style={{ scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
+                  {productImages.length === 0 && !assetsLoading ? (
+                    /* Empty state */
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded-lg border-[1.5px] border-dashed border-primary/40 p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
                     >
-                      {/* Upload card */}
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-primary/60 hover:bg-primary/5 transition-all"
+                      <ImageIcon size={28} className="text-primary/70" />
+                      <span className="text-[13px] font-ui font-medium text-foreground">
+                        {uploadingFile ? "Uploading..." : "Upload a product photo"}
+                      </span>
+                      <span className="text-[11px] font-ui text-muted-foreground text-center">
+                        Upload a product photo for best results
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="relative -mx-1">
+                      <div 
+                        ref={productCarouselRef}
+                        className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent"
+                        style={{ scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
                       >
-                        <Upload size={16} className="text-primary" />
-                        <span className="text-[9px] font-ui text-primary text-center px-1">Upload new</span>
-                      </div>
-                      
-                      {/* Existing images from context */}
-                      {productImages.map((img) => {
-                        const isSelected = selectedImage?.id === img.id;
-                        return (
-                          <div
-                            key={img.id}
-                            onClick={() => selectProductImage(img.id)}
+                        {/* Upload card */}
+                        <div
+                          onClick={() => !uploadingFile && fileInputRef.current?.click()}
+                          className={cn(
+                            "flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg border-[1.5px] border-dashed border-primary/40 flex flex-col items-center justify-center gap-1 transition-all",
+                            uploadingFile ? "opacity-60 cursor-wait" : "cursor-pointer hover:border-primary/60 hover:bg-primary/5"
+                          )}
+                        >
+                          <Upload size={16} className="text-primary" />
+                          <span className="text-[9px] font-ui text-primary text-center px-1">
+                            {uploadingFile ? "Uploading..." : "Upload new"}
+                          </span>
+                        </div>
+
+                        {/* Existing images from context */}
+                        {productImages.map((img) => {
+                          const isSelected = selectedImage?.id === img.id;
+                          return (
+                            <div
+                              key={img.id}
+                              onClick={() => selectProductImage(img.id)}
                               className={cn(
                                 "flex-shrink-0 w-[72px] md:w-[90px] h-[88px] md:h-[110px] rounded-lg overflow-hidden cursor-pointer transition-all relative group",
                                 isSelected ? "ring-2 ring-primary shadow-lg" : "border border-border hover:border-primary/60"
@@ -571,12 +591,12 @@ Output only the HTML div. Nothing else.`;
                                   <span className="text-[9px] font-ui text-white/80 font-medium text-center px-1">{img.name}</span>
                                 </div>
                               )}
-                              
+
                               {/* Name overlay */}
                               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-1.5 py-1">
                                 <span className="text-[8px] font-ui text-white line-clamp-1">{img.name}</span>
                               </div>
-                              
+
                               {/* Selected indicator */}
                               {isSelected && (
                                 <>
@@ -589,23 +609,24 @@ Output only the HTML div. Nothing else.`;
                             </div>
                           );
                         })}
+                      </div>
+
+                      {/* Navigation arrows for product images */}
+                      <button
+                        onClick={() => scrollCarousel(productCarouselRef, 'left')}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                        style={{ opacity: productCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
+                      >
+                        <ChevronLeft size={12} className="text-foreground" />
+                      </button>
+                      <button
+                        onClick={() => scrollCarousel(productCarouselRef, 'right')}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                      >
+                        <ChevronRight size={12} className="text-foreground" />
+                      </button>
                     </div>
-                    
-                    {/* Navigation arrows for product images */}
-                    <button
-                      onClick={() => scrollCarousel(productCarouselRef, 'left')}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                      style={{ opacity: productCarouselRef.current?.scrollLeft > 10 ? 1 : 0 }}
-                    >
-                      <ChevronLeft size={12} className="text-foreground" />
-                    </button>
-                    <button
-                      onClick={() => scrollCarousel(productCarouselRef, 'right')}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                    >
-                      <ChevronRight size={12} className="text-foreground" />
-                    </button>
-                  </div>
+                  )}
                   
                   {/* Status indicator */}
                   <div className="flex items-center gap-1.5 mt-2">
