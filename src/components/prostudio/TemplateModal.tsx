@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
