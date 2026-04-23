@@ -180,7 +180,6 @@ export function EditableCanvas({
     } else if (d.mode === "resize-tl") {
       d.el.style.width = `${Math.max(20, d.origWidth - dx)}px`;
       d.el.style.height = `${Math.max(20, d.origHeight - dy)}px`;
-      d.el.style.top = `${d.origtop ?? d.origTop + dy}px`;
       d.el.style.top = `${d.origTop + dy}px`;
       d.el.style.left = `${d.origLeft + dx}px`;
     }
