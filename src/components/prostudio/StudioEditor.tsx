@@ -207,8 +207,7 @@ export function StudioEditor({
       if (!el) return;
       Object.entries(style).forEach(([k, v]) => {
         if (v == null) return;
-        // @ts-expect-error - dynamic style assignment
-        el.style[k] = v as string;
+        (el.style as unknown as Record<string, string>)[k] = v as string;
       });
       bumpRefresh();
       markDirty();
