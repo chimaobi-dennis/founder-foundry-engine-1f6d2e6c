@@ -20,6 +20,7 @@ import {
   getProjectImagesForTemplate,
   getUserCredits,
   calculateTemplateCost,
+  generateTemplateOutput,
 } from "@/services/templateService";
 import { uploadProjectFile } from "@/services/projectAssetsService";
 import { toast } from "@/hooks/use-toast";
