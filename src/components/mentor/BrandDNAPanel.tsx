@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ArrowRight } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowRight, MoreHorizontal, MessageSquare, Eraser } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBrand } from '@/contexts/BrandContext';
@@ -10,6 +10,12 @@ import {
   getBrandStageData
 } from '@/services/journeyDataService';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 interface BrandDNAPanelProps {
   fields: any[];
@@ -21,6 +27,15 @@ interface BrandDNAPanelProps {
   conversation?: { id: string } | null;
   /** Bumped by the parent after any save so the substage panel re-fetches */
   dataRefreshTrigger?: number;
+  /** Wipe a captured substage value and reset its row to uncaptured */
+  onClearSubstage?: (stageKey: string, fieldKey: string, fieldLabel: string) => void;
+  /** Inject a redefine prompt into the chat for the given substage */
+  onRedefineSubstage?: (
+    stageKey: string,
+    fieldKey: string,
+    fieldLabel: string,
+    currentValue: string
+  ) => void;
 }
 
 export function BrandDNAPanel({
@@ -31,7 +46,9 @@ export function BrandDNAPanel({
   customFields = [],
   onSaveCustomField,
   conversation,
-  dataRefreshTrigger = 0
+  dataRefreshTrigger = 0,
+  onClearSubstage,
+  onRedefineSubstage
 }: BrandDNAPanelProps) {
   const { activeBrand, journeyStages, currentStageData, updateStage } = useBrand();
   const [allStageFields, setAllStageFields] = useState<Record<string, any[]>>({});
@@ -42,11 +59,18 @@ export function BrandDNAPanel({
   const [substagesLoading, setSubstagesLoading] = useState(true);
   const [stageDataLoading, setStageDataLoading] = useState(true);
   const [showAllDoneWhen, setShowAllDoneWhen] = useState(false);
+  // Substages currently being redefined with the mentor.
+  // Key format: `${stageKey}::${fieldKey}` → original value at the time
+  // the user clicked Redefine. When the captured value changes from this
+  // snapshot (i.e. the AI saved a new SAVE_PROMPT), we exit refining state.
+  const refiningSnapshotsRef = useRef<Map<string, string>>(new Map());
+  const [refiningKeys, setRefiningKeys] = useState<Set<string>>(new Set());
   const [stageChangeWarning, setStageChangeWarning] = useState<{
     targetStageKey: string;
     incompleteSubstages: string[];
     incompleteCount: number;
   } | null>(null);
+
 
   const toggleStageExpand = (stageKey: string) => {
     setExpandedStages(prev =>
