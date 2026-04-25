@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
+import { getBrandProductImages, setPrimaryProductImage, uploadBrandProductImage } from './projectAssetsService';
+import { logError } from './errorService';
 
 const db = supabase as any;
 
@@ -319,42 +321,33 @@ export const getTemplateCategories = async (templateType: 'physical' | 'digital'
 };
 
 // Increment template usage count
-export const incrementTemplateUsage = async (templateId: string) => {
-  const { error } = await db
+export async function incrementTemplateUsage(templateId: string) {
+  const { data } = await supabase
     .from('prostudio_templates')
-    .update({ uses_count: db.raw('uses_count + 1') })
-    .eq('id', templateId);
+    .select('uses_count')
+    .eq('id', templateId)
+    .single();
 
-  return { error };
-};
+  await supabase
+    .from('prostudio_templates')
+    .update({ uses_count: (data?.uses_count || 0) + 1 })
+    .eq('id', templateId);
+}
 
 // Fetch product images available for template generation
 export const getProjectImagesForTemplate = async (
   brandId: string
 ): Promise<{ images: any[]; activeImageId: string | null; error?: string }> => {
   try {
-    // Fetch image assets from project_assets (file_type = 'image', not MIME type)
-    const { data: assets, error: assetsError } = await db
-      .from('project_assets')
-      .select('id, name, file_url, file_type')
-      .eq('brand_id', brandId)
-      .eq('file_type', 'image')
-      .order('created_at', { ascending: false });
+    // Fetch product images from project_assets using the new function
+    const images = await getBrandProductImages(brandId);
 
-    if (assetsError) throw assetsError;
-
-    // Fetch active product image ID from brands
-    const { data: brand, error: brandError } = await db
-      .from('brands')
-      .select('active_product_image_id')
-      .eq('id', brandId)
-      .single();
-
-    if (brandError) throw brandError;
+    // Find the primary image (is_primary = true)
+    const primaryImage = images.find(img => img.is_primary === true);
 
     return {
-      images: assets || [],
-      activeImageId: brand?.active_product_image_id || null
+      images,
+      activeImageId: primaryImage?.id || null
     };
   } catch (error: any) {
     return { images: [], activeImageId: null, error: error.message };
@@ -363,55 +356,10 @@ export const getProjectImagesForTemplate = async (
 
 // Upload a product image for ProStudio template generation
 export const uploadProductImage = async (
-  userId: string,
   brandId: string,
   file: File
 ): Promise<{ success: boolean; asset?: any; error?: string }> => {
-  try {
-    const filename = `${userId}/${brandId}/${Date.now()}-${file.name.replace(/[^a-z0-9.]/gi, '-')}`;
-
-    // Upload to project-files bucket (same bucket used by projectAssetsService)
-    const { error: uploadError } = await supabase.storage
-      .from('project-files')
-      .upload(filename, file);
-
-    if (uploadError) {
-      return { success: false, error: uploadError.message };
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('project-files')
-      .getPublicUrl(filename);
-
-    // Insert into project_assets table
-    const { data, error } = await db
-      .from('project_assets')
-      .insert({
-        brand_id: brandId,
-        user_id: userId,
-        name: file.name,
-        file_type: 'image',
-        source: 'upload',
-        file_url: publicUrl,
-        storage_path: filename,
-        mime_type: file.type,
-        file_size_bytes: file.size,
-        is_pinned: false
-      })
-      .select()
-      .single();
-
-    if (error) {
-      // If DB insert fails, clean up the uploaded file
-      await supabase.storage.from('project-files').remove([filename]);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, asset: data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+  return await uploadBrandProductImage(brandId, file);
 };
 
 // Set the active product image for a brand
@@ -419,76 +367,7 @@ export const setActiveProductImage = async (
   brandId: string,
   assetId: string
 ): Promise<{ success: boolean; error?: string }> => {
-  try {
-    const { error } = await db
-      .from('brands')
-      .update({ active_product_image_id: assetId })
-      .eq('id', brandId);
-
-    if (error) throw error;
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-};
-
-// Ensure template_generation system prompt exists in ai_system_prompts
-export const ensureTemplateGenerationSystemPrompt = async (): Promise<{ success: boolean; error?: string }> => {
-  try {
-    // Check if it already exists
-    const { data: existing } = await db
-      .from('ai_system_prompts')
-      .select('id')
-      .eq('task_type', 'template_generation')
-      .single();
-
-    if (existing) {
-      return { success: true };
-    }
-
-    // Insert the default system prompt
-    const defaultPrompt = `You are a professional graphic designer and frontend developer.
-Generate a complete, self-contained HTML/CSS design for the following brief.
-
-TEMPLATE STYLE: {{generation_prompt}}
-ASPECT RATIO: {{aspectRatio}} — canvas size should reflect this
-STYLE INTENSITY: {{styleIntensity}} — subtle means minimal and clean, bold means high contrast and dramatic
-VARIANT: This is variant {{variant_index}} of {{variant_count}} — make it distinct from other variants while staying on-brand
-
-BRAND CONTEXT:
-- Brand voice: {{brand_voice}}
-- Core promise: {{core_promise}}
-- Target audience: {{target_audience}}
-- Positioning: {{positioning_statement}}
-- Primary colour: {{primary_color}}
-- Secondary colour: {{secondary_color}}
-
-PRODUCT IMAGE: {{product_image_url}} — use this as an <img> src in the design
-
-RULES:
-- Return ONLY the HTML. No explanation, no markdown, no code fences.
-- The design must be fully self-contained — all CSS inline or in a <style> tag in the same file
-- Root element must be a single <div> with width and height set to match the aspect ratio (e.g. 600x600 for square, 600x900 for 9:16)
-- Every editable element must have a data-element attribute: data-element="background", data-element="headline", data-element="tagline", data-element="product-image", data-element="brand-mark", data-element="accent-{n}" for decorative elements
-- Use the brand's primary and secondary colours throughout
-- Typography: use Google Fonts — import Playfair Display for headings, DM Sans for body
-- The product image must be visible and prominent
-- Do not use external assets other than the product image URL and Google Fonts`;
-
-    const { error } = await db
-      .from('ai_system_prompts')
-      .insert({
-        task_type: 'template_generation',
-        system_prompt: defaultPrompt,
-        is_active: true,
-        version: 1
-      });
-
-    if (error) throw error;
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+  return await setPrimaryProductImage(brandId, assetId);
 };
 
 // Calculate template generation cost
@@ -604,6 +483,12 @@ export async function generateTemplateOutput({
   onVariant
 }: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; error?: string }> {
   try {
+    // Get userId from auth session to ensure RLS compliance
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!user || authError) {
+      return { variants: [], outputIds: [], error: 'Not authenticated' };
+    }
+    const userId = user.id;
     // Fetch template generation prompt
     const { data: template, error: templateError } = await db
       .from('prostudio_templates')
@@ -633,19 +518,10 @@ export async function generateTemplateOutput({
     if (brandError) throw brandError;
 
     // Fetch the system prompt for template_generation
-    let systemPrompt = await getSystemPrompt('template_generation');
-
-    // If system prompt doesn't exist, create it with default content
-    if (!systemPrompt) {
-      const { success: ensureSuccess, error: ensureError } = await ensureTemplateGenerationSystemPrompt();
-      if (!ensureSuccess) {
-        return { variants: [], outputIds: [], error: `Failed to create system prompt: ${ensureError}` };
-      }
-      systemPrompt = await getSystemPrompt('template_generation');
-    }
+    const systemPrompt = await getSystemPrompt('template_generation');
 
     if (!systemPrompt) {
-      return { variants: [], outputIds: [], error: 'System prompt for template_generation not found and could not be created.' };
+      return { variants: [], outputIds: [], error: 'System prompt for template_generation not found in database' };
     }
 
     // Generate all variants in parallel and stream completions via onVariant.
@@ -693,14 +569,17 @@ export async function generateTemplateOutput({
           .from('template_outputs')
           .insert({
             template_id: templateId,
+            user_id: userId,
             brand_id: brandId,
-            output_type: 'html',
-            output_data: htmlContent,
-            generation_params: {
-              aspectRatio,
-              styleIntensity,
-              variantIndex
-            }
+            output_type: 'html_css',
+            output_html: htmlContent,
+            aspect_ratio: aspectRatio,
+            style_intensity: styleIntensity === 'subtle' ? 1 : styleIntensity === 'balanced' ? 2 : 3,
+            product_image_used: !!productImageUrl,
+            variation_index: variantIndex,
+            is_saved_to_library: false,
+            is_downloaded: false,
+            generation_params: { aspectRatio, styleIntensity, variantIndex }
           })
           .select('id')
           .single();

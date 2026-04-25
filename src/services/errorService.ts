@@ -78,21 +78,99 @@ export const clearBreadcrumbs = (): void => {
   breadcrumbTrail.length = 0;
 };
 
-// ─── Log an error to the database ────────────────────────
+// ─── Pending error queue for offline/session recovery ───
 
-export const logError = async (
-  options: LogErrorOptions
+const PENDING_ERRORS_KEY = 'pending_errors';
+
+interface PendingError {
+  options: LogErrorOptions;
+  timestamp: string;
+}
+
+const getPendingErrors = (): PendingError[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(PENDING_ERRORS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const addPendingError = (options: LogErrorOptions): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const pending = getPendingErrors();
+    pending.push({ options, timestamp: new Date().toISOString() });
+    // Keep max 50 pending errors
+    if (pending.length > 50) pending.shift();
+    localStorage.setItem(PENDING_ERRORS_KEY, JSON.stringify(pending));
+  } catch (e) {
+    console.error('Failed to add pending error to localStorage:', e);
+  }
+};
+
+const clearPendingErrors = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(PENDING_ERRORS_KEY);
+  } catch (e) {
+    console.error('Failed to clear pending errors from localStorage:', e);
+  }
+};
+
+const flushPendingErrors = async (): Promise<void> => {
+  const pending = getPendingErrors();
+  if (pending.length === 0) return;
+
+  console.log(`Flushing ${pending.length} pending errors to database...`);
+
+  for (const pendingError of pending) {
+    try {
+      await logErrorInternal(pendingError.options);
+    } catch (e) {
+      console.error('Failed to flush pending error:', e);
+    }
+  }
+
+  // Clear the queue even if some failed to avoid infinite loops
+  clearPendingErrors();
+};
+
+// ─── Session recovery listener ────────────────────────────
+
+let hasSetupListener = false;
+
+export const setupErrorRecoveryListener = (): void => {
+  if (hasSetupListener || typeof window === 'undefined') return;
+  hasSetupListener = true;
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      // Flush pending errors when session is restored
+      flushPendingErrors();
+    }
+  });
+};
+
+// Initialize listener on module load
+if (typeof window !== 'undefined') {
+  setupErrorRecoveryListener();
+}
+
+// ─── Internal logError implementation ─────────────────────
+
+const logErrorInternal = async (
+  options: LogErrorOptions,
+  attempt: number = 1
 ): Promise<void> => {
   // Auto-capture call location from stack trace
   let callLocation = options.callLocation;
   if (!callLocation) {
     try {
       const stack = new Error().stack ?? '';
-      // Extract the calling function from the stack
-      // Skip the first 3 lines (Error, logError, logAIError wrappers)
       const lines = stack.split('\n');
       const callerLine = lines[3] ?? lines[2] ?? '';
-      // Extract file and line number
       const match = callerLine.match(/at (.+?) \((.+?):(\d+)/);
       if (match) {
         callLocation = `${match[1]} — ${match[2].split('/').slice(-2).join('/')}:${match[3]}`;
@@ -105,8 +183,8 @@ export const logError = async (
   }
 
   // Auto-capture current URL path
-  const urlPath = typeof window !== 'undefined' 
-    ? window.location.pathname 
+  const urlPath = typeof window !== 'undefined'
+    ? window.location.pathname
     : undefined;
 
   // Always log to console with full trace
@@ -123,8 +201,20 @@ export const logError = async (
     stack: options.errorStack
   });
 
-  if (!options.userId) return;
+  // If no userId, store as pending and return
+  if (!options.userId) {
+    addPendingError(options);
+    return;
+  }
 
+  // Check for valid session
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    addPendingError(options);
+    return;
+  }
+
+  // Attempt database insert with retry
   try {
     await (supabase as any)
       .from('app_errors')
@@ -149,6 +239,29 @@ export const logError = async (
       });
   } catch (dbError) {
     console.error('Failed to log error to DB:', dbError);
+
+    // Retry once after 2 seconds
+    if (attempt === 1) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return logErrorInternal(options, 2);
+    }
+
+    // If retry fails, store as pending
+    addPendingError(options);
+  }
+};
+
+// ─── Log an error to the database (public API) ─────────────
+
+export const logError = async (
+  options: LogErrorOptions
+): Promise<void> => {
+  try {
+    await logErrorInternal(options);
+  } catch (error) {
+    // Last resort fallback - should never reach here
+    console.error('logError itself failed:', error);
+    console.error('Original error data:', options);
   }
 };
 
