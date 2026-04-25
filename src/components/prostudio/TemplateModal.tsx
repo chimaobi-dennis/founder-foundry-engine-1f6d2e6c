@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
+import { VariantLoadingSlot } from "./VariantLoadingSlot";
 import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
