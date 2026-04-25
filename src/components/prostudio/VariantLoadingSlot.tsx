@@ -27,6 +27,8 @@ interface SlotProps {
   failed?: boolean;
   /** Click handler for the retry affordance (only used when failed). */
   onRetry?: () => void;
+  /** Optional persistent caption shown below the cycling message (hero only). */
+  caption?: string;
   className?: string;
 }
 
@@ -35,6 +37,7 @@ export function VariantLoadingSlot({
   size = "thumb",
   failed = false,
   onRetry,
+  caption,
   className,
 }: SlotProps) {
   const [msgIdx, setMsgIdx] = useState(slotIndex % MESSAGES.length);
@@ -119,6 +122,12 @@ export function VariantLoadingSlot({
       >
         {MESSAGES[msgIdx]}
       </span>
+
+      {isHero && caption && (
+        <span className="relative mt-3 font-ui text-white/80 text-[13px] text-center px-2">
+          {caption}
+        </span>
+      )}
 
       <style>{`
         @keyframes variant-slot-pulse {

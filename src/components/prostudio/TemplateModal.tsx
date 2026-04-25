@@ -1069,6 +1069,11 @@ Output only the HTML div. Nothing else.`;
                           size="hero"
                           failed={!isGenerating && generated}
                           onRetry={() => regenerateSingle(activeVariation)}
+                          caption={
+                            isGenerating
+                              ? `Generating ${variantCount} variant${variantCount === 1 ? "" : "s"}...`
+                              : undefined
+                          }
                         />
                       </div>
                     )}
