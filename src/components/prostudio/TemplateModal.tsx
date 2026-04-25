@@ -1081,10 +1081,10 @@ Output only the HTML div. Nothing else.`;
                         <VariantLoadingSlot
                           slotIndex={activeVariation}
                           size="hero"
-                          failed={!isGenerating && generated}
+                          failed={!isGenerating && generated && regeneratingIdx !== activeVariation}
                           onRetry={() => regenerateSingle(activeVariation)}
                           caption={
-                            isGenerating
+                            isGenerating || regeneratingIdx === activeVariation
                               ? `Generating ${variantCount} variant${variantCount === 1 ? "" : "s"}...`
                               : undefined
                           }
