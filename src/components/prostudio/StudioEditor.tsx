@@ -524,7 +524,7 @@ export function StudioEditor({
                 ref={captureStageHost}
                 data-studio-stage
                 className="relative"
-                style={{ width: 600 * zoom, height: 600 * zoom }}
+                style={{ width: canvasSize.width * zoom, height: canvasSize.height * zoom }}
               >
                 <div
                   className="absolute inset-0 rounded-sm pointer-events-none"
@@ -535,12 +535,13 @@ export function StudioEditor({
                 <EditableCanvas
                   html={html}
                   zoom={zoom}
-                  width={600}
-                  height={600}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                   onElementsParsed={setElements}
                   onElementMutated={() => { bumpRefresh(); markDirty(); }}
+                  onIntrinsicSize={setCanvasSize}
                   getElementState={getElementState}
                   refreshKey={refreshKey}
                 />
