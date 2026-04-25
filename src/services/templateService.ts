@@ -589,6 +589,11 @@ export async function generateTemplateOutput({
         variants[i] = htmlContent;
         outputIds[i] = outputData.id;
         onVariant?.({ index: i, html: htmlContent, outputId: outputData.id });
+
+        // Parse and save elements to studio_elements (fire and forget - don't block on errors)
+        saveElementsFromHtml(htmlContent, userId, brandId).catch(err => {
+          console.error('Failed to save elements:', err);
+        });
       })
     );
 
@@ -597,3 +602,125 @@ export async function generateTemplateOutput({
     return { variants: [], outputIds: [], error: error.message };
   }
 }
+
+// ─── Element parsing and saving ────────────────────────────
+
+const PRIVATE_ELEMENT_TYPES = ['headline', 'tagline', 'brand-mark', 'product-image'];
+
+function getElementPrivacy(elementDataAttribute: string): boolean {
+  return !PRIVATE_ELEMENT_TYPES.some(type =>
+    elementDataAttribute === type || elementDataAttribute.startsWith(type)
+  );
+}
+
+function getElementType(elementDataAttribute: string): string {
+  if (elementDataAttribute === 'background') return 'background';
+  if (['headline', 'tagline', 'brand-mark'].includes(elementDataAttribute)) return 'text';
+  if (elementDataAttribute === 'product-image') return 'image';
+  if (elementDataAttribute.startsWith('accent-')) return 'decoration';
+  return 'other';
+}
+
+function getElementName(elementDataAttribute: string): string {
+  if (elementDataAttribute === 'background') return 'Background';
+  if (elementDataAttribute === 'headline') return 'Headline';
+  if (elementDataAttribute === 'tagline') return 'Tagline';
+  if (elementDataAttribute === 'brand-mark') return 'Brand Mark';
+  if (elementDataAttribute === 'product-image') return 'Product Image';
+  if (elementDataAttribute.startsWith('accent-')) {
+    const num = elementDataAttribute.replace('accent-', '');
+    return `Accent Shape ${num}`;
+  }
+  return elementDataAttribute
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(16);
+}
+
+async function saveElementsFromHtml(html: string, userId: string, brandId: string): Promise<void> {
+  if (typeof window === 'undefined') return; // Only run on client side
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const elements = doc.querySelectorAll('[data-element]');
+
+  for (const el of elements) {
+    const dataElement = el.getAttribute('data-element');
+    if (!dataElement) continue;
+
+    const isPublic = getElementPrivacy(dataElement);
+    const elementType = getElementType(dataElement);
+    const elementName = getElementName(dataElement);
+
+    // For product-image, save generic placeholder instead of actual URL
+    let htmlSnippet = el.outerHTML;
+    if (dataElement === 'product-image') {
+      htmlSnippet = '<img data-element="product-image" src="" />';
+    }
+
+    const snippetHash = hashString(htmlSnippet);
+
+    // Check if element already exists
+    const { data: existing } = await (supabase as any)
+      .from('studio_elements')
+      .select('id, uses_count')
+      .eq('snippet_hash', snippetHash)
+      .single();
+
+    if (existing) {
+      // Increment uses_count
+      await (supabase as any)
+        .from('studio_elements')
+        .update({ uses_count: (existing.uses_count || 0) + 1 })
+        .eq('id', existing.id);
+    } else {
+      // Insert new element
+      await (supabase as any)
+        .from('studio_elements')
+        .insert({
+          html_snippet: htmlSnippet,
+          snippet_hash: snippetHash,
+          element_type: elementType,
+          name: elementName,
+          is_public: isPublic,
+          source: 'ai_generated',
+          created_by: userId,
+          brand_id: brandId,
+          uses_count: 1
+        });
+    }
+  }
+}
+
+// Get studio elements with privacy rules
+export const getStudioElements = async (
+  userId: string,
+  filters?: { element_type?: string; search?: string }
+): Promise<any[]> => {
+  let query = (supabase as any)
+    .from('studio_elements')
+    .select('*')
+    .or(`is_public.eq.true,created_by.eq.${userId}`)
+    .order('uses_count', { ascending: false });
+
+  if (filters?.element_type) {
+    query = query.eq('element_type', filters.element_type);
+  }
+
+  if (filters?.search) {
+    query = query.or(`name.ilike.%${filters.search}%,element_type.ilike.%${filters.search}%`);
+  }
+
+  const { data } = await query;
+  return data ?? [];
+};
