@@ -409,70 +409,93 @@ export function StudioEditor({
 
         {/* Workspace */}
         <div className="flex-1 flex min-h-0">
-          {/* Layers panel */}
+          {/* Left panel: Layers / Elements tabs */}
           <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-border bg-card">
-            <div className="h-9 flex items-center justify-between px-3 border-b border-border flex-shrink-0">
-              <span className="text-[10px] font-ui font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                Layers
-              </span>
-              <span className="text-[10px] font-ui tabular-nums text-muted-foreground">{elements.length}</span>
+            <div className="h-9 flex items-stretch border-b border-border flex-shrink-0">
+              {(["layers", "elements"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setLeftTab(tab)}
+                  className={cn(
+                    "flex-1 text-[10px] font-ui font-semibold uppercase tracking-[0.08em] transition-colors relative",
+                    leftTab === tab
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tab === "layers" ? "Layers" : "Elements"}
+                  {leftTab === tab && (
+                    <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full" />
+                  )}
+                </button>
+              ))}
             </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {elements.map((el, idx) => {
-                const Icon = ICON_FOR_TYPE[el.type];
-                const sel = selectedId === el.id;
-                return (
-                  <div
-                    key={el.id}
-                    draggable
-                    onDragStart={onLayerDragStart(idx)}
-                    onDragOver={onLayerDragOver}
-                    onDrop={onLayerDrop(idx)}
-                    onClick={() => !el.locked && setSelectedId(el.id)}
-                    className={cn(
-                      "group flex items-center gap-2 mx-1.5 my-0.5 px-2 py-1.5 rounded-md transition-colors border-l-2",
-                      el.locked ? "cursor-not-allowed" : "cursor-pointer",
-                      sel ? "bg-primary/10 border-primary" : "border-transparent hover:bg-muted/60",
-                    )}
-                  >
-                    <GripVertical size={11} className="text-muted-foreground opacity-40" />
-                    <Icon size={13} className={cn("flex-shrink-0", sel ? "text-primary" : "text-muted-foreground")} />
-                    <span className={cn(
-                      "text-[12px] font-ui flex-1 truncate",
-                      el.visible ? "text-foreground" : "text-muted-foreground opacity-60",
-                    )}>{el.name}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleVisibility(el.id); }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-muted-foreground hover:text-foreground"
-                      title={el.visible ? "Hide" : "Show"}
-                    >
-                      {el.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleLock(el.id); }}
-                      className={cn(
-                        "transition-opacity p-0.5",
-                        el.locked
-                          ? "opacity-100 text-primary"
-                          : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground",
-                      )}
-                      title={el.locked ? "Unlock" : "Lock"}
-                    >
-                      {el.locked ? <Lock size={11} /> : <Unlock size={11} />}
-                    </button>
-                  </div>
-                );
-              })}
-              {elements.length === 0 && (
-                <p className="text-[11px] font-ui text-muted-foreground text-center px-4 py-6">
-                  No editable elements detected
-                </p>
-              )}
-            </div>
-            <div className="px-3 py-2 border-t border-border flex items-center justify-between">
-              <span className="text-[10px] font-ui text-muted-foreground">Auto-detected</span>
-              <span className="text-[10px] font-ui px-1.5 py-0.5 rounded bg-primary/10 text-primary">Beta</span>
-            </div>
+
+            {leftTab === "layers" ? (
+              <>
+                <div className="flex items-center justify-between px-3 py-1.5 border-b border-border flex-shrink-0">
+                  <span className="text-[10px] font-ui text-muted-foreground">{elements.length} layers</span>
+                </div>
+                <div className="flex-1 overflow-y-auto py-1">
+                  {elements.map((el, idx) => {
+                    const Icon = ICON_FOR_TYPE[el.type];
+                    const sel = selectedId === el.id;
+                    return (
+                      <div
+                        key={el.id}
+                        draggable
+                        onDragStart={onLayerDragStart(idx)}
+                        onDragOver={onLayerDragOver}
+                        onDrop={onLayerDrop(idx)}
+                        onClick={() => !el.locked && setSelectedId(el.id)}
+                        className={cn(
+                          "group flex items-center gap-2 mx-1.5 my-0.5 px-2 py-1.5 rounded-md transition-colors border-l-2",
+                          el.locked ? "cursor-not-allowed" : "cursor-pointer",
+                          sel ? "bg-primary/10 border-primary" : "border-transparent hover:bg-muted/60",
+                        )}
+                      >
+                        <GripVertical size={11} className="text-muted-foreground opacity-40" />
+                        <Icon size={13} className={cn("flex-shrink-0", sel ? "text-primary" : "text-muted-foreground")} />
+                        <span className={cn(
+                          "text-[12px] font-ui flex-1 truncate",
+                          el.visible ? "text-foreground" : "text-muted-foreground opacity-60",
+                        )}>{el.name}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleVisibility(el.id); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-muted-foreground hover:text-foreground"
+                          title={el.visible ? "Hide" : "Show"}
+                        >
+                          {el.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleLock(el.id); }}
+                          className={cn(
+                            "transition-opacity p-0.5",
+                            el.locked
+                              ? "opacity-100 text-primary"
+                              : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground",
+                          )}
+                          title={el.locked ? "Unlock" : "Lock"}
+                        >
+                          {el.locked ? <Lock size={11} /> : <Unlock size={11} />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {elements.length === 0 && (
+                    <p className="text-[11px] font-ui text-muted-foreground text-center px-4 py-6">
+                      No editable elements detected
+                    </p>
+                  )}
+                </div>
+                <div className="px-3 py-2 border-t border-border flex items-center justify-between">
+                  <span className="text-[10px] font-ui text-muted-foreground">Auto-detected</span>
+                  <span className="text-[10px] font-ui px-1.5 py-0.5 rounded bg-primary/10 text-primary">Beta</span>
+                </div>
+              </>
+            ) : (
+              <ElementsPanel onInsert={insertElement} />
+            )}
           </div>
 
           {/* Canvas */}
