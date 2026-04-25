@@ -104,6 +104,14 @@ export function StudioEditor({
   const [tool, setTool] = useState<"select" | "hand">("select");
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  // Intrinsic canvas size — detected from injected HTML so the stage matches
+  // exactly what the AI generated (no stretching).
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({
+    width: 600,
+    height: 600,
+  });
+  // Left panel tab (LAYERS | ELEMENTS)
+  const [leftTab, setLeftTab] = useState<"layers" | "elements">("layers");
 
   // Unsaved changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
