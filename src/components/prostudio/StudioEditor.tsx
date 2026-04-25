@@ -206,7 +206,7 @@ export function StudioEditor({
   const queryEl = useCallback((id: string): HTMLElement | null => {
     const root = document.querySelector<HTMLElement>("[data-studio-stage]");
     if (!root) return null;
-    return root.querySelector<HTMLElement>(`[data-element="${CSS.escape(id)}"]`);
+    return root.querySelector<HTMLElement>(`[data-studio-id="${CSS.escape(id)}"]`);
   }, []);
 
   const apply = useCallback(
