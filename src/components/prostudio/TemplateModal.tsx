@@ -1103,19 +1103,21 @@ Output only the HTML div. Nothing else.`;
                               activeVariation === i ? "border-primary" : "border-transparent hover:border-border"
                             )}
                           >
-                            {regeneratingIdx === i ? (
+                            {html ? (
                               <div
-                                className="w-full h-full bg-muted/40"
-                                style={{ animation: "pulse-amber 1.5s ease-in-out infinite" }}
-                              />
-                            ) : html ? (
-                              <div style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}>
+                                className="w-full h-full animate-fade-in"
+                                style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}
+                              >
                                 <div dangerouslySetInnerHTML={{ __html: getEditedHtml(html, i) || '' }} />
                               </div>
                             ) : (
-                              <div className="w-full h-full bg-muted/30 flex items-center justify-center">
-                                <span className="text-[10px] font-ui text-muted-foreground">Failed</span>
-                              </div>
+                              // Loading while generating (or regenerating); failed once generation has completed.
+                              <VariantLoadingSlot
+                                slotIndex={i}
+                                size="thumb"
+                                failed={!isGenerating && regeneratingIdx !== i && generated}
+                                onRetry={() => regenerateSingle(i)}
+                              />
                             )}
                           </button>
                           <button
