@@ -132,7 +132,6 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
     if (uploadedFile) {
       try {
         const result = await uploadProjectFile(
-          user.id,
           brandId,
           uploadedFile,
           stageKey

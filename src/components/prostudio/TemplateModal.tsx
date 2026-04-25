@@ -703,7 +703,7 @@ Output only the HTML div. Nothing else.`;
                     let anyFailed = false;
                     try {
                       for (const file of fileArray) {
-                        const result = await uploadProductImage(user.id, activeBrand.id, file);
+                        const result = await uploadProductImage(activeBrand.id, file);
                         if (!result.success) {
                           anyFailed = true;
                         } else if (result.asset?.id) {

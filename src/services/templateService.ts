@@ -322,13 +322,13 @@ export const getTemplateCategories = async (templateType: 'physical' | 'digital'
 
 // Increment template usage count
 export async function incrementTemplateUsage(templateId: string) {
-  const { data } = await supabase
+  const { data } = await db
     .from('prostudio_templates')
     .select('uses_count')
     .eq('id', templateId)
     .single();
 
-  await supabase
+  await db
     .from('prostudio_templates')
     .update({ uses_count: (data?.uses_count || 0) + 1 })
     .eq('id', templateId);

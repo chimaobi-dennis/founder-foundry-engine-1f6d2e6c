@@ -139,7 +139,6 @@ export function BrandMilestonePanel({
     try {
       for (const file of Array.from(files)) {
         await uploadProjectFile(
-          user.id,
           realActiveBrand.id,
           file,
           realActiveBrand.journey_stage ?? undefined
