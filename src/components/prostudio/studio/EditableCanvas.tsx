@@ -10,6 +10,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   onElementsParsed: (els: StudioElement[]) => void;
   onElementMutated: () => void;
+  /** Reports the intrinsic size detected from the injected HTML root. */
+  onIntrinsicSize?: (size: { width: number; height: number }) => void;
   // Lookup so canvas knows which elements are visible/locked from layers panel
   getElementState: (id: string) => { visible: boolean; locked: boolean } | undefined;
   // Pulse counter to force re-measure (e.g. after applying property changes)
@@ -17,6 +19,39 @@ interface Props {
 }
 
 type DragMode = null | "move" | "resize-tl" | "resize-tr" | "resize-bl" | "resize-br";
+
+/** Parse "600px" / "600" / "100%" — return number or null. */
+function parsePx(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const m = String(value).match(/([\d.]+)\s*px/);
+  if (m) return parseFloat(m[1]);
+  const n = parseFloat(String(value));
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Read intrinsic dimensions from the injected root.
+ * Looks for inline width/height in style, then attributes, then defaults to props.
+ */
+function detectIntrinsicSize(stage: HTMLElement, fallback: { width: number; height: number }) {
+  // Pick the first wrapping element with inline width/height, else use stage itself
+  const root = stage.firstElementChild as HTMLElement | null;
+  const candidates: HTMLElement[] = [];
+  if (root) candidates.push(root);
+  // Also inspect any element with data-element="background" as it usually defines size
+  const bg = stage.querySelector<HTMLElement>('[data-element-type="background"], [data-element="background"]');
+  if (bg) candidates.push(bg);
+
+  for (const el of candidates) {
+    const style = el.getAttribute("style") || "";
+    const wMatch = style.match(/width\s*:\s*([\d.]+)px/i);
+    const hMatch = style.match(/height\s*:\s*([\d.]+)px/i);
+    const w = wMatch ? parseFloat(wMatch[1]) : parsePx(el.getAttribute("width"));
+    const h = hMatch ? parseFloat(hMatch[1]) : parsePx(el.getAttribute("height"));
+    if (w && h) return { width: w, height: h };
+  }
+  return fallback;
+}
 
 export function EditableCanvas({
   html,
@@ -27,6 +62,7 @@ export function EditableCanvas({
   onSelect,
   onElementsParsed,
   onElementMutated,
+  onIntrinsicSize,
   getElementState,
   refreshKey,
 }: Props) {
@@ -39,18 +75,33 @@ export function EditableCanvas({
     if (!stage) return;
     stage.innerHTML = html;
 
+    // Assign unique data-studio-id to every [data-element] node based on its
+    // data-element value + DOM index. This avoids duplicate keys when the AI
+    // emits multiple nodes with the same data-element (e.g. accent-1).
     const nodes = Array.from(
       stage.querySelectorAll<HTMLElement>("[data-element]"),
     );
+    nodes.forEach((el, idx) => {
+      const base = el.dataset.element || "el";
+      const studioId = `${base}-${idx}`;
+      el.dataset.studioId = studioId;
+    });
 
     const elements: StudioElement[] = nodes.map((el) => ({
-      id: el.dataset.element || "",
+      id: el.dataset.studioId || "",
       type: (el.dataset.elementType as StudioElement["type"]) || "shape",
       name: el.dataset.elementName || el.dataset.element || "Element",
       visible: true,
       locked: false,
     }));
     onElementsParsed(elements);
+
+    // Detect intrinsic size from the HTML and report back so parent can
+    // size the stage container and show real px in the toolbar.
+    if (onIntrinsicSize) {
+      const size = detectIntrinsicSize(stage, { width, height });
+      onIntrinsicSize(size);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html]);
 
@@ -58,8 +109,8 @@ export function EditableCanvas({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    stage.querySelectorAll<HTMLElement>("[data-element]").forEach((el) => {
-      const id = el.dataset.element || "";
+    stage.querySelectorAll<HTMLElement>("[data-studio-id]").forEach((el) => {
+      const id = el.dataset.studioId || "";
       const state = getElementState(id);
       if (!state) return;
       el.style.display = state.visible ? "" : "none";
@@ -76,7 +127,7 @@ export function EditableCanvas({
       return;
     }
     const el = stage.querySelector<HTMLElement>(
-      `[data-element="${CSS.escape(selectedId)}"]`,
+      `[data-studio-id="${CSS.escape(selectedId)}"]`,
     );
     if (!el) {
       setSelectionRect(null);
@@ -99,9 +150,9 @@ export function EditableCanvas({
   // Handle clicks within the stage to select elements
   const onStageClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    const hit = target.closest<HTMLElement>("[data-element]");
+    const hit = target.closest<HTMLElement>("[data-studio-id]");
     if (hit && hit.dataset.locked !== "true") {
-      onSelect(hit.dataset.element || null);
+      onSelect(hit.dataset.studioId || null);
     } else {
       onSelect(null);
     }
@@ -110,7 +161,7 @@ export function EditableCanvas({
   // Double-click to enter inline text editing
   const onStageDoubleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    const hit = target.closest<HTMLElement>("[data-element]");
+    const hit = target.closest<HTMLElement>("[data-studio-id]");
     if (!hit || hit.dataset.elementType !== "text") return;
     hit.setAttribute("contenteditable", "true");
     hit.focus();
@@ -140,7 +191,7 @@ export function EditableCanvas({
     const stage = stageRef.current;
     if (!stage || !selectedId) return;
     const el = stage.querySelector<HTMLElement>(
-      `[data-element="${CSS.escape(selectedId)}"]`,
+      `[data-studio-id="${CSS.escape(selectedId)}"]`,
     );
     if (!el) return;
     const cs = window.getComputedStyle(el);
@@ -284,7 +335,7 @@ export function mutateElement(
 ) {
   if (!host) return;
   const el = host.querySelector<HTMLElement>(
-    `[data-element="${CSS.escape(id)}"]`,
+    `[data-studio-id="${CSS.escape(id)}"]`,
   );
   if (el) apply(el);
 }

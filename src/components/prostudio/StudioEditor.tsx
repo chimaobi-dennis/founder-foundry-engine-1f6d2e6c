@@ -35,6 +35,7 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { CanvasSwitcher, type CanvasItem } from "./CanvasSwitcher";
 import { EditableCanvas } from "./studio/EditableCanvas";
+import { ElementsPanel } from "./studio/ElementsPanel";
 import {
   TextProperties,
   ImageProperties,
@@ -103,6 +104,14 @@ export function StudioEditor({
   const [tool, setTool] = useState<"select" | "hand">("select");
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  // Intrinsic canvas size — detected from injected HTML so the stage matches
+  // exactly what the AI generated (no stretching).
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({
+    width: 600,
+    height: 600,
+  });
+  // Left panel tab (LAYERS | ELEMENTS)
+  const [leftTab, setLeftTab] = useState<"layers" | "elements">("layers");
 
   // Unsaved changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -197,7 +206,7 @@ export function StudioEditor({
   const queryEl = useCallback((id: string): HTMLElement | null => {
     const root = document.querySelector<HTMLElement>("[data-studio-stage]");
     if (!root) return null;
-    return root.querySelector<HTMLElement>(`[data-element="${CSS.escape(id)}"]`);
+    return root.querySelector<HTMLElement>(`[data-studio-id="${CSS.escape(id)}"]`);
   }, []);
 
   const apply = useCallback(
@@ -283,6 +292,48 @@ export function StudioEditor({
     markDirty();
   };
 
+  // Insert a new element from the Elements panel into the centre of the canvas
+  const insertElement = useCallback(
+    (htmlSnippet: string) => {
+      const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+      if (!stage) return;
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = htmlSnippet.trim();
+      const node = wrapper.firstElementChild as HTMLElement | null;
+      if (!node) return;
+      // Centre on canvas using its inline width/height if specified, else 120px default
+      const w = parseFloat((node.style.width || "120").replace("px", "")) || 120;
+      const h = parseFloat((node.style.height || "120").replace("px", "")) || 120;
+      node.style.position = "absolute";
+      node.style.left = `${(canvasSize.width - w) / 2}px`;
+      node.style.top = `${(canvasSize.height - h) / 2}px`;
+      // Generate a unique studio id (avoid collision with existing ids)
+      const base = node.dataset.element || "inserted";
+      const existing = stage.querySelectorAll(`[data-studio-id^="${base}-"]`).length;
+      const studioId = `${base}-inserted-${existing}-${Date.now().toString(36)}`;
+      node.dataset.studioId = studioId;
+      if (!node.dataset.element) node.dataset.element = base;
+      if (!node.dataset.elementType) node.dataset.elementType = "shape";
+      if (!node.dataset.elementName) node.dataset.elementName = "Inserted element";
+      stage.appendChild(node);
+      // Add to the elements list and select it
+      setElements((prev) => [
+        {
+          id: studioId,
+          type: (node.dataset.elementType as StudioElement["type"]) || "shape",
+          name: node.dataset.elementName || "Inserted element",
+          visible: true,
+          locked: false,
+        },
+        ...prev,
+      ]);
+      setSelectedId(studioId);
+      bumpRefresh();
+      markDirty();
+    },
+    [canvasSize, bumpRefresh, markDirty],
+  );
+
   if (!open) return null;
 
   const workspaceBg = theme === "dark" ? "#1A1A1A" : "#E8E8E8";
@@ -336,7 +387,7 @@ export function StudioEditor({
             </ToolbarButton>
             <div className="w-px h-5 mx-1.5 bg-border" />
             <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
-              600 × 600 px
+              {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
             </div>
           </div>
 
@@ -358,70 +409,93 @@ export function StudioEditor({
 
         {/* Workspace */}
         <div className="flex-1 flex min-h-0">
-          {/* Layers panel */}
+          {/* Left panel: Layers / Elements tabs */}
           <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-border bg-card">
-            <div className="h-9 flex items-center justify-between px-3 border-b border-border flex-shrink-0">
-              <span className="text-[10px] font-ui font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                Layers
-              </span>
-              <span className="text-[10px] font-ui tabular-nums text-muted-foreground">{elements.length}</span>
+            <div className="h-9 flex items-stretch border-b border-border flex-shrink-0">
+              {(["layers", "elements"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setLeftTab(tab)}
+                  className={cn(
+                    "flex-1 text-[10px] font-ui font-semibold uppercase tracking-[0.08em] transition-colors relative",
+                    leftTab === tab
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tab === "layers" ? "Layers" : "Elements"}
+                  {leftTab === tab && (
+                    <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full" />
+                  )}
+                </button>
+              ))}
             </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {elements.map((el, idx) => {
-                const Icon = ICON_FOR_TYPE[el.type];
-                const sel = selectedId === el.id;
-                return (
-                  <div
-                    key={el.id}
-                    draggable
-                    onDragStart={onLayerDragStart(idx)}
-                    onDragOver={onLayerDragOver}
-                    onDrop={onLayerDrop(idx)}
-                    onClick={() => !el.locked && setSelectedId(el.id)}
-                    className={cn(
-                      "group flex items-center gap-2 mx-1.5 my-0.5 px-2 py-1.5 rounded-md transition-colors border-l-2",
-                      el.locked ? "cursor-not-allowed" : "cursor-pointer",
-                      sel ? "bg-primary/10 border-primary" : "border-transparent hover:bg-muted/60",
-                    )}
-                  >
-                    <GripVertical size={11} className="text-muted-foreground opacity-40" />
-                    <Icon size={13} className={cn("flex-shrink-0", sel ? "text-primary" : "text-muted-foreground")} />
-                    <span className={cn(
-                      "text-[12px] font-ui flex-1 truncate",
-                      el.visible ? "text-foreground" : "text-muted-foreground opacity-60",
-                    )}>{el.name}</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleVisibility(el.id); }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-muted-foreground hover:text-foreground"
-                      title={el.visible ? "Hide" : "Show"}
-                    >
-                      {el.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleLock(el.id); }}
-                      className={cn(
-                        "transition-opacity p-0.5",
-                        el.locked
-                          ? "opacity-100 text-primary"
-                          : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground",
-                      )}
-                      title={el.locked ? "Unlock" : "Lock"}
-                    >
-                      {el.locked ? <Lock size={11} /> : <Unlock size={11} />}
-                    </button>
-                  </div>
-                );
-              })}
-              {elements.length === 0 && (
-                <p className="text-[11px] font-ui text-muted-foreground text-center px-4 py-6">
-                  No editable elements detected
-                </p>
-              )}
-            </div>
-            <div className="px-3 py-2 border-t border-border flex items-center justify-between">
-              <span className="text-[10px] font-ui text-muted-foreground">Auto-detected</span>
-              <span className="text-[10px] font-ui px-1.5 py-0.5 rounded bg-primary/10 text-primary">Beta</span>
-            </div>
+
+            {leftTab === "layers" ? (
+              <>
+                <div className="flex items-center justify-between px-3 py-1.5 border-b border-border flex-shrink-0">
+                  <span className="text-[10px] font-ui text-muted-foreground">{elements.length} layers</span>
+                </div>
+                <div className="flex-1 overflow-y-auto py-1">
+                  {elements.map((el, idx) => {
+                    const Icon = ICON_FOR_TYPE[el.type];
+                    const sel = selectedId === el.id;
+                    return (
+                      <div
+                        key={el.id}
+                        draggable
+                        onDragStart={onLayerDragStart(idx)}
+                        onDragOver={onLayerDragOver}
+                        onDrop={onLayerDrop(idx)}
+                        onClick={() => !el.locked && setSelectedId(el.id)}
+                        className={cn(
+                          "group flex items-center gap-2 mx-1.5 my-0.5 px-2 py-1.5 rounded-md transition-colors border-l-2",
+                          el.locked ? "cursor-not-allowed" : "cursor-pointer",
+                          sel ? "bg-primary/10 border-primary" : "border-transparent hover:bg-muted/60",
+                        )}
+                      >
+                        <GripVertical size={11} className="text-muted-foreground opacity-40" />
+                        <Icon size={13} className={cn("flex-shrink-0", sel ? "text-primary" : "text-muted-foreground")} />
+                        <span className={cn(
+                          "text-[12px] font-ui flex-1 truncate",
+                          el.visible ? "text-foreground" : "text-muted-foreground opacity-60",
+                        )}>{el.name}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleVisibility(el.id); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-muted-foreground hover:text-foreground"
+                          title={el.visible ? "Hide" : "Show"}
+                        >
+                          {el.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleLock(el.id); }}
+                          className={cn(
+                            "transition-opacity p-0.5",
+                            el.locked
+                              ? "opacity-100 text-primary"
+                              : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground",
+                          )}
+                          title={el.locked ? "Unlock" : "Lock"}
+                        >
+                          {el.locked ? <Lock size={11} /> : <Unlock size={11} />}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {elements.length === 0 && (
+                    <p className="text-[11px] font-ui text-muted-foreground text-center px-4 py-6">
+                      No editable elements detected
+                    </p>
+                  )}
+                </div>
+                <div className="px-3 py-2 border-t border-border flex items-center justify-between">
+                  <span className="text-[10px] font-ui text-muted-foreground">Auto-detected</span>
+                  <span className="text-[10px] font-ui px-1.5 py-0.5 rounded bg-primary/10 text-primary">Beta</span>
+                </div>
+              </>
+            ) : (
+              <ElementsPanel onInsert={insertElement} />
+            )}
           </div>
 
           {/* Canvas */}
@@ -450,7 +524,7 @@ export function StudioEditor({
                 ref={captureStageHost}
                 data-studio-stage
                 className="relative"
-                style={{ width: 600 * zoom, height: 600 * zoom }}
+                style={{ width: canvasSize.width * zoom, height: canvasSize.height * zoom }}
               >
                 <div
                   className="absolute inset-0 rounded-sm pointer-events-none"
@@ -461,12 +535,13 @@ export function StudioEditor({
                 <EditableCanvas
                   html={html}
                   zoom={zoom}
-                  width={600}
-                  height={600}
+                  width={canvasSize.width}
+                  height={canvasSize.height}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                   onElementsParsed={setElements}
                   onElementMutated={() => { bumpRefresh(); markDirty(); }}
+                  onIntrinsicSize={setCanvasSize}
                   getElementState={getElementState}
                   refreshKey={refreshKey}
                 />
