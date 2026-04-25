@@ -387,7 +387,7 @@ export function StudioEditor({
             </ToolbarButton>
             <div className="w-px h-5 mx-1.5 bg-border" />
             <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
-              600 × 600 px
+              {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
             </div>
           </div>
 
