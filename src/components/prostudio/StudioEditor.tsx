@@ -35,6 +35,7 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { CanvasSwitcher, type CanvasItem } from "./CanvasSwitcher";
 import { EditableCanvas } from "./studio/EditableCanvas";
+import { ElementsPanel } from "./studio/ElementsPanel";
 import {
   TextProperties,
   ImageProperties,
