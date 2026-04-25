@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
+import { VariantLoadingSlot } from "./VariantLoadingSlot";
 import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
@@ -1057,16 +1058,18 @@ Output only the HTML div. Nothing else.`;
                       />
                     ) : (
                       <div
-                        className="rounded-lg bg-muted/40 flex items-center justify-center"
+                        className="rounded-lg overflow-hidden animate-fade-in"
                         style={{
                           width: 600 * Math.min(previewScale, 0.85),
                           height: 600 * Math.min(previewScale, 0.85),
-                          animation: "pulse-amber 1.5s ease-in-out infinite",
                         }}
                       >
-                        <span className="text-[12px] font-ui text-muted-foreground">
-                          {isGenerating ? "Generating…" : "Waiting"}
-                        </span>
+                        <VariantLoadingSlot
+                          slotIndex={activeVariation}
+                          size="hero"
+                          failed={!isGenerating && generated}
+                          onRetry={() => regenerateSingle(activeVariation)}
+                        />
                       </div>
                     )}
                   </div>
@@ -1082,12 +1085,6 @@ Output only the HTML div. Nothing else.`;
                       </span>
                     </div>
                   )}
-                  <style>{`
-                    @keyframes pulse-amber {
-                      0%, 100% { opacity: 0.4; }
-                      50% { opacity: 0.8; }
-                    }
-                  `}</style>
 
 
                   {/* Variation thumbnails */}
@@ -1106,19 +1103,21 @@ Output only the HTML div. Nothing else.`;
                               activeVariation === i ? "border-primary" : "border-transparent hover:border-border"
                             )}
                           >
-                            {regeneratingIdx === i ? (
+                            {html ? (
                               <div
-                                className="w-full h-full bg-muted/40"
-                                style={{ animation: "pulse-amber 1.5s ease-in-out infinite" }}
-                              />
-                            ) : html ? (
-                              <div style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}>
+                                className="w-full h-full animate-fade-in"
+                                style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}
+                              >
                                 <div dangerouslySetInnerHTML={{ __html: getEditedHtml(html, i) || '' }} />
                               </div>
                             ) : (
-                              <div className="w-full h-full bg-muted/30 flex items-center justify-center">
-                                <span className="text-[10px] font-ui text-muted-foreground">Failed</span>
-                              </div>
+                              // Loading while generating (or regenerating); failed once generation has completed.
+                              <VariantLoadingSlot
+                                slotIndex={i}
+                                size="thumb"
+                                failed={!isGenerating && regeneratingIdx !== i && generated}
+                                onRetry={() => regenerateSingle(i)}
+                              />
                             )}
                           </button>
                           <button
