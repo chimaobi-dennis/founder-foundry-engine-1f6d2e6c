@@ -292,6 +292,48 @@ export function StudioEditor({
     markDirty();
   };
 
+  // Insert a new element from the Elements panel into the centre of the canvas
+  const insertElement = useCallback(
+    (htmlSnippet: string) => {
+      const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+      if (!stage) return;
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = htmlSnippet.trim();
+      const node = wrapper.firstElementChild as HTMLElement | null;
+      if (!node) return;
+      // Centre on canvas using its inline width/height if specified, else 120px default
+      const w = parseFloat((node.style.width || "120").replace("px", "")) || 120;
+      const h = parseFloat((node.style.height || "120").replace("px", "")) || 120;
+      node.style.position = "absolute";
+      node.style.left = `${(canvasSize.width - w) / 2}px`;
+      node.style.top = `${(canvasSize.height - h) / 2}px`;
+      // Generate a unique studio id (avoid collision with existing ids)
+      const base = node.dataset.element || "inserted";
+      const existing = stage.querySelectorAll(`[data-studio-id^="${base}-"]`).length;
+      const studioId = `${base}-inserted-${existing}-${Date.now().toString(36)}`;
+      node.dataset.studioId = studioId;
+      if (!node.dataset.element) node.dataset.element = base;
+      if (!node.dataset.elementType) node.dataset.elementType = "shape";
+      if (!node.dataset.elementName) node.dataset.elementName = "Inserted element";
+      stage.appendChild(node);
+      // Add to the elements list and select it
+      setElements((prev) => [
+        {
+          id: studioId,
+          type: (node.dataset.elementType as StudioElement["type"]) || "shape",
+          name: node.dataset.elementName || "Inserted element",
+          visible: true,
+          locked: false,
+        },
+        ...prev,
+      ]);
+      setSelectedId(studioId);
+      bumpRefresh();
+      markDirty();
+    },
+    [canvasSize, bumpRefresh, markDirty],
+  );
+
   if (!open) return null;
 
   const workspaceBg = theme === "dark" ? "#1A1A1A" : "#E8E8E8";
