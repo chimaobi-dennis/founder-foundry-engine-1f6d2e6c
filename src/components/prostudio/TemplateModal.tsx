@@ -417,17 +417,31 @@ Output only the HTML div. Nothing else.`;
       "Generate a completely fresh bold variation.",
     ];
     setRegeneratingIdx(variationIndex);
-    const basePrompt = buildBasePrompt();
-    const result = await callAI(
-      [{ role: "user", content: basePrompt + "\n\n" + suffixes[variationIndex] }],
-      3000,
-      selectedImage?.base64 || undefined,
-      selectedImage?.mimeType || "image/jpeg"
-    );
-    const cleaned = cleanAIHtml(result);
-    const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-    setVariations(prev => prev.map((v, i) => (i === variationIndex ? safe : v)));
-    setRegeneratingIdx(null);
+    // Clear only this slot so the loading state shows immediately —
+    // other already-generated variants are untouched.
+    setVariations(prev => prev.map((v, i) => (i === variationIndex ? null : v)));
+    try {
+      const basePrompt = buildBasePrompt();
+      const result = await callAI(
+        [{ role: "user", content: basePrompt + "\n\n" + suffixes[variationIndex] }],
+        3000,
+        selectedImage?.base64 || undefined,
+        selectedImage?.mimeType || "image/jpeg"
+      );
+      const cleaned = cleanAIHtml(result);
+      if (!cleaned) {
+        // Leave this slot null so the failed/retry UI re-appears.
+        toast({ title: "Variant regeneration failed", description: "Please try again.", variant: "destructive" });
+        return;
+      }
+      const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+      setVariations(prev => prev.map((v, i) => (i === variationIndex ? safe : v)));
+    } catch (e: any) {
+      console.error("Regenerate failed:", e);
+      toast({ title: "Variant regeneration failed", description: e?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setRegeneratingIdx(null);
+    }
   };
 
   const regenerateWithEdits = async (editInstructions: string) => {
@@ -1067,10 +1081,10 @@ Output only the HTML div. Nothing else.`;
                         <VariantLoadingSlot
                           slotIndex={activeVariation}
                           size="hero"
-                          failed={!isGenerating && generated}
+                          failed={!isGenerating && generated && regeneratingIdx !== activeVariation}
                           onRetry={() => regenerateSingle(activeVariation)}
                           caption={
-                            isGenerating
+                            isGenerating || regeneratingIdx === activeVariation
                               ? `Generating ${variantCount} variant${variantCount === 1 ? "" : "s"}...`
                               : undefined
                           }
