@@ -1058,16 +1058,18 @@ Output only the HTML div. Nothing else.`;
                       />
                     ) : (
                       <div
-                        className="rounded-lg bg-muted/40 flex items-center justify-center"
+                        className="rounded-lg overflow-hidden animate-fade-in"
                         style={{
                           width: 600 * Math.min(previewScale, 0.85),
                           height: 600 * Math.min(previewScale, 0.85),
-                          animation: "pulse-amber 1.5s ease-in-out infinite",
                         }}
                       >
-                        <span className="text-[12px] font-ui text-muted-foreground">
-                          {isGenerating ? "Generating…" : "Waiting"}
-                        </span>
+                        <VariantLoadingSlot
+                          slotIndex={activeVariation}
+                          size="hero"
+                          failed={!isGenerating && generated}
+                          onRetry={() => regenerateSingle(activeVariation)}
+                        />
                       </div>
                     )}
                   </div>
@@ -1083,12 +1085,6 @@ Output only the HTML div. Nothing else.`;
                       </span>
                     </div>
                   )}
-                  <style>{`
-                    @keyframes pulse-amber {
-                      0%, 100% { opacity: 0.4; }
-                      50% { opacity: 0.8; }
-                    }
-                  `}</style>
 
 
                   {/* Variation thumbnails */}
