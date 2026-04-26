@@ -952,15 +952,15 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   <>
                     <div>
                       <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1 block">Headline</label>
-                      <Input defaultValue={`${brandName} — New Release`} className="h-10" />
+                      <Input value={headlineValue} onChange={(e) => setHeadlineValue(e.target.value)} className="h-10" />
                     </div>
                     <div>
                       <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1 block">Description</label>
-                      <Textarea defaultValue="Describe what makes this special..." rows={3} />
+                      <Textarea value={descriptionValue} onChange={(e) => setDescriptionValue(e.target.value)} rows={3} />
                     </div>
                     <div>
                       <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1 block">CTA</label>
-                      <Input defaultValue="Learn more" className="h-10" />
+                      <Input value={ctaValue} onChange={(e) => setCtaValue(e.target.value)} className="h-10" />
                     </div>
                   </>
                 )}
