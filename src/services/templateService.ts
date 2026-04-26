@@ -566,9 +566,16 @@ Every editable element must have a data-element attribute.
           product_image_url: productImageUrl
         });
 
-        const userContent = extraInstructions
-          ? `${filledPrompt}\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}`
-          : filledPrompt;
+        const digitalContentBlock = digitalInputs && Object.keys(digitalInputs).length > 0
+          ? `\n\nCONTENT TO USE IN THIS DESIGN:\n${Object.entries(digitalInputs)
+              .filter(([, v]) => v != null && String(v).trim() !== '')
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('\n')}\n\nUse this exact content in the design — do not invent placeholder text.`
+          : '';
+
+        const userContent = [filledPrompt, digitalContentBlock, extraInstructions ? `\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}` : '']
+          .filter(Boolean)
+          .join('');
 
         const result = await callAI({
           taskType: 'template_generation',
