@@ -468,6 +468,8 @@ export interface GenerateTemplateParams {
   imageMimeType?: string;
   /** Optional callback fired as each variant completes (streaming/progressive UI). */
   onVariant?: (info: { index: number; html: string; outputId: string }) => void;
+  /** Optional extra instructions appended to the prompt (e.g. user edit notes, regen suffixes). */
+  extraInstructions?: string;
 }
 
 // Generate template output using AI.
