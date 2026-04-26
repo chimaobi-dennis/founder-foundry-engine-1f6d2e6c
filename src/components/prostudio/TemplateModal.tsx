@@ -570,14 +570,19 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
           };
         });
         try {
-          const basePrompt = buildBasePrompt();
-          const result = await callAI(
-            [{ role: "user", content: basePrompt + "\n\nGenerate a fresh additional variation — explore a different visual angle while staying on-brand." }],
-            3000,
-            selectedImage?.base64 || undefined,
-            selectedImage?.mimeType || "image/jpeg"
-          );
-          const cleaned = cleanAIHtml(result);
+          if (!template?.id || !activeBrand?.id) throw new Error("Missing template or brand");
+          const { variants } = await generateTemplateOutput({
+            templateId: template.id,
+            brandId: activeBrand.id,
+            productImageUrl: selectedImage?.url || "",
+            aspectRatio: buildAspectParam(),
+            styleIntensity: buildIntensityParam(),
+            variantCount: 1,
+            imageBase64: selectedImage?.base64,
+            imageMimeType: selectedImage?.mimeType || "image/jpeg",
+            extraInstructions: "Generate a fresh additional variation — explore a different visual angle while staying on-brand.",
+          });
+          const cleaned = cleanAIHtml(variants[0] || null);
           const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
           setSession((prev: any) => {
             if (!prev) return prev;
