@@ -563,9 +563,13 @@ Every editable element must have a data-element attribute.
           product_image_url: productImageUrl
         });
 
+        const userContent = extraInstructions
+          ? `${filledPrompt}\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}`
+          : filledPrompt;
+
         const result = await callAI({
           taskType: 'template_generation',
-          messages: [{ role: 'user', content: filledPrompt }],
+          messages: [{ role: 'user', content: userContent }],
           maxTokens: 8000,
           imageBase64,
           imageMimeType
