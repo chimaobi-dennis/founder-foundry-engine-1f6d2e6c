@@ -526,7 +526,6 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const isTestimonial = template.name.toLowerCase().includes("testimonial") || template.name.toLowerCase().includes("social proof");
   const isPricing = template.name.toLowerCase().includes("pricing");
 
-  const variationTints = [template.color, `${template.color}dd`, `${template.color}bb`, `${template.color}99`];
 
   // Reset all generation state when the modal is dismissed
   const handleClose = () => {
