@@ -350,7 +350,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     let firstArrived = false;
 
     try {
-      const { variants, outputIds: ids, error } = await generateTemplateOutput({
+      const { variants, outputIds: ids, generationSessionId: sessionId, error } = await generateTemplateOutput({
         templateId: template.id,
         brandId: activeBrand.id,
         productImageUrl: selectedImage?.url || "",
@@ -391,6 +391,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
           : cleanAIHtml(raw);
       }));
       setOutputIds(prev => prev.map((v, i) => v ?? (ids[i] || null)));
+      if (sessionId) setGenerationSessionId(sessionId);
       setGenerated(true);
     } catch (e: any) {
       console.error("Generation failed:", e);
