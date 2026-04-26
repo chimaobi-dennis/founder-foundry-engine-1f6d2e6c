@@ -630,7 +630,7 @@ Every editable element must have a data-element attribute.
       })
     );
 
-    return { variants, outputIds };
+    return { variants, outputIds, generationSessionId };
   } catch (error: any) {
     return { variants: [], outputIds: [], error: error.message };
   }
