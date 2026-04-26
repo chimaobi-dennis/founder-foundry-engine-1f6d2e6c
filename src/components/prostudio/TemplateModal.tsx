@@ -360,6 +360,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   };
 
   const regenerateSingle = async (variationIndex: number) => {
+    if (!template?.id || !activeBrand?.id) return;
     const suffixes = [
       "Generate a completely fresh primary variation.",
       "Generate a completely fresh alternative layout.",
@@ -370,17 +371,21 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     // other already-generated variants are untouched.
     setVariations(prev => prev.map((v, i) => (i === variationIndex ? null : v)));
     try {
-      const basePrompt = buildBasePrompt();
-      const result = await callAI(
-        [{ role: "user", content: basePrompt + "\n\n" + suffixes[variationIndex] }],
-        3000,
-        selectedImage?.base64 || undefined,
-        selectedImage?.mimeType || "image/jpeg"
-      );
-      const cleaned = cleanAIHtml(result);
-      if (!cleaned) {
-        // Leave this slot null so the failed/retry UI re-appears.
-        toast({ title: "Variant regeneration failed", description: "Please try again.", variant: "destructive" });
+      const { variants, error } = await generateTemplateOutput({
+        templateId: template.id,
+        brandId: activeBrand.id,
+        productImageUrl: selectedImage?.url || "",
+        aspectRatio: buildAspectParam(),
+        styleIntensity: buildIntensityParam(),
+        variantCount: 1,
+        imageBase64: selectedImage?.base64,
+        imageMimeType: selectedImage?.mimeType || "image/jpeg",
+        extraInstructions: suffixes[variationIndex],
+      });
+      const html = variants[0] || null;
+      const cleaned = cleanAIHtml(html);
+      if (error || !cleaned) {
+        toast({ title: "Variant regeneration failed", description: error || "Please try again.", variant: "destructive" });
         return;
       }
       const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
@@ -394,30 +399,37 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   };
 
   const regenerateWithEdits = async (editInstructions: string) => {
+    if (!template?.id || !activeBrand?.id) return;
     const suffixes = [
       "Generate a refined primary variation.",
       "Generate a refined alternative layout.",
       "Generate a refined bold variation.",
     ];
     setRegeneratingIdx(activeVariation);
-    const basePrompt = buildBasePrompt();
-    const editSuffix = `\n\n${suffixes[activeVariation]}\n\nAPPLY THESE EDITS:\n${editInstructions}`;
-    const result = await callAI(
-      [{ role: "user", content: basePrompt + editSuffix }],
-      3000,
-      selectedImage?.base64 || undefined,
-      selectedImage?.mimeType || "image/jpeg"
-    );
-    const cleaned = cleanAIHtml(result);
-    const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-    setVariations(prev => prev.map((v, i) => (i === activeVariation ? safe : v)));
-    // Reset edit state for this variation after regen
-    setEditStates(prev => {
-      const next = { ...prev };
-      delete next[activeVariation];
-      return next;
-    });
-    setRegeneratingIdx(null);
+    try {
+      const { variants } = await generateTemplateOutput({
+        templateId: template.id,
+        brandId: activeBrand.id,
+        productImageUrl: selectedImage?.url || "",
+        aspectRatio: buildAspectParam(),
+        styleIntensity: buildIntensityParam(),
+        variantCount: 1,
+        imageBase64: selectedImage?.base64,
+        imageMimeType: selectedImage?.mimeType || "image/jpeg",
+        extraInstructions: `${suffixes[activeVariation]}\n\nAPPLY THESE EDITS:\n${editInstructions}`,
+      });
+      const cleaned = cleanAIHtml(variants[0] || null);
+      const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+      setVariations(prev => prev.map((v, i) => (i === activeVariation ? safe : v)));
+      // Reset edit state for this variation after regen
+      setEditStates(prev => {
+        const next = { ...prev };
+        delete next[activeVariation];
+        return next;
+      });
+    } finally {
+      setRegeneratingIdx(null);
+    }
   };
 
   // Apply live edits to HTML
