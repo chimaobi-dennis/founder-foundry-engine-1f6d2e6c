@@ -760,7 +760,12 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       },
     });
 
-    navigate("/pro-studio/editor");
+    const activeOutputId = outputIds[activeVariation];
+    if (generationSessionId && activeOutputId) {
+      navigate(`/pro-studio/editor?session=${generationSessionId}&active=${activeOutputId}`);
+    } else {
+      navigate("/pro-studio/editor");
+    }
   };
 
 
