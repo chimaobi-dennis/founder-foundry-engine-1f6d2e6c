@@ -8,6 +8,7 @@ import { LibraryDetailPanel } from "@/components/library/LibraryDetailPanel";
 import { LibraryEmptyState } from "@/components/library/LibraryEmptyState";
 import { LibraryFAB } from "@/components/library/LibraryFAB";
 import { LibraryProductImages } from "@/components/library/LibraryProductImages";
+import { LibraryGeneratedSessions } from "@/components/library/LibraryGeneratedSessions";
 import { useProductImages } from "@/hooks/use-product-images";
 import { type LibraryAsset, getNordformAssets, getSthlmAssets } from "@/components/library/data";
 
@@ -74,6 +75,11 @@ const Library = () => {
         ) : (
           <div className={`transition-all duration-200 ${selectedAsset ? "mr-[300px]" : ""}`}>
             <LibraryStats stats={stats} />
+
+            {/* Saved AI-generated designs grouped by session */}
+            {(activeFilter === "All" || activeFilter === "Images") && (
+              <LibraryGeneratedSessions />
+            )}
 
             {/* Product images section — above regular images */}
             {(activeFilter === "All" || activeFilter === "Images") && (

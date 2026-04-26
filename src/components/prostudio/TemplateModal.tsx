@@ -104,6 +104,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [variantCount, setVariantCount] = useState<number>(1);
   const [variations, setVariations] = useState<(string | null)[]>([null]);
   const [outputIds, setOutputIds] = useState<(string | null)[]>([null]);
+  const [generationSessionId, setGenerationSessionId] = useState<string | null>(null);
   const [generated, setGenerated] = useState(false);
   const [activeVariation, setActiveVariation] = useState(0);
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
@@ -172,6 +173,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setGenerated(false);
       setVariations(Array(variantCount).fill(null));
       setOutputIds(Array(variantCount).fill(null));
+      setGenerationSessionId(null);
       setActiveVariation(0);
       setEditorOpen(false);
       setEditStates({});
@@ -337,6 +339,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     setGenerated(false);
     setVariations(Array(variantCount).fill(null));
     setOutputIds(Array(variantCount).fill(null));
+    setGenerationSessionId(null);
     setActiveVariation(0);
 
     const aspectParam = selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase();
@@ -348,7 +351,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     let firstArrived = false;
 
     try {
-      const { variants, outputIds: ids, error } = await generateTemplateOutput({
+      const { variants, outputIds: ids, generationSessionId: sessionId, error } = await generateTemplateOutput({
         templateId: template.id,
         brandId: activeBrand.id,
         productImageUrl: selectedImage?.url || "",
@@ -389,6 +392,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
           : cleanAIHtml(raw);
       }));
       setOutputIds(prev => prev.map((v, i) => v ?? (ids[i] || null)));
+      if (sessionId) setGenerationSessionId(sessionId);
       setGenerated(true);
     } catch (e: any) {
       console.error("Generation failed:", e);
@@ -757,7 +761,12 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       },
     });
 
-    navigate("/pro-studio/editor");
+    const activeOutputId = outputIds[activeVariation];
+    if (generationSessionId && activeOutputId) {
+      navigate(`/pro-studio/editor?session=${generationSessionId}&active=${activeOutputId}`);
+    } else {
+      navigate("/pro-studio/editor");
+    }
   };
 
 
