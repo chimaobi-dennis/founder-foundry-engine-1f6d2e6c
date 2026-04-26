@@ -335,29 +335,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     const intensityParam = styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
 
     // Build digital content inputs (only relevant for digital templates)
-    const isTestimonialTpl = template.name.toLowerCase().includes("testimonial") || template.name.toLowerCase().includes("social proof");
-    const isPricingTpl = template.name.toLowerCase().includes("pricing");
-    const digitalInputs: Record<string, string> | undefined = !isPhysical
-      ? (isTestimonialTpl
-        ? {
-            'Customer name': customerName,
-            'Quote': customerQuote,
-            'Role': customerRole,
-            'Rating': `${rating} out of 5 stars`,
-          }
-        : isPricingTpl
-        ? {
-            'Plan name': planName,
-            'Price': price,
-            'Features': features,
-            'CTA text': ctaText,
-          }
-        : {
-            'Headline': headlineValue,
-            'Description': descriptionValue,
-            'CTA': ctaValue,
-          })
-      : undefined;
+    const digitalInputs = buildDigitalInputs();
 
     let firstArrived = false;
 
