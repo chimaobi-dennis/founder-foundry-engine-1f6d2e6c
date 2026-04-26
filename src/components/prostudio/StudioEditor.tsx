@@ -323,6 +323,8 @@ export function StudioEditor({
   // ---------- mutators wired to live DOM via canvas stage ----------
   const stageHostRef = useRef<HTMLElement | null>(null);
   const captureStageHost = useCallback((node: HTMLDivElement | null) => {
+    // Keep the outer host (sized to canvasSize * zoom) for export captures
+    stageHostElRef.current = node;
     if (node) {
       // The stage we actually mutate is the inner div with the injected HTML
       const stage = node.querySelector<HTMLElement>("div[style*='transform: scale']");
