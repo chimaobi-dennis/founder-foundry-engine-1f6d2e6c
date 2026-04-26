@@ -504,14 +504,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     return edited;
   };
 
-  const [downloadingIdx, setDownloadingIdx] = useState<number | null>(null);
-  const [savingIdx, setSavingIdx] = useState<number | null>(null);
-  const [savedIdxs, setSavedIdxs] = useState<Set<number>>(new Set());
+  // (downloadingIdx / savingIdx / savedIdxs declared above to keep hook order valid)
 
-  // Reset saved state if the template changes or new variations are produced
-  useEffect(() => {
-    setSavedIdxs(new Set());
-  }, [template?.id]);
 
   /**
    * Render the active variation as PNG and trigger a browser download.
