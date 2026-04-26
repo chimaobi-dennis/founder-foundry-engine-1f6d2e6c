@@ -143,6 +143,9 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [price, setPrice] = useState("$29/mo");
   const [features, setFeatures] = useState("Unlimited exports\nBrand kit\nPriority support");
   const [ctaText, setCtaText] = useState("Get started");
+  const [headlineValue, setHeadlineValue] = useState(`${brandName} — New Release`);
+  const [descriptionValue, setDescriptionValue] = useState("Describe what makes this special...");
+  const [ctaValue, setCtaValue] = useState("Learn more");
 
   useEffect(() => {
     if (panelRef.current) {
