@@ -338,6 +338,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     setGenerated(false);
     setVariations(Array(variantCount).fill(null));
     setOutputIds(Array(variantCount).fill(null));
+    setGenerationSessionId(null);
     setActiveVariation(0);
 
     const aspectParam = selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase();
