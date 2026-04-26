@@ -118,6 +118,11 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  // Export / save-to-library state (per variation index)
+  const [downloadingIdx, setDownloadingIdx] = useState<number | null>(null);
+  const [savingIdx, setSavingIdx] = useState<number | null>(null);
+  const [savedIdxs, setSavedIdxs] = useState<Set<number>>(new Set());
+
   // Carousel scroll function
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
     if (ref.current) {
