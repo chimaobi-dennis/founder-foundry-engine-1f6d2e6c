@@ -20,7 +20,12 @@ import {
   Hand,
   Maximize2,
   GripVertical,
+  Loader2,
+  Check,
 } from "lucide-react";
+import html2canvas from "html2canvas";
+import { saveOutputToLibrary } from "@/services/templateService";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
