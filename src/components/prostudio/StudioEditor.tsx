@@ -523,19 +523,47 @@ export function StudioEditor({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onDownload}
-              className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border"
+              onClick={handleExport}
+              disabled={isExporting}
+              className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Download size={13} /> Export
+              {isExporting ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" /> Exporting…
+                </>
+              ) : (
+                <>
+                  <Download size={13} /> Export
+                </>
+              )}
             </button>
-            <button
-              onClick={() => { onSaveToLibrary?.(); setHasUnsavedChanges(false); }}
-              className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground"
-            >
-              <Save size={13} /> Save to Library
-            </button>
+            {isCurrentSaved ? (
+              <button
+                disabled
+                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default"
+              >
+                <Check size={13} /> Saved
+              </button>
+            ) : (
+              <button
+                onClick={handleSaveToLibrary}
+                disabled={isSaving}
+                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" /> Saving…
+                  </>
+                ) : (
+                  <>
+                    <Save size={13} /> Save to Library
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
+
 
         {/* Workspace */}
         <div className="flex-1 flex min-h-0">
