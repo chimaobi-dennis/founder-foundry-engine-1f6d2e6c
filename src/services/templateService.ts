@@ -5,6 +5,22 @@ import { logError } from './errorService';
 
 const db = supabase as any;
 
+// ─── Helper functions ───────────────────────────────────────
+
+/**
+ * Generate a cryptographically valid UUID v4 that works in all modern browsers.
+ */
+function generateUUID(): string {
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
+// ─── Types and interfaces ─────────────────────────────────────
+
 export interface TemplateData {
   name: string;
   description?: string;
@@ -196,30 +212,50 @@ export const getPublishedTemplates = async (
   const templatesWithCreators = await Promise.all(
     (templatesData || []).map(async (template: any) => {
       let creatorProfile = null;
-      
+
       if (template.creator_id) {
-        // Try to get from creator_profiles first
-        const { data: creatorData } = await db
-          .from('creator_profiles')
-          .select('display_name, avatar_url')
-          .eq('id', template.creator_id)
-          .single();
-        
-        if (creatorData) {
-          creatorProfile = creatorData;
-        } else {
-          // Fallback to profiles table
-          const { data: profileData } = await db
-            .from('profiles')
-            .select('full_name, avatar_url')
+        try {
+          // Try to get from creator_profiles first
+          const { data: creatorData, error: creatorError } = await db
+            .from('creator_profiles')
+            .select('display_name, avatar_url')
             .eq('id', template.creator_id)
             .single();
-          
-          if (profileData) {
-            creatorProfile = {
-              display_name: profileData.full_name,
-              avatar_url: profileData.avatar_url
-            };
+
+          if (creatorError) {
+            // 406 means row doesn't exist - treat as expected, not an error
+            if (creatorError.code !== 'PGRST116') {
+              console.error('Error fetching creator profile:', creatorError);
+            }
+          } else if (creatorData) {
+            creatorProfile = creatorData;
+          }
+        } catch (err) {
+          console.error('Unexpected error fetching creator profile:', err);
+        }
+
+        // If creator_profiles failed or returned null, try profiles table
+        if (!creatorProfile) {
+          try {
+            const { data: profileData, error: profileError } = await db
+              .from('profiles')
+              .select('full_name, avatar_url')
+              .eq('id', template.creator_id)
+              .single();
+
+            if (profileError) {
+              // 406 means row doesn't exist - treat as expected, not an error
+              if (profileError.code !== 'PGRST116') {
+                console.error('Error fetching profile:', profileError);
+              }
+            } else if (profileData) {
+              creatorProfile = {
+                display_name: profileData.full_name,
+                avatar_url: profileData.avatar_url
+              };
+            }
+          } catch (err) {
+            console.error('Unexpected error fetching profile:', err);
           }
         }
       }
@@ -270,28 +306,48 @@ export const getTemplateById = async (templateId: string) => {
   // Fetch creator profile separately
   let creatorProfile = null;
   if (templateData.creator_id) {
-    // Try to get from creator_profiles first
-    const { data: creatorData } = await db
-      .from('creator_profiles')
-      .select('display_name, avatar_url')
-      .eq('id', templateData.creator_id)
-      .single();
-    
-    if (creatorData) {
-      creatorProfile = creatorData;
-    } else {
-      // Fallback to profiles table
-      const { data: profileData } = await db
-        .from('profiles')
-        .select('full_name, avatar_url')
+    try {
+      // Try to get from creator_profiles first
+      const { data: creatorData, error: creatorError } = await db
+        .from('creator_profiles')
+        .select('display_name, avatar_url')
         .eq('id', templateData.creator_id)
         .single();
-      
-      if (profileData) {
-        creatorProfile = {
-          display_name: profileData.full_name,
-          avatar_url: profileData.avatar_url
-        };
+
+      if (creatorError) {
+        // 406 means row doesn't exist - treat as expected, not an error
+        if (creatorError.code !== 'PGRST116') {
+          console.error('Error fetching creator profile:', creatorError);
+        }
+      } else if (creatorData) {
+        creatorProfile = creatorData;
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching creator profile:', err);
+    }
+
+    // If creator_profiles failed or returned null, try profiles table
+    if (!creatorProfile) {
+      try {
+        const { data: profileData, error: profileError } = await db
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', templateData.creator_id)
+          .single();
+
+        if (profileError) {
+          // 406 means row doesn't exist - treat as expected, not an error
+          if (profileError.code !== 'PGRST116') {
+            console.error('Error fetching profile:', profileError);
+          }
+        } else if (profileData) {
+          creatorProfile = {
+            display_name: profileData.full_name,
+            avatar_url: profileData.avatar_url
+          };
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching profile:', err);
       }
     }
   }
@@ -499,8 +555,8 @@ export async function generateTemplateOutput({
     }
     const userId = user.id;
 
-    // Generate session ID to group all variants from this generation run
-    const generationSessionId = crypto.randomUUID();
+    // Generate session ID using proper UUID v4 (works in all modern browsers)
+    const generationSessionId = generateUUID();
     // Fetch template generation prompt
     const { data: template, error: templateError } = await db
       .from('prostudio_templates')
@@ -683,7 +739,7 @@ export async function saveOutputToLibrary({
 
     // No existing row (e.g. blank canvas added in studio) — create one first.
     if (!id) {
-      const generationSessionId = crypto.randomUUID();
+      const generationSessionId = generateUUID();
       const { data: inserted, error: insertErr } = await db
         .from('template_outputs')
         .insert({

@@ -109,42 +109,50 @@ export function TemplateGrid({ templates, categories, onSelect, brandName, templ
           {filtered.map((t, idx) => {
             const hasCover = !!(t as any).cover_image_url;
             const saved = savedIds.has(t.id);
+            const aspectRatio = getAspectRatio(idx);
+            const imageUrl = hasCover
+              ? (t as any).cover_image_url
+              : (t as any).template_preview_images?.[0]?.image_url;
 
             return (
               <div
                 key={t.id}
-                className="break-inside-avoid mb-2 inline-block w-full relative rounded-xl overflow-hidden cursor-pointer group"
+                className="break-inside-avoid mb-2 inline-block w-full relative rounded-xl overflow-hidden cursor-pointer group transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-black/30"
+                style={{ aspectRatio }}
                 onClick={() => onSelect(t)}
               >
-                {/* Image layer */}
-                {hasCover ? (
+                {/* Full-bleed image */}
+                {imageUrl ? (
                   <img
-                    src={(t as any).cover_image_url}
+                    src={imageUrl}
                     alt={t.name}
-                    className="w-full h-auto block"
+                    className="w-full h-full object-cover absolute inset-0"
                     loading="lazy"
                   />
                 ) : (
-                  <div style={{ aspectRatio: getAspectRatio(idx) }}>
+                  <div className="w-full h-full absolute inset-0 bg-gradient-to-br from-amber-500/20 to-amber-600/20">
                     <TemplateCardPreview template={t} brandName={brandName || ""} />
                   </div>
                 )}
 
-                {/* Category pill — always visible */}
+                {/* Gradient overlay at bottom - always visible */}
+                <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none" />
+
+                {/* Category badge - top-left */}
                 <div
-                  className="absolute top-[10px] left-[10px] rounded-[20px] px-[10px] py-[3px] text-[10px] tracking-wide"
+                  className="absolute top-[10px] left-[10px] rounded-[20px] px-[10px] py-[3px] text-[10px] tracking-wide font-medium"
                   style={{
                     background: "rgba(0,0,0,0.55)",
                     backdropFilter: "blur(4px)",
-                    color: "rgba(255,255,255,0.9)",
+                    color: "rgba(255,255,255,0.95)",
                   }}
                 >
                   {t.category}
                 </div>
 
-                {/* Save/bookmark — always visible */}
+                {/* Heart/save icon - top-right */}
                 <button
-                  className="absolute top-[10px] right-[10px] w-7 h-7 rounded-full flex items-center justify-center"
+                  className="absolute top-[10px] right-[10px] w-7 h-7 rounded-full flex items-center justify-center transition-transform hover:scale-110"
                   style={{
                     background: "rgba(0,0,0,0.45)",
                     backdropFilter: "blur(4px)",
@@ -160,45 +168,10 @@ export function TemplateGrid({ templates, categories, onSelect, brandName, templ
                   />
                 </button>
 
-                {/* Hover overlay — slides up */}
-                <div
-                  className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-[250ms] ease-out"
-                  style={{
-                    background: "linear-gradient(transparent, rgba(0,0,0,0.82))",
-                    padding: "40px 14px 14px",
-                  }}
-                >
-                  <div className="text-[14px] font-medium text-white truncate mb-[2px]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {/* Template name - always visible at bottom-left */}
+                <div className="absolute bottom-[10px] left-[10px] right-[10px]">
+                  <div className="text-[14px] font-semibold text-white truncate drop-shadow-lg" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                     {t.name}
-                  </div>
-                  <div className="text-[11px] text-white/60 mb-[10px]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                    by {t.creator}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      className="flex-1 h-8 rounded-lg text-[12px] text-white cursor-pointer transition-colors hover:bg-white/25"
-                      style={{
-                        background: "rgba(255,255,255,0.15)",
-                        backdropFilter: "blur(4px)",
-                        border: "1px solid rgba(255,255,255,0.2)",
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPreviewTemplate(t);
-                      }}
-                    >
-                      Preview
-                    </button>
-                    <button
-                      className="flex-1 h-8 rounded-lg text-[12px] font-medium cursor-pointer transition-opacity hover:opacity-90"
-                      style={{ background: "#D4A017", color: "#0D1B2A" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(t);
-                      }}
-                    >
-                      Use template
-                    </button>
                   </div>
                 </div>
               </div>
