@@ -613,6 +613,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
             variantCount: 1,
             imageBase64: selectedImage?.base64,
             imageMimeType: selectedImage?.mimeType || "image/jpeg",
+            digitalInputs: buildDigitalInputs(),
             extraInstructions: "Generate a fresh additional variation — explore a different visual angle while staying on-brand.",
           });
           const cleaned = cleanAIHtml(variants[0] || null);
