@@ -1050,240 +1050,157 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
 
           {/* Right panel */}
           <div ref={panelRef} className="w-full md:flex-1 bg-background flex flex-col items-center justify-start p-4 md:p-6 overflow-y-auto">
-            {isPhysical ? (
-              // AI-powered generation view
-              (isGenerating || generated) ? (
-                <div className="flex flex-col items-center gap-4 w-full">
-                  {/* Active variation preview */}
-                  <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
-                    {variations[activeVariation] ? (
-                      <TemplatePreview
-                        html={getEditedHtml(variations[activeVariation], activeVariation)}
-                        scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
-                        id={`variation-${activeVariation}`}
+            {(isGenerating || generated) ? (
+              <div className="flex flex-col items-center gap-4 w-full">
+                {/* Active variation preview */}
+                <div className="w-full flex items-center justify-center flex-1 min-h-0" style={{ maxHeight: editorOpen ? '340px' : '500px', transition: 'max-height 200ms ease', overflow: 'hidden' }}>
+                  {variations[activeVariation] ? (
+                    <TemplatePreview
+                      html={getEditedHtml(variations[activeVariation], activeVariation)}
+                      scale={editorOpen ? 0.55 : Math.min(previewScale, 0.85)}
+                      id={`variation-${activeVariation}`}
+                    />
+                  ) : (
+                    <div
+                      className="rounded-lg overflow-hidden animate-fade-in"
+                      style={{
+                        width: 600 * Math.min(previewScale, 0.85),
+                        height: 600 * Math.min(previewScale, 0.85),
+                      }}
+                    >
+                      <VariantLoadingSlot
+                        slotIndex={activeVariation}
+                        size="hero"
+                        failed={!isGenerating && generated && regeneratingIdx !== activeVariation}
+                        onRetry={() => regenerateSingle(activeVariation)}
+                        caption={
+                          isGenerating || regeneratingIdx === activeVariation
+                            ? `Generating ${variantCount} variant${variantCount === 1 ? "" : "s"}...`
+                            : undefined
+                        }
                       />
-                    ) : (
-                      <div
-                        className="rounded-lg overflow-hidden animate-fade-in"
-                        style={{
-                          width: 600 * Math.min(previewScale, 0.85),
-                          height: 600 * Math.min(previewScale, 0.85),
-                        }}
-                      >
-                        <VariantLoadingSlot
-                          slotIndex={activeVariation}
-                          size="hero"
-                          failed={!isGenerating && generated && regeneratingIdx !== activeVariation}
-                          onRetry={() => regenerateSingle(activeVariation)}
-                          caption={
-                            isGenerating || regeneratingIdx === activeVariation
-                              ? `Generating ${variantCount} variant${variantCount === 1 ? "" : "s"}...`
-                              : undefined
-                          }
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {isGenerating && (
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2 h-2 rounded-full bg-primary"
-                        style={{ animation: "spin 1s linear infinite" }}
-                      />
-                      <span className="text-[13px] font-ui text-muted-foreground">
-                        Generating {variantCount} variant{variantCount === 1 ? "" : "s"}…
-                      </span>
                     </div>
                   )}
+                </div>
 
-
-                  {/* Variation thumbnails */}
-                  <div className="relative w-full -mx-4 md:-mx-6 px-8 md:px-10">
-                    <div 
-                      ref={variationCarouselRef}
-                      className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory"
-                      style={{ scrollSnapType: 'x mandatory', maxWidth: 'none', scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
-                    >
-                      {variations.map((html, i) => (
-                        <div key={i} className="relative group flex-shrink-0 snap-start">
-                          <button
-                            onClick={() => setActiveVariation(i)}
-                            className={cn(
-                              "w-[120px] aspect-square rounded-lg overflow-hidden border-2 transition-colors",
-                              activeVariation === i ? "border-primary" : "border-transparent hover:border-border"
-                            )}
-                          >
-                            {html ? (
-                              <div
-                                className="w-full h-full animate-fade-in"
-                                style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}
-                              >
-                                <div dangerouslySetInnerHTML={{ __html: getEditedHtml(html, i) || '' }} />
-                              </div>
-                            ) : (
-                              // Loading while generating (or regenerating); failed once generation has completed.
-                              <VariantLoadingSlot
-                                slotIndex={i}
-                                size="thumb"
-                                failed={!isGenerating && regeneratingIdx !== i && generated}
-                                onRetry={() => regenerateSingle(i)}
-                              />
-                            )}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); regenerateSingle(i); }}
-                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-border"
-                            title="Regenerate"
-                          >
-                            <RefreshCw size={10} className="text-foreground" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Navigation arrows for variations */}
-                    <button
-                      onClick={() => scrollCarousel(variationCarouselRef, 'left')}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
-                    >
-                      <ChevronLeft size={14} className="text-foreground" />
-                    </button>
-                    <button
-                      onClick={() => scrollCarousel(variationCarouselRef, 'right')}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
-                    >
-                      <ChevronRight size={14} className="text-foreground" />
-                    </button>
+                {isGenerating && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2 h-2 rounded-full bg-primary"
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />
+                    <span className="text-[13px] font-ui text-muted-foreground">
+                      Generating {variantCount} variant{variantCount === 1 ? "" : "s"}…
+                    </span>
                   </div>
+                )}
 
-                  {generated && !isGenerating && (
-                    <>
-                      {/* Edit in Studio — primary editing entry point */}
-                      <button
-                        onClick={openStudio}
-                        className="h-10 rounded-lg px-5 text-[13px] font-ui font-semibold flex items-center gap-2 transition-all hover:opacity-90 shadow-sm"
-                        style={{
-                          background: 'linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.9) 100%)',
-                          color: 'hsl(var(--primary-foreground))',
-                          boxShadow: '0 4px 14px -4px hsl(var(--primary) / 0.4)',
-                        }}
-                      >
-                        <Wand2 size={14} />
-                        Edit in Studio
-                      </button>
 
-                      <div className="flex gap-3 w-full max-w-[320px]">
-                        <Button
-                          variant="outline"
-                          className="flex-1 h-10 text-[13px] gap-1.5"
-                          onClick={() => downloadVariation(activeVariation)}
+                {/* Variation thumbnails */}
+                <div className="relative w-full -mx-4 md:-mx-6 px-8 md:px-10">
+                  <div 
+                    ref={variationCarouselRef}
+                    className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin md:scrollbar-thumb-border scrollbar-track-transparent snap-x snap-mandatory"
+                    style={{ scrollSnapType: 'x mandatory', maxWidth: 'none', scrollbarWidth: 'none', WebkitScrollbarDisplay: 'none' } as React.CSSProperties}
+                  >
+                    {variations.map((html, i) => (
+                      <div key={i} className="relative group flex-shrink-0 snap-start">
+                        <button
+                          onClick={() => setActiveVariation(i)}
+                          className={cn(
+                            "w-[120px] aspect-square rounded-lg overflow-hidden border-2 transition-colors",
+                            activeVariation === i ? "border-primary" : "border-transparent hover:border-border"
+                          )}
                         >
-                          <Download size={14} /> Download
-                        </Button>
-                        <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
+                          {html ? (
+                            <div
+                              className="w-full h-full animate-fade-in"
+                              style={{ transform: "scale(0.15)", transformOrigin: "top left", width: 600, height: 600 }}
+                            >
+                              <div dangerouslySetInnerHTML={{ __html: getEditedHtml(html, i) || '' }} />
+                            </div>
+                          ) : (
+                            // Loading while generating (or regenerating); failed once generation has completed.
+                            <VariantLoadingSlot
+                              slotIndex={i}
+                              size="thumb"
+                              failed={!isGenerating && regeneratingIdx !== i && generated}
+                              onRetry={() => regenerateSingle(i)}
+                            />
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); regenerateSingle(i); }}
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-border"
+                          title="Regenerate"
+                        >
+                          <RefreshCw size={10} className="text-foreground" />
+                        </button>
                       </div>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <div
-                    className="w-full max-w-[300px] aspect-square rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: template.color }}
-                  >
-                    <span className="text-[13px] font-ui text-white/30">{template.name}</span>
-                  </div>
-                  <span className="text-[11px] font-ui text-muted-foreground text-center">
-                    Example output — upload your product to generate
-                  </span>
-                </div>
-              )
-            ) : (
-              // Digital templates - original behavior
-              isGenerating ? (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                  <span className="text-[13px] font-ui text-muted-foreground">Generating...</span>
-                </div>
-              ) : generated ? (
-                <div className="flex flex-col items-center gap-4 w-full max-w-[380px]">
-                  <div
-                    className="w-full aspect-square rounded-lg flex items-center justify-center relative"
-                    style={{ backgroundColor: variationTints[activeVariation] }}
-                  >
-                    <div className="p-6 text-center">
-                      {isTestimonial ? (
-                        <div className="space-y-2">
-                          <span className="font-display text-[24px] text-white/20">"</span>
-                          <p className="font-display text-[14px] text-white/80 leading-relaxed">{customerQuote}</p>
-                          <p className="text-[12px] font-ui text-white/60 mt-2">{customerName}</p>
-                          <p className="text-[10px] font-ui text-white/40">{customerRole}</p>
-                        </div>
-                      ) : isPricing ? (
-                        <div className="space-y-2">
-                          <p className="text-[16px] font-ui font-medium text-white/80">{planName}</p>
-                          <p className="font-display text-[28px] text-white/90">{price}</p>
-                          <p className="text-[11px] font-ui text-white/50 whitespace-pre-line">{features}</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                            <span className="text-[10px] font-ui font-bold text-white/60">{brandInitials}</span>
-                          </div>
-                          <span className="text-[13px] font-ui text-white/60">{template.name}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setActiveVariation((p) => Math.max(0, p - 1))}
-                      className="w-7 h-7 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                    >
-                      <ChevronLeft size={14} className="text-foreground" />
-                    </button>
-                    <span className="text-[13px] font-ui text-muted-foreground">{activeVariation + 1} / 4</span>
-                    <button
-                      onClick={() => setActiveVariation((p) => Math.min(3, p + 1))}
-                      className="w-7 h-7 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                    >
-                      <ChevronRight size={14} className="text-foreground" />
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    {[0, 1, 2, 3].map((i) => (
-                      <button
-                        key={i}
-                        onClick={() => setActiveVariation(i)}
-                        className={cn(
-                          "w-16 h-16 rounded-md overflow-hidden border-2 transition-colors",
-                          activeVariation === i ? "border-primary" : "border-transparent"
-                        )}
-                        style={{ backgroundColor: variationTints[i] }}
-                      />
                     ))}
                   </div>
-                  <div className="flex gap-3 w-full">
-                    <Button variant="outline" className="flex-1 h-10 text-[13px] gap-1.5">
-                      <Download size={14} /> Download
-                    </Button>
-                    <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <div
-                    className="w-full max-w-[300px] aspect-[4/3] rounded-lg flex items-center justify-center"
-                    style={{ backgroundColor: template.color }}
+                  
+                  {/* Navigation arrows for variations */}
+                  <button
+                    onClick={() => scrollCarousel(variationCarouselRef, 'left')}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
                   >
-                    <span className="text-[13px] font-ui text-white/30">{template.name}</span>
-                  </div>
-                  <span className="text-[11px] font-ui text-muted-foreground text-center">
-                    Example output — upload your product to generate
-                  </span>
+                    <ChevronLeft size={14} className="text-foreground" />
+                  </button>
+                  <button
+                    onClick={() => scrollCarousel(variationCarouselRef, 'right')}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-background border border-border shadow-md flex items-center justify-center transition-all hover:scale-110 z-10"
+                  >
+                    <ChevronRight size={14} className="text-foreground" />
+                  </button>
                 </div>
-              )
+
+                {generated && !isGenerating && (
+                  <>
+                    {/* Edit in Studio — primary editing entry point */}
+                    <button
+                      onClick={openStudio}
+                      className="h-10 rounded-lg px-5 text-[13px] font-ui font-semibold flex items-center gap-2 transition-all hover:opacity-90 shadow-sm"
+                      style={{
+                        background: 'linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.9) 100%)',
+                        color: 'hsl(var(--primary-foreground))',
+                        boxShadow: '0 4px 14px -4px hsl(var(--primary) / 0.4)',
+                      }}
+                    >
+                      <Wand2 size={14} />
+                      Edit in Studio
+                    </button>
+
+                    <div className="flex gap-3 w-full max-w-[320px]">
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-10 text-[13px] gap-1.5"
+                        onClick={() => downloadVariation(activeVariation)}
+                      >
+                        <Download size={14} /> Download
+                      </Button>
+                      <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div
+                  className={cn(
+                    "w-full max-w-[300px] rounded-lg flex items-center justify-center",
+                    isPhysical ? "aspect-square" : "aspect-[4/3]"
+                  )}
+                  style={{ backgroundColor: template.color }}
+                >
+                  <span className="text-[13px] font-ui text-white/30">{template.name}</span>
+                </div>
+                <span className="text-[11px] font-ui text-muted-foreground text-center">
+                  {isPhysical
+                    ? "Example output — upload your product to generate"
+                    : "Example output — fill in your content and generate"}
+                </span>
+              </div>
             )}
           </div>
         </div>
