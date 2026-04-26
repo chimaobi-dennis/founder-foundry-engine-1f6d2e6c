@@ -56,9 +56,19 @@ interface Props {
   templateName: string;
   variationHtml: string | null;
   variationId: string;
+  /** Optional override — if not provided, the studio captures + downloads internally. */
   onDownload?: () => void;
+  /** Optional override — if not provided, the studio captures + persists internally. */
   onSaveToLibrary?: () => void;
   brandColors?: string[];
+  /** template_outputs.id linked to the active canvas (for save). */
+  outputId?: string | null;
+  /** Brand id used by Save to Library. */
+  brandId?: string | null;
+  /** Template id used when Save to Library has to insert a new template_outputs row. */
+  templateId?: string | null;
+  /** Initially-saved canvas ids (so we can show "Saved ✓" right after entering studio). */
+  initiallySavedCanvasIds?: string[];
   // Canvas switcher (universal — also used by ReelBuilder/slides in future)
   canvases?: CanvasItem[];
   activeCanvasId?: string | null;
@@ -86,6 +96,10 @@ export function StudioEditor({
   onDownload,
   onSaveToLibrary,
   brandColors,
+  outputId,
+  brandId,
+  templateId,
+  initiallySavedCanvasIds,
   canvases,
   activeCanvasId,
   onSelectCanvas,
