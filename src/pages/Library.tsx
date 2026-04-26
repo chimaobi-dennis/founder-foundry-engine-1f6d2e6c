@@ -76,6 +76,11 @@ const Library = () => {
           <div className={`transition-all duration-200 ${selectedAsset ? "mr-[300px]" : ""}`}>
             <LibraryStats stats={stats} />
 
+            {/* Saved AI-generated designs grouped by session */}
+            {(activeFilter === "All" || activeFilter === "Images") && (
+              <LibraryGeneratedSessions />
+            )}
+
             {/* Product images section — above regular images */}
             {(activeFilter === "All" || activeFilter === "Images") && (
               <LibraryProductImages />
