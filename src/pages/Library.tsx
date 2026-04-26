@@ -8,6 +8,7 @@ import { LibraryDetailPanel } from "@/components/library/LibraryDetailPanel";
 import { LibraryEmptyState } from "@/components/library/LibraryEmptyState";
 import { LibraryFAB } from "@/components/library/LibraryFAB";
 import { LibraryProductImages } from "@/components/library/LibraryProductImages";
+import { LibraryGeneratedSessions } from "@/components/library/LibraryGeneratedSessions";
 import { useProductImages } from "@/hooks/use-product-images";
 import { type LibraryAsset, getNordformAssets, getSthlmAssets } from "@/components/library/data";
 
