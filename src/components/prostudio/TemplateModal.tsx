@@ -1285,7 +1285,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                       {savedIdxs.has(activeVariation) ? (
                         <Button
                           disabled
-                          className="flex-1 h-10 text-[13px] gap-1.5 bg-emerald-600/15 text-emerald-600 hover:bg-emerald-600/15 border border-emerald-600/30"
+                          variant="outline"
+                          className="flex-1 h-10 text-[13px] gap-1.5 border-primary/40 text-primary opacity-90"
                         >
                           <Check size={14} /> Saved
                         </Button>
