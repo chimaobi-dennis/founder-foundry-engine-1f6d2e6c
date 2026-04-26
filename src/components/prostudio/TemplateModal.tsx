@@ -11,7 +11,6 @@ import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
 import { VariantLoadingSlot } from "./VariantLoadingSlot";
 import { useBrand } from "@/hooks/use-brand";
-import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
 import { useAuth } from "@/contexts/AuthContext";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
