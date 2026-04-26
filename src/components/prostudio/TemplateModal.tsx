@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
 import { VariantLoadingSlot } from "./VariantLoadingSlot";
-import { callAI } from "@/lib/ai";
+import { useBrand } from "@/hooks/use-brand";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
 import { useAuth } from "@/contexts/AuthContext";
