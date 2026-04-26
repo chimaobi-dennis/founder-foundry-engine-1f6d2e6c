@@ -470,6 +470,8 @@ export interface GenerateTemplateParams {
   onVariant?: (info: { index: number; html: string; outputId: string }) => void;
   /** Optional extra instructions appended to the prompt (e.g. user edit notes, regen suffixes). */
   extraInstructions?: string;
+  /** Optional structured content for digital templates (testimonial fields, pricing fields, etc.). */
+  digitalInputs?: Record<string, string>;
 }
 
 // Generate template output using AI.
