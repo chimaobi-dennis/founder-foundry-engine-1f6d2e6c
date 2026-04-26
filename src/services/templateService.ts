@@ -490,7 +490,7 @@ export async function generateTemplateOutput({
   onVariant,
   extraInstructions,
   digitalInputs
-}: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; error?: string }> {
+}: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; generationSessionId?: string; error?: string }> {
   try {
     // Get userId from auth session to ensure RLS compliance
     const { data: { user }, error: authError } = await supabase.auth.getUser();
