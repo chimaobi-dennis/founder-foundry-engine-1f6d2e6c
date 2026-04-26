@@ -281,18 +281,6 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
 
   const handleRun = async () => {
-    if (!isPhysical) {
-      // Digital templates keep the old behavior
-      setIsGenerating(true);
-      setGenerated(false);
-      setTimeout(() => {
-        setIsGenerating(false);
-        setGenerated(true);
-        setActiveVariation(0);
-      }, 1500);
-      return;
-    }
-
     if (!template?.id || !activeBrand?.id) {
       toast({
         title: "Missing context",
@@ -319,6 +307,31 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     const aspectParam = selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase();
     const intensityParam = styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
 
+    // Build digital content inputs (only relevant for digital templates)
+    const isTestimonialTpl = template.name.toLowerCase().includes("testimonial") || template.name.toLowerCase().includes("social proof");
+    const isPricingTpl = template.name.toLowerCase().includes("pricing");
+    const digitalInputs: Record<string, string> | undefined = !isPhysical
+      ? (isTestimonialTpl
+        ? {
+            'Customer name': customerName,
+            'Quote': customerQuote,
+            'Role': customerRole,
+            'Rating': `${rating} out of 5 stars`,
+          }
+        : isPricingTpl
+        ? {
+            'Plan name': planName,
+            'Price': price,
+            'Features': features,
+            'CTA text': ctaText,
+          }
+        : {
+            'Headline': headlineValue,
+            'Description': descriptionValue,
+            'CTA': ctaValue,
+          })
+      : undefined;
+
     let firstArrived = false;
 
     try {
@@ -331,9 +344,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
         variantCount,
         imageBase64: selectedImage?.base64,
         imageMimeType: selectedImage?.mimeType || "image/jpeg",
+        digitalInputs,
         onVariant: ({ index, html, outputId }) => {
-          // Inject product image fallback if model omitted it
-          const safe = ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+          // For physical templates, inject product image fallback if model omitted it.
+          // Digital templates don't need that — they're pure layouts.
+          const safe = isPhysical
+            ? ensureProductImage(html, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg")
+            : cleanAIHtml(html);
           setVariations(prev => prev.map((v, i) => (i === index ? safe : v)));
           setOutputIds(prev => prev.map((v, i) => (i === index ? outputId : v)));
           // Show the first completed variant immediately in the main preview
@@ -350,7 +367,14 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       }
 
       // Final reconciliation in case any variant skipped the streaming callback
-      setVariations(prev => prev.map((v, i) => v ?? (variants[i] ? ensureProductImage(variants[i], selectedImage?.base64, selectedImage?.mimeType || "image/jpeg") : null)));
+      setVariations(prev => prev.map((v, i) => {
+        if (v) return v;
+        const raw = variants[i];
+        if (!raw) return null;
+        return isPhysical
+          ? ensureProductImage(raw, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg")
+          : cleanAIHtml(raw);
+      }));
       setOutputIds(prev => prev.map((v, i) => v ?? (ids[i] || null)));
       setGenerated(true);
     } catch (e: any) {
