@@ -9,6 +9,12 @@ export interface StudioSession {
   outputId?: string | null;
   /** All output IDs for the session, indexed by canvas id. */
   outputIdsByCanvas?: Record<string, string>;
+  /** Brand id used when persisting the canvas (Save to Library). */
+  brandId?: string | null;
+  /** Template id used when inserting a new template_outputs row for blank canvases. */
+  templateId?: string | null;
+  /** Set of canvas ids the user has already saved to library, for "Saved ✓" UI. */
+  savedCanvasIds?: string[];
   onDownload?: () => void;
   onSaveToLibrary?: () => void;
   brandColors?: string[];

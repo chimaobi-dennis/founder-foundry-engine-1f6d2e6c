@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2 } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2, Loader2 } from "lucide-react";
+import html2canvas from "html2canvas";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   generateTemplateOutput,
   uploadProductImage,
   setActiveProductImage,
+  saveOutputToLibrary,
 } from "@/services/templateService";
 import { toast } from "@/hooks/use-toast";
 
@@ -116,6 +118,11 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  // Export / save-to-library state (per variation index)
+  const [downloadingIdx, setDownloadingIdx] = useState<number | null>(null);
+  const [savingIdx, setSavingIdx] = useState<number | null>(null);
+  const [savedIdxs, setSavedIdxs] = useState<Set<number>>(new Set());
+
   // Carousel scroll function
   const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
     if (ref.current) {
@@ -169,6 +176,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setEditorOpen(false);
       setEditStates({});
       setUploadError(null);
+      setSavedIdxs(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
@@ -497,29 +505,108 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     return edited;
   };
 
+  // (downloadingIdx / savingIdx / savedIdxs declared above to keep hook order valid)
+
+
+  /**
+   * Render the active variation as PNG and trigger a browser download.
+   * Targets the live DOM node with id `variation-{index}` (the inner stage
+   * inside TemplatePreview). We temporarily neutralise its scale transform
+   * so html2canvas captures at the intrinsic 600x600 size at 2x resolution.
+   */
   const downloadVariation = async (variationIndex: number) => {
     const el = document.getElementById(`variation-${variationIndex}`);
-    if (!el) return;
+    if (!el) {
+      toast({ title: "Nothing to export", description: "Generate a variation first.", variant: "destructive" });
+      return;
+    }
 
+    setDownloadingIdx(variationIndex);
+    const originalTransform = el.style.transform;
     try {
-      // Dynamically load html2canvas
-      const script = document.createElement("script");
-      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      await new Promise<void>((resolve, reject) => {
-        script.onload = () => resolve();
-        script.onerror = reject;
-        document.head.appendChild(script);
+      el.style.transform = "scale(1)";
+      const canvas = await html2canvas(el, {
+        width: el.offsetWidth || 600,
+        height: el.offsetHeight || 600,
+        scale: 2,
+        backgroundColor: null,
+        useCORS: true,
+        logging: false,
       });
-
-      const canvas = await (window as any).html2canvas(el, { width: 600, height: 600, scale: 2 });
+      const safeBrand = (brandName || "brand").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const safeTpl = (template.name || template.id).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const link = document.createElement("a");
-      link.download = `${brandName.toLowerCase().replace(/\s/g, "-")}-${template.id}-v${variationIndex + 1}.png`;
+      link.download = `${safeBrand}-${safeTpl}-v${variationIndex + 1}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-    } catch (e) {
+    } catch (e: any) {
       console.error("Download failed:", e);
+      toast({ title: "Export failed", description: e?.message || "Could not render PNG.", variant: "destructive" });
+    } finally {
+      el.style.transform = originalTransform;
+      setDownloadingIdx(null);
     }
   };
+
+  /**
+   * Capture a small thumbnail of the active variation (scale 1) and persist
+   * it to Supabase Storage, flipping is_saved_to_library on the row.
+   */
+  const saveVariationToLibrary = async (variationIndex: number) => {
+    if (!activeBrand?.id) {
+      toast({ title: "No active brand", variant: "destructive" });
+      return;
+    }
+    const el = document.getElementById(`variation-${variationIndex}`);
+    if (!el) {
+      toast({ title: "Nothing to save", description: "Generate a variation first.", variant: "destructive" });
+      return;
+    }
+
+    setSavingIdx(variationIndex);
+    const originalTransform = el.style.transform;
+    try {
+      el.style.transform = "scale(1)";
+      const canvas = await html2canvas(el, {
+        width: el.offsetWidth || 600,
+        height: el.offsetHeight || 600,
+        scale: 1,
+        backgroundColor: null,
+        useCORS: true,
+        logging: false,
+      });
+      const thumbBase64 = canvas.toDataURL("image/png");
+
+      const result = await saveOutputToLibrary({
+        outputId: outputIds[variationIndex] || null,
+        brandId: activeBrand.id,
+        templateId: template.id,
+        outputHtml: variations[variationIndex] || "",
+        thumbnailBase64: thumbBase64,
+      });
+
+      if (result.error) {
+        toast({ title: "Save failed", description: result.error, variant: "destructive" });
+        return;
+      }
+
+      // Persist any newly created outputId back into local state
+      setOutputIds(prev => prev.map((v, i) => (i === variationIndex ? result.outputId : v)));
+      setSavedIdxs(prev => {
+        const next = new Set(prev);
+        next.add(variationIndex);
+        return next;
+      });
+      toast({ title: "Saved to Library" });
+    } catch (e: any) {
+      console.error("Save failed:", e);
+      toast({ title: "Save failed", description: e?.message || "Could not save thumbnail.", variant: "destructive" });
+    } finally {
+      el.style.transform = originalTransform;
+      setSavingIdx(null);
+    }
+  };
+
 
   const previewScale = Math.min((panelWidth - 48) / 600, 1);
 
@@ -565,6 +652,9 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       variationHtml: snapshotCanvases[activeVariation]?.html ?? null,
       outputId: outputIds[activeVariation] ?? null,
       outputIdsByCanvas,
+      brandId: activeBrand?.id ?? null,
+      templateId: template.id,
+      savedCanvasIds: Array.from(savedIdxs).map((i) => `${tplId}-${i}`),
       onDownload: () => downloadVariation(activeVariation),
       canvases: snapshotCanvases,
       activeCanvasId: initialActiveId,
@@ -1183,11 +1273,43 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                         variant="outline"
                         className="flex-1 h-10 text-[13px] gap-1.5"
                         onClick={() => downloadVariation(activeVariation)}
+                        disabled={downloadingIdx === activeVariation}
                       >
-                        <Download size={14} /> Download
+                        {downloadingIdx === activeVariation ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" /> Exporting…
+                          </>
+                        ) : (
+                          <>
+                            <Download size={14} /> Download
+                          </>
+                        )}
                       </Button>
-                      <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
+                      {savedIdxs.has(activeVariation) ? (
+                        <Button
+                          disabled
+                          variant="outline"
+                          className="flex-1 h-10 text-[13px] gap-1.5 border-primary/40 text-primary opacity-90"
+                        >
+                          <Check size={14} /> Saved
+                        </Button>
+                      ) : (
+                        <Button
+                          className="flex-1 h-10 text-[13px] gap-1.5"
+                          onClick={() => saveVariationToLibrary(activeVariation)}
+                          disabled={savingIdx === activeVariation}
+                        >
+                          {savingIdx === activeVariation ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" /> Saving…
+                            </>
+                          ) : (
+                            <>Save to Library</>
+                          )}
+                        </Button>
+                      )}
                     </div>
+
                   </>
                 )}
               </div>

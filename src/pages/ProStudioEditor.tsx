@@ -31,9 +31,13 @@ const ProStudioEditor = () => {
       templateName={session.templateName}
       variationHtml={session.variationHtml}
       variationId={session.variationId}
-      onDownload={session.onDownload}
-      onSaveToLibrary={session.onSaveToLibrary}
+      // Note: do NOT forward session.onDownload / onSaveToLibrary so the
+      // editor uses its own html2canvas + storage flow.
       brandColors={session.brandColors}
+      outputId={session.outputId}
+      brandId={session.brandId}
+      templateId={session.templateId}
+      initiallySavedCanvasIds={session.savedCanvasIds}
       canvases={session.canvases}
       activeCanvasId={session.activeCanvasId}
       onSelectCanvas={session.onSelectCanvas}

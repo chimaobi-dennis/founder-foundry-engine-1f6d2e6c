@@ -632,6 +632,99 @@ Every editable element must have a data-element attribute.
   }
 }
 
+// ─── Save output to Library (thumbnail upload + flag flip) ─────────────────
+
+const TEMPLATE_OUTPUTS_BUCKET = 'template-outputs';
+
+/**
+ * Convert a base64 data URL (or raw base64) to a Blob suitable for storage upload.
+ */
+function base64ToBlob(base64: string, mimeType = 'image/png'): Blob {
+  const cleaned = base64.replace(/^data:[^;]+;base64,/, '');
+  const byteChars = atob(cleaned);
+  const byteNumbers = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  }
+  return new Blob([new Uint8Array(byteNumbers)], { type: mimeType });
+}
+
+interface SaveOutputParams {
+  /** Existing template_outputs.id — if omitted, a new row will be inserted (blank-canvas case). */
+  outputId?: string | null;
+  brandId: string;
+  /** Required when outputId is null — used to create the new row. */
+  templateId?: string | null;
+  outputHtml?: string | null;
+  /** Base64 PNG (with or without data: prefix) of the canvas thumbnail. */
+  thumbnailBase64: string;
+}
+
+/**
+ * Upload a thumbnail to the template-outputs bucket and flip the row's
+ * is_saved_to_library flag. If outputId is missing, inserts a new row first.
+ */
+export async function saveOutputToLibrary({
+  outputId,
+  brandId,
+  templateId,
+  outputHtml,
+  thumbnailBase64,
+}: SaveOutputParams): Promise<{ outputId: string; publicUrl: string; error?: string }> {
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('Not authenticated');
+
+    let id = outputId || null;
+
+    // No existing row (e.g. blank canvas added in studio) — create one first.
+    if (!id) {
+      const { data: inserted, error: insertErr } = await db
+        .from('template_outputs')
+        .insert({
+          template_id: templateId || null,
+          user_id: user.id,
+          brand_id: brandId,
+          output_type: 'html_css',
+          output_html: outputHtml || '',
+          is_saved_to_library: true,
+          is_downloaded: false,
+        })
+        .select('id')
+        .single();
+      if (insertErr) throw insertErr;
+      id = inserted.id;
+    }
+
+    // Upload the thumbnail PNG to the bucket
+    const path = `${user.id}/${brandId}/${id}-thumb.png`;
+    const blob = base64ToBlob(thumbnailBase64, 'image/png');
+    const { error: uploadErr } = await supabase.storage
+      .from(TEMPLATE_OUTPUTS_BUCKET)
+      .upload(path, blob, { upsert: true, contentType: 'image/png' });
+    if (uploadErr) throw uploadErr;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(TEMPLATE_OUTPUTS_BUCKET)
+      .getPublicUrl(path);
+
+    // Flip the saved flag and store the thumbnail URL
+    const { error: updateErr } = await db
+      .from('template_outputs')
+      .update({
+        is_saved_to_library: true,
+        output_image_url: publicUrl,
+      })
+      .eq('id', id);
+    if (updateErr) throw updateErr;
+
+    return { outputId: id!, publicUrl };
+  } catch (error: any) {
+    console.error('[saveOutputToLibrary] failed:', error);
+    return { outputId: outputId || '', publicUrl: '', error: error?.message || 'Save failed' };
+  }
+}
+
 // ─── Element parsing and saving ────────────────────────────
 
 const PRIVATE_ELEMENT_TYPES = ['headline', 'tagline', 'brand-mark', 'product-image'];

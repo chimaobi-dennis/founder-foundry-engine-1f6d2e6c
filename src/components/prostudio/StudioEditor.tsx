@@ -20,7 +20,12 @@ import {
   Hand,
   Maximize2,
   GripVertical,
+  Loader2,
+  Check,
 } from "lucide-react";
+import html2canvas from "html2canvas";
+import { saveOutputToLibrary } from "@/services/templateService";
+import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -51,9 +56,19 @@ interface Props {
   templateName: string;
   variationHtml: string | null;
   variationId: string;
+  /** Optional override — if not provided, the studio captures + downloads internally. */
   onDownload?: () => void;
+  /** Optional override — if not provided, the studio captures + persists internally. */
   onSaveToLibrary?: () => void;
   brandColors?: string[];
+  /** template_outputs.id linked to the active canvas (for save). */
+  outputId?: string | null;
+  /** Brand id used by Save to Library. */
+  brandId?: string | null;
+  /** Template id used when Save to Library has to insert a new template_outputs row. */
+  templateId?: string | null;
+  /** Initially-saved canvas ids (so we can show "Saved ✓" right after entering studio). */
+  initiallySavedCanvasIds?: string[];
   // Canvas switcher (universal — also used by ReelBuilder/slides in future)
   canvases?: CanvasItem[];
   activeCanvasId?: string | null;
@@ -81,6 +96,10 @@ export function StudioEditor({
   onDownload,
   onSaveToLibrary,
   brandColors,
+  outputId,
+  brandId,
+  templateId,
+  initiallySavedCanvasIds,
   canvases,
   activeCanvasId,
   onSelectCanvas,
@@ -137,14 +156,123 @@ export function StudioEditor({
     if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
   }, []);
 
+  // ─── Export / Save to Library — internal (html2canvas + storage) ────────
+  const stageHostElRef = useRef<HTMLDivElement | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedCanvasIds, setSavedCanvasIds] = useState<Set<string>>(
+    () => new Set(initiallySavedCanvasIds || []),
+  );
+
+  const isCurrentSaved = !!activeCanvasId && savedCanvasIds.has(activeCanvasId);
+
+  /** Capture the inner stage (data-studio-stage > scaled child) at full resolution. */
+  const captureStage = useCallback(async (scale: number): Promise<string | null> => {
+    const host = stageHostElRef.current;
+    if (!host) return null;
+    // The actual stage we want to capture is the inner div with scale transform.
+    // Temporarily neutralize the transform so html2canvas captures intrinsic px.
+    const inner = host.querySelector<HTMLElement>("div[style*='transform: scale']");
+    const target: HTMLElement = inner || host;
+    const originalTransform = target.style.transform;
+    const originalWidth = host.style.width;
+    const originalHeight = host.style.height;
+    try {
+      target.style.transform = "scale(1)";
+      // Match the host to intrinsic size so it doesn't crop the un-scaled content
+      host.style.width = `${canvasSize.width}px`;
+      host.style.height = `${canvasSize.height}px`;
+      const canvas = await html2canvas(target, {
+        width: canvasSize.width,
+        height: canvasSize.height,
+        scale,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
+      });
+      return canvas.toDataURL("image/png");
+    } finally {
+      target.style.transform = originalTransform;
+      host.style.width = originalWidth;
+      host.style.height = originalHeight;
+    }
+  }, [canvasSize.width, canvasSize.height]);
+
+  const handleExport = useCallback(async () => {
+    // Allow consumer to override entirely (legacy modal hand-off)
+    if (onDownload) {
+      onDownload();
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const dataUrl = await captureStage(2);
+      if (!dataUrl) throw new Error("Canvas not ready");
+      const safeTpl = (templateName || "design")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const link = document.createElement("a");
+      link.download = `${safeTpl}-${variationId || "export"}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (e: any) {
+      console.error("Export failed:", e);
+      toast({ title: "Export failed", description: e?.message || "Could not render PNG.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [captureStage, onDownload, templateName, variationId]);
+
+  const handleSaveToLibrary = useCallback(async () => {
+    if (onSaveToLibrary) {
+      onSaveToLibrary();
+      setHasUnsavedChanges(false);
+      return;
+    }
+    if (!brandId) {
+      toast({ title: "No active brand", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const thumb = await captureStage(1);
+      if (!thumb) throw new Error("Canvas not ready");
+      const result = await saveOutputToLibrary({
+        outputId: outputId || null,
+        brandId,
+        templateId: templateId || null,
+        outputHtml: variationHtml || "",
+        thumbnailBase64: thumb,
+      });
+      if (result.error) {
+        toast({ title: "Save failed", description: result.error, variant: "destructive" });
+        return;
+      }
+      if (activeCanvasId) {
+        setSavedCanvasIds(prev => {
+          const next = new Set(prev);
+          next.add(activeCanvasId);
+          return next;
+        });
+      }
+      setHasUnsavedChanges(false);
+      toast({ title: "Saved to Library" });
+    } catch (e: any) {
+      console.error("Save failed:", e);
+      toast({ title: "Save failed", description: e?.message || "Could not save thumbnail.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [captureStage, onSaveToLibrary, brandId, outputId, templateId, variationHtml, activeCanvasId]);
+
   const attemptClose = useCallback(() => {
     if (hasUnsavedChanges) setConfirmOpen(true);
     else onClose();
   }, [hasUnsavedChanges, onClose]);
 
-  const handleSaveAndExit = () => {
-    onSaveToLibrary?.();
-    setHasUnsavedChanges(false);
+  const handleSaveAndExit = async () => {
+    await handleSaveToLibrary();
     setConfirmOpen(false);
     onClose();
   };
@@ -195,6 +323,8 @@ export function StudioEditor({
   // ---------- mutators wired to live DOM via canvas stage ----------
   const stageHostRef = useRef<HTMLElement | null>(null);
   const captureStageHost = useCallback((node: HTMLDivElement | null) => {
+    // Keep the outer host (sized to canvasSize * zoom) for export captures
+    stageHostElRef.current = node;
     if (node) {
       // The stage we actually mutate is the inner div with the injected HTML
       const stage = node.querySelector<HTMLElement>("div[style*='transform: scale']");
@@ -393,19 +523,47 @@ export function StudioEditor({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onDownload}
-              className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border"
+              onClick={handleExport}
+              disabled={isExporting}
+              className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Download size={13} /> Export
+              {isExporting ? (
+                <>
+                  <Loader2 size={13} className="animate-spin" /> Exporting…
+                </>
+              ) : (
+                <>
+                  <Download size={13} /> Export
+                </>
+              )}
             </button>
-            <button
-              onClick={() => { onSaveToLibrary?.(); setHasUnsavedChanges(false); }}
-              className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground"
-            >
-              <Save size={13} /> Save to Library
-            </button>
+            {isCurrentSaved ? (
+              <button
+                disabled
+                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default"
+              >
+                <Check size={13} /> Saved
+              </button>
+            ) : (
+              <button
+                onClick={handleSaveToLibrary}
+                disabled={isSaving}
+                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" /> Saving…
+                  </>
+                ) : (
+                  <>
+                    <Save size={13} /> Save to Library
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
+
 
         {/* Workspace */}
         <div className="flex-1 flex min-h-0">
