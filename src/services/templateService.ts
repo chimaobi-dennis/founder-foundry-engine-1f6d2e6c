@@ -437,19 +437,22 @@ export const deductCredits = async (
   userId: string,
   amount: number
 ): Promise<{ success: boolean; error?: string }> => {
-  try {
-    const { error } = await db
-      .from('profiles')
-      .update({ credits_remaining: db.raw('credits_remaining - ' + amount) })
-      .eq('id', userId)
-      .gte('credits_remaining', amount); // Ensure they have enough credits
+  const { data: profile } = await db
+    .from('profiles')
+    .select('credits_remaining')
+    .eq('id', userId)
+    .single();
 
-    if (error) throw error;
+  const current = profile?.credits_remaining || 0;
+  if (current < amount) return { success: false, error: 'Insufficient credits' };
 
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+  const { error } = await db
+    .from('profiles')
+    .update({ credits_remaining: current - amount })
+    .eq('id', userId);
+
+  if (error) throw error;
+  return { success: true };
 };
 
 // Interface for template generation parameters
@@ -517,12 +520,21 @@ export async function generateTemplateOutput({
 
     if (brandError) throw brandError;
 
-    // Fetch the system prompt for template_generation
-    const systemPrompt = await getSystemPrompt('template_generation');
-
-    if (!systemPrompt) {
-      return { variants: [], outputIds: [], error: 'System prompt for template_generation not found in database' };
-    }
+    // Fetch the system prompt for template_generation with fallback
+    const systemPrompt = await getSystemPrompt('template_generation') || `
+You are a professional graphic designer and frontend developer.
+Generate a complete self-contained HTML/CSS design for the following brief.
+TEMPLATE STYLE: {{generation_prompt}}
+ASPECT RATIO: {{aspectRatio}}
+STYLE INTENSITY: {{styleIntensity}}
+VARIANT: {{variant_index}} of {{variant_count}}
+Brand name context: use {{brand_voice}}, {{core_promise}}, {{target_audience}}, {{positioning_statement}}
+Primary colour: {{primary_color}}, Secondary colour: {{secondary_color}}
+Product image URL: {{product_image_url}} — use in an img tag
+Return ONLY raw HTML. No markdown, no code fences.
+Root element must be a single div 600x600px with position:relative;overflow:hidden.
+Every editable element must have a data-element attribute.
+`;
 
     // Generate all variants in parallel and stream completions via onVariant.
     const variants: string[] = new Array(variantCount).fill('');
