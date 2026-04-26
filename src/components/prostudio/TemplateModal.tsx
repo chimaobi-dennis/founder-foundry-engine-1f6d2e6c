@@ -1270,11 +1270,42 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                         variant="outline"
                         className="flex-1 h-10 text-[13px] gap-1.5"
                         onClick={() => downloadVariation(activeVariation)}
+                        disabled={downloadingIdx === activeVariation}
                       >
-                        <Download size={14} /> Download
+                        {downloadingIdx === activeVariation ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" /> Exporting…
+                          </>
+                        ) : (
+                          <>
+                            <Download size={14} /> Download
+                          </>
+                        )}
                       </Button>
-                      <Button className="flex-1 h-10 text-[13px]">Save to Library</Button>
+                      {savedIdxs.has(activeVariation) ? (
+                        <Button
+                          disabled
+                          className="flex-1 h-10 text-[13px] gap-1.5 bg-emerald-600/15 text-emerald-600 hover:bg-emerald-600/15 border border-emerald-600/30"
+                        >
+                          <Check size={14} /> Saved
+                        </Button>
+                      ) : (
+                        <Button
+                          className="flex-1 h-10 text-[13px] gap-1.5"
+                          onClick={() => saveVariationToLibrary(activeVariation)}
+                          disabled={savingIdx === activeVariation}
+                        >
+                          {savingIdx === activeVariation ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" /> Saving…
+                            </>
+                          ) : (
+                            <>Save to Library</>
+                          )}
+                        </Button>
+                      )}
                     </div>
+
                   </>
                 )}
               </div>
