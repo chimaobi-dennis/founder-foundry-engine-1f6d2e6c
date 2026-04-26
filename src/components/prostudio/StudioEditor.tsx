@@ -156,14 +156,123 @@ export function StudioEditor({
     if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
   }, []);
 
+  // ─── Export / Save to Library — internal (html2canvas + storage) ────────
+  const stageHostElRef = useRef<HTMLDivElement | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedCanvasIds, setSavedCanvasIds] = useState<Set<string>>(
+    () => new Set(initiallySavedCanvasIds || []),
+  );
+
+  const isCurrentSaved = !!activeCanvasId && savedCanvasIds.has(activeCanvasId);
+
+  /** Capture the inner stage (data-studio-stage > scaled child) at full resolution. */
+  const captureStage = useCallback(async (scale: number): Promise<string | null> => {
+    const host = stageHostElRef.current;
+    if (!host) return null;
+    // The actual stage we want to capture is the inner div with scale transform.
+    // Temporarily neutralize the transform so html2canvas captures intrinsic px.
+    const inner = host.querySelector<HTMLElement>("div[style*='transform: scale']");
+    const target: HTMLElement = inner || host;
+    const originalTransform = target.style.transform;
+    const originalWidth = host.style.width;
+    const originalHeight = host.style.height;
+    try {
+      target.style.transform = "scale(1)";
+      // Match the host to intrinsic size so it doesn't crop the un-scaled content
+      host.style.width = `${canvasSize.width}px`;
+      host.style.height = `${canvasSize.height}px`;
+      const canvas = await html2canvas(target, {
+        width: canvasSize.width,
+        height: canvasSize.height,
+        scale,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
+      });
+      return canvas.toDataURL("image/png");
+    } finally {
+      target.style.transform = originalTransform;
+      host.style.width = originalWidth;
+      host.style.height = originalHeight;
+    }
+  }, [canvasSize.width, canvasSize.height]);
+
+  const handleExport = useCallback(async () => {
+    // Allow consumer to override entirely (legacy modal hand-off)
+    if (onDownload) {
+      onDownload();
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const dataUrl = await captureStage(2);
+      if (!dataUrl) throw new Error("Canvas not ready");
+      const safeTpl = (templateName || "design")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const link = document.createElement("a");
+      link.download = `${safeTpl}-${variationId || "export"}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (e: any) {
+      console.error("Export failed:", e);
+      toast({ title: "Export failed", description: e?.message || "Could not render PNG.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [captureStage, onDownload, templateName, variationId]);
+
+  const handleSaveToLibrary = useCallback(async () => {
+    if (onSaveToLibrary) {
+      onSaveToLibrary();
+      setHasUnsavedChanges(false);
+      return;
+    }
+    if (!brandId) {
+      toast({ title: "No active brand", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const thumb = await captureStage(1);
+      if (!thumb) throw new Error("Canvas not ready");
+      const result = await saveOutputToLibrary({
+        outputId: outputId || null,
+        brandId,
+        templateId: templateId || null,
+        outputHtml: variationHtml || "",
+        thumbnailBase64: thumb,
+      });
+      if (result.error) {
+        toast({ title: "Save failed", description: result.error, variant: "destructive" });
+        return;
+      }
+      if (activeCanvasId) {
+        setSavedCanvasIds(prev => {
+          const next = new Set(prev);
+          next.add(activeCanvasId);
+          return next;
+        });
+      }
+      setHasUnsavedChanges(false);
+      toast({ title: "Saved to Library" });
+    } catch (e: any) {
+      console.error("Save failed:", e);
+      toast({ title: "Save failed", description: e?.message || "Could not save thumbnail.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [captureStage, onSaveToLibrary, brandId, outputId, templateId, variationHtml, activeCanvasId]);
+
   const attemptClose = useCallback(() => {
     if (hasUnsavedChanges) setConfirmOpen(true);
     else onClose();
   }, [hasUnsavedChanges, onClose]);
 
-  const handleSaveAndExit = () => {
-    onSaveToLibrary?.();
-    setHasUnsavedChanges(false);
+  const handleSaveAndExit = async () => {
+    await handleSaveToLibrary();
     setConfirmOpen(false);
     onClose();
   };
