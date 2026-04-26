@@ -498,6 +498,9 @@ export async function generateTemplateOutput({
       return { variants: [], outputIds: [], error: 'Not authenticated' };
     }
     const userId = user.id;
+
+    // Generate session ID to group all variants from this generation run
+    const generationSessionId = crypto.randomUUID();
     // Fetch template generation prompt
     const { data: template, error: templateError } = await db
       .from('prostudio_templates')
@@ -608,6 +611,7 @@ Every editable element must have a data-element attribute.
             variation_index: variantIndex,
             is_saved_to_library: false,
             is_downloaded: false,
+            generation_session_id: generationSessionId,
             generation_params: { aspectRatio, styleIntensity, variantIndex }
           })
           .select('id')
@@ -679,6 +683,7 @@ export async function saveOutputToLibrary({
 
     // No existing row (e.g. blank canvas added in studio) — create one first.
     if (!id) {
+      const generationSessionId = crypto.randomUUID();
       const { data: inserted, error: insertErr } = await db
         .from('template_outputs')
         .insert({
@@ -689,6 +694,7 @@ export async function saveOutputToLibrary({
           output_html: outputHtml || '',
           is_saved_to_library: true,
           is_downloaded: false,
+          generation_session_id: generationSessionId,
         })
         .select('id')
         .single();
@@ -723,6 +729,46 @@ export async function saveOutputToLibrary({
     console.error('[saveOutputToLibrary] failed:', error);
     return { outputId: outputId || '', publicUrl: '', error: error?.message || 'Save failed' };
   }
+}
+
+// ─── Session and output retrieval functions ───────────────────
+
+/**
+ * Retrieve all outputs from a specific generation session.
+ */
+export async function getSessionOutputs(sessionId: string) {
+  const { data, error } = await db
+    .from('template_outputs')
+    .select(`
+      id, output_html, output_image_url, aspect_ratio,
+      variation_index, is_saved_to_library, generation_session_id,
+      generation_params, created_at,
+      prostudio_templates (name, cover_image_url)
+    `)
+    .eq('generation_session_id', sessionId)
+    .order('variation_index');
+  return { data, error };
+}
+
+/**
+ * Get all outputs for a brand, grouped by generation session.
+ */
+export async function getBrandOutputs(brandId: string, savedOnly = false) {
+  let query = db
+    .from('template_outputs')
+    .select(`
+      id, output_html, output_image_url, aspect_ratio,
+      variation_index, is_saved_to_library, generation_session_id,
+      generation_params, created_at,
+      prostudio_templates (name, cover_image_url)
+    `)
+    .eq('brand_id', brandId)
+    .order('generation_session_id')
+    .order('variation_index');
+
+  if (savedOnly) query = query.eq('is_saved_to_library', true);
+  const { data, error } = await query;
+  return { data, error };
 }
 
 // ─── Element parsing and saving ────────────────────────────
