@@ -470,6 +470,8 @@ export interface GenerateTemplateParams {
   onVariant?: (info: { index: number; html: string; outputId: string }) => void;
   /** Optional extra instructions appended to the prompt (e.g. user edit notes, regen suffixes). */
   extraInstructions?: string;
+  /** Optional structured content for digital templates (testimonial fields, pricing fields, etc.). */
+  digitalInputs?: Record<string, string>;
 }
 
 // Generate template output using AI.
@@ -486,7 +488,8 @@ export async function generateTemplateOutput({
   imageBase64,
   imageMimeType,
   onVariant,
-  extraInstructions
+  extraInstructions,
+  digitalInputs
 }: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; error?: string }> {
   try {
     // Get userId from auth session to ensure RLS compliance
@@ -563,9 +566,16 @@ Every editable element must have a data-element attribute.
           product_image_url: productImageUrl
         });
 
-        const userContent = extraInstructions
-          ? `${filledPrompt}\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}`
-          : filledPrompt;
+        const digitalContentBlock = digitalInputs && Object.keys(digitalInputs).length > 0
+          ? `\n\nCONTENT TO USE IN THIS DESIGN:\n${Object.entries(digitalInputs)
+              .filter(([, v]) => v != null && String(v).trim() !== '')
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('\n')}\n\nUse this exact content in the design — do not invent placeholder text.`
+          : '';
+
+        const userContent = [filledPrompt, digitalContentBlock, extraInstructions ? `\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}` : '']
+          .filter(Boolean)
+          .join('');
 
         const result = await callAI({
           taskType: 'template_generation',
