@@ -176,6 +176,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setEditorOpen(false);
       setEditStates({});
       setUploadError(null);
+      setSavedIdxs(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
