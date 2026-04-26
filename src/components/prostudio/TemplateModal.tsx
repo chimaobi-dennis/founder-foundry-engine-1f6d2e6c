@@ -10,7 +10,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { TemplateModalProps } from "./types";
 import { TemplatePreview } from "./TemplatePreview";
 import { VariantLoadingSlot } from "./VariantLoadingSlot";
-import { callAI } from "@/lib/ai";
 import { useBrand } from "@/hooks/use-brand";
 import { useProductImages } from "@/hooks/use-product-images";
 import { useAuth } from "@/contexts/AuthContext";
@@ -274,60 +273,9 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const isPhysical = type === "physical";
   const templatePrompt = template.generation_prompt || "";
 
-  const buildBasePrompt = () => {
-    const brandDNA = {
-      name: activeBrand?.name || brandName,
-      industry: "Premium consumer goods",
-      primaryColor: "#2D4A3E",
-      secondaryColor: "#F5F0E8",
-      voice: "Premium and considered",
-      corePromise: "",
-      productName: (activeBrand?.name || brandName) + " Product",
-    };
-
-    const productInstruction = selectedImage?.base64
-      ? `The user has uploaded their product image. It is attached to this message.
-
-You MUST include this product image in the HTML output using this exact img tag:
-<img src="data:${selectedImage.mimeType || "image/jpeg"};base64,${selectedImage.base64}" style="position:absolute;width:140px;height:auto;object-fit:contain;top:50%;left:50%;transform:translate(-50%,-60%);z-index:10;filter:drop-shadow(0 8px 24px rgba(0,0,0,0.2));" />
-
-Place the img tag inside the main container div at the position that makes most sense for this template's design direction. The product MUST be visible. Do not replace it with a div placeholder.`
-      : `Represent the product as a div: width:130px height:190px background:white border-radius:4px display:flex align-items:center justify-content:center font-size:10px text-align:center padding:8px color matching brand primary — containing the product name text.`;
-
-    return `You are an expert creative director and senior frontend developer specialising in premium brand marketing visuals.
-
-Generate a self-contained HTML marketing visual for ${brandDNA.name}.
-
-BRAND CONTEXT:
-Brand name: ${brandDNA.name}
-Industry: ${brandDNA.industry}
-Primary color: ${brandDNA.primaryColor}
-Secondary color: ${brandDNA.secondaryColor}
-Brand voice: ${brandDNA.voice}
-Core promise: ${brandDNA.corePromise}
-Product: ${brandDNA.productName}
-
-PRODUCT IMAGE INSTRUCTION:
-${productInstruction}
-
-TEMPLATE DESIGN DIRECTION:
-${templatePrompt}
-
-STYLE INTENSITY: ${intensityInstructions[styleIntensity]}
-
-TECHNICAL REQUIREMENTS:
-- Output ONLY a self-contained div — no html, head, body tags, no markdown, no backticks
-- Exactly 600px × 600px — use style="width:600px;height:600px;position:relative;overflow:hidden;"
-- All CSS inline or in a single style tag inside the div
-- If using the product image tag set it to position:absolute with appropriate top left width height to place it naturally in the scene
-- The brand primary color must appear meaningfully in the design
-- Load Google Fonts via @import if needed — choose a font that fits the brand voice and design direction
-- CSS backgrounds textures and gradients only for scene elements — no other external images
-- The composition must feel like a real premium marketing asset
-- Be creative with typography treatment layout and visual hierarchy — avoid centering everything
-
-Output only the HTML div. Nothing else.`;
-  };
+  const buildAspectParam = () => (selectedAspect.toLowerCase() === "auto" ? "auto" : selectedAspect.toLowerCase());
+  const buildIntensityParam = (): "subtle" | "balanced" | "bold" =>
+    styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
 
   const handleRun = async () => {
     if (!isPhysical) {
@@ -411,6 +359,7 @@ Output only the HTML div. Nothing else.`;
   };
 
   const regenerateSingle = async (variationIndex: number) => {
+    if (!template?.id || !activeBrand?.id) return;
     const suffixes = [
       "Generate a completely fresh primary variation.",
       "Generate a completely fresh alternative layout.",
@@ -421,17 +370,21 @@ Output only the HTML div. Nothing else.`;
     // other already-generated variants are untouched.
     setVariations(prev => prev.map((v, i) => (i === variationIndex ? null : v)));
     try {
-      const basePrompt = buildBasePrompt();
-      const result = await callAI(
-        [{ role: "user", content: basePrompt + "\n\n" + suffixes[variationIndex] }],
-        3000,
-        selectedImage?.base64 || undefined,
-        selectedImage?.mimeType || "image/jpeg"
-      );
-      const cleaned = cleanAIHtml(result);
-      if (!cleaned) {
-        // Leave this slot null so the failed/retry UI re-appears.
-        toast({ title: "Variant regeneration failed", description: "Please try again.", variant: "destructive" });
+      const { variants, error } = await generateTemplateOutput({
+        templateId: template.id,
+        brandId: activeBrand.id,
+        productImageUrl: selectedImage?.url || "",
+        aspectRatio: buildAspectParam(),
+        styleIntensity: buildIntensityParam(),
+        variantCount: 1,
+        imageBase64: selectedImage?.base64,
+        imageMimeType: selectedImage?.mimeType || "image/jpeg",
+        extraInstructions: suffixes[variationIndex],
+      });
+      const html = variants[0] || null;
+      const cleaned = cleanAIHtml(html);
+      if (error || !cleaned) {
+        toast({ title: "Variant regeneration failed", description: error || "Please try again.", variant: "destructive" });
         return;
       }
       const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
@@ -445,30 +398,37 @@ Output only the HTML div. Nothing else.`;
   };
 
   const regenerateWithEdits = async (editInstructions: string) => {
+    if (!template?.id || !activeBrand?.id) return;
     const suffixes = [
       "Generate a refined primary variation.",
       "Generate a refined alternative layout.",
       "Generate a refined bold variation.",
     ];
     setRegeneratingIdx(activeVariation);
-    const basePrompt = buildBasePrompt();
-    const editSuffix = `\n\n${suffixes[activeVariation]}\n\nAPPLY THESE EDITS:\n${editInstructions}`;
-    const result = await callAI(
-      [{ role: "user", content: basePrompt + editSuffix }],
-      3000,
-      selectedImage?.base64 || undefined,
-      selectedImage?.mimeType || "image/jpeg"
-    );
-    const cleaned = cleanAIHtml(result);
-    const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
-    setVariations(prev => prev.map((v, i) => (i === activeVariation ? safe : v)));
-    // Reset edit state for this variation after regen
-    setEditStates(prev => {
-      const next = { ...prev };
-      delete next[activeVariation];
-      return next;
-    });
-    setRegeneratingIdx(null);
+    try {
+      const { variants } = await generateTemplateOutput({
+        templateId: template.id,
+        brandId: activeBrand.id,
+        productImageUrl: selectedImage?.url || "",
+        aspectRatio: buildAspectParam(),
+        styleIntensity: buildIntensityParam(),
+        variantCount: 1,
+        imageBase64: selectedImage?.base64,
+        imageMimeType: selectedImage?.mimeType || "image/jpeg",
+        extraInstructions: `${suffixes[activeVariation]}\n\nAPPLY THESE EDITS:\n${editInstructions}`,
+      });
+      const cleaned = cleanAIHtml(variants[0] || null);
+      const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
+      setVariations(prev => prev.map((v, i) => (i === activeVariation ? safe : v)));
+      // Reset edit state for this variation after regen
+      setEditStates(prev => {
+        const next = { ...prev };
+        delete next[activeVariation];
+        return next;
+      });
+    } finally {
+      setRegeneratingIdx(null);
+    }
   };
 
   // Apply live edits to HTML
@@ -609,14 +569,19 @@ Output only the HTML div. Nothing else.`;
           };
         });
         try {
-          const basePrompt = buildBasePrompt();
-          const result = await callAI(
-            [{ role: "user", content: basePrompt + "\n\nGenerate a fresh additional variation — explore a different visual angle while staying on-brand." }],
-            3000,
-            selectedImage?.base64 || undefined,
-            selectedImage?.mimeType || "image/jpeg"
-          );
-          const cleaned = cleanAIHtml(result);
+          if (!template?.id || !activeBrand?.id) throw new Error("Missing template or brand");
+          const { variants } = await generateTemplateOutput({
+            templateId: template.id,
+            brandId: activeBrand.id,
+            productImageUrl: selectedImage?.url || "",
+            aspectRatio: buildAspectParam(),
+            styleIntensity: buildIntensityParam(),
+            variantCount: 1,
+            imageBase64: selectedImage?.base64,
+            imageMimeType: selectedImage?.mimeType || "image/jpeg",
+            extraInstructions: "Generate a fresh additional variation — explore a different visual angle while staying on-brand.",
+          });
+          const cleaned = cleanAIHtml(variants[0] || null);
           const safe = ensureProductImage(cleaned, selectedImage?.base64, selectedImage?.mimeType || "image/jpeg");
           setSession((prev: any) => {
             if (!prev) return prev;

@@ -468,6 +468,8 @@ export interface GenerateTemplateParams {
   imageMimeType?: string;
   /** Optional callback fired as each variant completes (streaming/progressive UI). */
   onVariant?: (info: { index: number; html: string; outputId: string }) => void;
+  /** Optional extra instructions appended to the prompt (e.g. user edit notes, regen suffixes). */
+  extraInstructions?: string;
 }
 
 // Generate template output using AI.
@@ -483,7 +485,8 @@ export async function generateTemplateOutput({
   variantCount,
   imageBase64,
   imageMimeType,
-  onVariant
+  onVariant,
+  extraInstructions
 }: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; error?: string }> {
   try {
     // Get userId from auth session to ensure RLS compliance
@@ -560,9 +563,13 @@ Every editable element must have a data-element attribute.
           product_image_url: productImageUrl
         });
 
+        const userContent = extraInstructions
+          ? `${filledPrompt}\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}`
+          : filledPrompt;
+
         const result = await callAI({
           taskType: 'template_generation',
-          messages: [{ role: 'user', content: filledPrompt }],
+          messages: [{ role: 'user', content: userContent }],
           maxTokens: 8000,
           imageBase64,
           imageMimeType
