@@ -280,6 +280,33 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const buildIntensityParam = (): "subtle" | "balanced" | "bold" =>
     styleIntensity === 3 ? "bold" : styleIntensity === 2 ? "balanced" : "subtle";
 
+  const buildDigitalInputs = (): Record<string, string> | undefined => {
+    if (isPhysical) return undefined;
+    const isTestimonialTpl = template!.name.toLowerCase().includes("testimonial") || template!.name.toLowerCase().includes("social proof");
+    const isPricingTpl = template!.name.toLowerCase().includes("pricing");
+    if (isTestimonialTpl) {
+      return {
+        'Customer name': customerName,
+        'Quote': customerQuote,
+        'Role': customerRole,
+        'Rating': `${rating} out of 5 stars`,
+      };
+    }
+    if (isPricingTpl) {
+      return {
+        'Plan name': planName,
+        'Price': price,
+        'Features': features,
+        'CTA text': ctaText,
+      };
+    }
+    return {
+      'Headline': headlineValue,
+      'Description': descriptionValue,
+      'CTA': ctaValue,
+    };
+  };
+
   const handleRun = async () => {
     if (!template?.id || !activeBrand?.id) {
       toast({
