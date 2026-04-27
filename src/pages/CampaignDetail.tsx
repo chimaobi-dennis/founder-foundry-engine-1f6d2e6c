@@ -377,8 +377,24 @@ export default function CampaignDetail() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={32} />
+      <div className="flex flex-col min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="max-w-5xl w-full mx-auto px-4 md:px-6 py-6">
+          <div className="flex items-center gap-1.5 text-[12px] font-ui text-muted-foreground mb-4">
+            <ArrowLeft size={14} /> Back to campaigns
+          </div>
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-7 w-1/2 rounded bg-muted animate-pulse" />
+              <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-8 w-32 rounded-md bg-muted animate-pulse flex-shrink-0" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {PLATFORM_ORDER.map((p) => (
+              <SkeletonCard key={p} platform={p} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
