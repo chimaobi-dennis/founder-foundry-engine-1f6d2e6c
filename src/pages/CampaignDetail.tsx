@@ -193,19 +193,24 @@ const CreativeCard = ({
     }
   };
 
+  const status: CreativeStatus = creative.status ?? "ready";
+
   return (
     <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm hover:shadow-md transition-shadow">
       {/* Platform header */}
-      <div className="flex items-center gap-3 mb-4">
-        <span
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
-          style={{ background: meta.background }}
-        >
-          <Icon size={18} strokeWidth={2} />
-        </span>
-        <h3 className="font-display text-base font-bold text-foreground">
-          {meta.name}
-        </h3>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
+            style={{ background: meta.background }}
+          >
+            <Icon size={18} strokeWidth={2} />
+          </span>
+          <h3 className="font-display text-base font-bold text-foreground truncate">
+            {meta.name}
+          </h3>
+        </div>
+        <StatusBadge status={status} />
       </div>
 
       {/* Subject (email) */}
