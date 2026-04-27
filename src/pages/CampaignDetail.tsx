@@ -25,16 +25,26 @@ const db = supabase as any;
 
 const platformMeta: Record<
   string,
-  { name: string; icon: any; color: string }
+  { name: string; icon: any; background: string }
 > = {
-  headlines: { name: "Headlines", icon: Megaphone, color: "hsl(43,78%,46%)" },
-  instagram: { name: "Instagram", icon: Instagram, color: "#E1306C" },
-  facebook_ad: { name: "Facebook Ad", icon: Facebook, color: "#4267B2" },
-  google_ad: { name: "Google Ad", icon: Search, color: "#4285F4" },
-  email: { name: "Email", icon: Mail, color: "#EA4335" },
-  whatsapp: { name: "WhatsApp", icon: MessageSquare, color: "#128C7E" },
-  twitter_x: { name: "Twitter / X", icon: Twitter, color: "#1DA1F2" },
-  sms: { name: "SMS", icon: Smartphone, color: "#6B7280" },
+  headlines: { name: "Headlines", icon: Megaphone, background: "#D4A017" },
+  instagram: {
+    name: "Instagram",
+    icon: Instagram,
+    background:
+      "linear-gradient(135deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)",
+  },
+  facebook_ad: { name: "Facebook Ad", icon: Facebook, background: "#1877F2" },
+  google_ad: {
+    name: "Google Ad",
+    icon: Search,
+    background:
+      "conic-gradient(from 90deg at 50% 50%, #4285F4 0deg, #4285F4 90deg, #34A853 90deg, #34A853 180deg, #FBBC05 180deg, #FBBC05 270deg, #EA4335 270deg, #EA4335 360deg)",
+  },
+  email: { name: "Email", icon: Mail, background: "#EA4335" },
+  whatsapp: { name: "WhatsApp", icon: MessageSquare, background: "#25D366" },
+  twitter_x: { name: "Twitter / X", icon: Twitter, background: "#000000" },
+  sms: { name: "SMS", icon: Smartphone, background: "#6B7280" },
 };
 
 const PLATFORM_ORDER = [
