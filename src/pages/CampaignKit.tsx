@@ -61,10 +61,8 @@ const CampaignKit = () => {
   const [brief, setBrief] = useState<BriefData>(getRoastBrief());
   const [activeTab, setActiveTab] = useState<PlatformTab>("Instagram");
   const [campaignName, setCampaignName] = useState("");
-  const [generatingCampaignId, setGeneratingCampaignId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [campaignData, setCampaignData] = useState<any>(null);
-  const [loadingMessage, setLoadingMessage] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleCampaignNameChange = useCallback((name: string) => {
