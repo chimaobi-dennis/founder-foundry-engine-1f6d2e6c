@@ -453,7 +453,7 @@ function CopyPanel({
 
   const handleCopy = async () => {
     if (!text) return;
-    await navigator.clipboard.writeText(text);
+    await safeCopyToClipboard(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

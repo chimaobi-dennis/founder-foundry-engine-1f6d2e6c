@@ -213,9 +213,9 @@ export default function AdminKnowledgeBase() {
     });
   };
 
-  const copyVariable = (variable: string) => {
+  const copyVariable = async (variable: string) => {
     const placeholder = `{{${variable}}}`;
-    navigator.clipboard.writeText(placeholder);
+    await safeCopyToClipboard(placeholder);
     setCopiedVariable(variable);
     setTimeout(() => setCopiedVariable(null), 2000);
   };
