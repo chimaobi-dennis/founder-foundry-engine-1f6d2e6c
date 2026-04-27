@@ -58,12 +58,91 @@ const PLATFORM_ORDER = [
   "sms",
 ];
 
+type CreativeStatus = "generating" | "ready" | "failed";
+
 interface Creative {
   id: string;
   platform: string;
   headline: string | null;
   copy_text: string | null;
   subject_line: string | null;
+  status?: CreativeStatus;
+}
+
+const PLATFORM_LABELS: Record<string, string> = {
+  headlines: "Headlines",
+  instagram: "Instagram",
+  facebook_ad: "Facebook Ad",
+  google_ad: "Google Ad",
+  email: "Email",
+  whatsapp: "WhatsApp",
+  twitter_x: "Twitter / X",
+  sms: "SMS",
+};
+
+function StatusBadge({ status }: { status: CreativeStatus }) {
+  const map: Record<CreativeStatus, { label: string; classes: string; dot: string }> = {
+    generating: {
+      label: "Generating",
+      classes: "bg-primary/10 text-primary border-primary/20",
+      dot: "bg-primary animate-pulse",
+    },
+    ready: {
+      label: "Ready",
+      classes: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+      dot: "bg-emerald-500",
+    },
+    failed: {
+      label: "Failed",
+      classes: "bg-destructive/10 text-destructive border-destructive/20",
+      dot: "bg-destructive",
+    },
+  };
+  const m = map[status];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-[10px] font-ui font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${m.classes}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
+      {m.label}
+    </span>
+  );
+}
+
+function SkeletonCard({ platform }: { platform: string }) {
+  const meta = platformMeta[platform] ?? {
+    name: PLATFORM_LABELS[platform] ?? platform,
+    icon: Megaphone,
+    background: "hsl(var(--muted-foreground))",
+  };
+  const Icon = meta.icon;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm opacity-70"
+            style={{ background: meta.background }}
+          >
+            <Icon size={18} strokeWidth={2} />
+          </span>
+          <h3 className="font-display text-base font-bold text-foreground">{meta.name}</h3>
+        </div>
+        <StatusBadge status="generating" />
+      </div>
+      <div className="space-y-2.5 flex-1">
+        <div className="h-5 w-3/4 rounded bg-muted animate-pulse" />
+        <div className="h-3 w-full rounded bg-muted animate-pulse" />
+        <div className="h-3 w-full rounded bg-muted animate-pulse" />
+        <div className="h-3 w-5/6 rounded bg-muted animate-pulse" />
+        <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
+      </div>
+      <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border">
+        <div className="h-7 w-16 rounded-md bg-muted animate-pulse" />
+        <div className="h-7 w-14 rounded-md bg-muted animate-pulse" />
+      </div>
+    </div>
+  );
 }
 
 const CreativeCard = ({
@@ -114,19 +193,24 @@ const CreativeCard = ({
     }
   };
 
+  const status: CreativeStatus = creative.status ?? "ready";
+
   return (
     <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm hover:shadow-md transition-shadow">
       {/* Platform header */}
-      <div className="flex items-center gap-3 mb-4">
-        <span
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
-          style={{ background: meta.background }}
-        >
-          <Icon size={18} strokeWidth={2} />
-        </span>
-        <h3 className="font-display text-base font-bold text-foreground">
-          {meta.name}
-        </h3>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
+            style={{ background: meta.background }}
+          >
+            <Icon size={18} strokeWidth={2} />
+          </span>
+          <h3 className="font-display text-base font-bold text-foreground truncate">
+            {meta.name}
+          </h3>
+        </div>
+        <StatusBadge status={status} />
       </div>
 
       {/* Subject (email) */}
@@ -215,17 +299,26 @@ export default function CampaignDetail() {
       // Always render all 8 platforms in canonical order, with placeholders
       // for any that didn't generate. Append unknown platforms at the end.
       const ordered: Creative[] = [
-        ...PLATFORM_ORDER.map(
-          (p): Creative =>
-            byPlatform.get(p) ?? {
-              id: `placeholder-${p}`,
-              platform: p,
-              headline: null,
-              copy_text: null,
-              subject_line: null,
-            }
-        ),
-        ...rows.filter((r) => !PLATFORM_ORDER.includes(r.platform)),
+        ...PLATFORM_ORDER.map((p): Creative => {
+          const found = byPlatform.get(p);
+          if (found) {
+            const hasContent = Boolean(
+              found.copy_text || found.headline || found.subject_line
+            );
+            return { ...found, status: hasContent ? "ready" : "failed" };
+          }
+          return {
+            id: `placeholder-${p}`,
+            platform: p,
+            headline: null,
+            copy_text: null,
+            subject_line: null,
+            status: "failed",
+          };
+        }),
+        ...rows
+          .filter((r) => !PLATFORM_ORDER.includes(r.platform))
+          .map((r) => ({ ...r, status: "ready" as CreativeStatus })),
       ];
       setCreatives(ordered);
 
@@ -284,8 +377,24 @@ export default function CampaignDetail() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary" size={32} />
+      <div className="flex flex-col min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="max-w-5xl w-full mx-auto px-4 md:px-6 py-6">
+          <div className="flex items-center gap-1.5 text-[12px] font-ui text-muted-foreground mb-4">
+            <ArrowLeft size={14} /> Back to campaigns
+          </div>
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-7 w-1/2 rounded bg-muted animate-pulse" />
+              <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-8 w-32 rounded-md bg-muted animate-pulse flex-shrink-0" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {PLATFORM_ORDER.map((p) => (
+              <SkeletonCard key={p} platform={p} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -352,11 +461,10 @@ export default function CampaignDetail() {
 
         {/* Creatives grid */}
         {regenerating ? (
-          <div className="text-center py-16">
-            <Loader2 className="animate-spin text-primary mx-auto mb-3" size={32} />
-            <p className="font-ui text-[13px] text-muted-foreground">
-              Regenerating all 8 creatives...
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {PLATFORM_ORDER.map((p) => (
+              <SkeletonCard key={p} platform={p} />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
