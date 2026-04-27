@@ -20,7 +20,6 @@ import {
   Hand,
   Maximize2,
   GripVertical,
-  Loader2,
   Check,
 } from "lucide-react";
 import html2canvas from "html2canvas";

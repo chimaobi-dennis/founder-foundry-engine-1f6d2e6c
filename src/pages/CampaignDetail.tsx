@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Copy,
   Check,
-  Loader2,
   RefreshCw,
   Download,
   Bookmark,
