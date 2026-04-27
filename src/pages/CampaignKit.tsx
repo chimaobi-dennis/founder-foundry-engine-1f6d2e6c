@@ -22,7 +22,7 @@ import {
   lagosHeadlines,
 } from "@/components/campaignkit/types";
 import { Download, Bookmark, ArrowLeft } from "lucide-react";
-import { createCampaign, generateCampaignCreatives, getCampaignWithCreatives } from "@/services/campaignService";
+import { createCampaign, getCampaignWithCreatives } from "@/services/campaignService";
 import { supabase } from "@/integrations/supabase/client";
 
 const db = supabase as any;
@@ -55,7 +55,8 @@ const CampaignKit = () => {
   const navigate = useNavigate();
   const isRoast = activeBrand?.id === "1";
 
-  const [state, setState] = useState<"home" | "brief" | "results" | "generating">("home");
+  const [state, setState] = useState<"home" | "brief" | "results">("home");
+  const [submitting, setSubmitting] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<{ id: string | null; type: 'output' | 'product_image' | null }>({ id: null, type: null });
   const [brief, setBrief] = useState<BriefData>(getRoastBrief());
   const [activeTab, setActiveTab] = useState<PlatformTab>("Instagram");
@@ -82,22 +83,6 @@ const CampaignKit = () => {
     }
   }, [campaignId]);
 
-  // Cycle loading messages during generation
-  useEffect(() => {
-    if (state === "generating") {
-      const messages = [
-        "Saving your campaign brief...",
-        "Writing Instagram copy...",
-        "Crafting your email...",
-        "Building 8 platform creatives...",
-        "Almost ready..."
-      ];
-      const interval = setInterval(() => {
-        setLoadingMessage((prev) => (prev + 1) % messages.length);
-      }, 1500);
-      return () => clearInterval(interval);
-    }
-  }, [state]);
 
   const loadCampaign = async (id: string) => {
     try {
