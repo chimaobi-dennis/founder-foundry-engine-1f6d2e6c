@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { safeCopyToClipboard } from "@/lib/clipboard";
 
 export interface ChoicePrompt {
   id: string;

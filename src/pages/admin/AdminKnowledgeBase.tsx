@@ -9,6 +9,7 @@ import {
 } from "@/services/aiService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { safeCopyToClipboard } from "@/lib/clipboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";

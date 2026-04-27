@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { safeCopyToClipboard } from "@/lib/clipboard";
 import {
   ArrowLeft,
   Copy,
