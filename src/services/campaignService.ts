@@ -186,6 +186,111 @@ Return a JSON object with exactly these keys:
 }
 
 /**
+ * Regenerate copy for a single platform within a campaign.
+ * Updates only that platform's row in campaign_creatives.
+ */
+export async function regenerateCampaignPlatform(
+  campaignId: string,
+  platform: string,
+  brief: any,
+  brandDna: any
+) {
+  const platformLabels: Record<string, string> = {
+    headlines: 'Headlines (a list of 5 short campaign headlines)',
+    instagram: 'Instagram caption',
+    facebook_ad: 'Facebook Ad copy',
+    google_ad: 'Google Search Ad (headline + description)',
+    email: 'Email (subject line + body)',
+    whatsapp: 'WhatsApp message',
+    twitter_x: 'Twitter / X post (under 280 characters)',
+    sms: 'SMS message (under 160 characters)',
+  };
+
+  const systemPrompt = `You are an expert brand copywriter. Generate platform-specific marketing copy for ONE platform: ${platformLabels[platform] || platform}.
+Return ONLY valid JSON — no markdown, no explanation.
+
+BRAND: ${brief.product_name || brief.productName || ''}
+TARGET AUDIENCE: ${brief.target_audience || brief.targetAudience || ''}
+CAMPAIGN GOAL: ${brief.campaign_goal || brief.campaignGoal || ''}
+KEY BENEFIT: ${brief.key_benefit || brief.keyBenefit || ''}
+TONE: ${brief.tone || ''}
+CALL TO ACTION: ${brief.call_to_action || brief.callToAction || ''}
+
+BRAND CONTEXT:
+- Voice: ${brandDna?.brand_voice || 'Not yet defined'}
+- Positioning: ${brandDna?.positioning_statement || 'Not yet defined'}
+- Customer insight: ${brandDna?.customer_insight || 'Not yet defined'}
+
+Return a JSON object with exactly these keys:
+{ "headline": "...", "copy_text": "...", "subject_line": "" }
+For platforms without a headline (whatsapp, twitter_x, sms), set headline to "".
+For email, fill subject_line. For others, set subject_line to "".`;
+
+  const result = await callAI({
+    taskType: 'campaign_copy',
+    messages: [{ role: 'user', content: `Generate the ${platform} creative now. Return only the JSON object.` }],
+    systemPrompt,
+    maxTokens: 800
+  });
+
+  if (!result.success || !result.text) throw new Error(result.error || 'Generation failed');
+
+  let creative: any;
+  try {
+    const clean = result.text.replace(/```json|```/g, '').trim();
+    creative = JSON.parse(clean);
+  } catch {
+    throw new Error('Failed to parse AI response as JSON');
+  }
+
+  // Upsert: try update first, fall back to insert
+  const { data: existing } = await db
+    .from('campaign_creatives')
+    .select('id')
+    .eq('campaign_id', campaignId)
+    .eq('platform', platform)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const { error } = await db
+      .from('campaign_creatives')
+      .update({
+        headline: creative.headline || null,
+        copy_text: creative.copy_text || null,
+        subject_line: creative.subject_line || null,
+      })
+      .eq('id', existing.id);
+    if (error) throw error;
+    return { id: existing.id, ...creative };
+  } else {
+    const { data, error } = await db
+      .from('campaign_creatives')
+      .insert({
+        campaign_id: campaignId,
+        platform,
+        headline: creative.headline || null,
+        copy_text: creative.copy_text || null,
+        subject_line: creative.subject_line || null,
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return { id: data.id, ...creative };
+  }
+}
+
+/**
+ * Schedule a single creative to the calendar.
+ */
+export async function scheduleCreative(creativeId: string, scheduledAt: Date) {
+  const { error } = await db
+    .from('campaign_creatives')
+    .update({ scheduled_at: scheduledAt.toISOString() })
+    .eq('id', creativeId);
+  if (error) throw error;
+}
+
+/**
  * Get all campaigns for a brand with creative count
  */
 export async function getCampaigns(brandId: string) {
