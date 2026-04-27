@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Pencil, Loader2 } from "lucide-react";
+import { Sparkles, Pencil } from "lucide-react";
 import { BriefData, campaignGoals, toneOptions } from "./types";
 import { Input } from "@/components/ui/input";
 import { prefillCampaignBrief } from "@/services/campaignService";
@@ -60,10 +60,7 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
       <div className="mb-4">
         <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1.5 block">Campaign name</label>
         {prefilling ? (
-          <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
-            <Loader2 size={14} className="animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Loading from your brand...</span>
-          </div>
+          <div className="h-10 rounded-md bg-muted animate-pulse" />
         ) : (
           <Input
             value={campaignName}
@@ -82,10 +79,7 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
         <div>
           <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1.5 block">Product name</label>
           {prefilling ? (
-            <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
-              <Loader2 size={14} className="animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Loading...</span>
-            </div>
+            <div className="h-10 rounded-md bg-muted animate-pulse" />
           ) : (
             <Input value={brief.productName} onChange={(e) => set("productName", e.target.value)} />
           )}
@@ -96,10 +90,7 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
         <div>
           <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1.5 block">Target audience</label>
           {prefilling ? (
-            <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
-              <Loader2 size={14} className="animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Loading...</span>
-            </div>
+            <div className="h-10 rounded-md bg-muted animate-pulse" />
           ) : (
             <Input value={brief.targetAudience} onChange={(e) => set("targetAudience", e.target.value)} />
           )}
@@ -110,10 +101,7 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
         <div>
           <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1.5 block">Campaign goal</label>
           {prefilling ? (
-            <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
-              <Loader2 size={14} className="animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Loading...</span>
-            </div>
+            <div className="h-10 rounded-md bg-muted animate-pulse" />
           ) : (
             <select
               value={brief.campaignGoal}
@@ -128,10 +116,7 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
         <div>
           <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1.5 block">Tone</label>
           {prefilling ? (
-            <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
-              <Loader2 size={14} className="animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Loading...</span>
-            </div>
+            <div className="h-10 rounded-md bg-muted animate-pulse" />
           ) : (
             <select
               value={brief.tone}
@@ -146,10 +131,7 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
         <div>
           <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-1.5 block">Key benefit</label>
           {prefilling ? (
-            <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
-              <Loader2 size={14} className="animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Loading...</span>
-            </div>
+            <div className="h-10 rounded-md bg-muted animate-pulse" />
           ) : (
             <Input value={brief.keyBenefit} onChange={(e) => set("keyBenefit", e.target.value)} />
           )}
@@ -166,10 +148,7 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
         className="w-full h-12 mt-6 rounded-lg bg-primary text-primary-foreground font-ui text-[14px] font-medium flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {prefilling ? (
-          <>
-            <Loader2 size={16} className="animate-spin" />
-            Loading...
-          </>
+          <span className="inline-block h-3 w-32 rounded bg-primary-foreground/30 animate-pulse" />
         ) : (
           <>
             <Sparkles size={16} />
