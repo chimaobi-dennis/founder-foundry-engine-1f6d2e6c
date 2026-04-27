@@ -137,7 +137,7 @@ const CampaignKit = () => {
       return;
     }
 
-    setSubmitting(true);
+    
 
     try {
       // Create campaign
@@ -165,7 +165,6 @@ const CampaignKit = () => {
     } catch (error: any) {
       console.error('Failed to create campaign:', error);
       setError(error.message || 'Failed to create campaign');
-      setSubmitting(false);
     }
   };
 
