@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
+import { getCampaigns } from "@/services/campaignService";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CampaignSummary {
   id: string;
@@ -14,63 +17,41 @@ interface CampaignSummary {
   date: string;
 }
 
-const campaigns: CampaignSummary[] = [
-  {
-    id: "c1",
-    name: "Stockholm Launch — First Purchase Drive",
-    goalTone: "Drive first purchase · Confident and warm",
-    assetColor: "#2D4A3E",
-    platforms: [
-      { color: "#E1306C" },
-      { color: "#4267B2" },
-      { color: "#128C7E" },
-      { color: "#1DA1F2" },
-    ],
-    status: "Active",
-    statusBg: "rgba(26, 58, 26, 0.8)",
-    statusColor: "#4ADE80",
-    creatives: "8 creatives",
-    date: "Created 5 days ago",
-  },
-  {
-    id: "c2",
-    name: "Social Proof — Brand Awareness",
-    goalTone: "Build awareness · Minimal and considered",
-    assetColor: "#1A2A3A",
-    platforms: [
-      { color: "#E1306C" },
-      { color: "#4267B2" },
-      { color: "#1DA1F2" },
-    ],
-    status: "Scheduled",
-    statusBg: "rgba(45, 74, 62, 0.3)",
-    statusColor: "#2D4A3E",
-    creatives: "6 creatives",
-    date: "Created 2 weeks ago",
-  },
-  {
-    id: "c3",
-    name: "Product Feature — Daily Stack",
-    goalTone: "Launch product · Bold and direct",
-    assetColor: "#1A3A38",
-    platforms: [
-      { color: "#E1306C" },
-      { color: "#4285F4" },
-      { color: "#EA4335" },
-    ],
-    status: "Completed",
-    statusBg: "rgba(42, 42, 42, 0.8)",
-    statusColor: "#8A96A3",
-    creatives: "6 creatives",
-    date: "Created 1 month ago",
-  },
-];
+const platformColors: Record<string, string> = {
+  headlines: "hsl(43,78%,46%)",
+  instagram: "#E1306C",
+  facebook_ad: "#4267B2",
+  google_ad: "#4285F4",
+  email: "#EA4335",
+  whatsapp: "#128C7E",
+  twitter_x: "#1DA1F2",
+  sms: "#6B7280",
+};
 
-const stats = [
-  { value: "12", label: "Campaigns created" },
-  { value: "96", label: "Creatives generated" },
-  { value: "3", label: "Campaigns this month" },
-];
+const getStatusStyles = (status: string) => {
+  switch (status) {
+    case 'active':
+      return { bg: "rgba(26, 58, 26, 0.8)", color: "#4ADE80" };
+    case 'scheduled':
+      return { bg: "rgba(45, 74, 62, 0.3)", color: "#2D4A3E" };
+    case 'completed':
+      return { bg: "rgba(42, 42, 42, 0.8)", color: "#8A96A3" };
+    default:
+      return { bg: "rgba(42, 42, 42, 0.5)", color: "#8A96A3" };
+  }
+};
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Created today";
+  if (diffDays === 1) return "Created yesterday";
+  if (diffDays < 7) return `Created ${diffDays} days ago`;
+  if (diffDays < 30) return `Created ${Math.floor(diffDays / 7)} weeks ago`;
+  return `Created ${Math.floor(diffDays / 30)} months ago`;
+};
 
 interface Props {
   onNewCampaign: () => void;
@@ -79,6 +60,86 @@ interface Props {
 
 export function CampaignHome({ onNewCampaign, onViewCampaign }: Props) {
   const { activeBrand } = useBrand();
+  const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
+  const [stats, setStats] = useState({ total: 0, creatives: 0, thisMonth: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      if (!activeBrand?.id) return;
+
+      try {
+        const data = await getCampaigns(activeBrand.id);
+        const now = new Date();
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const campaignSummaries: CampaignSummary[] = data.map((c: any) => {
+          const creativeCount = c.campaign_creatives?.length || 0;
+          const platformKeys = c.campaign_creatives?.map((cc: any) => cc.platform) || [];
+          const platforms = platformKeys.slice(0, 4).map((p: string) => ({
+            color: platformColors[p] || "#6B7280"
+          }));
+
+          const statusStyles = getStatusStyles(c.status || 'active');
+
+          return {
+            id: c.id,
+            name: c.name,
+            goalTone: `${c.campaign_goal} · ${c.tone}`,
+            assetColor: "#1A2A3A",
+            platforms,
+            status: c.status || 'Active',
+            statusBg: statusStyles.bg,
+            statusColor: statusStyles.color,
+            creatives: `${creativeCount} creative${creativeCount !== 1 ? 's' : ''}`,
+            date: formatDate(c.created_at),
+          };
+        });
+
+        setCampaigns(campaignSummaries);
+
+        // Calculate stats
+        const totalCampaigns = data.length;
+        const totalCreatives = data.reduce((sum: number, c: any) => sum + (c.campaign_creatives?.length || 0), 0);
+        const thisMonthCampaigns = data.filter((c: any) => new Date(c.created_at) >= thisMonthStart).length;
+
+        setStats({
+          total: totalCampaigns,
+          creatives: totalCreatives,
+          thisMonth: thisMonthCampaigns,
+        });
+      } catch (error) {
+        console.error('Failed to load campaigns:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCampaigns();
+  }, [activeBrand?.id]);
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="font-display text-2xl text-foreground">Campaigns</h1>
+            <p className="text-[13px] font-ui text-muted-foreground mt-1">
+              {activeBrand?.name || "Brand"}
+            </p>
+          </div>
+          <button
+            onClick={onNewCampaign}
+            className="h-12 px-6 rounded-lg bg-primary text-primary-foreground font-ui text-[14px] font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors"
+          >
+            <Plus size={18} />
+            New campaign
+          </button>
+        </div>
+        <div className="text-center py-12 text-muted-foreground">Loading campaigns...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-6">
@@ -167,19 +228,30 @@ export function CampaignHome({ onNewCampaign, onViewCampaign }: Props) {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="rounded-lg bg-muted/50 p-4"
-          >
-            <p className="text-2xl font-ui font-medium text-foreground">
-              {s.value}
-            </p>
-            <p className="text-[11px] font-ui text-muted-foreground mt-1">
-              {s.label}
-            </p>
-          </div>
-        ))}
+        <div className="rounded-lg bg-muted/50 p-4">
+          <p className="text-2xl font-ui font-medium text-foreground">
+            {stats.total}
+          </p>
+          <p className="text-[11px] font-ui text-muted-foreground mt-1">
+            Campaigns created
+          </p>
+        </div>
+        <div className="rounded-lg bg-muted/50 p-4">
+          <p className="text-2xl font-ui font-medium text-foreground">
+            {stats.creatives}
+          </p>
+          <p className="text-[11px] font-ui text-muted-foreground mt-1">
+            Creatives generated
+          </p>
+        </div>
+        <div className="rounded-lg bg-muted/50 p-4">
+          <p className="text-2xl font-ui font-medium text-foreground">
+            {stats.thisMonth}
+          </p>
+          <p className="text-[11px] font-ui text-muted-foreground mt-1">
+            Campaigns this month
+          </p>
+        </div>
       </div>
     </div>
   );

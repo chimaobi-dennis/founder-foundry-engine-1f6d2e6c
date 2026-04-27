@@ -74,6 +74,8 @@ export async function createCampaign(
     tone: string;
     key_benefit: string;
     call_to_action: string;
+    asset_id?: string;
+    asset_type?: 'output' | 'product_image';
   }
 ) {
   const { data, error } = await db
@@ -81,7 +83,15 @@ export async function createCampaign(
     .insert({
       brand_id: brandId,
       user_id: userId,
-      ...brief,
+      name: brief.name,
+      product_name: brief.product_name,
+      target_audience: brief.target_audience,
+      campaign_goal: brief.campaign_goal,
+      tone: brief.tone,
+      key_benefit: brief.key_benefit,
+      call_to_action: brief.call_to_action,
+      asset_id: brief.asset_id || null,
+      asset_type: brief.asset_type || null,
       status: 'active'
     })
     .select('id')
