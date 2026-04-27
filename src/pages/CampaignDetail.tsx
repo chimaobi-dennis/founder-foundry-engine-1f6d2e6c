@@ -25,16 +25,26 @@ const db = supabase as any;
 
 const platformMeta: Record<
   string,
-  { name: string; icon: any; color: string }
+  { name: string; icon: any; background: string }
 > = {
-  headlines: { name: "Headlines", icon: Megaphone, color: "hsl(43,78%,46%)" },
-  instagram: { name: "Instagram", icon: Instagram, color: "#E1306C" },
-  facebook_ad: { name: "Facebook Ad", icon: Facebook, color: "#4267B2" },
-  google_ad: { name: "Google Ad", icon: Search, color: "#4285F4" },
-  email: { name: "Email", icon: Mail, color: "#EA4335" },
-  whatsapp: { name: "WhatsApp", icon: MessageSquare, color: "#128C7E" },
-  twitter_x: { name: "Twitter / X", icon: Twitter, color: "#1DA1F2" },
-  sms: { name: "SMS", icon: Smartphone, color: "#6B7280" },
+  headlines: { name: "Headlines", icon: Megaphone, background: "#D4A017" },
+  instagram: {
+    name: "Instagram",
+    icon: Instagram,
+    background:
+      "linear-gradient(135deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)",
+  },
+  facebook_ad: { name: "Facebook Ad", icon: Facebook, background: "#1877F2" },
+  google_ad: {
+    name: "Google Ad",
+    icon: Search,
+    background:
+      "conic-gradient(from 90deg at 50% 50%, #4285F4 0deg, #4285F4 90deg, #34A853 90deg, #34A853 180deg, #FBBC05 180deg, #FBBC05 270deg, #EA4335 270deg, #EA4335 360deg)",
+  },
+  email: { name: "Email", icon: Mail, background: "#EA4335" },
+  whatsapp: { name: "WhatsApp", icon: MessageSquare, background: "#25D366" },
+  twitter_x: { name: "Twitter / X", icon: Twitter, background: "#000000" },
+  sms: { name: "SMS", icon: Smartphone, background: "#6B7280" },
 };
 
 const PLATFORM_ORDER = [
@@ -66,7 +76,7 @@ const CreativeCard = ({
   const meta = platformMeta[creative.platform] ?? {
     name: creative.platform,
     icon: Megaphone,
-    color: "hsl(var(--muted-foreground))",
+    background: "hsl(var(--muted-foreground))",
   };
   const Icon = meta.icon;
 
@@ -105,44 +115,54 @@ const CreativeCard = ({
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 flex flex-col">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm hover:shadow-md transition-shadow">
+      {/* Platform header */}
+      <div className="flex items-center gap-3 mb-4">
         <span
-          className="w-7 h-7 rounded-md flex items-center justify-center text-white"
-          style={{ backgroundColor: meta.color }}
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
+          style={{ background: meta.background }}
         >
-          <Icon size={14} />
+          <Icon size={18} strokeWidth={2} />
         </span>
-        <h3 className="font-display text-[15px] text-foreground">{meta.name}</h3>
+        <h3 className="font-display text-base font-bold text-foreground">
+          {meta.name}
+        </h3>
       </div>
 
+      {/* Subject (email) */}
+      {creative.subject_line && (
+        <p className="text-[11px] font-ui font-semibold uppercase tracking-wider mb-3" style={{ color: "#D4A017" }}>
+          Subject:{" "}
+          <span className="text-foreground/90 normal-case tracking-normal font-medium">
+            {creative.subject_line}
+          </span>
+        </p>
+      )}
+
+      {/* Headline */}
       {creative.headline && (
-        <p className="font-display text-[16px] text-foreground font-semibold mb-2 leading-snug">
+        <p className="font-display text-xl text-foreground font-bold mb-3 leading-tight">
           {creative.headline}
         </p>
       )}
 
-      {creative.subject_line && (
-        <p className="text-[12px] font-ui text-primary uppercase tracking-wider mb-2">
-          Subject: {creative.subject_line}
-        </p>
-      )}
-
+      {/* Copy body */}
       {editing ? (
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          className="w-full min-h-[140px] text-[13px] font-ui text-foreground bg-background border border-input rounded-md p-3 outline-none focus:ring-2 focus:ring-ring resize-y"
+          className="w-full min-h-[160px] text-[14px] font-ui text-foreground bg-background border border-input rounded-lg p-3 outline-none focus:ring-2 focus:ring-ring resize-y leading-relaxed"
         />
       ) : (
-        <p className="text-[13px] font-ui text-foreground/90 whitespace-pre-wrap flex-1 leading-relaxed">
+        <p className="text-[14px] font-ui text-foreground/85 whitespace-pre-wrap flex-1 leading-relaxed">
           {creative.copy_text || (
             <span className="text-muted-foreground italic">No copy generated</span>
           )}
         </p>
       )}
 
-      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+      {/* Actions */}
+      <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border">
         <button
           onClick={handleCopy}
           disabled={!creative.copy_text}
