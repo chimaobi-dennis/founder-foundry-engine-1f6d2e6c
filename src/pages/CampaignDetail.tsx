@@ -461,11 +461,10 @@ export default function CampaignDetail() {
 
         {/* Creatives grid */}
         {regenerating ? (
-          <div className="text-center py-16">
-            <Loader2 className="animate-spin text-primary mx-auto mb-3" size={32} />
-            <p className="font-ui text-[13px] text-muted-foreground">
-              Regenerating all 8 creatives...
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {PLATFORM_ORDER.map((p) => (
+              <SkeletonCard key={p} platform={p} />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
