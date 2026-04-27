@@ -212,10 +212,18 @@ export default function CampaignDetail() {
       setCampaign(data);
       const rows: Creative[] = data.campaign_creatives ?? [];
       const byPlatform = new Map(rows.map((r) => [r.platform, r]));
-      // Render in the canonical platform order, including any extras at the end
+      // Always render all 8 platforms in canonical order, with placeholders
+      // for any that didn't generate. Append unknown platforms at the end.
       const ordered: Creative[] = [
-        ...PLATFORM_ORDER.map((p) => byPlatform.get(p)).filter(
-          (c): c is Creative => Boolean(c)
+        ...PLATFORM_ORDER.map(
+          (p): Creative =>
+            byPlatform.get(p) ?? {
+              id: `placeholder-${p}`,
+              platform: p,
+              headline: null,
+              copy_text: null,
+              subject_line: null,
+            }
         ),
         ...rows.filter((r) => !PLATFORM_ORDER.includes(r.platform)),
       ];
