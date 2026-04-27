@@ -108,6 +108,7 @@ const App = () => (
                         <Route path="/pro-studio" element={<ProStudio />} />
                         <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
                         <Route path="/campaign-kit" element={<CampaignKit />} />
+                        <Route path="/campaign-kit/:campaignId" element={<CampaignDetail />} />
                         <Route path="/content-calendar" element={<ContentCalendar />} />
                         <Route path="/library" element={<Library />} />
                         <Route path="/doc-studio" element={<DocStudio />} />
