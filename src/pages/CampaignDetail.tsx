@@ -170,20 +170,27 @@ function VisualCreativeCard({
   brandName,
   cta,
   status,
+  fillHeight = false,
 }: {
   meta: PlatformMeta;
   creative: Creative;
   brandName: string;
   cta: string;
   status: CreativeStatus;
+  fillHeight?: boolean;
 }) {
   const Icon = meta.icon;
+
+  const sizingStyle: React.CSSProperties = fillHeight
+    ? { minHeight: "100%" }
+    : { aspectRatio: "4/5" };
+  const sizingClass = fillHeight ? "h-full min-h-[560px]" : "";
 
   if (status === "generating") {
     return (
       <div
-        className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm flex items-center justify-center"
-        style={{ aspectRatio: "4/5", background: "hsl(var(--muted))" }}
+        className={`relative w-full rounded-2xl overflow-hidden border border-border shadow-sm flex items-center justify-center ${sizingClass}`}
+        style={{ ...sizingStyle, background: "hsl(var(--muted))" }}
       >
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/60 to-muted" />
         <div className="relative flex flex-col items-center gap-3 text-muted-foreground">
@@ -210,8 +217,8 @@ function VisualCreativeCard({
 
     return (
       <div
-        className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 flex flex-col"
-        style={{ background: meta.background, color: meta.foreground, aspectRatio: "4/5" }}
+        className={`relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 md:p-10 flex flex-col animate-fade-in ${sizingClass}`}
+        style={{ ...sizingStyle, background: meta.background, color: meta.foreground }}
       >
         <div className="flex items-center justify-between mb-6">
           <Icon size={22} />
@@ -239,8 +246,8 @@ function VisualCreativeCard({
 
   return (
     <div
-      className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 md:p-10 flex flex-col"
-      style={{ background: meta.background, color: meta.foreground, aspectRatio: "4/5" }}
+      className={`relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 md:p-12 flex flex-col animate-fade-in ${sizingClass}`}
+      style={{ ...sizingStyle, background: meta.background, color: meta.foreground }}
     >
       {/* Top row: icon + brand */}
       <div className="flex items-center justify-between">
@@ -250,10 +257,10 @@ function VisualCreativeCard({
         </span>
       </div>
 
-      {/* Centre: headline */}
-      <div className="flex-1 flex items-center justify-center text-center">
+      {/* Centre: headline (large, prominent) */}
+      <div className="flex-1 flex items-center justify-center text-center py-8">
         <p
-          className="font-display font-bold leading-[1.1] text-3xl md:text-4xl"
+          className="font-display font-bold leading-[1.05] text-3xl md:text-5xl lg:text-6xl"
           style={{ color: meta.foreground }}
         >
           {creative.headline ||
@@ -272,9 +279,9 @@ function VisualCreativeCard({
       )}
 
       {/* Bottom: CTA */}
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center mt-auto">
         <span
-          className="inline-flex items-center px-5 py-2.5 rounded-full text-[13px] font-ui font-semibold"
+          className="inline-flex items-center px-6 py-3 rounded-full text-[14px] font-ui font-semibold"
           style={{ background: meta.ctaBg, color: meta.ctaFg }}
         >
           {cta || "Learn more"} →
