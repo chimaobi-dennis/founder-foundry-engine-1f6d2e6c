@@ -425,6 +425,7 @@ function CopyPanel({
   onSchedule,
   onSaveLibrary,
   onDownload,
+  onPreview,
 }: {
   meta: PlatformMeta;
   creative: Creative;
@@ -435,6 +436,7 @@ function CopyPanel({
   onSchedule: (date: Date) => void;
   onSaveLibrary: () => void;
   onDownload: () => void;
+  onPreview: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showScheduler, setShowScheduler] = useState(false);
