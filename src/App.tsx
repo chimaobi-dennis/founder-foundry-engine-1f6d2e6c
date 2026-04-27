@@ -19,6 +19,7 @@ import ContentCalendar from "./pages/ContentCalendar";
 import ProStudio from "./pages/ProStudio";
 import ProStudioEditor from "./pages/ProStudioEditor";
 import CampaignKit from "./pages/CampaignKit";
+import CampaignDetail from "./pages/CampaignDetail";
 import Library from "./pages/Library";
 import BrandDNA from "./pages/BrandDNA";
 import SettingsAIModels from "./pages/SettingsAIModels";
