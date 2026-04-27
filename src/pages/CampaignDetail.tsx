@@ -525,22 +525,31 @@ function CopyPanel({
         <span>{wordCount} words</span>
         <span>·</span>
         <span>{charCount} chars</span>
-        {editing && (
+        <div className="ml-auto flex items-center gap-3">
+          {editing ? (
+            <button
+              onClick={handleSaveEdit}
+              className="text-primary hover:underline"
+            >
+              Save edit
+            </button>
+          ) : (
+            text && (
+              <button
+                onClick={() => setEditing(true)}
+                className="text-primary hover:underline"
+              >
+                Edit text
+              </button>
+            )
+          )}
           <button
-            onClick={handleSaveEdit}
-            className="ml-auto text-primary hover:underline"
+            onClick={onPreview}
+            className="text-primary hover:underline inline-flex items-center gap-1"
           >
-            Save edit
+            <Eye size={11} /> Preview
           </button>
-        )}
-        {!editing && text && (
-          <button
-            onClick={() => setEditing(true)}
-            className="ml-auto text-primary hover:underline"
-          >
-            Edit text
-          </button>
-        )}
+        </div>
       </div>
 
       {/* Actions */}
