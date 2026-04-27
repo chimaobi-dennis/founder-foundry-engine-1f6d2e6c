@@ -58,12 +58,91 @@ const PLATFORM_ORDER = [
   "sms",
 ];
 
+type CreativeStatus = "generating" | "ready" | "failed";
+
 interface Creative {
   id: string;
   platform: string;
   headline: string | null;
   copy_text: string | null;
   subject_line: string | null;
+  status?: CreativeStatus;
+}
+
+const PLATFORM_LABELS: Record<string, string> = {
+  headlines: "Headlines",
+  instagram: "Instagram",
+  facebook_ad: "Facebook Ad",
+  google_ad: "Google Ad",
+  email: "Email",
+  whatsapp: "WhatsApp",
+  twitter_x: "Twitter / X",
+  sms: "SMS",
+};
+
+function StatusBadge({ status }: { status: CreativeStatus }) {
+  const map: Record<CreativeStatus, { label: string; classes: string; dot: string }> = {
+    generating: {
+      label: "Generating",
+      classes: "bg-primary/10 text-primary border-primary/20",
+      dot: "bg-primary animate-pulse",
+    },
+    ready: {
+      label: "Ready",
+      classes: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+      dot: "bg-emerald-500",
+    },
+    failed: {
+      label: "Failed",
+      classes: "bg-destructive/10 text-destructive border-destructive/20",
+      dot: "bg-destructive",
+    },
+  };
+  const m = map[status];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-[10px] font-ui font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${m.classes}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
+      {m.label}
+    </span>
+  );
+}
+
+function SkeletonCard({ platform }: { platform: string }) {
+  const meta = platformMeta[platform] ?? {
+    name: PLATFORM_LABELS[platform] ?? platform,
+    icon: Megaphone,
+    background: "hsl(var(--muted-foreground))",
+  };
+  const Icon = meta.icon;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm opacity-70"
+            style={{ background: meta.background }}
+          >
+            <Icon size={18} strokeWidth={2} />
+          </span>
+          <h3 className="font-display text-base font-bold text-foreground">{meta.name}</h3>
+        </div>
+        <StatusBadge status="generating" />
+      </div>
+      <div className="space-y-2.5 flex-1">
+        <div className="h-5 w-3/4 rounded bg-muted animate-pulse" />
+        <div className="h-3 w-full rounded bg-muted animate-pulse" />
+        <div className="h-3 w-full rounded bg-muted animate-pulse" />
+        <div className="h-3 w-5/6 rounded bg-muted animate-pulse" />
+        <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
+      </div>
+      <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border">
+        <div className="h-7 w-16 rounded-md bg-muted animate-pulse" />
+        <div className="h-7 w-14 rounded-md bg-muted animate-pulse" />
+      </div>
+    </div>
+  );
 }
 
 const CreativeCard = ({
