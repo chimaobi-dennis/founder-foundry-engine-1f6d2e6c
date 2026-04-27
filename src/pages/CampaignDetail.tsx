@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,10 @@ import {
   Smartphone,
   Megaphone,
   Archive,
+  Eye,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   getCampaignWithCreatives,
