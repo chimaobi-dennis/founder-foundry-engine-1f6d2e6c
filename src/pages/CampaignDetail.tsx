@@ -210,11 +210,16 @@ export default function CampaignDetail() {
     try {
       const data = await getCampaignWithCreatives(campaignId);
       setCampaign(data);
-      const sorted = [...(data.campaign_creatives ?? [])].sort(
-        (a: Creative, b: Creative) =>
-          PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform)
-      );
-      setCreatives(sorted);
+      const rows: Creative[] = data.campaign_creatives ?? [];
+      const byPlatform = new Map(rows.map((r) => [r.platform, r]));
+      // Render in the canonical platform order, including any extras at the end
+      const ordered: Creative[] = [
+        ...PLATFORM_ORDER.map((p) => byPlatform.get(p)).filter(
+          (c): c is Creative => Boolean(c)
+        ),
+        ...rows.filter((r) => !PLATFORM_ORDER.includes(r.platform)),
+      ];
+      setCreatives(ordered);
 
       // Load thumbnail for selected asset if any
       if (data.asset_id && data.asset_type) {
