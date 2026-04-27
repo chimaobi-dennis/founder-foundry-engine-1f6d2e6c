@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Layers } from "lucide-react";
+import { Layers } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
 import { getBrandOutputs } from "@/services/templateService";
 
@@ -93,9 +93,10 @@ export function LibraryGeneratedSessions() {
 
   if (loading) {
     return (
-      <div className="px-6 mt-7 flex items-center gap-2 text-muted-foreground text-[12px] font-ui">
-        <Loader2 size={14} className="animate-spin" />
-        Loading saved designs…
+      <div className="px-6 mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="aspect-square rounded-lg bg-muted animate-pulse" />
+        ))}
       </div>
     );
   }

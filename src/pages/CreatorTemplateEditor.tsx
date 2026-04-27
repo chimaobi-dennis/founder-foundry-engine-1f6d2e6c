@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { CreatorTemplateEditorSkeleton } from "@/components/skeletons/PageSkeletons";
 import { FadeIn } from "@/components/FadeIn";
-import { ArrowLeft, Upload, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -254,7 +254,7 @@ export default function CreatorTemplateEditor() {
           <div className="flex flex-wrap gap-3">
             {isEditable && (
               <button onClick={handleSave} disabled={saving || !form.name} className="h-11 px-6 rounded-lg bg-primary text-primary-foreground font-ui text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
-                {saving && <Loader2 size={14} className="animate-spin" />}
+                {saving && <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />}
                 {isNew ? "Create template" : "Save changes"}
               </button>
             )}

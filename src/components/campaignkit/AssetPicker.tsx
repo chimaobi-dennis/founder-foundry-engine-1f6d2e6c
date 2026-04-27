@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/hooks/use-brand";
 import { getBrandOutputs } from "@/services/templateService";
@@ -116,10 +116,8 @@ export function AssetPicker({ selectedId, selectedType, onSelect, onSkip }: Prop
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="w-[120px] h-[120px] rounded-lg bg-muted border border-border flex-shrink-0 flex items-center justify-center"
-            >
-              <Loader2 size={20} className="animate-spin text-muted-foreground" />
-            </div>
+              className="w-[120px] h-[120px] rounded-lg bg-muted animate-pulse flex-shrink-0"
+            />
           ))}
         </div>
       </div>

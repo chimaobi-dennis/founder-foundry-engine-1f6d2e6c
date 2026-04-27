@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2, Loader2 } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -1286,7 +1286,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                       >
                         {downloadingIdx === activeVariation ? (
                           <>
-                            <Loader2 size={14} className="animate-spin" /> Exporting…
+                            <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Exporting…
                           </>
                         ) : (
                           <>
@@ -1310,7 +1310,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                         >
                           {savingIdx === activeVariation ? (
                             <>
-                              <Loader2 size={14} className="animate-spin" /> Saving…
+                              <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…
                             </>
                           ) : (
                             <>Save to Library</>

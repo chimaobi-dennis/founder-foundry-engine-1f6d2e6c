@@ -21,7 +21,7 @@ import {
   roastHeadlines,
   lagosHeadlines,
 } from "@/components/campaignkit/types";
-import { Download, Bookmark, ArrowLeft, Loader2 } from "lucide-react";
+import { Download, Bookmark, ArrowLeft } from "lucide-react";
 import { createCampaign, generateCampaignCreatives, getCampaignWithCreatives } from "@/services/campaignService";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -212,9 +212,12 @@ const CampaignKit = () => {
             onViewCampaign={handleViewCampaign}
           />
         ) : state === "generating" ? (
-          <div className="max-w-3xl mx-auto px-4 md:px-6 py-12 text-center">
-            <Loader2 size={48} className="animate-spin mx-auto mb-4 text-primary" />
-            <h2 className="font-display text-xl text-foreground mb-2">
+          <div className="max-w-3xl mx-auto px-4 md:px-6 py-12">
+            <div className="mx-auto mb-6 w-full max-w-md space-y-3">
+              <div className="h-4 rounded bg-muted animate-pulse w-3/4 mx-auto" />
+              <div className="h-4 rounded bg-muted animate-pulse w-1/2 mx-auto" />
+            </div>
+            <h2 className="font-display text-xl text-foreground mb-2 text-center">
               {[
                 "Saving your campaign brief...",
                 "Writing Instagram copy...",
@@ -223,7 +226,7 @@ const CampaignKit = () => {
                 "Almost ready..."
               ][loadingMessage]}
             </h2>
-            <p className="text-[13px] font-ui text-muted-foreground">This may take a moment</p>
+            <p className="text-[13px] font-ui text-muted-foreground text-center">This may take a moment</p>
           </div>
         ) : state === "brief" ? (
           <div className="max-w-3xl mx-auto px-4 md:px-6 py-6">

@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { Image, Check, Loader2 } from "lucide-react";
+import { Image, Check } from "lucide-react";
 import { getAllTemplates, getTemplateDetail } from "@/services/adminService";
 import { getAllTemplatesAdmin, getTemplateDetailAdmin, updateTemplateAdmin } from "@/services/adminServiceSupabase";
 import { updateTemplate } from "@/services/templateService";

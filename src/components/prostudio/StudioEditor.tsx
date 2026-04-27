@@ -20,7 +20,6 @@ import {
   Hand,
   Maximize2,
   GripVertical,
-  Loader2,
   Check,
 } from "lucide-react";
 import html2canvas from "html2canvas";
@@ -529,7 +528,7 @@ export function StudioEditor({
             >
               {isExporting ? (
                 <>
-                  <Loader2 size={13} className="animate-spin" /> Exporting…
+                  <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Exporting…
                 </>
               ) : (
                 <>
@@ -552,7 +551,7 @@ export function StudioEditor({
               >
                 {isSaving ? (
                   <>
-                    <Loader2 size={13} className="animate-spin" /> Saving…
+                    <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…
                   </>
                 ) : (
                   <>

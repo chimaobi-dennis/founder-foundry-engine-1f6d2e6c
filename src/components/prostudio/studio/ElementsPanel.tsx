@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { getStudioElements } from "@/services/templateService";
@@ -89,8 +89,10 @@ export function ElementsPanel({ onInsert }: Props) {
 
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <Loader2 size={14} className="animate-spin" />
+          <div className="space-y-2 p-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-10 rounded-md bg-muted animate-pulse" />
+            ))}
           </div>
         ) : grouped.length === 0 ? (
           <p className="text-[11px] font-ui text-muted-foreground text-center px-4 py-6">

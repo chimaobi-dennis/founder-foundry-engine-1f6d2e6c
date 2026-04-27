@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, EyeOff, CheckCircle, Loader2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 function getStrength(pw: string): { level: number; label: string; color: string } {
@@ -126,7 +126,7 @@ export default function SignUp() {
               )}
 
               <button type="submit" disabled={!canSubmit || loading} className="w-full h-12 rounded-lg bg-primary text-primary-foreground font-ui text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 transition-colors">
-                {loading ? <><Loader2 size={16} className="animate-spin" /> Creating account...</> : "Create account"}
+                {loading ? <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Creating account...</> : "Create account"}
               </button>
             </form>
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Grid3X3, Star, BarChart3, Info, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Grid3X3, Star, BarChart3, Info, Check, Sparkles } from "lucide-react";
 import { useCreatorApplication } from "@/hooks/use-creator-application";
 import { cn } from "@/lib/utils";
 
@@ -192,7 +192,7 @@ export default function CreatorApply() {
       >
         {submitting ? (
           <>
-            <Loader2 size={16} className="animate-spin" />
+            <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />
             Submitting...
           </>
         ) : (
