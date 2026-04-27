@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Grid3X3, Star, BarChart3, Info, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Grid3X3, Star, BarChart3, Info, Check, Sparkles } from "lucide-react";
 import { useCreatorApplication } from "@/hooks/use-creator-application";
 import { cn } from "@/lib/utils";
 

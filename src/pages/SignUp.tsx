@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, EyeOff, CheckCircle, Loader2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 function getStrength(pw: string): { level: number; label: string; color: string } {

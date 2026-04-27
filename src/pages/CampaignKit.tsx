@@ -21,7 +21,7 @@ import {
   roastHeadlines,
   lagosHeadlines,
 } from "@/components/campaignkit/types";
-import { Download, Bookmark, ArrowLeft, Loader2 } from "lucide-react";
+import { Download, Bookmark, ArrowLeft } from "lucide-react";
 import { createCampaign, generateCampaignCreatives, getCampaignWithCreatives } from "@/services/campaignService";
 import { supabase } from "@/integrations/supabase/client";
 

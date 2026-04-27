@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { CreatorTemplateEditorSkeleton } from "@/components/skeletons/PageSkeletons";
 import { FadeIn } from "@/components/FadeIn";
-import { ArrowLeft, Upload, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";

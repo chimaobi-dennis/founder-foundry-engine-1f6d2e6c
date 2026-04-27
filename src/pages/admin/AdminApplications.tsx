@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { getAllApplications, approveCreator, rejectCreator } from "@/services/adminService";
 import { getAllApplicationsAdmin } from "@/services/adminServiceSupabase";
 import { toast } from "@/hooks/use-toast";
