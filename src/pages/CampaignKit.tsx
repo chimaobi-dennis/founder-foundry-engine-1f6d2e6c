@@ -184,8 +184,7 @@ const CampaignKit = () => {
       // Generate creatives
       await generateCampaignCreatives(newCampaignId, brief, brandDna);
 
-      // Load campaign data and navigate
-      await loadCampaign(newCampaignId);
+      // Navigate to detail page
       navigate(`/campaign-kit/${newCampaignId}`);
     } catch (error: any) {
       console.error('Failed to generate campaign:', error);
