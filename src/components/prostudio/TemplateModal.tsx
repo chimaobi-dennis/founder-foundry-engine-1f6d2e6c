@@ -1286,7 +1286,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                       >
                         {downloadingIdx === activeVariation ? (
                           <>
-                            <Loader2 size={14} className="animate-spin" /> Exporting…
+                            <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Exporting…
                           </>
                         ) : (
                           <>
@@ -1310,7 +1310,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                         >
                           {savingIdx === activeVariation ? (
                             <>
-                              <Loader2 size={14} className="animate-spin" /> Saving…
+                              <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…
                             </>
                           ) : (
                             <>Save to Library</>
