@@ -1099,16 +1099,6 @@ export default function CampaignDetail() {
             Regenerate all
           </button>
         </div>
-            className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {regenAll ? (
-              <span className="h-2 w-2 rounded-full bg-current/40 animate-pulse" />
-            ) : (
-              <RefreshCw size={12} />
-            )}
-            Regenerate all
-          </button>
-        </div>
 
         {/* Platform tab strip */}
         <div className="border-b border-border mb-6 -mx-1 px-1 overflow-x-auto">
