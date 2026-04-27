@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { safeCopyToClipboard } from "@/lib/clipboard";
 
 export interface ChoicePrompt {
   id: string;
@@ -104,12 +105,9 @@ function MessageActionsMenu({
   const [open, setOpen] = useState(false);
 
   const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(text ?? "");
-      toast("Copied to clipboard", { duration: 1500 });
-    } catch {
-      toast.error("Could not copy");
-    }
+    const ok = await safeCopyToClipboard(text ?? "");
+    if (ok) toast("Copied to clipboard", { duration: 1500 });
+    else toast.error("Could not copy");
   }, [text]);
 
   const isAI = role === "ai";

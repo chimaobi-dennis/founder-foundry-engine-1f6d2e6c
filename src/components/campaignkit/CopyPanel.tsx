@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Copy, RefreshCw, Download, Bookmark, CalendarPlus } from "lucide-react";
 import { PlatformTab, PlatformContent } from "./types";
 import { toast } from "@/hooks/use-toast";
+import { safeCopyToClipboard } from "@/lib/clipboard";
 
 interface Props {
   tab: PlatformTab;
@@ -33,8 +34,8 @@ export function CopyPanel({ tab, content }: Props) {
   const displayText = tab === "Headlines" ? "" : (content.copy || "");
   const wordCount = displayText.trim().split(/\s+/).filter(Boolean).length;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(displayText);
+  const handleCopy = async () => {
+    await safeCopyToClipboard(displayText);
     toast({ title: "Copied to clipboard" });
   };
 

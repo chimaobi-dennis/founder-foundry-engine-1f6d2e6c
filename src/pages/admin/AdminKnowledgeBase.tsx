@@ -9,6 +9,7 @@ import {
 } from "@/services/aiService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { safeCopyToClipboard } from "@/lib/clipboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -213,9 +214,9 @@ export default function AdminKnowledgeBase() {
     });
   };
 
-  const copyVariable = (variable: string) => {
+  const copyVariable = async (variable: string) => {
     const placeholder = `{{${variable}}}`;
-    navigator.clipboard.writeText(placeholder);
+    await safeCopyToClipboard(placeholder);
     setCopiedVariable(variable);
     setTimeout(() => setCopiedVariable(null), 2000);
   };

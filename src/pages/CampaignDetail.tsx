@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { safeCopyToClipboard } from "@/lib/clipboard";
 import {
   ArrowLeft,
   Copy,
@@ -453,7 +454,7 @@ function CopyPanel({
 
   const handleCopy = async () => {
     if (!text) return;
-    await navigator.clipboard.writeText(text);
+    await safeCopyToClipboard(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

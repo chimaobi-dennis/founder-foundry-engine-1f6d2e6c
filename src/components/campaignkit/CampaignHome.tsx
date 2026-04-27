@@ -136,7 +136,28 @@ export function CampaignHome({ onNewCampaign, onViewCampaign }: Props) {
             New campaign
           </button>
         </div>
-        <div className="text-center py-12 text-muted-foreground">Loading campaigns...</div>
+        <h2 className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-4">
+          Recent campaigns
+        </h2>
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-xl border border-border bg-card p-5 flex items-center gap-4 animate-pulse"
+            >
+              <div className="w-14 h-14 rounded-lg bg-muted flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-muted rounded w-1/3" />
+                <div className="h-3 bg-muted rounded w-1/2" />
+                <div className="h-3 bg-muted rounded w-1/4" />
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <div className="h-5 bg-muted rounded w-16" />
+                <div className="h-3 bg-muted rounded w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
