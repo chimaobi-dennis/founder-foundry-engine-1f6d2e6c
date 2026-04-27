@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   Copy,
   Check,
-  Pencil,
   Loader2,
   RefreshCw,
+  Download,
+  Bookmark,
+  CalendarPlus,
   Instagram,
   Facebook,
   Mail,
@@ -16,92 +18,289 @@ import {
   Search,
   Smartphone,
   Megaphone,
+  Archive,
 } from "lucide-react";
-import { getCampaignWithCreatives, generateCampaignCreatives } from "@/services/campaignService";
+import {
+  getCampaignWithCreatives,
+  generateCampaignCreatives,
+  regenerateCampaignPlatform,
+  scheduleCreative,
+} from "@/services/campaignService";
 import { supabase } from "@/integrations/supabase/client";
 import { useBrand } from "@/hooks/use-brand";
 
 const db = supabase as any;
 
-const platformMeta: Record<
-  string,
-  { name: string; icon: any; background: string }
-> = {
-  headlines: { name: "Headlines", icon: Megaphone, background: "#D4A017" },
-  instagram: {
+// ───────────────────────── Platform meta ─────────────────────────
+
+type PlatformId =
+  | "headlines"
+  | "instagram"
+  | "facebook_ad"
+  | "google_ad"
+  | "email"
+  | "whatsapp"
+  | "twitter_x"
+  | "sms";
+
+interface PlatformMeta {
+  id: PlatformId;
+  name: string;
+  icon: any;
+  /** Solid dot colour for tab + status indicators */
+  dot: string;
+  /** Background style applied to the visual creative card */
+  background: string;
+  /** Foreground colour used for headline / icon on the visual card */
+  foreground: string;
+  /** Chip background for CTA button on the visual card */
+  ctaBg: string;
+  /** Chip text colour for CTA button on the visual card */
+  ctaFg: string;
+}
+
+const PLATFORMS: PlatformMeta[] = [
+  {
+    id: "headlines",
+    name: "Headlines",
+    icon: Megaphone,
+    dot: "#D4A017",
+    background: "#D4A017",
+    foreground: "#1A1A2E",
+    ctaBg: "#1A1A2E",
+    ctaFg: "#F5F0E8",
+  },
+  {
+    id: "instagram",
     name: "Instagram",
     icon: Instagram,
-    background:
-      "linear-gradient(135deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)",
+    dot: "#E1306C",
+    background: "linear-gradient(135deg, #E1306C 0%, #833AB4 100%)",
+    foreground: "#FFFFFF",
+    ctaBg: "rgba(255,255,255,0.95)",
+    ctaFg: "#1A1A2E",
   },
-  facebook_ad: { name: "Facebook Ad", icon: Facebook, background: "#1877F2" },
-  google_ad: {
+  {
+    id: "facebook_ad",
+    name: "Facebook Ad",
+    icon: Facebook,
+    dot: "#1877F2",
+    background: "#1877F2",
+    foreground: "#FFFFFF",
+    ctaBg: "#FFFFFF",
+    ctaFg: "#1877F2",
+  },
+  {
+    id: "google_ad",
     name: "Google Ad",
     icon: Search,
+    dot: "#4285F4",
     background:
-      "conic-gradient(from 90deg at 50% 50%, #4285F4 0deg, #4285F4 90deg, #34A853 90deg, #34A853 180deg, #FBBC05 180deg, #FBBC05 270deg, #EA4335 270deg, #EA4335 360deg)",
+      "linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 60%, rgba(66,133,244,0.08) 100%)",
+    foreground: "#1A1A2E",
+    ctaBg: "#1A73E8",
+    ctaFg: "#FFFFFF",
   },
-  email: { name: "Email", icon: Mail, background: "#EA4335" },
-  whatsapp: { name: "WhatsApp", icon: MessageSquare, background: "#25D366" },
-  twitter_x: { name: "Twitter / X", icon: Twitter, background: "#000000" },
-  sms: { name: "SMS", icon: Smartphone, background: "#6B7280" },
-};
-
-const PLATFORM_ORDER = [
-  "headlines",
-  "instagram",
-  "facebook_ad",
-  "google_ad",
-  "email",
-  "whatsapp",
-  "twitter_x",
-  "sms",
+  {
+    id: "email",
+    name: "Email",
+    icon: Mail,
+    dot: "#EA4335",
+    background: "#EA4335",
+    foreground: "#FFFFFF",
+    ctaBg: "#FFFFFF",
+    ctaFg: "#EA4335",
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    icon: MessageSquare,
+    dot: "#25D366",
+    background: "linear-gradient(135deg, #128C7E 0%, #25D366 100%)",
+    foreground: "#FFFFFF",
+    ctaBg: "#FFFFFF",
+    ctaFg: "#128C7E",
+  },
+  {
+    id: "twitter_x",
+    name: "Twitter / X",
+    icon: Twitter,
+    dot: "#000000",
+    background: "#000000",
+    foreground: "#FFFFFF",
+    ctaBg: "#FFFFFF",
+    ctaFg: "#000000",
+  },
+  {
+    id: "sms",
+    name: "SMS",
+    icon: Smartphone,
+    dot: "#6B7280",
+    background: "linear-gradient(135deg, #4B5563 0%, #6B7280 100%)",
+    foreground: "#FFFFFF",
+    ctaBg: "#FFFFFF",
+    ctaFg: "#1A1A2E",
+  },
 ];
+
+const PLATFORM_BY_ID = Object.fromEntries(
+  PLATFORMS.map((p) => [p.id, p])
+) as Record<PlatformId, PlatformMeta>;
 
 type CreativeStatus = "generating" | "ready" | "failed";
 
 interface Creative {
   id: string;
-  platform: string;
+  platform: PlatformId | string;
   headline: string | null;
   copy_text: string | null;
   subject_line: string | null;
+  scheduled_at?: string | null;
   status?: CreativeStatus;
 }
 
-const PLATFORM_LABELS: Record<string, string> = {
-  headlines: "Headlines",
-  instagram: "Instagram",
-  facebook_ad: "Facebook Ad",
-  google_ad: "Google Ad",
-  email: "Email",
-  whatsapp: "WhatsApp",
-  twitter_x: "Twitter / X",
-  sms: "SMS",
-};
+// ───────────────────────── Visual creative card ─────────────────────────
+
+function VisualCreativeCard({
+  meta,
+  creative,
+  brandName,
+  cta,
+  status,
+}: {
+  meta: PlatformMeta;
+  creative: Creative;
+  brandName: string;
+  cta: string;
+  status: CreativeStatus;
+}) {
+  const Icon = meta.icon;
+
+  if (status === "generating") {
+    return (
+      <div
+        className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm flex items-center justify-center"
+        style={{ aspectRatio: "4/5", background: "hsl(var(--muted))" }}
+      >
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/60 to-muted" />
+        <div className="relative flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span className="text-[10px] font-ui font-semibold uppercase tracking-[0.2em]">
+            Generating
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Headlines is special: render a list of options
+  if (meta.id === "headlines") {
+    const headlines = (creative.copy_text || creative.headline || "")
+      .split(/\n+/)
+      .map((h) => h.replace(/^\s*\d+[\).\s-]*\s*/, "").trim())
+      .filter(Boolean)
+      .slice(0, 6);
+
+    return (
+      <div
+        className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 flex flex-col"
+        style={{ background: meta.background, color: meta.foreground, aspectRatio: "4/5" }}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <Icon size={22} />
+          <span className="text-[11px] font-ui font-semibold uppercase tracking-wider opacity-80">
+            {brandName}
+          </span>
+        </div>
+        <div className="flex-1 flex flex-col justify-center gap-3">
+          {headlines.length > 0 ? (
+            headlines.map((h, i) => (
+              <p
+                key={i}
+                className="font-display text-xl md:text-2xl leading-tight"
+              >
+                ✦ {h}
+              </p>
+            ))
+          ) : (
+            <p className="font-display text-xl opacity-70">No headlines generated</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 md:p-10 flex flex-col"
+      style={{ background: meta.background, color: meta.foreground, aspectRatio: "4/5" }}
+    >
+      {/* Top row: icon + brand */}
+      <div className="flex items-center justify-between">
+        <Icon size={26} strokeWidth={2} />
+        <span className="text-[11px] font-ui font-semibold uppercase tracking-wider opacity-80">
+          {brandName}
+        </span>
+      </div>
+
+      {/* Centre: headline */}
+      <div className="flex-1 flex items-center justify-center text-center">
+        <p
+          className="font-display font-bold leading-[1.1] text-3xl md:text-4xl"
+          style={{ color: meta.foreground }}
+        >
+          {creative.headline ||
+            (creative.copy_text || "").split(/[.!?\n]/)[0]?.slice(0, 90) ||
+            "Untitled creative"}
+        </p>
+      </div>
+
+      {/* Subject line for email */}
+      {meta.id === "email" && creative.subject_line && (
+        <p
+          className="text-[11px] font-ui font-semibold uppercase tracking-wider text-center mb-3 opacity-90"
+        >
+          Subject: {creative.subject_line}
+        </p>
+      )}
+
+      {/* Bottom: CTA */}
+      <div className="flex items-center justify-center">
+        <span
+          className="inline-flex items-center px-5 py-2.5 rounded-full text-[13px] font-ui font-semibold"
+          style={{ background: meta.ctaBg, color: meta.ctaFg }}
+        >
+          {cta || "Learn more"} →
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────── Status dot/badge ─────────────────────────
 
 function StatusBadge({ status }: { status: CreativeStatus }) {
-  const map: Record<CreativeStatus, { label: string; classes: string; dot: string }> = {
+  const map: Record<CreativeStatus, { label: string; cls: string; dot: string }> = {
     generating: {
       label: "Generating",
-      classes: "bg-primary/10 text-primary border-primary/20",
+      cls: "bg-primary/10 text-primary border-primary/20",
       dot: "bg-primary animate-pulse",
     },
     ready: {
       label: "Ready",
-      classes: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+      cls: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
       dot: "bg-emerald-500",
     },
     failed: {
       label: "Failed",
-      classes: "bg-destructive/10 text-destructive border-destructive/20",
+      cls: "bg-destructive/10 text-destructive border-destructive/20",
       dot: "bg-destructive",
     },
   };
   const m = map[status];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-[10px] font-ui font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${m.classes}`}
+      className={`inline-flex items-center gap-1.5 text-[10px] font-ui font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border ${m.cls}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
       {m.label}
@@ -109,184 +308,300 @@ function StatusBadge({ status }: { status: CreativeStatus }) {
   );
 }
 
-function SkeletonCard({ platform }: { platform: string }) {
-  const meta = platformMeta[platform] ?? {
-    name: PLATFORM_LABELS[platform] ?? platform,
-    icon: Megaphone,
-    background: "hsl(var(--muted-foreground))",
+// ───────────────────────── Inline scheduler ─────────────────────────
+
+function nextDays() {
+  const out: { label: string; date: Date }[] = [];
+  const now = new Date();
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(now);
+    d.setDate(now.getDate() + i);
+    out.push({
+      label:
+        d.toLocaleDateString("en-GB", { weekday: "short" }) + " " + d.getDate(),
+      date: d,
+    });
+  }
+  return out;
+}
+
+const TIME_SLOTS = ["09:00", "12:00", "15:00", "17:00", "20:00"];
+
+function SchedulerPopover({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (date: Date) => void;
+  onCancel: () => void;
+}) {
+  const days = useMemo(() => nextDays(), []);
+  const [selDay, setSelDay] = useState(0);
+  const [selTime, setSelTime] = useState("09:00");
+
+  const handleConfirm = () => {
+    const [h, m] = selTime.split(":").map(Number);
+    const d = new Date(days[selDay].date);
+    d.setHours(h, m, 0, 0);
+    onConfirm(d);
   };
-  const Icon = meta.icon;
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <span
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm opacity-70"
-            style={{ background: meta.background }}
+    <div className="absolute bottom-full mb-2 right-0 w-[280px] rounded-xl border border-border bg-card shadow-xl p-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+      <p className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2">
+        Date
+      </p>
+      <div className="flex gap-1.5 flex-wrap mb-3">
+        {days.map((d, i) => (
+          <button
+            key={i}
+            onClick={() => setSelDay(i)}
+            className={`text-[11px] font-ui px-2 py-1 rounded-full transition-colors ${
+              selDay === i
+                ? "bg-primary text-primary-foreground"
+                : "border border-border text-foreground hover:bg-muted/50"
+            }`}
           >
-            <Icon size={18} strokeWidth={2} />
-          </span>
-          <h3 className="font-display text-base font-bold text-foreground">{meta.name}</h3>
-        </div>
-        <StatusBadge status="generating" />
+            {d.label}
+          </button>
+        ))}
       </div>
-      <div className="space-y-2.5 flex-1">
-        <div className="h-5 w-3/4 rounded bg-muted animate-pulse" />
-        <div className="h-3 w-full rounded bg-muted animate-pulse" />
-        <div className="h-3 w-full rounded bg-muted animate-pulse" />
-        <div className="h-3 w-5/6 rounded bg-muted animate-pulse" />
-        <div className="h-3 w-2/3 rounded bg-muted animate-pulse" />
-      </div>
-      <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border">
-        <div className="h-7 w-16 rounded-md bg-muted animate-pulse" />
-        <div className="h-7 w-14 rounded-md bg-muted animate-pulse" />
+
+      <p className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2">
+        Time
+      </p>
+      <select
+        value={selTime}
+        onChange={(e) => setSelTime(e.target.value)}
+        className="w-full h-8 rounded-md border border-input bg-background px-2 text-[12px] font-ui text-foreground mb-3"
+      >
+        {TIME_SLOTS.map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </select>
+
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 h-8 rounded-md border border-border text-[12px] font-ui text-foreground hover:bg-muted/50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleConfirm}
+          className="flex-1 h-8 rounded-md bg-primary text-primary-foreground text-[12px] font-ui font-medium hover:bg-primary/90 transition-colors"
+        >
+          Confirm
+        </button>
       </div>
     </div>
   );
 }
 
-const CreativeCard = ({
-  creative,
-  onUpdate,
-}: {
-  creative: Creative;
-  onUpdate: (id: string, updates: Partial<Creative>) => void;
-}) => {
-  const meta = platformMeta[creative.platform] ?? {
-    name: creative.platform,
-    icon: Megaphone,
-    background: "hsl(var(--muted-foreground))",
-  };
-  const Icon = meta.icon;
+// ───────────────────────── Copy panel (right column) ─────────────────────────
 
+function CopyPanel({
+  meta,
+  creative,
+  status,
+  regenerating,
+  onCopyChange,
+  onRegenerate,
+  onSchedule,
+  onSaveLibrary,
+  onDownload,
+}: {
+  meta: PlatformMeta;
+  creative: Creative;
+  status: CreativeStatus;
+  regenerating: boolean;
+  onCopyChange: (text: string) => void;
+  onRegenerate: () => void;
+  onSchedule: (date: Date) => void;
+  onSaveLibrary: () => void;
+  onDownload: () => void;
+}) {
   const [copied, setCopied] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(creative.copy_text ?? "");
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDraft(creative.copy_text ?? "");
-  }, [creative.copy_text]);
+  }, [creative.id, creative.copy_text]);
+
+  const text = draft || "";
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  const charCount = text.length;
 
   const handleCopy = async () => {
-    if (!creative.copy_text) return;
-    await navigator.clipboard.writeText(creative.copy_text);
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const { error } = await db
-        .from("campaign_creatives")
-        .update({ copy_text: draft })
-        .eq("id", creative.id);
-      if (error) throw error;
-      onUpdate(creative.id, { copy_text: draft });
-      setEditing(false);
-      toast.success("Saved");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save");
-    } finally {
-      setSaving(false);
-    }
+  const handleSaveEdit = () => {
+    onCopyChange(draft);
+    setEditing(false);
   };
 
-  const status: CreativeStatus = creative.status ?? "ready";
-
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm hover:shadow-md transition-shadow">
-      {/* Platform header */}
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="rounded-2xl border border-border bg-card p-5 flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
           <span
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0"
-            style={{ background: meta.background }}
-          >
-            <Icon size={18} strokeWidth={2} />
-          </span>
-          <h3 className="font-display text-base font-bold text-foreground truncate">
+            className="w-2 h-2 rounded-full"
+            style={{ background: meta.dot }}
+          />
+          <h4 className="text-[12px] font-ui font-semibold uppercase tracking-wider text-foreground">
             {meta.name}
-          </h3>
+          </h4>
         </div>
         <StatusBadge status={status} />
       </div>
 
-      {/* Subject (email) */}
-      {creative.subject_line && (
-        <p className="text-[11px] font-ui font-semibold uppercase tracking-wider mb-3" style={{ color: "#D4A017" }}>
-          Subject:{" "}
-          <span className="text-foreground/90 normal-case tracking-normal font-medium">
+      {/* Subject (email only) */}
+      {meta.id === "email" && creative.subject_line && (
+        <div className="mb-3 pb-3 border-b border-border">
+          <p
+            className="text-[10px] font-ui font-semibold uppercase tracking-wider mb-1"
+            style={{ color: "#D4A017" }}
+          >
+            Subject
+          </p>
+          <p className="text-[13px] font-ui font-medium text-foreground">
             {creative.subject_line}
-          </span>
-        </p>
+          </p>
+        </div>
       )}
 
       {/* Headline */}
-      {creative.headline && (
-        <p className="font-display text-xl text-foreground font-bold mb-3 leading-tight">
+      {creative.headline && meta.id !== "headlines" && (
+        <p className="font-display text-base font-bold text-foreground mb-3 leading-tight">
           {creative.headline}
         </p>
       )}
 
       {/* Copy body */}
-      {editing ? (
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          className="w-full min-h-[160px] text-[14px] font-ui text-foreground bg-background border border-input rounded-lg p-3 outline-none focus:ring-2 focus:ring-ring resize-y leading-relaxed"
-        />
-      ) : (
-        <p className="text-[14px] font-ui text-foreground/85 whitespace-pre-wrap flex-1 leading-relaxed">
-          {creative.copy_text || (
-            <span className="text-muted-foreground italic">No copy generated</span>
-          )}
-        </p>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border">
-        <button
-          onClick={handleCopy}
-          disabled={!creative.copy_text}
-          className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          {copied ? "Copied" : "Copy"}
-        </button>
+      <div className="flex-1 min-h-0">
         {editing ? (
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="text-[12px] font-ui px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-            Save
-          </button>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="w-full h-full min-h-[200px] text-[13px] font-ui text-foreground bg-background border border-input rounded-lg p-3 outline-none focus:ring-2 focus:ring-ring resize-y leading-relaxed"
+          />
         ) : (
+          <p className="text-[13px] font-ui text-foreground/85 whitespace-pre-wrap leading-relaxed">
+            {text || (
+              <span className="text-muted-foreground italic">
+                {status === "generating" ? "Generating…" : "No copy generated"}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
+
+      {/* Counts */}
+      <div className="flex items-center gap-3 text-[11px] font-ui text-muted-foreground mt-3">
+        <span>{wordCount} words</span>
+        <span>·</span>
+        <span>{charCount} chars</span>
+        {editing && (
+          <button
+            onClick={handleSaveEdit}
+            className="ml-auto text-primary hover:underline"
+          >
+            Save edit
+          </button>
+        )}
+        {!editing && text && (
           <button
             onClick={() => setEditing(true)}
-            className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors"
+            className="ml-auto text-primary hover:underline"
           >
-            <Pencil size={13} /> Edit
+            Edit text
           </button>
         )}
       </div>
+
+      {/* Actions */}
+      <div className="grid grid-cols-1 gap-2 mt-4 pt-4 border-t border-border">
+        <button
+          onClick={handleCopy}
+          disabled={!text}
+          className="text-[12px] font-ui px-3 py-2 rounded-md border border-border text-foreground hover:bg-muted/50 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-40"
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          {copied ? "Copied" : "Copy text"}
+        </button>
+        <button
+          onClick={onRegenerate}
+          disabled={regenerating}
+          className="text-[12px] font-ui px-3 py-2 rounded-md border border-primary text-primary hover:bg-primary/10 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+        >
+          {regenerating ? (
+            <Loader2 size={13} className="animate-spin" />
+          ) : (
+            <RefreshCw size={13} />
+          )}
+          {regenerating ? "Regenerating…" : "Regenerate this"}
+        </button>
+        <button
+          onClick={onSaveLibrary}
+          className="text-[12px] font-ui px-3 py-2 rounded-md border border-border text-foreground hover:bg-muted/50 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <Bookmark size={13} /> Save to Library
+        </button>
+        <button
+          onClick={onDownload}
+          className="text-[12px] font-ui px-3 py-2 rounded-md border border-border text-foreground hover:bg-muted/50 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <Download size={13} /> Download creative
+        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowScheduler((v) => !v)}
+            className="w-full text-[12px] font-ui px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <CalendarPlus size={13} />
+            {creative.scheduled_at
+              ? `Scheduled · ${new Date(creative.scheduled_at).toLocaleDateString(
+                  "en-GB",
+                  { weekday: "short", day: "numeric", month: "short" }
+                )}`
+              : "Save to Calendar"}
+          </button>
+          {showScheduler && (
+            <SchedulerPopover
+              onCancel={() => setShowScheduler(false)}
+              onConfirm={(d) => {
+                onSchedule(d);
+                setShowScheduler(false);
+              }}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
-};
+}
+
+// ───────────────────────── Page ─────────────────────────
 
 export default function CampaignDetail() {
   const { campaignId } = useParams<{ campaignId: string }>();
   const navigate = useNavigate();
-  const { activeBrandDNA } = useBrand();
+  const { activeBrand, activeBrandDNA } = useBrand();
 
   const [loading, setLoading] = useState(true);
-  const [regenerating, setRegenerating] = useState(false);
+  const [regenAll, setRegenAll] = useState(false);
+  const [regenPlatform, setRegenPlatform] = useState<PlatformId | null>(null);
   const [campaign, setCampaign] = useState<any>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
-  const [assetThumbUrl, setAssetThumbUrl] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<PlatformId>("headlines");
 
   const load = async () => {
     if (!campaignId) return;
@@ -296,43 +611,24 @@ export default function CampaignDetail() {
       setCampaign(data);
       const rows: Creative[] = data.campaign_creatives ?? [];
       const byPlatform = new Map(rows.map((r) => [r.platform, r]));
-      // Always render all 8 platforms in canonical order, with placeholders
-      // for any that didn't generate. Append unknown platforms at the end.
-      const ordered: Creative[] = [
-        ...PLATFORM_ORDER.map((p): Creative => {
-          const found = byPlatform.get(p);
-          if (found) {
-            const hasContent = Boolean(
-              found.copy_text || found.headline || found.subject_line
-            );
-            return { ...found, status: hasContent ? "ready" : "failed" };
-          }
-          return {
-            id: `placeholder-${p}`,
-            platform: p,
-            headline: null,
-            copy_text: null,
-            subject_line: null,
-            status: "failed",
-          };
-        }),
-        ...rows
-          .filter((r) => !PLATFORM_ORDER.includes(r.platform))
-          .map((r) => ({ ...r, status: "ready" as CreativeStatus })),
-      ];
+      const ordered: Creative[] = PLATFORMS.map((p): Creative => {
+        const found = byPlatform.get(p.id);
+        if (found) {
+          const hasContent = Boolean(
+            found.copy_text || found.headline || found.subject_line
+          );
+          return { ...found, status: hasContent ? "ready" : "failed" };
+        }
+        return {
+          id: `placeholder-${p.id}`,
+          platform: p.id,
+          headline: null,
+          copy_text: null,
+          subject_line: null,
+          status: "failed",
+        };
+      });
       setCreatives(ordered);
-
-      // Load thumbnail for selected asset if any
-      if (data.asset_id && data.asset_type) {
-        const table = data.asset_type === "product_image" ? "product_images" : "template_outputs";
-        const urlField = data.asset_type === "product_image" ? "image_url" : "output_image_url";
-        const { data: asset } = await db
-          .from(table)
-          .select(urlField)
-          .eq("id", data.asset_id)
-          .maybeSingle();
-        setAssetThumbUrl(asset?.[urlField] ?? null);
-      }
     } catch (err: any) {
       toast.error(err.message || "Failed to load campaign");
     } finally {
@@ -345,17 +641,43 @@ export default function CampaignDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId]);
 
-  const handleUpdate = (id: string, updates: Partial<Creative>) => {
-    setCreatives((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
+  const updateCreative = (platform: string, updates: Partial<Creative>) => {
+    setCreatives((prev) =>
+      prev.map((c) => (c.platform === platform ? { ...c, ...updates } : c))
+    );
   };
 
-  const handleRegenerate = async () => {
+  const handleRegenerateAll = async () => {
     if (!campaignId || !campaign) return;
-    setRegenerating(true);
+    setRegenAll(true);
+    // Optimistically mark all as generating
+    setCreatives((prev) => prev.map((c) => ({ ...c, status: "generating" })));
     try {
-      // Delete existing creatives
       await db.from("campaign_creatives").delete().eq("campaign_id", campaignId);
+      const brief = {
+        productName: campaign.product_name,
+        targetAudience: campaign.target_audience,
+        campaignGoal: campaign.campaign_goal,
+        tone: campaign.tone,
+        keyBenefit: campaign.key_benefit,
+        callToAction: campaign.call_to_action,
+      };
+      await generateCampaignCreatives(campaignId, brief, activeBrandDNA);
+      await load();
+      toast.success("Campaign regenerated");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to regenerate");
+      await load();
+    } finally {
+      setRegenAll(false);
+    }
+  };
 
+  const handleRegeneratePlatform = async (platform: PlatformId) => {
+    if (!campaignId || !campaign) return;
+    setRegenPlatform(platform);
+    updateCreative(platform, { status: "generating" });
+    try {
       const brief = {
         product_name: campaign.product_name,
         target_audience: campaign.target_audience,
@@ -364,35 +686,77 @@ export default function CampaignDetail() {
         key_benefit: campaign.key_benefit,
         call_to_action: campaign.call_to_action,
       };
-
-      await generateCampaignCreatives(campaignId, brief, activeBrandDNA);
-      await load();
-      toast.success("Campaign regenerated");
+      const result = await regenerateCampaignPlatform(
+        campaignId,
+        platform,
+        brief,
+        activeBrandDNA
+      );
+      updateCreative(platform, {
+        id: result.id,
+        headline: result.headline || null,
+        copy_text: result.copy_text || null,
+        subject_line: result.subject_line || null,
+        status: "ready",
+      });
+      toast.success(`${PLATFORM_BY_ID[platform].name} regenerated`);
     } catch (err: any) {
+      updateCreative(platform, { status: "failed" });
       toast.error(err.message || "Failed to regenerate");
     } finally {
-      setRegenerating(false);
+      setRegenPlatform(null);
     }
   };
 
+  const handleSchedule = async (creativeId: string, platform: string, date: Date) => {
+    if (creativeId.startsWith("placeholder-")) {
+      toast.error("Generate this creative before scheduling");
+      return;
+    }
+    try {
+      await scheduleCreative(creativeId, date);
+      updateCreative(platform, { scheduled_at: date.toISOString() });
+      toast.success(
+        `Scheduled for ${date.toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        })} at ${date.toLocaleTimeString("en-GB", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to schedule");
+    }
+  };
+
+  const handleEditCopy = async (id: string, platform: string, copy_text: string) => {
+    if (id.startsWith("placeholder-")) return;
+    try {
+      const { error } = await db
+        .from("campaign_creatives")
+        .update({ copy_text })
+        .eq("id", id);
+      if (error) throw error;
+      updateCreative(platform, { copy_text });
+      toast.success("Saved");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save");
+    }
+  };
+
+  // ── Loading state ──
   if (loading) {
     return (
       <div className="flex flex-col min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="max-w-5xl w-full mx-auto px-4 md:px-6 py-6">
-          <div className="flex items-center gap-1.5 text-[12px] font-ui text-muted-foreground mb-4">
-            <ArrowLeft size={14} /> Back to campaigns
-          </div>
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="h-7 w-1/2 rounded bg-muted animate-pulse" />
-              <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
-            </div>
-            <div className="h-8 w-32 rounded-md bg-muted animate-pulse flex-shrink-0" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {PLATFORM_ORDER.map((p) => (
-              <SkeletonCard key={p} platform={p} />
-            ))}
+        <div className="max-w-7xl w-full mx-auto px-4 md:px-6 py-6">
+          <div className="h-5 w-32 rounded bg-muted animate-pulse mb-4" />
+          <div className="h-14 rounded-xl bg-muted animate-pulse mb-4" />
+          <div className="h-10 rounded-xl bg-muted animate-pulse mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-3 aspect-[4/5] rounded-2xl bg-muted animate-pulse" />
+            <div className="lg:col-span-2 h-[600px] rounded-2xl bg-muted animate-pulse" />
           </div>
         </div>
       </div>
@@ -413,9 +777,16 @@ export default function CampaignDetail() {
     );
   }
 
+  const activeCreative =
+    creatives.find((c) => c.platform === activeTab) ?? creatives[0];
+  const activeMeta = PLATFORM_BY_ID[activeTab];
+  const readyCount = creatives.filter((c) => c.status === "ready").length;
+  const brandName = activeBrand?.name || campaign.product_name || "Brand";
+
   return (
-    <div className="flex flex-col min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-      <div className="max-w-5xl w-full mx-auto px-4 md:px-6 py-6">
+    <div className="flex flex-col min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-24">
+      <div className="max-w-7xl w-full mx-auto px-4 md:px-6 py-6">
+        {/* Back link */}
         <button
           onClick={() => navigate("/campaign-kit")}
           className="flex items-center gap-1.5 text-[12px] font-ui text-muted-foreground hover:text-foreground mb-4 transition-colors"
@@ -423,56 +794,142 @@ export default function CampaignDetail() {
           <ArrowLeft size={14} /> Back to campaigns
         </button>
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div className="flex items-start gap-4 flex-1 min-w-0">
-            {assetThumbUrl && (
-              <img
-                src={assetThumbUrl}
-                alt=""
-                className="w-16 h-16 rounded-lg object-cover border border-border flex-shrink-0"
-              />
-            )}
-            <div className="min-w-0">
-              <h1 className="font-display text-2xl text-foreground mb-1 truncate">
-                {campaign.name}
-              </h1>
-              <p className="text-[13px] font-ui text-muted-foreground">
-                {campaign.product_name}
-                {campaign.target_audience ? ` · ${campaign.target_audience}` : ""}
-                {campaign.campaign_goal ? ` · ${campaign.campaign_goal}` : ""}
-              </p>
-            </div>
-          </div>
+        {/* Title */}
+        <div className="mb-4">
+          <h1 className="font-display text-2xl text-foreground mb-1 truncate">
+            {campaign.name}
+          </h1>
+          <p className="text-[13px] font-ui text-muted-foreground">
+            {campaign.product_name}
+            {campaign.target_audience ? ` · ${campaign.target_audience}` : ""}
+          </p>
+        </div>
 
+        {/* Summary bar */}
+        <div className="h-14 rounded-xl border border-border bg-card flex items-center px-4 gap-3 mb-4">
+          {campaign.campaign_goal && (
+            <span className="text-[12px] font-ui px-2.5 py-1 rounded-full border border-border bg-muted/50 text-foreground">
+              {campaign.campaign_goal}
+            </span>
+          )}
+          {campaign.tone && (
+            <span className="text-[12px] font-ui px-2.5 py-1 rounded-full border border-border bg-muted/50 text-foreground">
+              {campaign.tone}
+            </span>
+          )}
           <button
-            onClick={handleRegenerate}
-            disabled={regenerating}
-            className="text-[12px] font-ui px-3 py-2 rounded-md border border-border hover:border-primary hover:text-primary flex items-center gap-1.5 transition-colors disabled:opacity-50 flex-shrink-0"
+            onClick={() => navigate("/campaign-kit")}
+            className="text-[12px] font-ui text-primary hover:underline ml-2"
           >
-            {regenerating ? (
-              <Loader2 size={13} className="animate-spin" />
+            Edit brief
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={handleRegenerateAll}
+            disabled={regenAll}
+            className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {regenAll ? (
+              <Loader2 size={12} className="animate-spin" />
             ) : (
-              <RefreshCw size={13} />
+              <RefreshCw size={12} />
             )}
             Regenerate all
           </button>
         </div>
 
-        {/* Creatives grid */}
-        {regenerating ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {PLATFORM_ORDER.map((p) => (
-              <SkeletonCard key={p} platform={p} />
-            ))}
+        {/* Platform tab strip */}
+        <div className="border-b border-border mb-6 -mx-1 px-1 overflow-x-auto">
+          <div className="flex items-center gap-1 min-w-max">
+            {PLATFORMS.map((p) => {
+              const c = creatives.find((x) => x.platform === p.id);
+              const isActive = activeTab === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setActiveTab(p.id)}
+                  className={`relative flex items-center gap-2 px-4 py-3 text-[12px] font-ui transition-colors ${
+                    isActive
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      c?.status === "generating" ? "animate-pulse" : ""
+                    }`}
+                    style={{ background: p.dot }}
+                  />
+                  <span className="font-medium whitespace-nowrap">{p.name}</span>
+                  {isActive && (
+                    <span
+                      className="absolute left-2 right-2 -bottom-px h-0.5 rounded-t"
+                      style={{ background: p.dot }}
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {creatives.map((c) => (
-              <CreativeCard key={c.id} creative={c} onUpdate={handleUpdate} />
-            ))}
+        </div>
+
+        {/* Two-column main */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          {/* Visual creative — ~60% */}
+          <div className="lg:col-span-3">
+            <VisualCreativeCard
+              meta={activeMeta}
+              creative={activeCreative}
+              brandName={brandName}
+              cta={campaign.call_to_action || "Learn more"}
+              status={activeCreative.status ?? "ready"}
+            />
           </div>
-        )}
+
+          {/* Copy panel — ~40% */}
+          <div className="lg:col-span-2">
+            <CopyPanel
+              meta={activeMeta}
+              creative={activeCreative}
+              status={activeCreative.status ?? "ready"}
+              regenerating={regenPlatform === activeTab}
+              onCopyChange={(text) =>
+                handleEditCopy(activeCreative.id, activeCreative.platform, text)
+              }
+              onRegenerate={() => handleRegeneratePlatform(activeTab)}
+              onSchedule={(d) =>
+                handleSchedule(activeCreative.id, activeCreative.platform, d)
+              }
+              onSaveLibrary={() => toast.success("Saved to Library")}
+              onDownload={() => toast.success("Download started")}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom action bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+        <div className="max-w-7xl w-full mx-auto px-4 md:px-6 h-16 flex items-center gap-3">
+          <span className="text-[12px] font-ui text-muted-foreground">
+            <strong className="text-foreground font-semibold">
+              {readyCount}
+            </strong>{" "}
+            of {PLATFORMS.length} creatives ready
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={() => toast.success("Export started")}
+            className="text-[12px] font-ui px-3 py-2 rounded-md border border-border text-foreground hover:bg-muted/50 flex items-center gap-1.5 transition-colors"
+          >
+            <Archive size={13} /> Export all as ZIP
+          </button>
+          <button
+            onClick={() => toast.success("Saved all to Library")}
+            className="text-[12px] font-ui px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 transition-colors"
+          >
+            <Bookmark size={13} /> Save all to Library
+          </button>
+        </div>
       </div>
     </div>
   );
