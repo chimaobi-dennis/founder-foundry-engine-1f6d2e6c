@@ -72,7 +72,7 @@ export default function SignIn() {
           )}
 
           <button type="submit" disabled={!canSubmit || loading} className="w-full h-12 rounded-lg bg-primary text-primary-foreground font-ui text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 transition-colors">
-            {loading ? <><Loader2 size={16} className="animate-spin" /> Signing in...</> : "Sign in"}
+            {loading ? <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Signing in...</> : "Sign in"}
           </button>
         </form>
 

@@ -192,7 +192,7 @@ export default function CreatorApply() {
       >
         {submitting ? (
           <>
-            <Loader2 size={16} className="animate-spin" />
+            <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />
             Submitting...
           </>
         ) : (

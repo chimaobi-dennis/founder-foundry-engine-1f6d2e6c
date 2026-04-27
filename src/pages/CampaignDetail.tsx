@@ -184,7 +184,11 @@ function VisualCreativeCard({
       >
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/60 to-muted" />
         <div className="relative flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 className="w-6 h-6 animate-spin" />
+          <div className="flex flex-col items-center gap-2 w-40">
+            <div className="h-3 w-full rounded bg-foreground/10 animate-pulse" />
+            <div className="h-3 w-3/4 rounded bg-foreground/10 animate-pulse" />
+            <div className="h-3 w-1/2 rounded bg-foreground/10 animate-pulse" />
+          </div>
           <span className="text-[10px] font-ui font-semibold uppercase tracking-[0.2em]">
             Generating
           </span>
@@ -543,7 +547,7 @@ function CopyPanel({
           className="text-[12px] font-ui px-3 py-2 rounded-md border border-primary text-primary hover:bg-primary/10 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
         >
           {regenerating ? (
-            <Loader2 size={13} className="animate-spin" />
+            <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />
           ) : (
             <RefreshCw size={13} />
           )}
@@ -830,7 +834,7 @@ export default function CampaignDetail() {
             className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
             {regenAll ? (
-              <Loader2 size={12} className="animate-spin" />
+              <span className="h-2 w-2 rounded-full bg-current/40 animate-pulse" />
             ) : (
               <RefreshCw size={12} />
             )}
