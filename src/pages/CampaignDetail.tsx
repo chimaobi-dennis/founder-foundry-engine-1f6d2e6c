@@ -299,17 +299,26 @@ export default function CampaignDetail() {
       // Always render all 8 platforms in canonical order, with placeholders
       // for any that didn't generate. Append unknown platforms at the end.
       const ordered: Creative[] = [
-        ...PLATFORM_ORDER.map(
-          (p): Creative =>
-            byPlatform.get(p) ?? {
-              id: `placeholder-${p}`,
-              platform: p,
-              headline: null,
-              copy_text: null,
-              subject_line: null,
-            }
-        ),
-        ...rows.filter((r) => !PLATFORM_ORDER.includes(r.platform)),
+        ...PLATFORM_ORDER.map((p): Creative => {
+          const found = byPlatform.get(p);
+          if (found) {
+            const hasContent = Boolean(
+              found.copy_text || found.headline || found.subject_line
+            );
+            return { ...found, status: hasContent ? "ready" : "failed" };
+          }
+          return {
+            id: `placeholder-${p}`,
+            platform: p,
+            headline: null,
+            copy_text: null,
+            subject_line: null,
+            status: "failed",
+          };
+        }),
+        ...rows
+          .filter((r) => !PLATFORM_ORDER.includes(r.platform))
+          .map((r) => ({ ...r, status: "ready" as CreativeStatus })),
       ];
       setCreatives(ordered);
 
