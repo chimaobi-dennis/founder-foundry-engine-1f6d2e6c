@@ -934,6 +934,74 @@ export default function CampaignDetail() {
     }
   };
 
+  // ── Background per-platform generation (fresh campaigns) ──
+  const runBackgroundGeneration = useCallback(
+    async (campaignRow: any) => {
+      if (!campaignId) return;
+      // Mark all 8 as generating
+      setCreatives((prev) =>
+        prev.map((c) => ({ ...c, status: "generating" as CreativeStatus }))
+      );
+      const brief = {
+        product_name: campaignRow.product_name,
+        target_audience: campaignRow.target_audience,
+        campaign_goal: campaignRow.campaign_goal,
+        tone: campaignRow.tone,
+        key_benefit: campaignRow.key_benefit,
+        call_to_action: campaignRow.call_to_action,
+      };
+      // Fire all 8 in parallel; each updates its own card on completion
+      await Promise.all(
+        PLATFORMS.map(async (p) => {
+          try {
+            const result = await regenerateCampaignPlatform(
+              campaignId,
+              p.id,
+              brief,
+              activeBrandDNA
+            );
+            updateCreative(p.id, {
+              id: result.id,
+              headline: result.headline || null,
+              copy_text: result.copy_text || null,
+              subject_line: result.subject_line || null,
+              status: "ready",
+            });
+          } catch (err) {
+            console.error(`Failed to generate ${p.id}:`, err);
+            updateCreative(p.id, { status: "failed" });
+          }
+        })
+      );
+      try {
+        sessionStorage.removeItem(`campaign:autogen:${campaignId}`);
+      } catch {}
+      toast.success("Campaign creatives ready");
+    },
+    [campaignId, activeBrandDNA]
+  );
+
+  // After initial load: if autogen flag set and no real creatives yet, kick off generation
+  useEffect(() => {
+    if (loading || !campaign || autogenStarted) return;
+    let shouldAutogen = false;
+    try {
+      shouldAutogen =
+        !!campaignId &&
+        sessionStorage.getItem(`campaign:autogen:${campaignId}`) === "1";
+    } catch {}
+    const hasAnyContent = creatives.some(
+      (c) =>
+        !c.id.startsWith("placeholder-") &&
+        (c.copy_text || c.headline || c.subject_line)
+    );
+    if (shouldAutogen && !hasAnyContent) {
+      setAutogenStarted(true);
+      void runBackgroundGeneration(campaign);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, campaign]);
+
   // ── Loading state ──
   if (loading) {
     return (
