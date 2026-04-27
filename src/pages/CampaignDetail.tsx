@@ -1081,8 +1081,24 @@ export default function CampaignDetail() {
           </button>
           <div className="flex-1" />
           <button
+            onClick={() => setPreviewIndex(0)}
+            className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1.5 mr-2"
+          >
+            <Eye size={12} /> Preview campaign
+          </button>
+          <button
             onClick={handleRegenerateAll}
             disabled={regenAll}
+            className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {regenAll ? (
+              <span className="h-2 w-2 rounded-full bg-current/40 animate-pulse" />
+            ) : (
+              <RefreshCw size={12} />
+            )}
+            Regenerate all
+          </button>
+        </div>
             className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
             {regenAll ? (
