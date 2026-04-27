@@ -1136,20 +1136,21 @@ export default function CampaignDetail() {
         </div>
 
         {/* Two-column main */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          {/* Visual creative — ~60% */}
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-stretch">
+          {/* Visual creative — ~60% — fills column height */}
+          <div className="lg:col-span-3 flex">
             <VisualCreativeCard
               meta={activeMeta}
               creative={activeCreative}
               brandName={brandName}
               cta={campaign.call_to_action || "Learn more"}
               status={activeCreative.status ?? "ready"}
+              fillHeight
             />
           </div>
 
           {/* Copy panel — ~40% */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 flex">
             <CopyPanel
               meta={activeMeta}
               creative={activeCreative}
@@ -1164,10 +1165,26 @@ export default function CampaignDetail() {
               }
               onSaveLibrary={() => toast.success("Saved to Library")}
               onDownload={() => toast.success("Download started")}
+              onPreview={() =>
+                setPreviewIndex(
+                  PLATFORMS.findIndex((p) => p.id === activeTab)
+                )
+              }
             />
           </div>
         </div>
       </div>
+
+      {/* Preview modal */}
+      {previewIndex !== null && (
+        <PreviewModal
+          creatives={creatives}
+          startIndex={previewIndex}
+          brandName={brandName}
+          cta={campaign.call_to_action || "Learn more"}
+          onClose={() => setPreviewIndex(null)}
+        />
+      )}
 
       {/* Bottom action bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
