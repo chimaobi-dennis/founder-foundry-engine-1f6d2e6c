@@ -614,6 +614,167 @@ function CopyPanel({
   );
 }
 
+// ───────────────────────── Preview Modal ─────────────────────────
+
+function PreviewModal({
+  creatives,
+  startIndex,
+  brandName,
+  cta,
+  onClose,
+}: {
+  creatives: Creative[];
+  startIndex: number;
+  brandName: string;
+  cta: string;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(startIndex);
+
+  useEffect(() => {
+    setIndex(startIndex);
+  }, [startIndex]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft")
+        setIndex((i) => (i - 1 + PLATFORMS.length) % PLATFORMS.length);
+      if (e.key === "ArrowRight")
+        setIndex((i) => (i + 1) % PLATFORMS.length);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const meta = PLATFORMS[index];
+  const creative =
+    creatives.find((c) => c.platform === meta.id) ?? {
+      id: `placeholder-${meta.id}`,
+      platform: meta.id,
+      headline: null,
+      copy_text: null,
+      subject_line: null,
+      status: "failed" as CreativeStatus,
+    };
+  const status = creative.status ?? "ready";
+
+  const goPrev = () =>
+    setIndex((i) => (i - 1 + PLATFORMS.length) % PLATFORMS.length);
+  const goNext = () => setIndex((i) => (i + 1) % PLATFORMS.length);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 md:px-8 h-14 border-b border-border">
+        <div className="flex items-center gap-2">
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: meta.dot }}
+          />
+          <span className="text-[13px] font-ui font-semibold text-foreground">
+            {meta.name}
+          </span>
+          <span className="text-[12px] font-ui text-muted-foreground ml-2">
+            {index + 1} / {PLATFORMS.length}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Close preview"
+          className="h-9 w-9 rounded-full border border-border hover:bg-muted/50 flex items-center justify-center transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 min-h-0 grid grid-cols-[56px_1fr_56px] items-stretch">
+        <button
+          onClick={goPrev}
+          aria-label="Previous platform"
+          className="flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+        >
+          <ChevronLeft size={28} />
+        </button>
+
+        <div className="overflow-y-auto px-4 md:px-10 py-8">
+          <div className="max-w-3xl mx-auto flex flex-col gap-6">
+            {/* Full-size visual */}
+            <div className="w-full">
+              <VisualCreativeCard
+                meta={meta}
+                creative={creative}
+                brandName={brandName}
+                cta={cta}
+                status={status}
+              />
+            </div>
+
+            {/* Copy block */}
+            <div className="rounded-2xl border border-border bg-card p-6">
+              {meta.id === "email" && creative.subject_line && (
+                <div className="mb-4 pb-4 border-b border-border">
+                  <p
+                    className="text-[10px] font-ui font-semibold uppercase tracking-wider mb-1"
+                    style={{ color: "#D4A017" }}
+                  >
+                    Subject
+                  </p>
+                  <p className="text-[15px] font-ui font-medium text-foreground">
+                    {creative.subject_line}
+                  </p>
+                </div>
+              )}
+              {creative.headline && meta.id !== "headlines" && (
+                <p className="font-display text-xl font-bold text-foreground mb-3 leading-tight">
+                  {creative.headline}
+                </p>
+              )}
+              <p className="text-[14px] font-ui text-foreground/85 whitespace-pre-wrap leading-relaxed">
+                {creative.copy_text || (
+                  <span className="text-muted-foreground italic">
+                    {status === "generating"
+                      ? "Generating…"
+                      : "No copy generated"}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={goNext}
+          aria-label="Next platform"
+          className="flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+        >
+          <ChevronRight size={28} />
+        </button>
+      </div>
+
+      {/* Footer dots */}
+      <div className="border-t border-border h-12 flex items-center justify-center gap-2">
+        {PLATFORMS.map((p, i) => (
+          <button
+            key={p.id}
+            onClick={() => setIndex(i)}
+            aria-label={`Show ${p.name}`}
+            className={`h-2 rounded-full transition-all ${
+              i === index ? "w-6" : "w-2 opacity-40 hover:opacity-70"
+            }`}
+            style={{ background: p.dot }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ───────────────────────── Page ─────────────────────────
 
 export default function CampaignDetail() {
