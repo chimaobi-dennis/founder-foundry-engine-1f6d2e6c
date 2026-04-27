@@ -1,5 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
-import { callAI, getSystemPrompt } from './aiService';
+import { supabase } from "@/integrations/supabase/client";
+import { callAI, injectPromptVariables, getSystemPrompt } from "@/services/aiService";
 
 const db = supabase as any;
 
@@ -78,22 +78,28 @@ export async function createCampaign(
     asset_type?: 'output' | 'product_image';
   }
 ) {
+  const insertData: any = {
+    brand_id: brandId,
+    user_id: userId,
+    name: brief.name,
+    product_name: brief.product_name,
+    target_audience: brief.target_audience,
+    campaign_goal: brief.campaign_goal,
+    tone: brief.tone,
+    key_benefit: brief.key_benefit,
+    call_to_action: brief.call_to_action,
+    status: 'active'
+  };
+
+  if (brief.asset_type === 'output' && brief.asset_id) {
+    insertData.output_id = brief.asset_id;
+  } else if (brief.asset_type === 'product_image' && brief.asset_id) {
+    insertData.product_image_id = brief.asset_id;
+  }
+
   const { data, error } = await db
     .from('campaigns')
-    .insert({
-      brand_id: brandId,
-      user_id: userId,
-      name: brief.name,
-      product_name: brief.product_name,
-      target_audience: brief.target_audience,
-      campaign_goal: brief.campaign_goal,
-      tone: brief.tone,
-      key_benefit: brief.key_benefit,
-      call_to_action: brief.call_to_action,
-      asset_id: brief.asset_id || null,
-      asset_type: brief.asset_type || null,
-      status: 'active'
-    })
+    .insert(insertData)
     .select('id')
     .single();
   if (error) throw error;
@@ -107,22 +113,18 @@ export async function generateCampaignCreatives(campaignId: string, brief: any, 
   const systemPrompt = await getSystemPrompt('campaign_copy') || `
 You are an expert brand copywriter. Generate platform-specific marketing copy for all 8 platforms.
 Return ONLY valid JSON — no markdown, no explanation.
-`;
 
-  const userPrompt = `
-Generate campaign creatives for all 8 platforms for this brief:
-
-BRAND: ${brief.product_name}
-TARGET AUDIENCE: ${brief.target_audience}
-CAMPAIGN GOAL: ${brief.campaign_goal}
-KEY BENEFIT: ${brief.key_benefit}
-TONE: ${brief.tone}
-CALL TO ACTION: ${brief.call_to_action}
+BRAND: {{product_name}}
+TARGET AUDIENCE: {{target_audience}}
+CAMPAIGN GOAL: {{campaign_goal}}
+KEY BENEFIT: {{key_benefit}}
+TONE: {{tone}}
+CALL TO ACTION: {{call_to_action}}
 
 BRAND CONTEXT:
-- Voice: ${brandDna?.brand_voice || 'Not defined'}
-- Positioning: ${brandDna?.positioning_statement || 'Not defined'}
-- Customer insight: ${brandDna?.customer_insight || 'Not defined'}
+- Voice: {{brand_voice}}
+- Positioning: {{positioning_statement}}
+- Customer insight: {{customer_insight}}
 
 Return a JSON object with exactly these keys:
 {
@@ -137,10 +139,22 @@ Return a JSON object with exactly these keys:
 }
 `;
 
+  const filledSystemPrompt = injectPromptVariables(systemPrompt, {
+    product_name: brief.productName || '',
+    target_audience: brief.targetAudience || '',
+    campaign_goal: brief.campaignGoal || '',
+    key_benefit: brief.keyBenefit || '',
+    tone: brief.tone || '',
+    call_to_action: brief.callToAction || '',
+    brand_voice: brandDna?.brand_voice || 'Not yet defined',
+    positioning_statement: brandDna?.positioning_statement || 'Not yet defined',
+    customer_insight: brandDna?.customer_insight || 'Not yet defined'
+  });
+
   const result = await callAI({
     taskType: 'campaign_copy',
-    messages: [{ role: 'user', content: userPrompt }],
-    systemPrompt,
+    messages: [{ role: 'user', content: 'Generate the campaign creatives now based on the brief in the system prompt. Return only the JSON object.' }],
+    systemPrompt: filledSystemPrompt,
     maxTokens: 4000
   });
 
