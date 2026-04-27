@@ -56,7 +56,7 @@ const CampaignKit = () => {
   const isRoast = activeBrand?.id === "1";
 
   const [state, setState] = useState<"home" | "brief" | "results">("home");
-  const [submitting, setSubmitting] = useState(false);
+  const [, setSubmitting] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<{ id: string | null; type: 'output' | 'product_image' | null }>({ id: null, type: null });
   const [brief, setBrief] = useState<BriefData>(getRoastBrief());
   const [activeTab, setActiveTab] = useState<PlatformTab>("Instagram");
