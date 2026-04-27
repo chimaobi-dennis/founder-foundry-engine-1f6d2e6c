@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,10 @@ import {
   Smartphone,
   Megaphone,
   Archive,
+  Eye,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   getCampaignWithCreatives,
@@ -166,20 +170,27 @@ function VisualCreativeCard({
   brandName,
   cta,
   status,
+  fillHeight = false,
 }: {
   meta: PlatformMeta;
   creative: Creative;
   brandName: string;
   cta: string;
   status: CreativeStatus;
+  fillHeight?: boolean;
 }) {
   const Icon = meta.icon;
+
+  const sizingStyle: React.CSSProperties = fillHeight
+    ? { minHeight: "100%" }
+    : { aspectRatio: "4/5" };
+  const sizingClass = fillHeight ? "h-full min-h-[560px]" : "";
 
   if (status === "generating") {
     return (
       <div
-        className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm flex items-center justify-center"
-        style={{ aspectRatio: "4/5", background: "hsl(var(--muted))" }}
+        className={`relative w-full rounded-2xl overflow-hidden border border-border shadow-sm flex items-center justify-center ${sizingClass}`}
+        style={{ ...sizingStyle, background: "hsl(var(--muted))" }}
       >
         <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-muted/60 to-muted" />
         <div className="relative flex flex-col items-center gap-3 text-muted-foreground">
@@ -206,8 +217,8 @@ function VisualCreativeCard({
 
     return (
       <div
-        className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 flex flex-col"
-        style={{ background: meta.background, color: meta.foreground, aspectRatio: "4/5" }}
+        className={`relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 md:p-10 flex flex-col animate-fade-in ${sizingClass}`}
+        style={{ ...sizingStyle, background: meta.background, color: meta.foreground }}
       >
         <div className="flex items-center justify-between mb-6">
           <Icon size={22} />
@@ -235,8 +246,8 @@ function VisualCreativeCard({
 
   return (
     <div
-      className="relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 md:p-10 flex flex-col"
-      style={{ background: meta.background, color: meta.foreground, aspectRatio: "4/5" }}
+      className={`relative w-full rounded-2xl overflow-hidden border border-border shadow-sm p-8 md:p-12 flex flex-col animate-fade-in ${sizingClass}`}
+      style={{ ...sizingStyle, background: meta.background, color: meta.foreground }}
     >
       {/* Top row: icon + brand */}
       <div className="flex items-center justify-between">
@@ -246,10 +257,10 @@ function VisualCreativeCard({
         </span>
       </div>
 
-      {/* Centre: headline */}
-      <div className="flex-1 flex items-center justify-center text-center">
+      {/* Centre: headline (large, prominent) */}
+      <div className="flex-1 flex items-center justify-center text-center py-8">
         <p
-          className="font-display font-bold leading-[1.1] text-3xl md:text-4xl"
+          className="font-display font-bold leading-[1.05] text-3xl md:text-5xl lg:text-6xl"
           style={{ color: meta.foreground }}
         >
           {creative.headline ||
@@ -268,9 +279,9 @@ function VisualCreativeCard({
       )}
 
       {/* Bottom: CTA */}
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center mt-auto">
         <span
-          className="inline-flex items-center px-5 py-2.5 rounded-full text-[13px] font-ui font-semibold"
+          className="inline-flex items-center px-6 py-3 rounded-full text-[14px] font-ui font-semibold"
           style={{ background: meta.ctaBg, color: meta.ctaFg }}
         >
           {cta || "Learn more"} →
@@ -414,6 +425,7 @@ function CopyPanel({
   onSchedule,
   onSaveLibrary,
   onDownload,
+  onPreview,
 }: {
   meta: PlatformMeta;
   creative: Creative;
@@ -424,6 +436,7 @@ function CopyPanel({
   onSchedule: (date: Date) => void;
   onSaveLibrary: () => void;
   onDownload: () => void;
+  onPreview: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [showScheduler, setShowScheduler] = useState(false);
@@ -512,22 +525,31 @@ function CopyPanel({
         <span>{wordCount} words</span>
         <span>·</span>
         <span>{charCount} chars</span>
-        {editing && (
+        <div className="ml-auto flex items-center gap-3">
+          {editing ? (
+            <button
+              onClick={handleSaveEdit}
+              className="text-primary hover:underline"
+            >
+              Save edit
+            </button>
+          ) : (
+            text && (
+              <button
+                onClick={() => setEditing(true)}
+                className="text-primary hover:underline"
+              >
+                Edit text
+              </button>
+            )
+          )}
           <button
-            onClick={handleSaveEdit}
-            className="ml-auto text-primary hover:underline"
+            onClick={onPreview}
+            className="text-primary hover:underline inline-flex items-center gap-1"
           >
-            Save edit
+            <Eye size={11} /> Preview
           </button>
-        )}
-        {!editing && text && (
-          <button
-            onClick={() => setEditing(true)}
-            className="ml-auto text-primary hover:underline"
-          >
-            Edit text
-          </button>
-        )}
+        </div>
       </div>
 
       {/* Actions */}
@@ -592,6 +614,167 @@ function CopyPanel({
   );
 }
 
+// ───────────────────────── Preview Modal ─────────────────────────
+
+function PreviewModal({
+  creatives,
+  startIndex,
+  brandName,
+  cta,
+  onClose,
+}: {
+  creatives: Creative[];
+  startIndex: number;
+  brandName: string;
+  cta: string;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(startIndex);
+
+  useEffect(() => {
+    setIndex(startIndex);
+  }, [startIndex]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft")
+        setIndex((i) => (i - 1 + PLATFORMS.length) % PLATFORMS.length);
+      if (e.key === "ArrowRight")
+        setIndex((i) => (i + 1) % PLATFORMS.length);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const meta = PLATFORMS[index];
+  const creative =
+    creatives.find((c) => c.platform === meta.id) ?? {
+      id: `placeholder-${meta.id}`,
+      platform: meta.id,
+      headline: null,
+      copy_text: null,
+      subject_line: null,
+      status: "failed" as CreativeStatus,
+    };
+  const status = creative.status ?? "ready";
+
+  const goPrev = () =>
+    setIndex((i) => (i - 1 + PLATFORMS.length) % PLATFORMS.length);
+  const goNext = () => setIndex((i) => (i + 1) % PLATFORMS.length);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex flex-col animate-in fade-in duration-150"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 md:px-8 h-14 border-b border-border">
+        <div className="flex items-center gap-2">
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: meta.dot }}
+          />
+          <span className="text-[13px] font-ui font-semibold text-foreground">
+            {meta.name}
+          </span>
+          <span className="text-[12px] font-ui text-muted-foreground ml-2">
+            {index + 1} / {PLATFORMS.length}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Close preview"
+          className="h-9 w-9 rounded-full border border-border hover:bg-muted/50 flex items-center justify-center transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 min-h-0 grid grid-cols-[56px_1fr_56px] items-stretch">
+        <button
+          onClick={goPrev}
+          aria-label="Previous platform"
+          className="flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+        >
+          <ChevronLeft size={28} />
+        </button>
+
+        <div className="overflow-y-auto px-4 md:px-10 py-8">
+          <div className="max-w-3xl mx-auto flex flex-col gap-6">
+            {/* Full-size visual */}
+            <div className="w-full">
+              <VisualCreativeCard
+                meta={meta}
+                creative={creative}
+                brandName={brandName}
+                cta={cta}
+                status={status}
+              />
+            </div>
+
+            {/* Copy block */}
+            <div className="rounded-2xl border border-border bg-card p-6">
+              {meta.id === "email" && creative.subject_line && (
+                <div className="mb-4 pb-4 border-b border-border">
+                  <p
+                    className="text-[10px] font-ui font-semibold uppercase tracking-wider mb-1"
+                    style={{ color: "#D4A017" }}
+                  >
+                    Subject
+                  </p>
+                  <p className="text-[15px] font-ui font-medium text-foreground">
+                    {creative.subject_line}
+                  </p>
+                </div>
+              )}
+              {creative.headline && meta.id !== "headlines" && (
+                <p className="font-display text-xl font-bold text-foreground mb-3 leading-tight">
+                  {creative.headline}
+                </p>
+              )}
+              <p className="text-[14px] font-ui text-foreground/85 whitespace-pre-wrap leading-relaxed">
+                {creative.copy_text || (
+                  <span className="text-muted-foreground italic">
+                    {status === "generating"
+                      ? "Generating…"
+                      : "No copy generated"}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={goNext}
+          aria-label="Next platform"
+          className="flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+        >
+          <ChevronRight size={28} />
+        </button>
+      </div>
+
+      {/* Footer dots */}
+      <div className="border-t border-border h-12 flex items-center justify-center gap-2">
+        {PLATFORMS.map((p, i) => (
+          <button
+            key={p.id}
+            onClick={() => setIndex(i)}
+            aria-label={`Show ${p.name}`}
+            className={`h-2 rounded-full transition-all ${
+              i === index ? "w-6" : "w-2 opacity-40 hover:opacity-70"
+            }`}
+            style={{ background: p.dot }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ───────────────────────── Page ─────────────────────────
 
 export default function CampaignDetail() {
@@ -605,6 +788,8 @@ export default function CampaignDetail() {
   const [campaign, setCampaign] = useState<any>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [activeTab, setActiveTab] = useState<PlatformId>("headlines");
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [autogenStarted, setAutogenStarted] = useState(false);
 
   const load = async () => {
     if (!campaignId) return;
@@ -749,6 +934,74 @@ export default function CampaignDetail() {
     }
   };
 
+  // ── Background per-platform generation (fresh campaigns) ──
+  const runBackgroundGeneration = useCallback(
+    async (campaignRow: any) => {
+      if (!campaignId) return;
+      // Mark all 8 as generating
+      setCreatives((prev) =>
+        prev.map((c) => ({ ...c, status: "generating" as CreativeStatus }))
+      );
+      const brief = {
+        product_name: campaignRow.product_name,
+        target_audience: campaignRow.target_audience,
+        campaign_goal: campaignRow.campaign_goal,
+        tone: campaignRow.tone,
+        key_benefit: campaignRow.key_benefit,
+        call_to_action: campaignRow.call_to_action,
+      };
+      // Fire all 8 in parallel; each updates its own card on completion
+      await Promise.all(
+        PLATFORMS.map(async (p) => {
+          try {
+            const result = await regenerateCampaignPlatform(
+              campaignId,
+              p.id,
+              brief,
+              activeBrandDNA
+            );
+            updateCreative(p.id, {
+              id: result.id,
+              headline: result.headline || null,
+              copy_text: result.copy_text || null,
+              subject_line: result.subject_line || null,
+              status: "ready",
+            });
+          } catch (err) {
+            console.error(`Failed to generate ${p.id}:`, err);
+            updateCreative(p.id, { status: "failed" });
+          }
+        })
+      );
+      try {
+        sessionStorage.removeItem(`campaign:autogen:${campaignId}`);
+      } catch {}
+      toast.success("Campaign creatives ready");
+    },
+    [campaignId, activeBrandDNA]
+  );
+
+  // After initial load: if autogen flag set and no real creatives yet, kick off generation
+  useEffect(() => {
+    if (loading || !campaign || autogenStarted) return;
+    let shouldAutogen = false;
+    try {
+      shouldAutogen =
+        !!campaignId &&
+        sessionStorage.getItem(`campaign:autogen:${campaignId}`) === "1";
+    } catch {}
+    const hasAnyContent = creatives.some(
+      (c) =>
+        !c.id.startsWith("placeholder-") &&
+        (c.copy_text || c.headline || c.subject_line)
+    );
+    if (shouldAutogen && !hasAnyContent) {
+      setAutogenStarted(true);
+      void runBackgroundGeneration(campaign);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, campaign]);
+
   // ── Loading state ──
   if (loading) {
     return (
@@ -828,6 +1081,12 @@ export default function CampaignDetail() {
           </button>
           <div className="flex-1" />
           <button
+            onClick={() => setPreviewIndex(0)}
+            className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-muted/50 transition-colors flex items-center gap-1.5 mr-2"
+          >
+            <Eye size={12} /> Preview campaign
+          </button>
+          <button
             onClick={handleRegenerateAll}
             disabled={regenAll}
             className="text-[12px] font-ui px-3 py-1.5 rounded-md border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 flex items-center gap-1.5"
@@ -877,20 +1136,21 @@ export default function CampaignDetail() {
         </div>
 
         {/* Two-column main */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          {/* Visual creative — ~60% */}
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-stretch">
+          {/* Visual creative — ~60% — fills column height */}
+          <div className="lg:col-span-3 flex">
             <VisualCreativeCard
               meta={activeMeta}
               creative={activeCreative}
               brandName={brandName}
               cta={campaign.call_to_action || "Learn more"}
               status={activeCreative.status ?? "ready"}
+              fillHeight
             />
           </div>
 
           {/* Copy panel — ~40% */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 flex">
             <CopyPanel
               meta={activeMeta}
               creative={activeCreative}
@@ -905,10 +1165,26 @@ export default function CampaignDetail() {
               }
               onSaveLibrary={() => toast.success("Saved to Library")}
               onDownload={() => toast.success("Download started")}
+              onPreview={() =>
+                setPreviewIndex(
+                  PLATFORMS.findIndex((p) => p.id === activeTab)
+                )
+              }
             />
           </div>
         </div>
       </div>
+
+      {/* Preview modal */}
+      {previewIndex !== null && (
+        <PreviewModal
+          creatives={creatives}
+          startIndex={previewIndex}
+          brandName={brandName}
+          cta={campaign.call_to_action || "Learn more"}
+          onClose={() => setPreviewIndex(null)}
+        />
+      )}
 
       {/* Bottom action bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
