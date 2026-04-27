@@ -226,8 +226,7 @@ const CampaignKit = () => {
                 "Almost ready..."
               ][loadingMessage]}
             </h2>
-            </h2>
-            <p className="text-[13px] font-ui text-muted-foreground">This may take a moment</p>
+            <p className="text-[13px] font-ui text-muted-foreground text-center">This may take a moment</p>
           </div>
         ) : state === "brief" ? (
           <div className="max-w-3xl mx-auto px-4 md:px-6 py-6">
