@@ -115,44 +115,54 @@ const CreativeCard = ({
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 flex flex-col">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="rounded-2xl border border-border bg-card p-6 flex flex-col shadow-sm hover:shadow-md transition-shadow">
+      {/* Platform header */}
+      <div className="flex items-center gap-3 mb-4">
         <span
-          className="w-7 h-7 rounded-md flex items-center justify-center text-white"
-          style={{ backgroundColor: meta.color }}
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm"
+          style={{ background: meta.background }}
         >
-          <Icon size={14} />
+          <Icon size={18} strokeWidth={2} />
         </span>
-        <h3 className="font-display text-[15px] text-foreground">{meta.name}</h3>
+        <h3 className="font-display text-base font-bold text-foreground">
+          {meta.name}
+        </h3>
       </div>
 
+      {/* Subject (email) */}
+      {creative.subject_line && (
+        <p className="text-[11px] font-ui font-semibold uppercase tracking-wider mb-3" style={{ color: "#D4A017" }}>
+          Subject:{" "}
+          <span className="text-foreground/90 normal-case tracking-normal font-medium">
+            {creative.subject_line}
+          </span>
+        </p>
+      )}
+
+      {/* Headline */}
       {creative.headline && (
-        <p className="font-display text-[16px] text-foreground font-semibold mb-2 leading-snug">
+        <p className="font-display text-xl text-foreground font-bold mb-3 leading-tight">
           {creative.headline}
         </p>
       )}
 
-      {creative.subject_line && (
-        <p className="text-[12px] font-ui text-primary uppercase tracking-wider mb-2">
-          Subject: {creative.subject_line}
-        </p>
-      )}
-
+      {/* Copy body */}
       {editing ? (
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          className="w-full min-h-[140px] text-[13px] font-ui text-foreground bg-background border border-input rounded-md p-3 outline-none focus:ring-2 focus:ring-ring resize-y"
+          className="w-full min-h-[160px] text-[14px] font-ui text-foreground bg-background border border-input rounded-lg p-3 outline-none focus:ring-2 focus:ring-ring resize-y leading-relaxed"
         />
       ) : (
-        <p className="text-[13px] font-ui text-foreground/90 whitespace-pre-wrap flex-1 leading-relaxed">
+        <p className="text-[14px] font-ui text-foreground/85 whitespace-pre-wrap flex-1 leading-relaxed">
           {creative.copy_text || (
             <span className="text-muted-foreground italic">No copy generated</span>
           )}
         </p>
       )}
 
-      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+      {/* Actions */}
+      <div className="flex items-center gap-2 mt-5 pt-4 border-t border-border">
         <button
           onClick={handleCopy}
           disabled={!creative.copy_text}
