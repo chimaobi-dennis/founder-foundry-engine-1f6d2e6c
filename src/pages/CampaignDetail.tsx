@@ -788,6 +788,8 @@ export default function CampaignDetail() {
   const [campaign, setCampaign] = useState<any>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [activeTab, setActiveTab] = useState<PlatformId>("headlines");
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [autogenStarted, setAutogenStarted] = useState(false);
 
   const load = async () => {
     if (!campaignId) return;
