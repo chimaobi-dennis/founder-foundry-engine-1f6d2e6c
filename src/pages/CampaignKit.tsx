@@ -139,8 +139,7 @@ const CampaignKit = () => {
       return;
     }
 
-    setState("generating");
-    setLoadingMessage(0);
+    setSubmitting(true);
 
     try {
       // Create campaign
@@ -157,26 +156,18 @@ const CampaignKit = () => {
           asset_type: selectedAsset.type,
         } : {}),
       });
-      setGeneratingCampaignId(newCampaignId);
 
-      // Get brand DNA for generation
-      const { data: brandDna } = await db
-        .from('brand_dna')
-        .select('*')
-        .eq('brand_id', activeBrand.id)
-        .single();
+      // Mark this campaign as needing generation; CampaignDetail will pick it up
+      try {
+        sessionStorage.setItem(`campaign:autogen:${newCampaignId}`, '1');
+      } catch {}
 
-      // Generate creatives
-      await generateCampaignCreatives(newCampaignId, brief, brandDna);
-
-      // Navigate to detail page
+      // Navigate immediately — generation runs on the detail page with skeletons
       navigate(`/campaign-kit/${newCampaignId}`);
     } catch (error: any) {
-      console.error('Failed to generate campaign:', error);
-      setError(error.message || 'Failed to generate campaign');
-      setState("brief");
-    } finally {
-      setGeneratingCampaignId(null);
+      console.error('Failed to create campaign:', error);
+      setError(error.message || 'Failed to create campaign');
+      setSubmitting(false);
     }
   };
 
@@ -196,23 +187,6 @@ const CampaignKit = () => {
             onNewCampaign={handleNewCampaign}
             onViewCampaign={handleViewCampaign}
           />
-        ) : state === "generating" ? (
-          <div className="max-w-3xl mx-auto px-4 md:px-6 py-12">
-            <div className="mx-auto mb-6 w-full max-w-md space-y-3">
-              <div className="h-4 rounded bg-muted animate-pulse w-3/4 mx-auto" />
-              <div className="h-4 rounded bg-muted animate-pulse w-1/2 mx-auto" />
-            </div>
-            <h2 className="font-display text-xl text-foreground mb-2 text-center">
-              {[
-                "Saving your campaign brief...",
-                "Writing Instagram copy...",
-                "Crafting your email...",
-                "Building 8 platform creatives...",
-                "Almost ready..."
-              ][loadingMessage]}
-            </h2>
-            <p className="text-[13px] font-ui text-muted-foreground text-center">This may take a moment</p>
-          </div>
         ) : state === "brief" ? (
           <div className="max-w-3xl mx-auto px-4 md:px-6 py-6">
             <button
