@@ -76,7 +76,7 @@ const CreativeCard = ({
   const meta = platformMeta[creative.platform] ?? {
     name: creative.platform,
     icon: Megaphone,
-    color: "hsl(var(--muted-foreground))",
+    background: "hsl(var(--muted-foreground))",
   };
   const Icon = meta.icon;
 
