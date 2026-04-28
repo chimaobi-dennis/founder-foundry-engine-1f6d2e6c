@@ -8,6 +8,7 @@ import {
   updateModel, 
   setTaskDefault,
   getAllEnabledModels,
+  getAllTaskDefaults,
   type AIProvider,
   type AIModel,
   type TaskType
@@ -98,8 +99,8 @@ export default function AdminAIModels() {
     is_default: false,
   });
 
-  // Task defaults state
-  const [taskDefaults, setTaskDefaults] = useState<Record<TaskType, AIModel | null>>({} as Record<TaskType, AIModel | null>);
+  // Task defaults state — maps task_type → model_id (from ai_task_defaults)
+  const [taskDefaults, setTaskDefaults] = useState<Record<string, string>>({});
   const [enabledModels, setEnabledModels] = useState<AIModel[]>([]);
 
   useEffect(() => {
@@ -107,14 +108,16 @@ export default function AdminAIModels() {
   }, []);
 
   const loadData = async () => {
-    const [providersData, modelsData, enabledModelsData] = await Promise.all([
+    const [providersData, modelsData, enabledModelsData, taskDefaultsData] = await Promise.all([
       getAllProviders(),
       getAllModels(),
       getAllEnabledModels(),
+      getAllTaskDefaults(),
     ]);
     setProviders(providersData);
     setModels(modelsData);
     setEnabledModels(enabledModelsData);
+    setTaskDefaults(taskDefaultsData);
   };
 
   // Provider handlers
@@ -232,12 +235,21 @@ export default function AdminAIModels() {
     const loadingKey = `save-default-${taskType}`;
     setActionLoading(loadingKey, true);
     
+    // Optimistic update so the dropdown reflects the new value immediately
+    const previous = taskDefaults[taskType];
+    setTaskDefaults((prev) => ({ ...prev, [taskType]: modelId }));
+
     const result = await setTaskDefault(taskType, modelId);
     if (result.success) {
       toast("Default updated");
-      // Reload task defaults
-      // Note: We'd need a function to get task defaults, but for now this is sufficient
     } else {
+      // Revert on failure
+      setTaskDefaults((prev) => {
+        const next = { ...prev };
+        if (previous) next[taskType] = previous;
+        else delete next[taskType];
+        return next;
+      });
       toast.error(result.error || "Failed to update default");
     }
     setActionLoading(loadingKey, false);
@@ -476,6 +488,7 @@ export default function AdminAIModels() {
                 <div className="w-64">
                   <div className="flex items-center gap-2">
                     <Select
+                      value={taskDefaults[task.type] ?? undefined}
                       onValueChange={(value) => handleTaskDefaultChange(task.type, value)}
                       disabled={isActionLoading(`save-default-${task.type}`)}
                     >

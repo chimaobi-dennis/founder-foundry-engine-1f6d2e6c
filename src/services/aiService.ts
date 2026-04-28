@@ -926,6 +926,17 @@ export const getModelsForTask = async (
   return data ?? [];
 };
 
+export const getAllTaskDefaults = async (): Promise<Record<string, string>> => {
+  const { data } = await (supabase as any)
+    .from('ai_task_defaults')
+    .select('task_type, model_id');
+  const map: Record<string, string> = {};
+  (data ?? []).forEach((row: any) => {
+    if (row?.task_type && row?.model_id) map[row.task_type] = row.model_id;
+  });
+  return map;
+};
+
 export const getAllEnabledModels = async (): Promise<AIModel[]> => {
   const { data } = await (supabase as any)
     .from('ai_models')
