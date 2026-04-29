@@ -17,6 +17,42 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+// Inline expandable captured value. Each instance manages its own
+// expanded/collapsed state. Below 80 chars renders the value as-is.
+function CapturedValue({ value, style }: { value: string; style?: React.CSSProperties }) {
+  const [expanded, setExpanded] = useState(false);
+  const LIMIT = 80;
+  const needsToggle = value.length > LIMIT;
+
+  if (!needsToggle) {
+    return <div style={style}>{value}</div>;
+  }
+
+  const shown = expanded ? value : value.slice(0, LIMIT).trimEnd();
+  return (
+    <div style={style}>
+      {shown}
+      {!expanded && '...'}{' '}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          color: '#D4A017',
+          cursor: 'pointer',
+          font: 'inherit',
+          textDecoration: 'underline',
+          textUnderlineOffset: '2px',
+        }}
+      >
+        {expanded ? 'See less' : 'See more'}
+      </button>
+    </div>
+  );
+}
+
 interface BrandDNAPanelProps {
   fields: any[];
   highlightField: string | null;
@@ -937,15 +973,14 @@ export function BrandDNAPanel({
                                   }}>
                                     {isRefining ? 'In refinement' : 'Captured'}
                                   </div>
-                                  <div style={{
-                                    fontSize: '12px',
-                                    color: 'var(--color-text-primary)',
-                                    lineHeight: 1.6
-                                  }}>
-                                    {substage.value.length > 150
-                                      ? substage.value.slice(0, 150) + '...'
-                                      : substage.value}
-                                  </div>
+                                  <CapturedValue
+                                    value={substage.value}
+                                    style={{
+                                      fontSize: '12px',
+                                      color: 'var(--color-text-primary)',
+                                      lineHeight: 1.6,
+                                    }}
+                                  />
                                 </div>
                               )}
                             </div>
@@ -1111,14 +1146,15 @@ export function BrandDNAPanel({
                               </span>
                             </div>
                             {hasValue && (
-                              <div style={{
-                                fontSize: '12px',
-                                color: 'var(--color-text-primary)',
-                                lineHeight: 1.5,
-                                marginLeft: '16px'
-                              }}>
-                                {value.length > 200 ? value.slice(0, 200) + '…' : value}
-                              </div>
+                              <CapturedValue
+                                value={value}
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--color-text-primary)',
+                                  lineHeight: 1.5,
+                                  marginLeft: '16px',
+                                }}
+                              />
                             )}
                           </div>
                         );
