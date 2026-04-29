@@ -946,12 +946,12 @@ Be selective — only mark significant shifts, not minor tangents.`,
     const userMsg = await saveMessage(conversation.id, 'user', content);
     if (!userMsg) return;
 
-    // Add user message to state
+    // Add user message to state (upsert — never duplicate by id)
     const founderMsg: Message = { id: userMsg.id, role: "founder", content };
     setBrandDataMap(prev => {
       const data = prev[brandId];
       if (!data) return prev;
-      return { ...prev, [brandId]: { ...data, messages: [...data.messages, founderMsg] } };
+      return { ...prev, [brandId]: { ...data, messages: upsertMessages(data.messages, [founderMsg]) } };
     });
 
     // Get current messages for context
