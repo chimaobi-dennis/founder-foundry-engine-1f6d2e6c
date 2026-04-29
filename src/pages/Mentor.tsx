@@ -172,6 +172,28 @@ function detectSavePrompts(content: string, messageId: string): InlineSavePrompt
   return null;
 }
 
+// Upsert messages by id — if a message with the same id already exists,
+// update it in place (preserving order). Otherwise append. Guarantees that
+// optimistic inserts + retries never duplicate user OR assistant rows.
+function upsertMessages(existing: Message[], incoming: Message[]): Message[] {
+  const byId = new Map<string, number>();
+  const out: Message[] = [];
+  for (const m of existing) {
+    if (m.id && byId.has(m.id)) continue; // dedupe stale duplicates
+    if (m.id) byId.set(m.id, out.length);
+    out.push(m);
+  }
+  for (const m of incoming) {
+    if (m.id && byId.has(m.id)) {
+      out[byId.get(m.id)!] = { ...out[byId.get(m.id)!], ...m };
+    } else {
+      if (m.id) byId.set(m.id, out.length);
+      out.push(m);
+    }
+  }
+  return out;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const Mentor = () => {
