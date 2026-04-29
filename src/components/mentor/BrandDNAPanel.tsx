@@ -973,15 +973,14 @@ export function BrandDNAPanel({
                                   }}>
                                     {isRefining ? 'In refinement' : 'Captured'}
                                   </div>
-                                  <div style={{
-                                    fontSize: '12px',
-                                    color: 'var(--color-text-primary)',
-                                    lineHeight: 1.6
-                                  }}>
-                                    {substage.value.length > 150
-                                      ? substage.value.slice(0, 150) + '...'
-                                      : substage.value}
-                                  </div>
+                                  <CapturedValue
+                                    value={substage.value}
+                                    style={{
+                                      fontSize: '12px',
+                                      color: 'var(--color-text-primary)',
+                                      lineHeight: 1.6,
+                                    }}
+                                  />
                                 </div>
                               )}
                             </div>
