@@ -1024,16 +1024,14 @@ Be selective — only mark significant shifts, not minor tangents.`,
           setBrandDataMap(prev => {
             const data = prev[brandId];
             if (!data) return prev;
+            const cleared = data.messages.map(m =>
+              m.id === userMsg.id ? { ...m, failed: false } : m
+            );
             return {
               ...prev,
               [brandId]: {
                 ...data,
-                messages: [
-                  ...data.messages.map(m =>
-                    m.id === userMsg.id ? { ...m, failed: false } : m
-                  ),
-                  aiMessage,
-                ],
+                messages: upsertMessages(cleared, [aiMessage]),
               },
             };
           });
