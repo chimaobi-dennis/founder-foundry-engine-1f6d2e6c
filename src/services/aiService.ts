@@ -228,6 +228,12 @@ export const resolveModelForTask = async (
     .eq('task_type', taskType)
     .single();
 
+  // Debug log
+  const modelId = defaultTask?.ai_models?.model_id;
+  const providerId = defaultTask?.ai_models?.ai_providers?.id;
+  const providerSlug = defaultTask?.ai_models?.ai_providers?.slug;
+  console.log('resolveModelForTask result:', { taskType, modelId, providerId, providerSlug });
+
   // Null check — model or provider missing
   if (!defaultTask?.ai_models) {
     console.error(`No model found for task type: ${taskType}`);
@@ -549,7 +555,8 @@ const callAnthropicDirect = async (
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
         model: modelId,
@@ -562,9 +569,9 @@ const callAnthropicDirect = async (
     const data = await response.json();
 
     if (!response.ok) {
-      return { 
-        success: false, 
-        error: data.error?.message ?? 'Anthropic API call failed' 
+      return {
+        success: false,
+        error: data.error?.message ?? 'Anthropic API call failed'
       };
     }
 
@@ -647,14 +654,16 @@ export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
     
     // Step 3 — Call provider
     currentPipelineStep = `calling_provider:${provider.slug}`;
-    
+
     console.log('Provider slug for routing:', `"${provider.slug}"`);
-    
+    console.log('Routing decision: matching against cases: google-ai-studio, anthropic, lovable-gemini');
+
     let result: AICallResult;
 
     switch (provider.slug) {
       case 'google-ai-studio':
-        console.log('Routing to callGoogleAI with key length:', 
+        console.log('✓ Matched case: google-ai-studio -> routing to callGoogleAI');
+        console.log('Routing to callGoogleAI with key length:',
           provider.api_key?.length ?? 0);
         if (onChunk) {
           result = await callGoogleAIStreaming(
@@ -677,6 +686,7 @@ export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
         break;
 
       case 'anthropic':
+        console.log('✓ Matched case: anthropic -> routing to callAnthropicDirect');
         result = await callAnthropicDirect(
           provider.api_key ?? '',
           modelIdToUse,
@@ -696,6 +706,7 @@ export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
       case 'openai':
       case 'jojapi':
       default:
+        console.log('✓ Matched default case (openai/jojapi or unmatched slug) -> routing to callOpenAICompatible');
         result = await callOpenAICompatible(
           provider.base_url,
           provider.api_key ?? '',
