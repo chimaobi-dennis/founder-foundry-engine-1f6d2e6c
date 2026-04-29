@@ -172,6 +172,28 @@ function detectSavePrompts(content: string, messageId: string): InlineSavePrompt
   return null;
 }
 
+// Upsert messages by id — if a message with the same id already exists,
+// update it in place (preserving order). Otherwise append. Guarantees that
+// optimistic inserts + retries never duplicate user OR assistant rows.
+function upsertMessages(existing: Message[], incoming: Message[]): Message[] {
+  const byId = new Map<string, number>();
+  const out: Message[] = [];
+  for (const m of existing) {
+    if (m.id && byId.has(m.id)) continue; // dedupe stale duplicates
+    if (m.id) byId.set(m.id, out.length);
+    out.push(m);
+  }
+  for (const m of incoming) {
+    if (m.id && byId.has(m.id)) {
+      out[byId.get(m.id)!] = { ...out[byId.get(m.id)!], ...m };
+    } else {
+      if (m.id) byId.set(m.id, out.length);
+      out.push(m);
+    }
+  }
+  return out;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const Mentor = () => {
@@ -806,18 +828,19 @@ Be selective — only mark significant shifts, not minor tangents.`,
       setBrandDataMap(prev => {
         const data = prev[brandId];
         if (!data) return prev;
+        // Clear failed flag on the user message + upsert the AI reply.
+        // upsertMessages updates in place if aiMsgId already exists (e.g. on
+        // a retry where the assistant row id matches), otherwise appends.
+        const cleared = data.messages.map(m =>
+          lastUserMsgForClear && m.id === lastUserMsgForClear.id
+            ? { ...m, failed: false }
+            : m
+        );
         return {
           ...prev,
           [brandId]: {
             ...data,
-            messages: [
-              ...data.messages.map(m =>
-                lastUserMsgForClear && m.id === lastUserMsgForClear.id
-                  ? { ...m, failed: false }
-                  : m
-              ),
-              aiMsg,
-            ],
+            messages: upsertMessages(cleared, [aiMsg]),
           },
         };
       });
@@ -924,12 +947,12 @@ Be selective — only mark significant shifts, not minor tangents.`,
     const userMsg = await saveMessage(conversation.id, 'user', content);
     if (!userMsg) return;
 
-    // Add user message to state
+    // Add user message to state (upsert — never duplicate by id)
     const founderMsg: Message = { id: userMsg.id, role: "founder", content };
     setBrandDataMap(prev => {
       const data = prev[brandId];
       if (!data) return prev;
-      return { ...prev, [brandId]: { ...data, messages: [...data.messages, founderMsg] } };
+      return { ...prev, [brandId]: { ...data, messages: upsertMessages(data.messages, [founderMsg]) } };
     });
 
     // Get current messages for context
@@ -1001,16 +1024,14 @@ Be selective — only mark significant shifts, not minor tangents.`,
           setBrandDataMap(prev => {
             const data = prev[brandId];
             if (!data) return prev;
+            const cleared = data.messages.map(m =>
+              m.id === userMsg.id ? { ...m, failed: false } : m
+            );
             return {
               ...prev,
               [brandId]: {
                 ...data,
-                messages: [
-                  ...data.messages.map(m =>
-                    m.id === userMsg.id ? { ...m, failed: false } : m
-                  ),
-                  aiMessage,
-                ],
+                messages: upsertMessages(cleared, [aiMessage]),
               },
             };
           });
@@ -1223,7 +1244,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
                 },
               };
             }
-            return { ...prev, [brandId]: { ...data, messages: [...data.messages, aiMessage] } };
+            return { ...prev, [brandId]: { ...data, messages: upsertMessages(data.messages, [aiMessage]) } };
           });
 
           // Auto-captured field → refresh substages in side panels
