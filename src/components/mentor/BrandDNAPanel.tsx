@@ -17,6 +17,42 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+// Inline expandable captured value. Each instance manages its own
+// expanded/collapsed state. Below 80 chars renders the value as-is.
+function CapturedValue({ value, style }: { value: string; style?: React.CSSProperties }) {
+  const [expanded, setExpanded] = useState(false);
+  const LIMIT = 80;
+  const needsToggle = value.length > LIMIT;
+
+  if (!needsToggle) {
+    return <div style={style}>{value}</div>;
+  }
+
+  const shown = expanded ? value : value.slice(0, LIMIT).trimEnd();
+  return (
+    <div style={style}>
+      {shown}
+      {!expanded && '...'}{' '}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          color: '#D4A017',
+          cursor: 'pointer',
+          font: 'inherit',
+          textDecoration: 'underline',
+          textUnderlineOffset: '2px',
+        }}
+      >
+        {expanded ? 'See less' : 'See more'}
+      </button>
+    </div>
+  );
+}
+
 interface BrandDNAPanelProps {
   fields: any[];
   highlightField: string | null;
