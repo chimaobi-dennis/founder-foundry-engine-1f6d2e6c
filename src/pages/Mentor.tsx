@@ -828,18 +828,19 @@ Be selective — only mark significant shifts, not minor tangents.`,
       setBrandDataMap(prev => {
         const data = prev[brandId];
         if (!data) return prev;
+        // Clear failed flag on the user message + upsert the AI reply.
+        // upsertMessages updates in place if aiMsgId already exists (e.g. on
+        // a retry where the assistant row id matches), otherwise appends.
+        const cleared = data.messages.map(m =>
+          lastUserMsgForClear && m.id === lastUserMsgForClear.id
+            ? { ...m, failed: false }
+            : m
+        );
         return {
           ...prev,
           [brandId]: {
             ...data,
-            messages: [
-              ...data.messages.map(m =>
-                lastUserMsgForClear && m.id === lastUserMsgForClear.id
-                  ? { ...m, failed: false }
-                  : m
-              ),
-              aiMsg,
-            ],
+            messages: upsertMessages(cleared, [aiMsg]),
           },
         };
       });
