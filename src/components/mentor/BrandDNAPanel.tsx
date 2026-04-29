@@ -1146,14 +1146,15 @@ export function BrandDNAPanel({
                               </span>
                             </div>
                             {hasValue && (
-                              <div style={{
-                                fontSize: '12px',
-                                color: 'var(--color-text-primary)',
-                                lineHeight: 1.5,
-                                marginLeft: '16px'
-                              }}>
-                                {value.length > 200 ? value.slice(0, 200) + '…' : value}
-                              </div>
+                              <CapturedValue
+                                value={value}
+                                style={{
+                                  fontSize: '12px',
+                                  color: 'var(--color-text-primary)',
+                                  lineHeight: 1.5,
+                                  marginLeft: '16px',
+                                }}
+                              />
                             )}
                           </div>
                         );
