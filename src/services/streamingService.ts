@@ -55,6 +55,37 @@ export interface ThinkingState {
   progress: number; // 0 to 1
 }
 
+// Mentor thinking pool — cycled randomly so the wait feels like a real
+// person reading and reflecting, not a robot stepping through a script.
+const mentorThinkingPool: string[] = [
+  "Reading what you shared...",
+  "Sitting with that for a moment...",
+  "That's interesting — thinking it through...",
+  "Connecting the dots...",
+  "Let me think about this properly...",
+  "Processing what you just said...",
+  "There's something here worth unpacking...",
+  "Thinking...",
+  "Following your thread...",
+  "That landed — give me a second...",
+  "Turning that over in my mind...",
+  "Reading your brand context...",
+  "Building on what we know...",
+  "Almost there...",
+];
+
+const pickRandom = (pool: string[], avoid?: string): string => {
+  if (pool.length <= 1) return pool[0];
+  let next = pool[Math.floor(Math.random() * pool.length)];
+  // Avoid repeating the same message twice in a row.
+  let guard = 0;
+  while (next === avoid && guard < 8) {
+    next = pool[Math.floor(Math.random() * pool.length)];
+    guard++;
+  }
+  return next;
+};
+
 // Returns a sequence runner that cycles through thinking messages
 export const createThinkingSequence = (
   taskType: string,
@@ -62,21 +93,33 @@ export const createThinkingSequence = (
   isFirstMessage: boolean,
   onUpdate: (state: ThinkingState) => void
 ): { stop: () => void } => {
-  let sequence = thinkingSequences[taskType] ?? thinkingSequences.mentor_chat;
-
-  // Pick the right sequence for mentor
-  if (taskType === 'mentor_chat') {
-    if (isFirstMessage) {
-      sequence = thinkingSequences.mentor_chat_first_message;
-    } else if (hasDNA) {
-      sequence = thinkingSequences.mentor_chat_with_dna;
-    }
-  }
-
-  let currentIndex = 0;
   let stopped = false;
 
-  // Show first message immediately — no delay
+  // Mentor uses the random pool with 2.5s cycling.
+  const isMentor =
+    taskType === 'mentor_chat' ||
+    taskType === 'mentor_chat_first_message' ||
+    taskType === 'mentor_chat_with_dna';
+
+  if (isMentor) {
+    let current = pickRandom(mentorThinkingPool);
+    onUpdate({ isThinking: true, currentMessage: current, progress: 0.5 });
+
+    const tick = () => {
+      if (stopped) return;
+      current = pickRandom(mentorThinkingPool, current);
+      onUpdate({ isThinking: true, currentMessage: current, progress: 0.5 });
+      timer = setTimeout(tick, 2500);
+    };
+    let timer = setTimeout(tick, 2500);
+
+    return { stop: () => { stopped = true; clearTimeout(timer); } };
+  }
+
+  // Non-mentor task types keep their ordered sequence.
+  const sequence = thinkingSequences[taskType] ?? thinkingSequences.mentor_chat;
+  let currentIndex = 0;
+
   onUpdate({
     isThinking: true,
     currentMessage: sequence[0],
@@ -101,7 +144,6 @@ export const createThinkingSequence = (
     }
   };
 
-  // Advance through remaining messages
   if (sequence.length > 1) {
     setTimeout(advance, 1200);
   }
