@@ -547,7 +547,8 @@ export async function generateTemplateOutput({
   imageMimeType,
   onVariant,
   extraInstructions,
-  digitalInputs
+  digitalInputs,
+  designBrief
 }: GenerateTemplateParams): Promise<{ variants: string[]; outputIds: string[]; generationSessionId?: string; error?: string }> {
   try {
     // Get userId from auth session to ensure RLS compliance
