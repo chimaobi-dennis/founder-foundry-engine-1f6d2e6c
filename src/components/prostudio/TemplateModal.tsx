@@ -1162,6 +1162,83 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                     </div>
                   </>
                 )}
+
+                {/* Brand context indicator */}
+                <div className="flex items-center gap-1.5 pt-1">
+                  <Sparkles size={12} className="text-primary" />
+                  <span className="text-[11px] font-ui text-muted-foreground">
+                    Using your brand context from Mentor
+                  </span>
+                </div>
+
+                {/* Aspect ratio */}
+                <div className="pt-2">
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Aspect ratio
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aspectOptions.map((a) => (
+                      <button
+                        key={a}
+                        onClick={() => setSelectedAspect(a)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          selectedAspect === a
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Style intensity */}
+                <div>
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Style intensity
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {intensityOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setStyleIntensity(opt.value)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          styleIntensity === opt.value
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Variant count */}
+                <div>
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    How many variants
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setVariantCount(n)}
+                        className={cn(
+                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          variantCount === n
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
             
