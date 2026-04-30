@@ -16,6 +16,7 @@ import { useProductImages } from "@/hooks/use-product-images";
 import { useAuth } from "@/contexts/AuthContext";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { QuickEditPanel, type EditState, defaultEditState } from "./QuickEditPanel";
+import { StudioButton, Pill } from "./shared";
 import { useStudioSession } from "@/contexts/StudioSessionContext";
 import {
   getProjectImagesForTemplate,
@@ -995,18 +996,9 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {aspectOptions.map((a) => (
-                      <button
-                        key={a}
-                        onClick={() => setSelectedAspect(a)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          selectedAspect === a
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
-                      >
+                      <Pill key={a} selected={selectedAspect === a} onClick={() => setSelectedAspect(a)}>
                         {a}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
@@ -1018,18 +1010,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {intensityOptions.map((opt) => (
-                      <button
+                      <Pill
                         key={opt.value}
+                        selected={styleIntensity === opt.value}
                         onClick={() => setStyleIntensity(opt.value)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          styleIntensity === opt.value
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {opt.label}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
@@ -1041,18 +1028,14 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {[1, 2, 3, 4].map((n) => (
-                      <button
+                      <Pill
                         key={n}
+                        minWidth
+                        selected={variantCount === n}
                         onClick={() => setVariantCount(n)}
-                        className={cn(
-                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          variantCount === n
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {n}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                   <p className="text-[11px] font-ui text-muted-foreground mt-1.5">
@@ -1214,18 +1197,9 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {aspectOptions.map((a) => (
-                      <button
-                        key={a}
-                        onClick={() => setSelectedAspect(a)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          selectedAspect === a
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
-                      >
+                      <Pill key={a} selected={selectedAspect === a} onClick={() => setSelectedAspect(a)}>
                         {a}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
@@ -1237,18 +1211,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {intensityOptions.map((opt) => (
-                      <button
+                      <Pill
                         key={opt.value}
+                        selected={styleIntensity === opt.value}
                         onClick={() => setStyleIntensity(opt.value)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          styleIntensity === opt.value
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {opt.label}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
@@ -1260,18 +1229,14 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {[1, 2, 3, 4].map((n) => (
-                      <button
+                      <Pill
                         key={n}
+                        minWidth
+                        selected={variantCount === n}
                         onClick={() => setVariantCount(n)}
-                        className={cn(
-                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          variantCount === n
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {n}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
@@ -1298,13 +1263,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="block">
-                          <Button
+                          <StudioButton
                             onClick={handleRun}
                             disabled={disabled}
-                            className="w-full h-12 rounded-lg text-[14px] font-ui font-medium bg-[#D4A017] hover:bg-[#B8890F] text-[#1A1A2E] disabled:opacity-60"
+                            fullWidth
                           >
                             {label}
-                          </Button>
+                          </StudioButton>
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[260px]">
