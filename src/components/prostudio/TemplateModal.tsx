@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2 } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2, Sparkles } from "lucide-react";
 import html2canvas from "html2canvas";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
