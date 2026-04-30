@@ -175,8 +175,11 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   useEffect(() => {
     if (template) {
       setGenerated(false);
-      setVariations(Array(variantCount).fill(null));
-      setOutputIds(Array(variantCount).fill(null));
+      setSelectedAspect("Auto");
+      setStyleIntensity(2);
+      setVariantCount(1);
+      setVariations([null]);
+      setOutputIds([null]);
       setGenerationSessionId(null);
       setActiveVariation(0);
       setEditorOpen(false);
