@@ -576,14 +576,53 @@ export async function generateTemplateOutput({
 
     if (dnaError && dnaError.code !== 'PGRST116') throw dnaError;
 
-    // Fetch brand colors
+    // Fetch brand colors and journey stage
     const { data: brand, error: brandError } = await db
       .from('brands')
-      .select('primary_color, secondary_color')
+      .select('primary_color, secondary_color, journey_stage')
       .eq('id', brandId)
       .single();
 
     if (brandError) throw brandError;
+
+    // Fetch mentor memory from conversation
+    let mentorMemory = 'No mentor conversation yet.';
+    const { data: conversation } = await db
+      .from('mentor_conversations')
+      .select('id')
+      .eq('brand_id', brandId)
+      .single();
+
+    if (conversation?.id) {
+      const { data: messages } = await db
+        .from('mentor_messages')
+        .select('role, content')
+        .eq('conversation_id', conversation.id)
+        .eq('role', 'assistant')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (messages && messages.length > 0) {
+        mentorMemory = messages
+          .reverse()
+          .map(m => m.content.slice(0, 200))
+          .join('\n\n');
+      }
+    }
+
+    // Fetch captured stage data
+    let capturedStageData = 'No stage data captured yet.';
+    const { data: stageData } = await db
+      .from('brand_stage_data')
+      .select('stage_key, field_key, value')
+      .eq('brand_id', brandId)
+      .not('value', 'is', null);
+
+    if (stageData && stageData.length > 0) {
+      capturedStageData = stageData
+        .map(d => `${d.stage_key} / ${d.field_key}: ${d.value}`)
+        .join('\n');
+    }
 
     // Fetch the system prompt for template_generation with fallback
     const systemPrompt = await getSystemPrompt('template_generation') || `
@@ -622,7 +661,10 @@ Every editable element must have a data-element attribute.
           positioning_statement: brandDNA?.positioning_statement || 'Not yet defined',
           primary_color: brand?.primary_color || '#000000',
           secondary_color: brand?.secondary_color || '#ffffff',
-          product_image_url: productImageUrl
+          product_image_url: productImageUrl,
+          mentor_memory: mentorMemory,
+          journey_stage: brand?.journey_stage || 'spark',
+          captured_stage_data: capturedStageData
         });
 
         const digitalContentBlock = digitalInputs && Object.keys(digitalInputs).length > 0
@@ -635,7 +677,7 @@ Every editable element must have a data-element attribute.
         const userContent = [filledPrompt, digitalContentBlock, extraInstructions ? `\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}` : '']
           .filter(Boolean)
           .join('');
-
+        console.log('Template generation user content:', userContent);
         const result = await callAI({
           taskType: 'template_generation',
           messages: [{ role: 'user', content: userContent }],
@@ -643,7 +685,7 @@ Every editable element must have a data-element attribute.
           imageBase64,
           imageMimeType
         });
-
+        console.log('Template generation result:', result);
         if (!result.success || !result.text) {
           throw result.error || 'Failed to generate template variant';
         }
