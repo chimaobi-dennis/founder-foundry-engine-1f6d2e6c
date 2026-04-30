@@ -1263,13 +1263,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="block">
-                          <Button
+                          <StudioButton
                             onClick={handleRun}
                             disabled={disabled}
-                            className="w-full h-12 rounded-lg text-[14px] font-ui font-medium bg-[#D4A017] hover:bg-[#B8890F] text-[#1A1A2E] disabled:opacity-60"
+                            fullWidth
                           >
                             {label}
-                          </Button>
+                          </StudioButton>
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[260px]">
