@@ -201,9 +201,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
 
     const promise = activeBrandDNA?.core_promise?.trim();
     const audience = activeBrandDNA?.target_audience?.trim();
-    const composed = promise ? `${brandName} — ${promise}` : `${brandName} — New Release`;
-    setHeadlineValue(composed.length > 60 ? composed.slice(0, 57) + "..." : composed);
-    setDescriptionValue(audience || "");
+    setHeadlineValue(promise || `${brandName} — New Release`);
+    setDescriptionValue(audience ? (audience.length > 120 ? audience.slice(0, 120) : audience) : "");
     setCtaValue("Learn more");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, template?.id, type, activeBrandDNA?.core_promise, activeBrandDNA?.target_audience, brandName]);
