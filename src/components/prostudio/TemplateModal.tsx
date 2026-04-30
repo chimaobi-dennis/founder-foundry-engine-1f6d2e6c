@@ -801,18 +801,37 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-[96vw] w-[96vw] h-[90vh] md:h-[94vh] max-h-[90vh] md:max-h-[94vh] p-0 overflow-y-auto md:overflow-hidden rounded-2xl border-border gap-0" aria-describedby={undefined}>
+      <DialogContent
+        className="!max-w-none w-screen h-screen max-h-screen p-0 overflow-hidden rounded-none border-0 gap-0 sm:rounded-none left-0 top-0 translate-x-0 translate-y-0"
+        style={{ width: "100vw", height: "100vh", maxWidth: "100vw", maxHeight: "100vh", borderRadius: 0, margin: 0, left: 0, top: 0, transform: "none" }}
+        aria-describedby={undefined}
+      >
         <DialogTitle className="sr-only">{template?.name ?? "Template"}</DialogTitle>
-        <button
-          onClick={handleClose}
-          className="fixed md:absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-muted/80 backdrop-blur-sm flex items-center justify-center hover:bg-muted transition-colors"
-        >
-          <X size={16} className="text-foreground" />
-        </button>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => { if (!isGenerating) handleClose(); }}
+                aria-disabled={isGenerating}
+                className={cn(
+                  "fixed md:absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-muted/80 backdrop-blur-sm flex items-center justify-center transition-colors",
+                  isGenerating ? "opacity-30 cursor-not-allowed" : "hover:bg-muted"
+                )}
+              >
+                <X size={16} className="text-foreground" />
+              </button>
+            </TooltipTrigger>
+            {isGenerating && (
+              <TooltipContent side="left">
+                <span className="text-[11px] font-ui">Please wait for generation to complete</span>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
 
-        <div className="flex flex-col md:flex-row h-full">
+        <div className="flex flex-col md:flex-row h-full min-h-0">
           {/* Left panel */}
-          <div className="w-full md:w-[480px] md:flex-shrink-0 p-4 md:p-7 overflow-y-auto bg-card md:border-r border-border">
+          <div className="w-full md:w-[480px] md:flex-shrink-0 h-full overflow-y-auto bg-card md:border-r border-border p-4 md:p-7 md:pb-0 relative">
             <h2 className="font-display text-[20px] text-foreground">{template.name}</h2>
             <div className="flex items-center gap-2 mt-2">
               <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
@@ -1247,7 +1266,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
               </div>
             )}
             
-            <div className="sticky md:static bottom-0 left-0 right-0 bg-card md:bg-transparent pt-3 pb-3 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 z-5 border-t md:border-t-0 border-border md:border-none">
+            <div className="sticky bottom-0 left-0 right-0 bg-card pt-3 pb-3 -mx-4 md:-mx-7 px-4 md:px-7 z-10 border-t border-border mt-4">
               {(() => {
                 const totalCredits = cost.credits * variantCount;
                 const needsImage = isPhysical && !selectedImage;
