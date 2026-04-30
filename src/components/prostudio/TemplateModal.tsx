@@ -1165,6 +1165,40 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </>
                 )}
 
+                {/* Optional brief */}
+                <div>
+                  {!briefOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setBriefOpen(true)}
+                      className="text-[12px] font-ui text-primary hover:underline"
+                    >
+                      ＋ Add a specific brief
+                    </button>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider">
+                          Brief (optional)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setBriefOpen(false); setDesignBrief(""); }}
+                          className="text-[11px] font-ui text-primary hover:underline"
+                        >
+                          ✕ Remove
+                        </button>
+                      </div>
+                      <Textarea
+                        value={designBrief}
+                        onChange={(e) => setDesignBrief(e.target.value)}
+                        rows={3}
+                        placeholder="What's this design for? e.g. 'Scholarship announcement targeting Lagos students' or 'Welcome back to campus post'"
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {/* Brand context indicator */}
                 <div className="flex items-center gap-1.5 pt-1">
                   <Sparkles size={12} className="text-primary" />
