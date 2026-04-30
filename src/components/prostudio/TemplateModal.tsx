@@ -1010,18 +1010,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {intensityOptions.map((opt) => (
-                      <button
+                      <Pill
                         key={opt.value}
+                        selected={styleIntensity === opt.value}
                         onClick={() => setStyleIntensity(opt.value)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          styleIntensity === opt.value
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {opt.label}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
