@@ -1197,18 +1197,9 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {aspectOptions.map((a) => (
-                      <button
-                        key={a}
-                        onClick={() => setSelectedAspect(a)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          selectedAspect === a
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
-                      >
+                      <Pill key={a} selected={selectedAspect === a} onClick={() => setSelectedAspect(a)}>
                         {a}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
@@ -1220,18 +1211,13 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {intensityOptions.map((opt) => (
-                      <button
+                      <Pill
                         key={opt.value}
+                        selected={styleIntensity === opt.value}
                         onClick={() => setStyleIntensity(opt.value)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          styleIntensity === opt.value
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {opt.label}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
@@ -1243,18 +1229,14 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {[1, 2, 3, 4].map((n) => (
-                      <button
+                      <Pill
                         key={n}
+                        minWidth
+                        selected={variantCount === n}
                         onClick={() => setVariantCount(n)}
-                        className={cn(
-                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          variantCount === n
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {n}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                 </div>
