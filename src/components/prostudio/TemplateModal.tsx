@@ -1267,8 +1267,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                           <Button
                             onClick={handleRun}
                             disabled={disabled}
-                            className="w-full h-12 rounded-lg text-[14px] font-ui font-medium"
-                            style={{ backgroundColor: template.color }}
+                            className="w-full h-12 rounded-lg text-[14px] font-ui font-medium bg-[#D4A017] hover:bg-[#B8890F] text-[#1A1A2E] disabled:opacity-60"
                           >
                             {label}
                           </Button>
