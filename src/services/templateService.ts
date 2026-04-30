@@ -677,7 +677,11 @@ Every editable element must have a data-element attribute.
               .join('\n')}\n\nUse this exact content in the design — do not invent placeholder text.`
           : '';
 
-        const userContent = [filledPrompt, digitalContentBlock, extraInstructions ? `\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}` : '']
+        const briefBlock = designBrief && designBrief.trim()
+          ? `\n\nUSER BRIEF (this design's specific purpose — let it guide the headline, mood, and copy):\n${designBrief.trim()}`
+          : '';
+
+        const userContent = [filledPrompt, digitalContentBlock, briefBlock, extraInstructions ? `\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}` : '']
           .filter(Boolean)
           .join('');
         console.log('Template generation user content:', userContent);
