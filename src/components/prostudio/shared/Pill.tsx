@@ -26,6 +26,7 @@ export const Pill = React.forwardRef<HTMLButtonElement, PillProps>(
       className={cn(
         "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-muted-foreground disabled:hover:border-border",
         selected
           ? "bg-primary text-primary-foreground border border-primary"
           : "border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30",

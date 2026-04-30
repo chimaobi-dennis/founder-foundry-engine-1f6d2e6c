@@ -996,7 +996,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {aspectOptions.map((a) => (
-                      <Pill key={a} selected={selectedAspect === a} onClick={() => setSelectedAspect(a)}>
+                      <Pill key={a} selected={selectedAspect === a} disabled={isGenerating} onClick={() => setSelectedAspect(a)}>
                         {a}
                       </Pill>
                     ))}
@@ -1013,6 +1013,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                       <Pill
                         key={opt.value}
                         selected={styleIntensity === opt.value}
+                        disabled={isGenerating}
                         onClick={() => setStyleIntensity(opt.value)}
                       >
                         {opt.label}
@@ -1032,6 +1033,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                         key={n}
                         minWidth
                         selected={variantCount === n}
+                        disabled={isGenerating}
                         onClick={() => setVariantCount(n)}
                       >
                         {n}
@@ -1197,7 +1199,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {aspectOptions.map((a) => (
-                      <Pill key={a} selected={selectedAspect === a} onClick={() => setSelectedAspect(a)}>
+                      <Pill key={a} selected={selectedAspect === a} disabled={isGenerating} onClick={() => setSelectedAspect(a)}>
                         {a}
                       </Pill>
                     ))}
@@ -1214,6 +1216,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                       <Pill
                         key={opt.value}
                         selected={styleIntensity === opt.value}
+                        disabled={isGenerating}
                         onClick={() => setStyleIntensity(opt.value)}
                       >
                         {opt.label}
@@ -1233,6 +1236,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                         key={n}
                         minWidth
                         selected={variantCount === n}
+                        disabled={isGenerating}
                         onClick={() => setVariantCount(n)}
                       >
                         {n}
@@ -1266,6 +1270,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                           <StudioButton
                             onClick={handleRun}
                             disabled={disabled}
+                            loading={isGenerating}
                             fullWidth
                           >
                             {label}
