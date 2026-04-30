@@ -183,9 +183,27 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setEditStates({});
       setUploadError(null);
       setSavedIdxs(new Set());
+      setBriefOpen(false);
+      setDesignBrief("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
+
+  // Pre-fill digital fields intelligently from Brand DNA when the modal opens
+  useEffect(() => {
+    if (!open || type !== "digital" || !template) return;
+    const isTestimonialTpl = template.name.toLowerCase().includes("testimonial") || template.name.toLowerCase().includes("social proof");
+    const isPricingTpl = template.name.toLowerCase().includes("pricing");
+    if (isTestimonialTpl || isPricingTpl) return;
+
+    const promise = activeBrandDNA?.core_promise?.trim();
+    const audience = activeBrandDNA?.target_audience?.trim();
+    const composed = promise ? `${brandName} — ${promise}` : `${brandName} — New Release`;
+    setHeadlineValue(composed.length > 60 ? composed.slice(0, 57) + "..." : composed);
+    setDescriptionValue(audience || "");
+    setCtaValue("Learn more");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, template?.id, type, activeBrandDNA?.core_promise, activeBrandDNA?.target_audience, brandName]);
 
   // Adjust variations array length when variantCount changes (pre-generation only)
   useEffect(() => {
