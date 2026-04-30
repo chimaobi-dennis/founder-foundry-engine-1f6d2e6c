@@ -383,6 +383,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
         imageBase64: selectedImage?.base64,
         imageMimeType: selectedImage?.mimeType || "image/jpeg",
         digitalInputs,
+        designBrief: isPhysical ? designBrief : "",
         onVariant: ({ index, html, outputId }) => {
           // For physical templates, inject product image fallback if model omitted it.
           // Digital templates don't need that — they're pure layouts.
