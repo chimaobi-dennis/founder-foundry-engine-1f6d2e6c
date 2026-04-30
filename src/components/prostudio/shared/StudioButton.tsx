@@ -1,25 +1,27 @@
 import * as React from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * StudioButton — the canonical CTA button for ProStudio modals.
  *
  * Always-visible amber (`--primary`) on dark navy text (`--primary-foreground`)
- * regardless of theme. Use this for the Generate button and any other primary
- * action inside the template modals so styling can't drift between physical
- * and digital flows.
+ * regardless of theme. Pass `loading` to show a spinner and auto-disable.
  */
 export interface StudioButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
   size?: "md" | "lg";
+  loading?: boolean;
 }
 
 export const StudioButton = React.forwardRef<HTMLButtonElement, StudioButtonProps>(
-  ({ className, fullWidth, size = "lg", ...props }, ref) => (
+  ({ className, fullWidth, size = "lg", loading, disabled, children, ...props }, ref) => (
     <button
       ref={ref}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={cn(
-        "inline-flex items-center justify-center rounded-lg font-ui font-medium",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-ui font-medium",
         "bg-primary text-primary-foreground",
         "transition-colors hover:bg-primary/90 active:bg-primary/85",
         "disabled:opacity-60 disabled:cursor-not-allowed",
@@ -29,7 +31,10 @@ export const StudioButton = React.forwardRef<HTMLButtonElement, StudioButtonProp
         className,
       )}
       {...props}
-    />
+    >
+      {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+      {children}
+    </button>
   ),
 );
 StudioButton.displayName = "StudioButton";
