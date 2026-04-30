@@ -447,6 +447,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
         imageBase64: selectedImage?.base64,
         imageMimeType: selectedImage?.mimeType || "image/jpeg",
         digitalInputs: buildDigitalInputs(),
+        designBrief: isPhysical ? designBrief : "",
         extraInstructions: suffixes[variationIndex],
       });
       const html = variants[0] || null;
