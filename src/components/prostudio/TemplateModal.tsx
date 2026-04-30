@@ -1266,7 +1266,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
               </div>
             )}
             
-            <div className="sticky md:static bottom-0 left-0 right-0 bg-card md:bg-transparent pt-3 pb-3 md:pb-0 -mx-4 md:mx-0 px-4 md:px-0 z-5 border-t md:border-t-0 border-border md:border-none">
+            <div className="sticky bottom-0 left-0 right-0 bg-card pt-3 pb-3 -mx-4 md:-mx-7 px-4 md:px-7 z-10 border-t border-border mt-4">
               {(() => {
                 const totalCredits = cost.credits * variantCount;
                 const needsImage = isPhysical && !selectedImage;
