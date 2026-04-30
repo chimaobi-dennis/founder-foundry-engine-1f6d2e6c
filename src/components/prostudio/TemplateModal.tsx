@@ -155,6 +155,10 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [descriptionValue, setDescriptionValue] = useState("Describe what makes this special...");
   const [ctaValue, setCtaValue] = useState("Learn more");
 
+  // Optional free-form brief (physical templates)
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [designBrief, setDesignBrief] = useState("");
+
   useEffect(() => {
     if (panelRef.current) {
       const obs = new ResizeObserver(entries => {
