@@ -1028,18 +1028,14 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {[1, 2, 3, 4].map((n) => (
-                      <button
+                      <Pill
                         key={n}
+                        minWidth
+                        selected={variantCount === n}
                         onClick={() => setVariantCount(n)}
-                        className={cn(
-                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
-                          variantCount === n
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:text-foreground"
-                        )}
                       >
                         {n}
-                      </button>
+                      </Pill>
                     ))}
                   </div>
                   <p className="text-[11px] font-ui text-muted-foreground mt-1.5">
