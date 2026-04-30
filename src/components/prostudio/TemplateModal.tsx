@@ -1057,6 +1057,48 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                     Each variant is a unique interpretation of the template
                   </p>
                 </div>
+
+                {/* Optional brief */}
+                <div className="mt-4">
+                  {!briefOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setBriefOpen(true)}
+                      className="text-[12px] font-ui text-primary hover:underline"
+                    >
+                      ＋ Add a specific brief
+                    </button>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider">
+                          Brief (optional)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setBriefOpen(false); setDesignBrief(""); }}
+                          className="text-[11px] font-ui text-primary hover:underline"
+                        >
+                          ✕ Remove
+                        </button>
+                      </div>
+                      <Textarea
+                        value={designBrief}
+                        onChange={(e) => setDesignBrief(e.target.value)}
+                        rows={3}
+                        placeholder="What's this design for? e.g. 'Launch post for our new adaptogens range' or 'Black Friday sale, 40% off'"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Brand context indicator */}
+                <div className="flex items-center gap-1.5 mt-4">
+                  <Sparkles size={12} className="text-primary" />
+                  <span className="text-[11px] font-ui text-muted-foreground">
+                    Using your brand context from Mentor
+                  </span>
+                </div>
               </>
             ) : (
               <div className="space-y-3">
