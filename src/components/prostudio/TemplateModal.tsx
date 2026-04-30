@@ -89,7 +89,7 @@ function ensureProductImage(html: string | null, imageBase64?: string, imageMime
 export function TemplateModal({ template, open, onClose, type, brandName, brandInitials }: TemplateModalProps) {
   const navigate = useNavigate();
   const { setSession } = useStudioSession();
-  const { activeBrand } = useBrand();
+  const { activeBrand, activeBrandDNA } = useBrand();
   const { images: productImages, selectedImage, selectImage: selectProductImage, setImages: setProductImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
   const fileInputRef = useRef<HTMLInputElement>(null);
