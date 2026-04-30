@@ -1270,6 +1270,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                           <StudioButton
                             onClick={handleRun}
                             disabled={disabled}
+                            loading={isGenerating}
                             fullWidth
                           >
                             {label}
