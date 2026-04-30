@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2 } from "lucide-react";
+import { X, Upload, Download, RefreshCw, SlidersHorizontal, Check, ImageIcon, Wand2, Sparkles } from "lucide-react";
 import html2canvas from "html2canvas";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -89,7 +89,7 @@ function ensureProductImage(html: string | null, imageBase64?: string, imageMime
 export function TemplateModal({ template, open, onClose, type, brandName, brandInitials }: TemplateModalProps) {
   const navigate = useNavigate();
   const { setSession } = useStudioSession();
-  const { activeBrand } = useBrand();
+  const { activeBrand, activeBrandDNA } = useBrand();
   const { images: productImages, selectedImage, selectImage: selectProductImage, setImages: setProductImages } = useProductImages();
   const [selectedAspect, setSelectedAspect] = useState("Auto");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -155,6 +155,10 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
   const [descriptionValue, setDescriptionValue] = useState("Describe what makes this special...");
   const [ctaValue, setCtaValue] = useState("Learn more");
 
+  // Optional free-form brief (physical templates)
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [designBrief, setDesignBrief] = useState("");
+
   useEffect(() => {
     if (panelRef.current) {
       const obs = new ResizeObserver(entries => {
@@ -179,9 +183,27 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
       setEditStates({});
       setUploadError(null);
       setSavedIdxs(new Set());
+      setBriefOpen(false);
+      setDesignBrief("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template?.id]);
+
+  // Pre-fill digital fields intelligently from Brand DNA when the modal opens
+  useEffect(() => {
+    if (!open || type !== "digital" || !template) return;
+    const isTestimonialTpl = template.name.toLowerCase().includes("testimonial") || template.name.toLowerCase().includes("social proof");
+    const isPricingTpl = template.name.toLowerCase().includes("pricing");
+    if (isTestimonialTpl || isPricingTpl) return;
+
+    const promise = activeBrandDNA?.core_promise?.trim();
+    const audience = activeBrandDNA?.target_audience?.trim();
+    const composed = promise ? `${brandName} — ${promise}` : `${brandName} — New Release`;
+    setHeadlineValue(composed.length > 60 ? composed.slice(0, 57) + "..." : composed);
+    setDescriptionValue(audience || "");
+    setCtaValue("Learn more");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, template?.id, type, activeBrandDNA?.core_promise, activeBrandDNA?.target_audience, brandName]);
 
   // Adjust variations array length when variantCount changes (pre-generation only)
   useEffect(() => {
@@ -361,6 +383,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
         imageBase64: selectedImage?.base64,
         imageMimeType: selectedImage?.mimeType || "image/jpeg",
         digitalInputs,
+        designBrief: isPhysical ? designBrief : "",
         onVariant: ({ index, html, outputId }) => {
           // For physical templates, inject product image fallback if model omitted it.
           // Digital templates don't need that — they're pure layouts.
@@ -424,6 +447,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
         imageBase64: selectedImage?.base64,
         imageMimeType: selectedImage?.mimeType || "image/jpeg",
         digitalInputs: buildDigitalInputs(),
+        designBrief: isPhysical ? designBrief : "",
         extraInstructions: suffixes[variationIndex],
       });
       const html = variants[0] || null;
@@ -461,6 +485,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
         imageBase64: selectedImage?.base64,
         imageMimeType: selectedImage?.mimeType || "image/jpeg",
         digitalInputs: buildDigitalInputs(),
+        designBrief: isPhysical ? designBrief : "",
         extraInstructions: `${suffixes[activeVariation]}\n\nAPPLY THESE EDITS:\n${editInstructions}`,
       });
       const cleaned = cleanAIHtml(variants[0] || null);
@@ -707,6 +732,7 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
             imageBase64: selectedImage?.base64,
             imageMimeType: selectedImage?.mimeType || "image/jpeg",
             digitalInputs: buildDigitalInputs(),
+            designBrief: isPhysical ? designBrief : "",
             extraInstructions: "Generate a fresh additional variation — explore a different visual angle while staying on-brand.",
           });
           const cleaned = cleanAIHtml(variants[0] || null);
@@ -1031,6 +1057,48 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                     Each variant is a unique interpretation of the template
                   </p>
                 </div>
+
+                {/* Optional brief */}
+                <div className="mt-4">
+                  {!briefOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setBriefOpen(true)}
+                      className="text-[12px] font-ui text-primary hover:underline"
+                    >
+                      ＋ Add a specific brief
+                    </button>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider">
+                          Brief (optional)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setBriefOpen(false); setDesignBrief(""); }}
+                          className="text-[11px] font-ui text-primary hover:underline"
+                        >
+                          ✕ Remove
+                        </button>
+                      </div>
+                      <Textarea
+                        value={designBrief}
+                        onChange={(e) => setDesignBrief(e.target.value)}
+                        rows={3}
+                        placeholder="What's this design for? e.g. 'Launch post for our new adaptogens range' or 'Black Friday sale, 40% off'"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Brand context indicator */}
+                <div className="flex items-center gap-1.5 mt-4">
+                  <Sparkles size={12} className="text-primary" />
+                  <span className="text-[11px] font-ui text-muted-foreground">
+                    Using your brand context from Mentor
+                  </span>
+                </div>
               </>
             ) : (
               <div className="space-y-3">
@@ -1094,6 +1162,83 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
                     </div>
                   </>
                 )}
+
+                {/* Brand context indicator */}
+                <div className="flex items-center gap-1.5 pt-1">
+                  <Sparkles size={12} className="text-primary" />
+                  <span className="text-[11px] font-ui text-muted-foreground">
+                    Using your brand context from Mentor
+                  </span>
+                </div>
+
+                {/* Aspect ratio */}
+                <div className="pt-2">
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Aspect ratio
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aspectOptions.map((a) => (
+                      <button
+                        key={a}
+                        onClick={() => setSelectedAspect(a)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          selectedAspect === a
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Style intensity */}
+                <div>
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    Style intensity
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {intensityOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setStyleIntensity(opt.value)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          styleIntensity === opt.value
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Variant count */}
+                <div>
+                  <label className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-2 block">
+                    How many variants
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 3, 4].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => setVariantCount(n)}
+                        className={cn(
+                          "min-w-[40px] px-3 py-1.5 rounded-full text-[12px] font-ui transition-colors",
+                          variantCount === n
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
             
