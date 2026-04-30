@@ -528,6 +528,8 @@ export interface GenerateTemplateParams {
   extraInstructions?: string;
   /** Optional structured content for digital templates (testimonial fields, pricing fields, etc.). */
   digitalInputs?: Record<string, string>;
+  /** Optional free-form user brief describing the design's purpose. */
+  designBrief?: string;
 }
 
 // Generate template output using AI.
