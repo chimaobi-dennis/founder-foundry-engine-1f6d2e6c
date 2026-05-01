@@ -134,10 +134,66 @@ export function TopBar() {
         </button>
 
         {/* Notifications */}
-        <button className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 relative">
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary" />
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setNotifOpen((v) => !v)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 relative"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-ui font-semibold flex items-center justify-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+          {notifOpen && (
+            <div className="absolute top-12 right-0 w-[360px] max-h-[500px] rounded-2xl bg-card border border-card-border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col">
+              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                <p className="font-ui text-[13px] font-semibold text-foreground">
+                  Notifications
+                </p>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-[11px] font-ui text-primary hover:underline flex items-center gap-1"
+                  >
+                    <CheckCheck size={12} /> Mark all read
+                  </button>
+                )}
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {notifications.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Bell size={20} className="text-muted-foreground/40 mx-auto mb-2" />
+                    <p className="text-[12px] font-ui text-muted-foreground">
+                      No notifications yet
+                    </p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => handleNotifClick(n)}
+                      className={`w-full text-left px-4 py-3 border-b border-border/50 last:border-b-0 hover:bg-muted/40 transition-colors ${
+                        !n.is_read ? "border-l-2 border-l-primary bg-primary/[0.03]" : ""
+                      }`}
+                    >
+                      <p className="font-ui text-[13px] font-medium text-foreground">
+                        {n.title}
+                      </p>
+                      <p className="text-[12px] font-ui text-muted-foreground mt-0.5 line-clamp-2">
+                        {n.body}
+                      </p>
+                      <p className="text-[10px] font-ui text-muted-foreground mt-1.5">
+                        {timeAgo(n.created_at)}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Theme toggle */}
         <button
