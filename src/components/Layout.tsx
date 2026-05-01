@@ -4,7 +4,7 @@ import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
 import { NavigationProgress } from "./NavigationProgress";
 
-const modulePaths = ["/pro-studio", "/campaign-kit", "/content-calendar", "/library", "/doc-studio", "/reel-builder"];
+const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder"];
 
 const fullHeightPaths = ["/mentor", "/content-calendar"];
 

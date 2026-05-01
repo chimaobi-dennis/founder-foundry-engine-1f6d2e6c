@@ -11,7 +11,7 @@ const routeTitles: Record<string, string> = {
   "/": "greeting",
   "/mentor": "Mentor",
   "/pro-studio": "ProStudio",
-  "/campaign-kit": "CampaignKit",
+  "/content-studio": "ContentStudio",
   "/content-calendar": "ContentCalendar",
   "/doc-studio": "DocStudio",
   "/reel-builder": "ReelBuilder",

@@ -10,7 +10,7 @@ const moduleItems = [
   { label: "Home", icon: Home, path: "/" },
   { label: "Mentor", icon: MessageCircle, path: "/mentor" },
   { label: "ProStudio", icon: Camera, path: "/pro-studio" },
-  { label: "CampaignKit", icon: Megaphone, path: "/campaign-kit" },
+  { label: "ContentStudio", icon: Megaphone, path: "/content-studio" },
   { label: "ContentCalendar", icon: Calendar, path: "/content-calendar" },
   { label: "DocStudio", icon: FileText, path: "/doc-studio" },
   { label: "ReelBuilder", icon: Film, path: "/reel-builder" },
@@ -24,7 +24,7 @@ const secondaryItems = [
 const creatorItem = { label: "Creator Studio", icon: Palette, path: "/creator" };
 // Admin is now a separate shell at /admin, no sidebar item needed here
 
-const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, CampaignKit, ContentCalendar
+const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, ContentStudio, ContentCalendar
 const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
 
 export function AppSidebar() {

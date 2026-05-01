@@ -13,7 +13,7 @@ import { FadeIn } from "@/components/FadeIn";
 const allModules = [
   { key: "mentor", name: "Mentor", icon: MessageCircle, path: "/mentor", desc: "Your AI thinking partner. Remembers everything.", visual: "chat-brain" },
   { key: "prostudio", name: "ProStudio", icon: Camera, path: "/pro-studio", desc: "Product photography and digital visuals without a studio.", visual: "before-after" },
-  { key: "campaignkit", name: "CampaignKit", icon: Megaphone, path: "/campaign-kit", desc: "One brief. Eight platform-ready creatives instantly.", visual: "fan-out" },
+  { key: "contentstudio", name: "ContentStudio", icon: Megaphone, path: "/content-studio", desc: "One brief. Content for every platform, ready to schedule.", visual: "fan-out" },
   { key: "contentcalendar", name: "ContentCalendar", icon: Calendar, path: "/content-calendar", desc: "Plan your content month. Never miss a posting day.", visual: "mini-cal" },
   { key: "docstudio", name: "DocStudio", icon: FileText, path: "/doc-studio", desc: "Professional documents powered by your brand memory.", visual: "doc-card" },
   { key: "reelbuilder", name: "ReelBuilder", icon: Film, path: "/reel-builder", desc: "Brief to storyboard to teleprompter in minutes.", visual: "storyboard" },
@@ -21,18 +21,18 @@ const allModules = [
 
 const getModuleOrder = (profession: string | null, brandStatus: string | null) => {
   if (brandStatus === "just_an_idea" || brandStatus === "early_stage") {
-    return ["mentor", "prostudio", "campaignkit", "contentcalendar", "docstudio", "reelbuilder"];
+    return ["mentor", "prostudio", "contentstudio", "contentcalendar", "docstudio", "reelbuilder"];
   }
   if (profession === "freelancer") {
-    return ["mentor", "docstudio", "campaignkit", "prostudio", "contentcalendar", "reelbuilder"];
+    return ["mentor", "docstudio", "contentstudio", "prostudio", "contentcalendar", "reelbuilder"];
   }
   if (brandStatus === "multiple_brands") {
-    return ["mentor", "contentcalendar", "campaignkit", "prostudio", "docstudio", "reelbuilder"];
+    return ["mentor", "contentcalendar", "contentstudio", "prostudio", "docstudio", "reelbuilder"];
   }
   if (brandStatus === "established") {
-    return ["campaignkit", "mentor", "prostudio", "contentcalendar", "docstudio", "reelbuilder"];
+    return ["contentstudio", "mentor", "prostudio", "contentcalendar", "docstudio", "reelbuilder"];
   }
-  return ["mentor", "prostudio", "campaignkit", "contentcalendar", "docstudio", "reelbuilder"];
+  return ["mentor", "prostudio", "contentstudio", "contentcalendar", "docstudio", "reelbuilder"];
 };
 
 function getChatPreview(brandStatus: string | null) {
@@ -312,7 +312,7 @@ const Home = () => {
           <div className="flex flex-col items-center py-12 gap-2">
             <Calendar size={32} className="text-muted-foreground/40" />
             <p className="font-ui text-[13px] text-muted-foreground">No posts scheduled yet</p>
-            <Link to="/campaign-kit" className="font-ui text-[13px] text-primary hover:underline mt-2">Create your first campaign →</Link>
+            <Link to="/content-studio" className="font-ui text-[13px] text-primary hover:underline mt-2">Create your first content →</Link>
           </div>
         )}
       </section>
