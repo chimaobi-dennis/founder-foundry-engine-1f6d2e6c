@@ -20,6 +20,9 @@ import ProStudio from "./pages/ProStudio";
 import ProStudioEditor from "./pages/ProStudioEditor";
 import CampaignKit from "./pages/CampaignKit";
 import CampaignDetail from "./pages/CampaignDetail";
+import ContentStudio from "./pages/ContentStudio";
+import ContentStudioNew from "./pages/ContentStudioNew";
+import ContentStudioEditor from "./pages/ContentStudioEditor";
 import Library from "./pages/Library";
 import BrandDNA from "./pages/BrandDNA";
 import SettingsAIModels from "./pages/SettingsAIModels";
@@ -110,6 +113,9 @@ const App = () => (
                         <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
                         <Route path="/campaign-kit" element={<CampaignKit />} />
                         <Route path="/campaign-kit/:campaignId" element={<CampaignDetail />} />
+                        <Route path="/content-studio" element={<ContentStudio />} />
+                        <Route path="/content-studio/new" element={<ContentStudioNew />} />
+                        <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
                         <Route path="/content-calendar" element={<ContentCalendar />} />
                         <Route path="/library" element={<Library />} />
                         <Route path="/doc-studio" element={<DocStudio />} />
