@@ -126,7 +126,7 @@ const sthlmProfile: BrandProfile = {
 const modules = [
   { name: "Mentor", icon: MessageCircle },
   { name: "ProStudio", icon: Sparkles },
-  { name: "CampaignKit", icon: Lightbulb },
+  { name: "ContentStudio", icon: Lightbulb },
   { name: "ContentCalendar", icon: Calendar },
   { name: "DocStudio", icon: FileText },
   { name: "ReelBuilder", icon: Film },
