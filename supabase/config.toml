@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.detect-milestone]
 verify_jwt = false
+
+[functions.content-series-cron]
+verify_jwt = false
