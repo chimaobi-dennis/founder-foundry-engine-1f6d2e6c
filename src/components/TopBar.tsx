@@ -40,7 +40,61 @@ export function TopBar() {
   const { profile } = useProfile();
   const { application: creatorApp } = useCreatorApplication();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Load unread count + poll
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const c = await getUnreadCount(user.id);
+        if (!cancelled) setUnreadCount(c);
+      } catch {}
+    };
+    refresh();
+    const t = window.setInterval(refresh, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [user?.id]);
+
+  // Load full list when opening
+  useEffect(() => {
+    if (!notifOpen || !user?.id) return;
+    (async () => {
+      try {
+        const list = await getNotifications(user.id);
+        setNotifications(list || []);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [notifOpen, user?.id]);
+
+  const handleMarkAllRead = async () => {
+    if (!user?.id) return;
+    await markAllNotificationsRead(user.id);
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+  };
+
+  const handleNotifClick = async (n: any) => {
+    if (!n.is_read) {
+      await markNotificationRead(n.id);
+      setNotifications((prev) =>
+        prev.map((p) => (p.id === n.id ? { ...p, is_read: true } : p))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    }
+    setNotifOpen(false);
+    if (n.action_url) navigate(n.action_url);
+  };
 
   const fullName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -53,6 +107,9 @@ export function TopBar() {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
