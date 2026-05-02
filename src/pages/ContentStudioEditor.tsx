@@ -76,7 +76,7 @@ export default function ContentStudioEditor() {
       return;
     }
     if (pollRef.current) return;
-    pollRef.current = window.setInterval(load, 3500);
+    pollRef.current = window.setInterval(load, 3000);
     return () => {
       if (pollRef.current) {
         clearInterval(pollRef.current);
@@ -102,12 +102,14 @@ export default function ContentStudioEditor() {
     if (!active || !activeBrand?.id) return;
     setRegenerating(true);
     updateCreativeLocal(active.id, { status: "generating" });
+    const platformName = active.content_platforms?.name || "Platform";
+    toast.loading(`Regenerating ${platformName} visual…`, { id: `regen-${active.id}` });
     try {
       const html = await regenerateCreative(active.id, activeBrand.id);
       updateCreativeLocal(active.id, { visual_html: html, status: "ready" });
-      toast.success("Visual regenerated");
+      toast.success("✓ Visual updated", { id: `regen-${active.id}` });
     } catch (e: any) {
-      toast.error(e.message || "Regeneration failed");
+      toast.error(e.message || "Regeneration failed", { id: `regen-${active.id}` });
       updateCreativeLocal(active.id, { status: "ready" });
     } finally {
       setRegenerating(false);
@@ -201,6 +203,9 @@ export default function ContentStudioEditor() {
       activeCanvasId={activeId}
       onSelectCanvas={setActiveId}
       onSaveCreative={handleSaveCreative}
+      onRegenerateVisual={handleRegenerateVisual}
+      regenerating={regenerating}
+      onApproveActive={handleApprove}
       onExportAll={() => toast.info("Export all coming soon")}
       onApproveAll={() => toast.info("Bulk approve coming soon")}
     />

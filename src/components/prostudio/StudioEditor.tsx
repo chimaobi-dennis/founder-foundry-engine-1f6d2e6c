@@ -50,6 +50,7 @@ import { SAMPLE_TEMPLATE_HTML } from "./studio/sampleTemplate";
 import type { StudioElement } from "./studio/types";
 import { PlatformsPanel } from "./content-studio/PlatformsPanel";
 import { CopyPanel } from "./content-studio/CopyPanel";
+import { CanvasGenerating } from "./content-studio/CanvasGenerating";
 
 interface Props {
   open: boolean;
@@ -93,6 +94,12 @@ interface Props {
   onExportAll?: () => void;
   /** Save creative callback for content-studio mode (saves to content_studio_creatives) */
   onSaveCreative?: () => void;
+  /** Regenerate visual for the active canvas (content-studio mode) */
+  onRegenerateVisual?: () => void;
+  /** Whether the active canvas is currently regenerating */
+  regenerating?: boolean;
+  /** Approve the active canvas (content-studio mode) */
+  onApproveActive?: () => void;
 }
 
 const ICON_FOR_TYPE = {
@@ -130,6 +137,9 @@ export function StudioEditor({
   onApproveAll,
   onExportAll,
   onSaveCreative,
+  onRegenerateVisual,
+  regenerating,
+  onApproveActive,
 }: Props) {
   const { theme } = useTheme();
   // For now we always render the sample template; once AI generation is wired
@@ -197,20 +207,29 @@ export function StudioEditor({
     }
   }, [mode, canvases, activeCanvasId]);
 
-  // Calculate fit-to-screen scale for content-studio mode
+  // Calculate fit-to-screen scale — recompute on container resize so the
+  // canvas always shrinks to fit with no extra white space below.
   useEffect(() => {
-    if (mode === 'content-studio' && canvasContainerRef.current) {
-      const container = canvasContainerRef.current;
-      const availableWidth = container.parentElement?.clientWidth || 800;
-      const availableHeight = container.parentElement?.clientHeight || 600;
-      const padding = 80;
-      const fitScale = Math.min(
+    const container = canvasContainerRef.current;
+    if (!container) return;
+    const recalc = () => {
+      const availableWidth = container.clientWidth || 800;
+      const availableHeight = container.clientHeight || 600;
+      const padding = 64;
+      const next = Math.min(
         (availableWidth - padding) / canvasSize.width,
-        (availableHeight - padding) / canvasSize.height
+        (availableHeight - padding) / canvasSize.height,
       );
-      setFitScale(Math.max(0.2, Math.min(2, fitScale)));
-      setZoom(fitScale);
-    }
+      const clamped = Math.max(0.1, Math.min(2, next));
+      setFitScale(clamped);
+      // Auto-fit zoom in content-studio mode (resizable). For prostudio, only
+      // set initial fit on first measurement so user zoom is preserved.
+      if (mode === "content-studio") setZoom(clamped);
+    };
+    recalc();
+    const ro = new ResizeObserver(recalc);
+    ro.observe(container);
+    return () => ro.disconnect();
   }, [mode, canvasSize.width, canvasSize.height]);
 
   // ─── Export / Save to Library — internal (html2canvas + storage) ────────
@@ -898,36 +917,90 @@ export function StudioEditor({
               </ToolButton>
             </div>
 
-            <div ref={canvasContainerRef} className="flex-1 min-h-0 overflow-auto flex items-center justify-center" style={{ backgroundColor: "#111111" }}>
-              <div
-                ref={captureStageHost}
-                data-studio-stage
-                className="relative transition-all duration-300 ease flex-shrink-0 overflow-hidden"
-                style={{
-                  width: canvasSize.width * zoom,
-                  height: canvasSize.height * zoom,
-                }}
-              >
-                <div
-                  className="absolute inset-0 rounded-sm pointer-events-none z-10"
-                  style={{
-                    boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
-                  }}
-                />
-                <EditableCanvas
-                  html={html}
-                  zoom={zoom}
-                  width={canvasSize.width}
-                  height={canvasSize.height}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  onElementsParsed={setElements}
-                  onElementMutated={() => { bumpRefresh(); markDirty(); }}
-                  onIntrinsicSize={setCanvasSize}
-                  getElementState={getElementState}
-                  refreshKey={refreshKey}
-                />
-              </div>
+            {/* Generation progress bar — only shown in content-studio when any platform is generating */}
+            {mode === 'content-studio' && canvases && (() => {
+              const gen = canvases.filter(c => c.status === "generating").length;
+              const total = canvases.length;
+              if (gen === 0) return null;
+              const done = total - gen;
+              const pct = total ? (done / total) * 100 : 0;
+              return (
+                <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-2 pointer-events-none">
+                  <div className="bg-card/90 backdrop-blur-sm border border-border rounded-md px-3 py-1.5 flex items-center gap-3 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse flex-shrink-0" />
+                    <span className="text-[11px] font-ui text-foreground flex-shrink-0">
+                      Generating {done + 1} of {total} platforms…
+                    </span>
+                    <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div
+              ref={canvasContainerRef}
+              className="flex-1 flex items-center justify-center"
+              style={{
+                minHeight: 0,
+                background: "#111111",
+                overflow: "hidden",
+              }}
+            >
+              {(() => {
+                const activeCanvas = mode === 'content-studio' && canvases && activeCanvasId
+                  ? canvases.find(c => c.id === activeCanvasId)
+                  : null;
+                const isGenerating = activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating);
+
+                if (isGenerating) {
+                  return (
+                    <CanvasGenerating
+                      platformName={activeCanvas?.label || "Canvas"}
+                      width={canvasSize.width}
+                      height={canvasSize.height}
+                      scale={zoom}
+                    />
+                  );
+                }
+
+                return (
+                  <div
+                    ref={captureStageHost}
+                    data-studio-stage
+                    className="relative flex-shrink-0 animate-fade-in"
+                    style={{
+                      width: canvasSize.width * zoom,
+                      height: canvasSize.height * zoom,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      className="absolute inset-0 rounded-sm pointer-events-none z-10"
+                      style={{
+                        boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
+                      }}
+                    />
+                    <EditableCanvas
+                      html={html}
+                      zoom={zoom}
+                      width={canvasSize.width}
+                      height={canvasSize.height}
+                      selectedId={selectedId}
+                      onSelect={setSelectedId}
+                      onElementsParsed={setElements}
+                      onElementMutated={() => { bumpRefresh(); markDirty(); }}
+                      onIntrinsicSize={setCanvasSize}
+                      getElementState={getElementState}
+                      refreshKey={refreshKey}
+                    />
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground" style={{ backgroundColor: mode === 'content-studio' ? "#1A2A3A" : undefined }}>
@@ -967,6 +1040,10 @@ export function StudioEditor({
               {rightTab === "copy" ? (
                 <CopyPanel
                   canvas={canvases.find(c => c.id === activeCanvasId) || canvases[0]}
+                  onRegenerateVisual={onRegenerateVisual}
+                  regenerating={regenerating}
+                  onApproveClick={onApproveActive}
+                  isApproved={!!(canvases.find(c => c.id === activeCanvasId)?.isApproved)}
                 />
               ) : (
                 <div className="flex-1 overflow-y-auto p-4 space-y-5">
