@@ -76,7 +76,7 @@ export default function ContentStudioEditor() {
       return;
     }
     if (pollRef.current) return;
-    pollRef.current = window.setInterval(load, 3500);
+    pollRef.current = window.setInterval(load, 3000);
     return () => {
       if (pollRef.current) {
         clearInterval(pollRef.current);
