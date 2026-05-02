@@ -93,6 +93,12 @@ interface Props {
   onExportAll?: () => void;
   /** Save creative callback for content-studio mode (saves to content_studio_creatives) */
   onSaveCreative?: () => void;
+  /** Regenerate visual for the active canvas (content-studio mode) */
+  onRegenerateVisual?: () => void;
+  /** Whether the active canvas is currently regenerating */
+  regenerating?: boolean;
+  /** Approve the active canvas (content-studio mode) */
+  onApproveActive?: () => void;
 }
 
 const ICON_FOR_TYPE = {
