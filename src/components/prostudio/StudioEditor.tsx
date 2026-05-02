@@ -898,25 +898,25 @@ export function StudioEditor({
               </ToolButton>
             </div>
 
-            <div ref={canvasContainerRef} className="flex-1 overflow-auto flex items-center justify-center" style={{ backgroundColor: "#111111" }}>
+            <div ref={canvasContainerRef} className="flex-1 min-h-0 overflow-auto flex items-center justify-center" style={{ backgroundColor: "#111111" }}>
               <div
                 ref={captureStageHost}
                 data-studio-stage
-                className="relative transition-all duration-300 ease flex-shrink-0"
+                className="relative transition-all duration-300 ease flex-shrink-0 overflow-hidden"
                 style={{
-                  width: canvasSize.width * (mode === 'content-studio' ? fitScale : zoom),
-                  height: canvasSize.height * (mode === 'content-studio' ? fitScale : zoom),
+                  width: canvasSize.width * zoom,
+                  height: canvasSize.height * zoom,
                 }}
               >
                 <div
-                  className="absolute inset-0 rounded-sm pointer-events-none"
+                  className="absolute inset-0 rounded-sm pointer-events-none z-10"
                   style={{
                     boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
                   }}
                 />
                 <EditableCanvas
                   html={html}
-                  zoom={mode === 'content-studio' ? 1 : zoom}
+                  zoom={zoom}
                   width={canvasSize.width}
                   height={canvasSize.height}
                   selectedId={selectedId}
