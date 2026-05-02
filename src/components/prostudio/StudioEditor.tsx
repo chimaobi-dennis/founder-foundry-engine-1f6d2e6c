@@ -50,6 +50,7 @@ import { SAMPLE_TEMPLATE_HTML } from "./studio/sampleTemplate";
 import type { StudioElement } from "./studio/types";
 import { PlatformsPanel } from "./content-studio/PlatformsPanel";
 import { CopyPanel } from "./content-studio/CopyPanel";
+import { CanvasGenerating } from "./content-studio/CanvasGenerating";
 
 interface Props {
   open: boolean;
