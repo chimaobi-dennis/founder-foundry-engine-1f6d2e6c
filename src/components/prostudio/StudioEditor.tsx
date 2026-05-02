@@ -917,36 +917,90 @@ export function StudioEditor({
               </ToolButton>
             </div>
 
-            <div ref={canvasContainerRef} className="flex-1 min-h-0 overflow-auto flex items-center justify-center" style={{ backgroundColor: "#111111" }}>
-              <div
-                ref={captureStageHost}
-                data-studio-stage
-                className="relative transition-all duration-300 ease flex-shrink-0 overflow-hidden"
-                style={{
-                  width: canvasSize.width * zoom,
-                  height: canvasSize.height * zoom,
-                }}
-              >
-                <div
-                  className="absolute inset-0 rounded-sm pointer-events-none z-10"
-                  style={{
-                    boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
-                  }}
-                />
-                <EditableCanvas
-                  html={html}
-                  zoom={zoom}
-                  width={canvasSize.width}
-                  height={canvasSize.height}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  onElementsParsed={setElements}
-                  onElementMutated={() => { bumpRefresh(); markDirty(); }}
-                  onIntrinsicSize={setCanvasSize}
-                  getElementState={getElementState}
-                  refreshKey={refreshKey}
-                />
-              </div>
+            {/* Generation progress bar — only shown in content-studio when any platform is generating */}
+            {mode === 'content-studio' && canvases && (() => {
+              const gen = canvases.filter(c => c.status === "generating").length;
+              const total = canvases.length;
+              if (gen === 0) return null;
+              const done = total - gen;
+              const pct = total ? (done / total) * 100 : 0;
+              return (
+                <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-2 pointer-events-none">
+                  <div className="bg-card/90 backdrop-blur-sm border border-border rounded-md px-3 py-1.5 flex items-center gap-3 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse flex-shrink-0" />
+                    <span className="text-[11px] font-ui text-foreground flex-shrink-0">
+                      Generating {done + 1} of {total} platforms…
+                    </span>
+                    <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div
+              ref={canvasContainerRef}
+              className="flex-1 flex items-center justify-center"
+              style={{
+                minHeight: 0,
+                background: "#111111",
+                overflow: "hidden",
+              }}
+            >
+              {(() => {
+                const activeCanvas = mode === 'content-studio' && canvases && activeCanvasId
+                  ? canvases.find(c => c.id === activeCanvasId)
+                  : null;
+                const isGenerating = activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating);
+
+                if (isGenerating) {
+                  return (
+                    <CanvasGenerating
+                      platformName={activeCanvas?.label || "Canvas"}
+                      width={canvasSize.width}
+                      height={canvasSize.height}
+                      scale={zoom}
+                    />
+                  );
+                }
+
+                return (
+                  <div
+                    ref={captureStageHost}
+                    data-studio-stage
+                    className="relative flex-shrink-0 animate-fade-in"
+                    style={{
+                      width: canvasSize.width * zoom,
+                      height: canvasSize.height * zoom,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      className="absolute inset-0 rounded-sm pointer-events-none z-10"
+                      style={{
+                        boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
+                      }}
+                    />
+                    <EditableCanvas
+                      html={html}
+                      zoom={zoom}
+                      width={canvasSize.width}
+                      height={canvasSize.height}
+                      selectedId={selectedId}
+                      onSelect={setSelectedId}
+                      onElementsParsed={setElements}
+                      onElementMutated={() => { bumpRefresh(); markDirty(); }}
+                      onIntrinsicSize={setCanvasSize}
+                      getElementState={getElementState}
+                      refreshKey={refreshKey}
+                    />
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground" style={{ backgroundColor: mode === 'content-studio' ? "#1A2A3A" : undefined }}>
