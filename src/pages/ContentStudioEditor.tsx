@@ -203,6 +203,9 @@ export default function ContentStudioEditor() {
       activeCanvasId={activeId}
       onSelectCanvas={setActiveId}
       onSaveCreative={handleSaveCreative}
+      onRegenerateVisual={handleRegenerateVisual}
+      regenerating={regenerating}
+      onApproveActive={handleApprove}
       onExportAll={() => toast.info("Export all coming soon")}
       onApproveAll={() => toast.info("Bulk approve coming soon")}
     />
