@@ -3,7 +3,7 @@
 // switch between, add, duplicate, reorder, and delete canvases of any kind.
 
 import { useRef, useState } from "react";
-import { Plus, MoreHorizontal, Copy, Trash2, Star, FileText, LayoutTemplate } from "lucide-react";
+import { Check, Plus, MoreHorizontal, Copy, Trash2, Star, FileText, LayoutTemplate } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -18,6 +18,31 @@ export interface CanvasItem {
   html?: string | null;
   /** Optional image URL preview (e.g. ReelBuilder scene poster) */
   thumbnailUrl?: string | null;
+  // Content Studio specific fields
+  /** Platform name (e.g. "Instagram", "Email") - shown in content-studio mode */
+  label?: string;
+  /** Platform icon (emoji or component) - shown in content-studio mode */
+  platformIcon?: string;
+  /** Platform slug (e.g. "instagram", "email") */
+  platformSlug?: string;
+  /** Copy text for the platform */
+  copyText?: string | null;
+  /** Headline for the platform */
+  headline?: string | null;
+  /** Hashtags array (social platforms only) */
+  hashtags?: string[] | null;
+  /** Subject line (email only) */
+  subjectLine?: string | null;
+  /** Character limit for the platform */
+  characterLimit?: number | null;
+  /** Canvas width in pixels */
+  canvasWidth?: number;
+  /** Canvas height in pixels */
+  canvasHeight?: number;
+  /** Status: ready, generating, failed, scheduled */
+  status?: string;
+  /** Whether the creative is approved */
+  isApproved?: boolean;
 }
 
 interface Props {
@@ -31,6 +56,8 @@ interface Props {
   onSetMain?: (id: string) => void;
   /** Hide the + button when host doesn't support adding (rare). */
   canAdd?: boolean;
+  /** Custom background color for the switcher strip */
+  backgroundColor?: string;
 }
 
 export function CanvasSwitcher({
@@ -43,6 +70,7 @@ export function CanvasSwitcher({
   onDelete,
   onSetMain,
   canAdd = true,
+  backgroundColor,
 }: Props) {
   const stripRef = useRef<HTMLDivElement>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -51,9 +79,7 @@ export function CanvasSwitcher({
     <div
       className="h-[100px] flex-shrink-0 border-t border-border flex items-center"
       style={{
-        // Slightly lighter than the workspace canvas backdrop so it reads as a
-        // distinct surface in both light and dark themes.
-        backgroundColor: "hsl(var(--card))",
+        backgroundColor: backgroundColor || "hsl(var(--card))",
       }}
     >
       <div
@@ -205,7 +231,7 @@ function CanvasThumb({
           </div>
         )}
 
-        {/* Number badge — bottom-left */}
+        {/* Number badge or platform label — bottom-left */}
         <span
           className={cn(
             "absolute bottom-1 left-1 min-w-[16px] h-4 px-1 rounded-[3px] text-[9.5px] font-ui font-semibold tabular-nums flex items-center justify-center",
@@ -214,8 +240,15 @@ function CanvasThumb({
               : "bg-black/60 text-white backdrop-blur-sm",
           )}
         >
-          {index}
+          {canvas.label || index}
         </span>
+
+        {/* Status dot — top-left for content-studio */}
+        {(canvas.status || canvas.isApproved !== undefined) && (
+          <div className="absolute top-1 left-1">
+            <StatusDot status={canvas.status || "ready"} approved={canvas.isApproved} />
+          </div>
+        )}
       </button>
 
       {/* Hover menu */}
@@ -277,17 +310,23 @@ function MenuRow({
       disabled={disabled}
       className={cn(
         "w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[12px] font-ui transition-colors text-left",
-        disabled
-          ? "text-muted-foreground/50 cursor-not-allowed"
-          : destructive
-          ? "text-destructive hover:bg-destructive/10"
-          : "text-foreground hover:bg-muted",
+        destructive ? "text-destructive hover:bg-destructive/10" : "text-foreground hover:bg-muted",
+        disabled && "opacity-50 cursor-not-allowed"
       )}
     >
-      <span className={cn(destructive && !disabled ? "text-destructive" : "text-muted-foreground")}>
-        {icon}
-      </span>
-      {label}
+      {icon}
+      <span>{label}</span>
     </button>
   );
+}
+
+function StatusDot({ status, approved }: { status: string; approved?: boolean }) {
+  if (approved) return <Check size={10} className="text-emerald-500" />;
+  if (status === "generating")
+    return <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />;
+  if (status === "ready")
+    return <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />;
+  if (status === "failed")
+    return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
+  return <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />;
 }
