@@ -206,20 +206,29 @@ export function StudioEditor({
     }
   }, [mode, canvases, activeCanvasId]);
 
-  // Calculate fit-to-screen scale for content-studio mode
+  // Calculate fit-to-screen scale — recompute on container resize so the
+  // canvas always shrinks to fit with no extra white space below.
   useEffect(() => {
-    if (mode === 'content-studio' && canvasContainerRef.current) {
-      const container = canvasContainerRef.current;
-      const availableWidth = container.parentElement?.clientWidth || 800;
-      const availableHeight = container.parentElement?.clientHeight || 600;
-      const padding = 80;
-      const fitScale = Math.min(
+    const container = canvasContainerRef.current;
+    if (!container) return;
+    const recalc = () => {
+      const availableWidth = container.clientWidth || 800;
+      const availableHeight = container.clientHeight || 600;
+      const padding = 64;
+      const next = Math.min(
         (availableWidth - padding) / canvasSize.width,
-        (availableHeight - padding) / canvasSize.height
+        (availableHeight - padding) / canvasSize.height,
       );
-      setFitScale(Math.max(0.2, Math.min(2, fitScale)));
-      setZoom(fitScale);
-    }
+      const clamped = Math.max(0.1, Math.min(2, next));
+      setFitScale(clamped);
+      // Auto-fit zoom in content-studio mode (resizable). For prostudio, only
+      // set initial fit on first measurement so user zoom is preserved.
+      if (mode === "content-studio") setZoom(clamped);
+    };
+    recalc();
+    const ro = new ResizeObserver(recalc);
+    ro.observe(container);
+    return () => ro.disconnect();
   }, [mode, canvasSize.width, canvasSize.height]);
 
   // ─── Export / Save to Library — internal (html2canvas + storage) ────────
