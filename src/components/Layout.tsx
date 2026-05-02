@@ -8,14 +8,10 @@ const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/li
 
 const fullHeightPaths = ["/mentor", "/content-calendar"];
 
-// Editor-style routes need full height & no brand context bar
-const isEditorRoute = (path: string) =>
-  /^\/content-studio\/(?!new$)[^/]+$/.test(path);
-
 export function Layout() {
   const location = useLocation();
   const showBrandBar = modulePaths.includes(location.pathname);
-  const isFullHeight = fullHeightPaths.includes(location.pathname) || isEditorRoute(location.pathname);
+  const isFullHeight = fullHeightPaths.includes(location.pathname);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
