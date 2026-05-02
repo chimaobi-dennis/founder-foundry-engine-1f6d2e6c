@@ -40,7 +40,14 @@ export function PlatformsPanel({ canvases, activeId, onSelect }: PlatformsPanelP
                   style={{ background: canvas.platformIcon || "#8A96A3" }}
                 />
                 <span className="flex-1 truncate">{canvas.label || "Platform"}</span>
-                <StatusDot status={status} approved={canvas.isApproved} />
+                {status === "generating" ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <span className="text-[10px] font-ui text-primary">Generating…</span>
+                  </span>
+                ) : (
+                  <StatusDot status={status} approved={canvas.isApproved} />
+                )}
               </button>
             );
           })}
