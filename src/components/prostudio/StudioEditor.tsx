@@ -1040,6 +1040,10 @@ export function StudioEditor({
               {rightTab === "copy" ? (
                 <CopyPanel
                   canvas={canvases.find(c => c.id === activeCanvasId) || canvases[0]}
+                  onRegenerateVisual={onRegenerateVisual}
+                  regenerating={regenerating}
+                  onApproveClick={onApproveActive}
+                  isApproved={!!(canvases.find(c => c.id === activeCanvasId)?.isApproved)}
                 />
               ) : (
                 <div className="flex-1 overflow-y-auto p-4 space-y-5">
