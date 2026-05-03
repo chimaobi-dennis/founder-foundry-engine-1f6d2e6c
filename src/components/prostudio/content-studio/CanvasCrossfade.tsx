@@ -226,6 +226,31 @@ export function CanvasCrossfade({
         />
       </div>
 
+      {/* Step label chip */}
+      <div
+        className="absolute top-2 right-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1 rounded-full font-ui text-[10px] tracking-wide"
+        style={{
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(6px)",
+          color: "rgba(255,255,255,0.85)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          opacity: showProgress ? 1 : 0,
+          transform: showProgress ? "translateY(0)" : "translateY(-4px)",
+          transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease`,
+        }}
+      >
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{
+            background: "hsl(var(--primary))",
+            boxShadow: "0 0 6px hsl(var(--primary) / 0.8)",
+            animation: progress < 100 ? "pulse 1.4s ease-in-out infinite" : undefined,
+          }}
+        />
+        <span>{step}</span>
+        <span className="opacity-60 tabular-nums">{Math.round(progress)}%</span>
+      </div>
+
       <div
         ref={canvasWrapRef}
         className="absolute inset-0 flex items-center justify-center"
