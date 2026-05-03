@@ -107,6 +107,8 @@ interface Props {
   regenerating?: boolean;
   /** Approve the active canvas (content-studio mode) */
   onApproveActive?: () => void;
+  /** Brief id for content-studio mode (passed to saveCreativeToLibrary) */
+  briefId?: string;
 }
 
 const ICON_FOR_TYPE = {
