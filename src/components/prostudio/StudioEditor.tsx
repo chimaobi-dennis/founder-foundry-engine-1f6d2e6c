@@ -554,7 +554,7 @@ export function StudioEditor({
 
   return (
     <>
-      <div className="absolute inset-0 z-[40] flex flex-col text-foreground bg-background">
+      <div className="flex-1 min-h-0 flex flex-col text-foreground bg-background">
         {/* Top toolbar */}
         <div className="h-12 flex items-center justify-between px-3 border-b border-border flex-shrink-0 bg-card">
           <div className="flex items-center gap-1.5">
