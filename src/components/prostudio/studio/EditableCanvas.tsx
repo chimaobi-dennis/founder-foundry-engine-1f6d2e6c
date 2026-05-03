@@ -16,6 +16,13 @@ interface Props {
   getElementState: (id: string) => { visible: boolean; locked: boolean } | undefined;
   // Pulse counter to force re-measure (e.g. after applying property changes)
   refreshKey: number;
+  /**
+   * When true, prepend a CSS reset that forces the injected root to fill the
+   * stage exactly — used in content-studio mode where the canvas size is
+   * dictated by the platform (image_width × image_height) and the AI HTML
+   * must conform, not the other way around.
+   */
+  forceFillStage?: boolean;
 }
 
 type DragMode = null | "move" | "resize-tl" | "resize-tr" | "resize-bl" | "resize-br";
