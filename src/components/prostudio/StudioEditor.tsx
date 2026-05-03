@@ -1004,8 +1004,38 @@ export function StudioEditor({
                 minHeight: 0,
                 background: "#111111",
                 overflow: "hidden",
+                cursor: (tool === "hand" || tempPan) ? (panRef.current ? "grabbing" : "grab") : "default",
+              }}
+              onWheel={(e) => {
+                setPanOffset((p) => ({
+                  x: p.x - (e.shiftKey ? e.deltaY : e.deltaX),
+                  y: p.y - (e.shiftKey ? 0 : e.deltaY),
+                }));
+              }}
+              onMouseDown={(e) => {
+                if (!(tool === "hand" || tempPan)) return;
+                e.preventDefault();
+                panRef.current = { x: panOffset.x, y: panOffset.y, startX: e.clientX, startY: e.clientY };
+                const onMove = (ev: MouseEvent) => {
+                  const p = panRef.current;
+                  if (!p) return;
+                  setPanOffset({ x: p.x + (ev.clientX - p.startX), y: p.y + (ev.clientY - p.startY) });
+                };
+                const onUp = () => {
+                  panRef.current = null;
+                  window.removeEventListener("mousemove", onMove);
+                  window.removeEventListener("mouseup", onUp);
+                };
+                window.addEventListener("mousemove", onMove);
+                window.addEventListener("mouseup", onUp);
               }}
             >
+              <div
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                  transition: panRef.current ? "none" : "transform 120ms ease-out",
+                }}
+              >
               {(() => {
                 const activeCanvas = mode === 'content-studio' && canvases && activeCanvasId
                   ? canvases.find(c => c.id === activeCanvasId)
@@ -1031,6 +1061,7 @@ export function StudioEditor({
                         width: canvasSize.width * zoom,
                         height: canvasSize.height * zoom,
                         overflow: "hidden",
+                        pointerEvents: (tool === "hand" || tempPan) ? "none" : "auto",
                       }}
                     >
                       <div
@@ -1057,6 +1088,7 @@ export function StudioEditor({
                   </CanvasCrossfade>
                 );
               })()}
+              </div>
             </div>
 
             <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground bg-card">
