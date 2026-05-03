@@ -22,16 +22,51 @@ interface Props {
 
 const FADE_MS = 350;
 
-function initialFor(canvasId: string, isGenerating: boolean, hasHtml: boolean): CanvasProgressState {
+const STALE_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Reconcile stored progress with the live props so a refresh or platform
+ * switch always restores the correct phase.
+ *
+ * Truth rules (props win over stored):
+ *  - Live `isGenerating` → phase is always "generating".
+ *  - No HTML yet         → phase is "loading" at minimum.
+ *  - Stored entry stale  → discard.
+ *  - Otherwise           → use stored value verbatim.
+ */
+function initialFor(
+  canvasId: string,
+  isGenerating: boolean,
+  hasHtml: boolean,
+): CanvasProgressState {
   const stored = getCanvasProgress(canvasId);
-  if (stored) return stored;
-  if (!isGenerating && hasHtml) {
-    return { progress: 100, phase: "ready", ready: true, updatedAt: Date.now() };
+  const fresh = stored && Date.now() - stored.updatedAt < STALE_MS ? stored : undefined;
+
+  if (isGenerating) {
+    return {
+      progress: Math.min(fresh?.progress ?? 10, 30),
+      phase: "generating",
+      ready: false,
+      step: fresh?.step || "Generating…",
+      updatedAt: Date.now(),
+    };
   }
+  if (!hasHtml) {
+    return {
+      progress: fresh?.progress ?? 0,
+      phase: fresh?.phase === "ready" ? "loading" : fresh?.phase ?? "loading",
+      ready: false,
+      step: fresh?.step || "Waiting for output…",
+      updatedAt: Date.now(),
+    };
+  }
+  if (fresh) return fresh;
+  // Have HTML, no stored entry — assume already-rendered ready state.
   return {
-    progress: isGenerating ? 10 : 0,
-    phase: isGenerating ? "generating" : "loading",
-    ready: false,
+    progress: 100,
+    phase: "ready",
+    ready: true,
+    step: "Ready",
     updatedAt: Date.now(),
   };
 }
@@ -39,8 +74,8 @@ function initialFor(canvasId: string, isGenerating: boolean, hasHtml: boolean): 
 /**
  * Crossfade between the generating skeleton and the real canvas, with a
  * persistent top progress bar. Progress is keyed by `canvasId` and stored in
- * a small in-memory + sessionStorage cache so switching tabs / platforms
- * resumes the indicator instead of restarting it.
+ * a small in-memory + sessionStorage cache so switching tabs / platforms /
+ * refreshing the page resumes the indicator instead of restarting it.
  */
 export function CanvasCrossfade({
   canvasId,
@@ -57,24 +92,30 @@ export function CanvasCrossfade({
   const [canvasReady, setCanvasReady] = useState(initial.ready);
   const [showSkeleton, setShowSkeleton] = useState(!initial.ready);
   const [phase, setPhase] = useState<CanvasProgressState["phase"]>(initial.phase);
-  const [step, setStep] = useState<string>(
-    initial.step || (initial.ready ? "Ready" : isGenerating ? "Generating…" : "Preparing…"),
-  );
+  const [step, setStep] = useState<string>(initial.step || "Preparing…");
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const skeletonTimerRef = useRef<number | null>(null);
   const trickleRef = useRef<number | null>(null);
 
-  // Re-sync local state when canvasId changes (user switched platforms).
+  // Stamp the reconciled initial state back into the store on mount so other
+  // mounts (e.g. another platform tab) read the corrected value.
+  useEffect(() => {
+    setCanvasProgress(canvasId, initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasId]);
+
+  // Re-sync when canvasId OR live props change (props are authoritative).
   useEffect(() => {
     const s = initialFor(canvasId, isGenerating, hasHtml);
     setProgress(s.progress);
     setCanvasReady(s.ready);
     setShowSkeleton(!s.ready);
     setPhase(s.phase);
-    setStep(s.step || (s.ready ? "Ready" : isGenerating ? "Generating…" : "Preparing…"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasId]);
+    setStep(s.step || "Preparing…");
+    setCanvasProgress(canvasId, s);
+  }, [canvasId, isGenerating, hasHtml]);
 
+  // Subscribe to external store updates for this canvas.
   useEffect(() => {
     return subscribeCanvasProgress(canvasId, (s) => {
       setProgress(s.progress);
@@ -82,6 +123,10 @@ export function CanvasCrossfade({
       if (s.step) setStep(s.step);
       if (s.ready) {
         setCanvasReady(true);
+      } else if (s.phase === "generating" || s.phase === "loading") {
+        // Phase regressed — make sure we stop showing it as ready.
+        setCanvasReady(false);
+        setShowSkeleton(true);
       }
     });
   }, [canvasId]);
