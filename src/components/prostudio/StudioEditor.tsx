@@ -826,23 +826,34 @@ export function StudioEditor({
                 <><Download size={13} /> Export</>
               )}
             </button>
-            {mode !== "content-studio" && isCurrentSaved ? (
-              <button disabled className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default">
-                <Check size={13} /> Saved
-              </button>
-            ) : (
-              <button
-                onClick={handleSaveToLibrary}
-                disabled={isSaving}
-                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
+            {/* Floating "vN saved" badge — non-blocking, fades out after 3s */}
+            {savedVersionBadge ? (
+              <span
+                key={savedVersionBadge}
+                className="text-[11px] font-ui text-emerald-500/90 animate-in fade-in zoom-in-95 duration-200"
+                aria-live="polite"
               >
-                {isSaving ? (
-                  <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…</>
-                ) : (
-                  <><Save size={13} /> Save to Library</>
-                )}
-              </button>
-            )}
+                {savedVersionBadge}
+              </span>
+            ) : null}
+            <button
+              onClick={handleSaveToLibrary}
+              disabled={isSaving}
+              className={cn(
+                "h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed",
+                savedFlash
+                  ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/40"
+                  : "bg-primary text-primary-foreground",
+              )}
+            >
+              {isSaving ? (
+                <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…</>
+              ) : savedFlash ? (
+                <><Check size={13} /> Saved ✓</>
+              ) : (
+                <><Save size={13} /> Save to Library</>
+              )}
+            </button>
           </div>
         </div>
 
