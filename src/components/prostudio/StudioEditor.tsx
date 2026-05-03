@@ -944,7 +944,7 @@ export function StudioEditor({
 
             <div
               ref={canvasContainerRef}
-              className="flex-1 flex items-center justify-center"
+              className="flex-1 flex items-center justify-center relative"
               style={{
                 minHeight: 0,
                 background: "#111111",
@@ -956,49 +956,48 @@ export function StudioEditor({
                   ? canvases.find(c => c.id === activeCanvasId)
                   : null;
                 const isGenerating = activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating);
-
-                if (isGenerating) {
-                  return (
-                    <CanvasGenerating
-                      platformName={activeCanvas?.label || "Canvas"}
-                      width={canvasSize.width}
-                      height={canvasSize.height}
-                      scale={zoom}
-                    />
-                  );
-                }
+                const hasHtml = !!html;
 
                 return (
-                  <div
-                    ref={captureStageHost}
-                    data-studio-stage
-                    className="relative flex-shrink-0 animate-fade-in"
-                    style={{
-                      width: canvasSize.width * zoom,
-                      height: canvasSize.height * zoom,
-                      overflow: "hidden",
-                    }}
+                  <CanvasCrossfade
+                    isGenerating={!!isGenerating}
+                    hasHtml={hasHtml}
+                    platformName={activeCanvas?.label || "Canvas"}
+                    width={canvasSize.width}
+                    height={canvasSize.height}
+                    zoom={zoom}
                   >
                     <div
-                      className="absolute inset-0 rounded-sm pointer-events-none z-10"
+                      ref={captureStageHost}
+                      data-studio-stage
+                      className="relative flex-shrink-0"
                       style={{
-                        boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
+                        width: canvasSize.width * zoom,
+                        height: canvasSize.height * zoom,
+                        overflow: "hidden",
                       }}
-                    />
-                    <EditableCanvas
-                      html={html}
-                      zoom={zoom}
-                      width={canvasSize.width}
-                      height={canvasSize.height}
-                      selectedId={selectedId}
-                      onSelect={setSelectedId}
-                      onElementsParsed={setElements}
-                      onElementMutated={() => { bumpRefresh(); markDirty(); }}
-                      onIntrinsicSize={setCanvasSize}
-                      getElementState={getElementState}
-                      refreshKey={refreshKey}
-                    />
-                  </div>
+                    >
+                      <div
+                        className="absolute inset-0 rounded-sm pointer-events-none z-10"
+                        style={{
+                          boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
+                        }}
+                      />
+                      <EditableCanvas
+                        html={html}
+                        zoom={zoom}
+                        width={canvasSize.width}
+                        height={canvasSize.height}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                        onElementsParsed={setElements}
+                        onElementMutated={() => { bumpRefresh(); markDirty(); }}
+                        onIntrinsicSize={setCanvasSize}
+                        getElementState={getElementState}
+                        refreshKey={refreshKey}
+                      />
+                    </div>
+                  </CanvasCrossfade>
                 );
               })()}
             </div>
