@@ -387,36 +387,44 @@ export function StudioEditor({
   }, [onDownload]);
 
   const performSave = useCallback(async (format: SaveFormat) => {
-    if (mode === 'content-studio' && onSaveCreative) {
-      onSaveCreative();
-      setHasUnsavedChanges(false);
-      setSaveModalOpen(false);
-      return;
-    }
-    if (onSaveToLibrary) {
-      onSaveToLibrary();
-      setHasUnsavedChanges(false);
-      setSaveModalOpen(false);
-      return;
-    }
     if (!brandId) {
       toast({ title: "No active brand", variant: "destructive" });
       return;
     }
     setIsSaving(true);
     try {
+      if (mode === 'content-studio') {
+        const creativeId = activeCanvasId;
+        if (!creativeId) throw new Error("No active creative selected");
+        const result = await saveCreativeToLibrary({
+          creativeId,
+          brandId,
+          format,
+        });
+        if (!result?.asset) throw new Error("Save returned no asset");
+        if (activeCanvasId) {
+          setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
+        }
+        setHasUnsavedChanges(false);
+        toast({ title: "Saved to Library" });
+        setSaveModalOpen(false);
+        return;
+      }
+
       const result = await saveOutputToLibrary({
         outputId: outputId || null,
         brandId,
         templateId: templateId || null,
         outputHtml: variationHtml || "",
         dimensions: { width: canvasSize.width, height: canvasSize.height },
+        format,
       });
+      if (!result?.outputId) throw new Error("Save returned no asset");
       if (activeCanvasId) {
         setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
       }
       setHasUnsavedChanges(false);
-      toast({ title: `Saved to Library (${format.toUpperCase()})` });
+      toast({ title: "Saved to Library" });
       setSaveModalOpen(false);
     } catch (e: any) {
       console.error("Save failed:", e);
@@ -424,7 +432,7 @@ export function StudioEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [mode, onSaveCreative, onSaveToLibrary, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId]);
+  }, [mode, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId]);
 
   const handleSaveToLibrary = useCallback(() => {
     setSaveModalOpen(true);
