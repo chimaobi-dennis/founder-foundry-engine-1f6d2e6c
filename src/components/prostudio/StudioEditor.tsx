@@ -51,6 +51,7 @@ import type { StudioElement } from "./studio/types";
 import { PlatformsPanel } from "./content-studio/PlatformsPanel";
 import { CopyPanel } from "./content-studio/CopyPanel";
 import { CanvasGenerating } from "./content-studio/CanvasGenerating";
+import { CanvasCrossfade } from "./content-studio/CanvasCrossfade";
 
 interface Props {
   open: boolean;
