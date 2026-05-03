@@ -26,6 +26,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import JSZip from "jszip";
 import { saveOutputToLibrary } from "@/services/templateService";
+import { saveCreativeToLibrary } from "@/services/contentStudioService";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { SaveFormatModal, type SaveFormat } from "./SaveFormatModal";
