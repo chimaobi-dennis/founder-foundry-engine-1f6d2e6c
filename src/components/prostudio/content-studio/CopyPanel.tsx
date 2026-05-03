@@ -191,3 +191,47 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+function SkeletonField({ labelHeight, barHeight, lines = 1 }: { labelHeight: number; barHeight: number; lines?: number }) {
+  return (
+    <div>
+      <div
+        className="rounded mb-1.5"
+        style={{ height: labelHeight, width: 80, background: "rgba(255,255,255,0.06)" }}
+      />
+      {lines === 1 ? (
+        <div
+          className="rounded-md"
+          style={{
+            height: barHeight,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            animation: "copy-skel 1.6s ease-in-out infinite",
+          }}
+        />
+      ) : (
+        <div
+          className="rounded-md p-2.5 space-y-2"
+          style={{
+            height: barHeight,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          {Array.from({ length: lines }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded h-2"
+              style={{
+                width: `${[92, 78, 88, 64, 70][i % 5]}%`,
+                background: "rgba(212,160,23,0.10)",
+                animation: "copy-skel 1.6s ease-in-out infinite",
+                animationDelay: `${i * 120}ms`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
