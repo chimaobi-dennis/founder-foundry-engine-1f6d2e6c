@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
-import html2canvas from 'html2canvas';
+import { saveToLibrary as saveToAssetLibrary, type SaveFormat } from './assetService';
 
 const db = supabase as any;
 
@@ -588,27 +588,29 @@ Every editable element must have a data-element attribute.
 
 // ─── Save creative to Library (render HTML to PNG upload) ─────────────
 
-const TEMPLATE_OUTPUTS_BUCKET = 'template-outputs';
-
 /**
- * Render HTML to PNG using html2canvas, upload to storage, and update the
- * content_studio_creatives row with the image URL and saved flag.
+ * Save creative to Library using the new asset service.
+ * This renders HTML to image/PDF, uploads to storage, and creates entries in
+ * assets and studio_sessions tables. The content_studio_creatives row is kept for
+ * backward compatibility but is no longer the primary storage for library items.
  */
 export async function saveCreativeToLibrary({
   creativeId,
   brandId,
+  format = 'png',
 }: {
   creativeId: string;
   brandId: string;
+  format?: SaveFormat;
 }): Promise<{ publicUrl: string; error?: string }> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) throw new Error('Not authenticated');
 
-    // Fetch the creative with platform dimensions
+    // Fetch the creative with platform dimensions and brief
     const { data: creative } = await db
       .from('content_studio_creatives')
-      .select('*, content_platforms(*)')
+      .select('*, content_platforms(*), content_studio_briefs(*)')
       .eq('id', creativeId)
       .single();
 
@@ -616,62 +618,40 @@ export async function saveCreativeToLibrary({
     if (!creative.visual_html) throw new Error('No visual HTML to save');
 
     const platform = creative.content_platforms;
+    const brief = creative.content_studio_briefs;
     const renderWidth = platform?.image_width || 600;
     const renderHeight = platform?.image_height || 600;
 
-    // Render HTML to canvas using html2canvas
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = `${renderWidth}px`;
-    container.style.height = `${renderHeight}px`;
-    container.innerHTML = creative.visual_html;
-    document.body.appendChild(container);
+    // Call the new asset service to save to library
+    const asset = await saveToAssetLibrary({
+      brandId,
+      userId: user.id,
+      name: platform?.name || 'Design',
+      sourceModule: 'contentstudio',
+      visualHtml: creative.visual_html,
+      format,
+      platformWidth: renderWidth,
+      platformHeight: renderHeight,
+      platformSlug: platform?.slug || platform?.name?.toLowerCase().replace(/\s+/g, '-'),
+      briefId: brief?.id,
+      creativeId: creativeId,
+    });
 
-    try {
-      const canvas = await html2canvas(container, {
-        width: renderWidth,
-        height: renderHeight,
-        scale: 1,
-        useCORS: true,
-        logging: false,
-      });
-
-      // Convert canvas to PNG blob
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Failed to convert canvas to blob'));
-        }, 'image/png');
-      });
-
-      // Upload the PNG blob to the bucket
-      const path = `${user.id}/${brandId}/${creativeId}.png`;
-      const { error: uploadErr } = await supabase.storage
-        .from(TEMPLATE_OUTPUTS_BUCKET)
-        .upload(path, blob, { upsert: true, contentType: 'image/png' });
-      if (uploadErr) throw uploadErr;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from(TEMPLATE_OUTPUTS_BUCKET)
-        .getPublicUrl(path);
-
-      // Update the creative row with the image URL and saved flag
-      const { error: updateErr } = await db
-        .from('content_studio_creatives')
-        .update({
-          is_saved_to_library: true,
-          visual_thumbnail_url: publicUrl,
-        })
-        .eq('id', creativeId);
-      if (updateErr) throw updateErr;
-
-      return { publicUrl };
-    } finally {
-      // Clean up the temporary container
-      document.body.removeChild(container);
+    if (!asset) {
+      throw new Error('Failed to save asset');
     }
+
+    // Update the creative row to mark it as saved
+    const { error: updateErr } = await db
+      .from('content_studio_creatives')
+      .update({
+        is_saved_to_library: true,
+        visual_thumbnail_url: asset.file_url,
+      })
+      .eq('id', creativeId);
+    if (updateErr) throw updateErr;
+
+    return { publicUrl: asset.file_url };
   } catch (error: any) {
     await logError({
       errorMessage: error.message || 'Save to library failed',

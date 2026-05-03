@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { getBrandProductImages, setPrimaryProductImage, uploadBrandProductImage } from './projectAssetsService';
 import { logError } from './errorService';
-import html2canvas from 'html2canvas';
+import { saveToLibrary as saveToAssetLibrary, type SaveFormat } from './assetService';
 
 const db = supabase as any;
 
@@ -769,11 +769,15 @@ interface SaveOutputParams {
   outputHtml: string;
   /** Optional: dimensions for rendering (width x height). If not provided, defaults to 600x600. */
   dimensions?: { width: number; height: number };
+  /** Format to save as */
+  format?: SaveFormat;
 }
 
 /**
- * Render HTML to PNG using html2canvas, upload to storage, and flip the row's
- * is_saved_to_library flag. If outputId is missing, inserts a new row first.
+ * Save output to Library using the new asset service.
+ * This renders HTML to image/PDF, uploads to storage, and creates entries in
+ * assets and studio_sessions tables. The template_outputs row is kept for
+ * backward compatibility but is no longer the primary storage for library items.
  */
 export async function saveOutputToLibrary({
   outputId,
@@ -781,6 +785,7 @@ export async function saveOutputToLibrary({
   templateId,
   outputHtml,
   dimensions,
+  format = 'png',
 }: SaveOutputParams): Promise<{ outputId: string; publicUrl: string; error?: string }> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -809,64 +814,38 @@ export async function saveOutputToLibrary({
       id = inserted.id;
     }
 
-    // Render HTML to canvas using html2canvas
     const renderWidth = dimensions?.width || 600;
     const renderHeight = dimensions?.height || 600;
 
-    // Create a temporary container to render the HTML
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = `${renderWidth}px`;
-    container.style.height = `${renderHeight}px`;
-    container.innerHTML = outputHtml;
-    document.body.appendChild(container);
+    // Call the new asset service to save to library
+    const asset = await saveToAssetLibrary({
+      brandId,
+      userId: user.id,
+      name: templateId ? `Template ${templateId}` : 'Design',
+      sourceModule: 'prostudio',
+      visualHtml: outputHtml,
+      format,
+      platformWidth: renderWidth,
+      platformHeight: renderHeight,
+      templateId: templateId || undefined,
+      templateOutputId: id,
+    });
 
-    try {
-      const canvas = await html2canvas(container, {
-        width: renderWidth,
-        height: renderHeight,
-        scale: 1,
-        useCORS: true,
-        logging: false,
-      });
-
-      // Convert canvas to PNG blob
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Failed to convert canvas to blob'));
-        }, 'image/png');
-      });
-
-      // Upload the PNG blob to the bucket
-      const path = `${user.id}/${brandId}/${id}.png`;
-      const { error: uploadErr } = await supabase.storage
-        .from(TEMPLATE_OUTPUTS_BUCKET)
-        .upload(path, blob, { upsert: true, contentType: 'image/png' });
-      if (uploadErr) throw uploadErr;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from(TEMPLATE_OUTPUTS_BUCKET)
-        .getPublicUrl(path);
-
-      // Update the row with the image URL and saved flag
-      const { error: updateErr } = await db
-        .from('template_outputs')
-        .update({
-          is_saved_to_library: true,
-          output_image_url: publicUrl,
-          output_html: outputHtml,
-        })
-        .eq('id', id);
-      if (updateErr) throw updateErr;
-
-      return { outputId: id!, publicUrl };
-    } finally {
-      // Clean up the temporary container
-      document.body.removeChild(container);
+    if (!asset) {
+      throw new Error('Failed to save asset');
     }
+
+    // Update the template_outputs row to mark it as saved
+    const { error: updateErr } = await db
+      .from('template_outputs')
+      .update({
+        is_saved_to_library: true,
+        output_image_url: asset.file_url,
+      })
+      .eq('id', id);
+    if (updateErr) throw updateErr;
+
+    return { outputId: id!, publicUrl: asset.file_url };
   } catch (error: any) {
     await logError({
       errorMessage: error.message || 'Save to library failed',
