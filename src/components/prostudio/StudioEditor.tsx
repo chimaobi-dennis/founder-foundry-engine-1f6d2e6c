@@ -159,6 +159,17 @@ export function StudioEditor({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(0.7);
   const [tool, setTool] = useState<"select" | "hand">("select");
+  const [tempPan, setTempPan] = useState(false); // Space-held temporary pan
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const panRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null);
+  // Undo/redo: simple stack of stage HTML snapshots
+  const undoStackRef = useRef<string[]>([]);
+  const redoStackRef = useRef<string[]>([]);
+  const [historyTick, setHistoryTick] = useState(0);
+  // Save / export modal state
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportProgress, setExportProgress] = useState<Record<string, number>>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
   // Intrinsic canvas size — detected from injected HTML so the stage matches
