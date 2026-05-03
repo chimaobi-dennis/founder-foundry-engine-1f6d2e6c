@@ -29,7 +29,7 @@ const FORMATS: { value: SaveFormat; label: string }[] = [
   { value: "pdf", label: "PDF" },
 ];
 
-export function SaveFormatModal({ open, onOpenChange, onConfirm, saving }: Props) {
+export function SaveFormatModal({ open, onOpenChange, onConfirm, saving, versionNote }: Props) {
   const [format, setFormat] = useState<SaveFormat>("png");
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -45,6 +45,11 @@ export function SaveFormatModal({ open, onOpenChange, onConfirm, saving }: Props
             </Pill>
           ))}
         </div>
+        {versionNote ? (
+          <p className="text-[12px] text-muted-foreground -mt-1">
+            This will be saved as a new version of {versionNote}
+          </p>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
           <StudioButton size="md" loading={saving} onClick={() => onConfirm(format)}>
