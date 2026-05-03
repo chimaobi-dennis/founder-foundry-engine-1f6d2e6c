@@ -56,6 +56,7 @@ export function CanvasCrossfade({
   const [progress, setProgress] = useState(initial.progress);
   const [canvasReady, setCanvasReady] = useState(initial.ready);
   const [showSkeleton, setShowSkeleton] = useState(!initial.ready);
+  const [phase, setPhase] = useState<CanvasProgressState["phase"]>(initial.phase);
   const [step, setStep] = useState<string>(
     initial.step || (initial.ready ? "Ready" : isGenerating ? "Generating…" : "Preparing…"),
   );
@@ -69,15 +70,15 @@ export function CanvasCrossfade({
     setProgress(s.progress);
     setCanvasReady(s.ready);
     setShowSkeleton(!s.ready);
+    setPhase(s.phase);
     setStep(s.step || (s.ready ? "Ready" : isGenerating ? "Generating…" : "Preparing…"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasId]);
 
-  // Subscribe to external updates for this canvas (e.g. another mount of the
-  // crossfade while we navigate away — keeps progress in sync).
   useEffect(() => {
     return subscribeCanvasProgress(canvasId, (s) => {
       setProgress(s.progress);
+      setPhase(s.phase);
       if (s.step) setStep(s.step);
       if (s.ready) {
         setCanvasReady(true);
