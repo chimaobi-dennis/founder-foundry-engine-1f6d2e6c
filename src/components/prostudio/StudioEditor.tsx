@@ -52,6 +52,7 @@ import { PlatformsPanel } from "./content-studio/PlatformsPanel";
 import { CopyPanel } from "./content-studio/CopyPanel";
 import { CanvasGenerating } from "./content-studio/CanvasGenerating";
 import { CanvasCrossfade } from "./content-studio/CanvasCrossfade";
+import { ContentStudioGenerationStrip } from "./content-studio/GenerationStrip";
 
 interface Props {
   open: boolean;
