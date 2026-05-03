@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CanvasGenerating } from "./CanvasGenerating";
+import {
+  getCanvasProgress,
+  setCanvasProgress,
+  subscribeCanvasProgress,
+  type CanvasProgressState,
+} from "./canvasProgressStore";
 
 interface Props {
+  /** Stable id for the canvas (e.g. creative id). Used to persist progress
+   *  across tab switches and platform navigation. */
+  canvasId: string;
   isGenerating: boolean;
   hasHtml: boolean;
   platformName: string;
@@ -13,19 +22,28 @@ interface Props {
 
 const FADE_MS = 350;
 
+function initialFor(canvasId: string, isGenerating: boolean, hasHtml: boolean): CanvasProgressState {
+  const stored = getCanvasProgress(canvasId);
+  if (stored) return stored;
+  if (!isGenerating && hasHtml) {
+    return { progress: 100, phase: "ready", ready: true, updatedAt: Date.now() };
+  }
+  return {
+    progress: isGenerating ? 10 : 0,
+    phase: isGenerating ? "generating" : "loading",
+    ready: false,
+    updatedAt: Date.now(),
+  };
+}
+
 /**
  * Crossfade between the generating skeleton and the real canvas, with a
- * lightweight top progress bar that updates as the HTML is painted and the
- * images inside it finish loading.
- *
- * Progress milestones:
- *  - 10%  generation in progress / waiting for HTML
- *  - 35%  HTML mounted (next frame queued)
- *  - 55%  HTML painted, images discovered
- *  - 55→95% images loading (incrementally per image)
- *  - 100% ready — crossfade starts
+ * persistent top progress bar. Progress is keyed by `canvasId` and stored in
+ * a small in-memory + sessionStorage cache so switching tabs / platforms
+ * resumes the indicator instead of restarting it.
  */
 export function CanvasCrossfade({
+  canvasId,
   isGenerating,
   hasHtml,
   platformName,
@@ -34,25 +52,55 @@ export function CanvasCrossfade({
   zoom,
   children,
 }: Props) {
-  const [showSkeleton, setShowSkeleton] = useState(isGenerating || !hasHtml);
-  const [canvasReady, setCanvasReady] = useState(!isGenerating && hasHtml);
-  const [progress, setProgress] = useState(isGenerating ? 10 : 100);
+  const initial = initialFor(canvasId, isGenerating, hasHtml);
+  const [progress, setProgress] = useState(initial.progress);
+  const [canvasReady, setCanvasReady] = useState(initial.ready);
+  const [showSkeleton, setShowSkeleton] = useState(!initial.ready);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const skeletonTimerRef = useRef<number | null>(null);
   const trickleRef = useRef<number | null>(null);
 
-  // While generating, slowly trickle progress up to ~30% so the bar feels alive.
+  // Re-sync local state when canvasId changes (user switched platforms).
+  useEffect(() => {
+    const s = initialFor(canvasId, isGenerating, hasHtml);
+    setProgress(s.progress);
+    setCanvasReady(s.ready);
+    setShowSkeleton(!s.ready);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasId]);
+
+  // Subscribe to external updates for this canvas (e.g. another mount of the
+  // crossfade while we navigate away — keeps progress in sync).
+  useEffect(() => {
+    return subscribeCanvasProgress(canvasId, (s) => {
+      setProgress(s.progress);
+      if (s.ready) {
+        setCanvasReady(true);
+      }
+    });
+  }, [canvasId]);
+
+  // Persist helper
+  const writeProgress = (patch: Partial<CanvasProgressState>) => {
+    setCanvasProgress(canvasId, patch);
+  };
+
+  // While generating, trickle progress up to ~30%, resuming from current value.
   useEffect(() => {
     if (isGenerating) {
       setShowSkeleton(true);
       setCanvasReady(false);
-      setProgress((p) => (p > 30 ? 10 : p));
+      writeProgress({ phase: "generating", ready: false });
       if (skeletonTimerRef.current) {
         window.clearTimeout(skeletonTimerRef.current);
         skeletonTimerRef.current = null;
       }
       trickleRef.current = window.setInterval(() => {
-        setProgress((p) => (p < 30 ? p + 1 : p));
+        setProgress((p) => {
+          const next = p < 30 ? p + 1 : p;
+          if (next !== p) writeProgress({ progress: next });
+          return next;
+        });
       }, 250);
       return () => {
         if (trickleRef.current) {
@@ -61,21 +109,31 @@ export function CanvasCrossfade({
         }
       };
     }
-  }, [isGenerating]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGenerating, canvasId]);
 
   // When generation completes, wait for paint + image loads before swapping.
   useEffect(() => {
     if (isGenerating || !hasHtml) return;
+    // If we're already marked ready in the store, skip the wait pipeline.
+    const stored = getCanvasProgress(canvasId);
+    if (stored?.ready) {
+      setProgress(100);
+      setCanvasReady(true);
+      setShowSkeleton(false);
+      return;
+    }
 
     let cancelled = false;
     setCanvasReady(false);
-    setProgress(35);
+    setProgress((p) => Math.max(p, 35));
+    writeProgress({ phase: "loading", progress: Math.max(stored?.progress ?? 0, 35) });
 
     const waitForReady = async () => {
-      // Two frames so the new HTML has been painted.
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       if (cancelled) return;
-      setProgress(55);
+      setProgress((p) => Math.max(p, 55));
+      writeProgress({ progress: 55 });
 
       const root = canvasWrapRef.current;
       if (root) {
@@ -86,7 +144,9 @@ export function CanvasCrossfade({
         const reportProgress = () => {
           if (total === 0) return;
           const ratio = loaded / total;
-          setProgress(55 + Math.round(ratio * 40)); // 55 → 95
+          const next = 55 + Math.round(ratio * 40);
+          setProgress(next);
+          writeProgress({ progress: next });
         };
         reportProgress();
 
@@ -104,7 +164,6 @@ export function CanvasCrossfade({
                 img.addEventListener("error", done, { once: true });
               }),
           );
-        // Safety cap so we never hang on a slow asset.
         await Promise.race([
           Promise.all(pending),
           new Promise((r) => window.setTimeout(r, 800)),
@@ -114,7 +173,7 @@ export function CanvasCrossfade({
 
       setProgress(100);
       setCanvasReady(true);
-      // Unmount skeleton + reset progress after fade completes.
+      writeProgress({ progress: 100, phase: "ready", ready: true });
       skeletonTimerRef.current = window.setTimeout(() => {
         setShowSkeleton(false);
       }, FADE_MS);
@@ -128,13 +187,13 @@ export function CanvasCrossfade({
         skeletonTimerRef.current = null;
       }
     };
-  }, [isGenerating, hasHtml]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGenerating, hasHtml, canvasId]);
 
   const showProgress = showSkeleton || progress < 100;
 
   return (
     <div className="relative flex items-center justify-center w-full h-full">
-      {/* Top progress bar */}
       <div
         className="absolute top-0 left-0 right-0 h-[2px] z-20 overflow-hidden pointer-events-none"
         style={{
@@ -154,7 +213,6 @@ export function CanvasCrossfade({
         />
       </div>
 
-      {/* Real canvas — mounted but hidden until ready */}
       <div
         ref={canvasWrapRef}
         className="absolute inset-0 flex items-center justify-center"
@@ -167,7 +225,6 @@ export function CanvasCrossfade({
         {children}
       </div>
 
-      {/* Skeleton overlay */}
       {showSkeleton && (
         <div
           className="absolute inset-0 flex items-center justify-center"
