@@ -223,6 +223,8 @@ function CanvasThumb({
             }}
             dangerouslySetInnerHTML={{ __html: canvas.html }}
           />
+        ) : canvas.status === "generating" ? (
+          <ThumbShimmer />
         ) : (
           <div className="w-full h-full bg-muted/40 flex items-center justify-center">
             <span className="text-[9px] font-ui text-muted-foreground">
