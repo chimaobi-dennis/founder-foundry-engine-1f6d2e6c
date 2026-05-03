@@ -406,8 +406,14 @@ export function StudioEditor({
       toast({ title: "No active brand", variant: "destructive" });
       return;
     }
+    const canvasKey = activeCanvasId || variationId || "__default__";
+    const existing = versionByCanvas[canvasKey];
+    const parentAssetId = existing?.assetId;
     setIsSaving(true);
     try {
+      let savedAssetId: string | undefined;
+      let savedAssetName: string | undefined;
+
       if (mode === 'content-studio') {
         const creativeId = activeCanvasId;
         if (!creativeId) throw new Error("No active creative selected");
@@ -415,31 +421,54 @@ export function StudioEditor({
           creativeId,
           brandId,
           format,
+          parentAssetId,
         });
         if (!result?.asset) throw new Error("Save returned no asset");
-        if (activeCanvasId) {
-          setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
-        }
-        setHasUnsavedChanges(false);
-        toast({ title: "Saved to Library" });
-        setSaveModalOpen(false);
-        return;
+        savedAssetId = result.asset.id;
+        savedAssetName = result.asset.name;
+      } else {
+        const result = await saveOutputToLibrary({
+          outputId: outputId || null,
+          brandId,
+          templateId: templateId || null,
+          outputHtml: variationHtml || "",
+          dimensions: { width: canvasSize.width, height: canvasSize.height },
+          format,
+          parentAssetId,
+        });
+        if (!result?.outputId) throw new Error("Save returned no asset");
+        savedAssetId = result.asset?.id;
+        savedAssetName = result.asset?.name;
       }
 
-      const result = await saveOutputToLibrary({
-        outputId: outputId || null,
-        brandId,
-        templateId: templateId || null,
-        outputHtml: variationHtml || "",
-        dimensions: { width: canvasSize.width, height: canvasSize.height },
-        format,
-      });
-      if (!result?.outputId) throw new Error("Save returned no asset");
       if (activeCanvasId) {
         setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
       }
       setHasUnsavedChanges(false);
-      toast({ title: "Saved to Library" });
+
+      // Update per-canvas version state. The first save's asset id becomes the
+      // parent for all subsequent saves in this session.
+      const newCount = (existing?.count ?? 0) + 1;
+      const familyAssetId = parentAssetId || savedAssetId;
+      if (familyAssetId) {
+        setVersionByCanvas(prev => ({
+          ...prev,
+          [canvasKey]: {
+            assetId: familyAssetId,
+            name: existing?.name || savedAssetName || "this asset",
+            count: newCount,
+          },
+        }));
+      }
+
+      // Trigger temporary "Saved ✓" + "vN saved" badge.
+      setSavedFlash(true);
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = window.setTimeout(() => setSavedFlash(false), 2000);
+      setSavedVersionBadge(`v${newCount} saved`);
+      if (badgeTimerRef.current) window.clearTimeout(badgeTimerRef.current);
+      badgeTimerRef.current = window.setTimeout(() => setSavedVersionBadge(null), 3000);
+
       setSaveModalOpen(false);
     } catch (e: any) {
       console.error("Save failed:", e);
@@ -447,7 +476,7 @@ export function StudioEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [mode, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId]);
+  }, [mode, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId, variationId, versionByCanvas]);
 
   const handleSaveToLibrary = useCallback(() => {
     setSaveModalOpen(true);
