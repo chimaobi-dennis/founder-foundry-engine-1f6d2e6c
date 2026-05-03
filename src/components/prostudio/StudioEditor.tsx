@@ -961,6 +961,7 @@ export function StudioEditor({
 
                 return (
                   <CanvasCrossfade
+                    canvasId={activeCanvasId || variationId || "default"}
                     isGenerating={!!isGenerating}
                     hasHtml={hasHtml}
                     platformName={activeCanvas?.label || "Canvas"}
