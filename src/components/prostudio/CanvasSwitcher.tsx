@@ -322,6 +322,30 @@ function MenuRow({
   );
 }
 
+function ThumbShimmer() {
+  return (
+    <div className="relative w-full h-full overflow-hidden" style={{ background: "#1A2A3A" }}>
+      <style>{`@keyframes thumb-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }`}</style>
+      <div
+        className="absolute inset-y-0"
+        style={{
+          width: "60%",
+          background: "linear-gradient(90deg, transparent 0%, rgba(212,160,23,0.18) 50%, transparent 100%)",
+          animation: "thumb-shimmer 1.6s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="absolute top-0 left-0 h-[1.5px]"
+        style={{
+          width: "60%",
+          background: "#D4A017",
+          boxShadow: "0 0 4px rgba(212,160,23,0.7)",
+        }}
+      />
+    </div>
+  );
+}
+
 function StatusDot({ status, approved }: { status: string; approved?: boolean }) {
   if (approved) return <Check size={10} className="text-emerald-500" />;
   if (status === "generating")
