@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
 import {
   getBriefWithCreatives,
   regenerateCreative,
-  approveCreativeToCalendar,
 } from "@/services/contentStudioService";
 import { supabase } from "@/integrations/supabase/client";
 import { StudioEditor } from "@/components/prostudio/StudioEditor";
@@ -28,12 +27,15 @@ interface Creative {
   content_platforms: any;
 }
 
+const PLACEHOLDER_PREFIX = "pending-";
+
 export default function ContentStudioEditor() {
   const { briefId } = useParams<{ briefId: string }>();
   const navigate = useNavigate();
   const { activeBrand } = useBrand();
   const [brief, setBrief] = useState<any>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
+  const [platformsMeta, setPlatformsMeta] = useState<any[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -51,7 +53,6 @@ export default function ContentStudioEditor() {
           (b.content_platforms?.sort_order ?? 0)
       );
       setCreatives(cs);
-      if (!activeId && cs.length) setActiveId(cs[0].id);
     } catch (e) {
       console.error(e);
     } finally {
@@ -63,12 +64,34 @@ export default function ContentStudioEditor() {
     load();
   }, [briefId]);
 
-  // Poll while any creative is still generating
+  // Fetch platform metadata for selected_platform_ids so we can show
+  // placeholder canvases (with proper dimensions + names) the instant the
+  // editor mounts — before any content_studio_creatives rows exist.
   useEffect(() => {
-    const generating =
+    const ids: string[] = brief?.selected_platform_ids || [];
+    if (!ids.length) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await db
+        .from("content_platforms")
+        .select("*")
+        .in("id", ids)
+        .order("sort_order");
+      if (!cancelled && data) setPlatformsMeta(data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [brief?.selected_platform_ids?.join("|")]);
+
+  // Poll while initial generation is in progress OR any creative is generating.
+  useEffect(() => {
+    const expectedTotal = brief?.selected_platform_ids?.length ?? 0;
+    const stillBuilding =
       brief?.status === "generating" ||
-      creatives.some((c) => c.status === "generating");
-    if (!generating) {
+      creatives.length < expectedTotal ||
+      creatives.some((c) => c.status === "generating" || !c.visual_html);
+    if (!stillBuilding) {
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
@@ -83,19 +106,86 @@ export default function ContentStudioEditor() {
         pollRef.current = null;
       }
     };
-  }, [brief?.status, creatives]);
+  }, [brief?.status, brief?.selected_platform_ids?.length, creatives]);
+
+  // Map selected platforms → canvases. Use real creative when present,
+  // otherwise a placeholder in `generating` state so the loading UI shows
+  // immediately on mount.
+  const canvases: CanvasItem[] = useMemo(() => {
+    const byPlatform = new Map<string, Creative>();
+    creatives.forEach((c) => byPlatform.set(c.platform_id, c));
+
+    const list = platformsMeta.length
+      ? platformsMeta
+      : creatives.map((c) => c.content_platforms).filter(Boolean);
+
+    return list.map((p: any) => {
+      const c = byPlatform.get(p.id);
+      if (c) {
+        return {
+          id: c.id,
+          html: c.visual_html,
+          label: c.content_platforms?.name || p.name || "Platform",
+          platformIcon: c.content_platforms?.brand_color || p.brand_color || "#8A96A3",
+          platformSlug: c.content_platforms?.slug || p.slug,
+          copyText: c.copy_text,
+          headline: c.headline,
+          hashtags: c.hashtags,
+          subjectLine: c.subject_line,
+          characterLimit: c.content_platforms?.character_limit ?? p.character_limit,
+          canvasWidth: c.content_platforms?.image_width || p.image_width || 600,
+          canvasHeight: c.content_platforms?.image_height || p.image_height || 600,
+          status: (!c.visual_html && (c.status === "ready" || !c.status))
+            ? "generating"
+            : (c.status || "ready"),
+          isApproved: !!c.is_approved,
+        };
+      }
+      // Placeholder while generation is in flight.
+      return {
+        id: `${PLACEHOLDER_PREFIX}${p.id}`,
+        html: null,
+        label: p.name || "Platform",
+        platformIcon: p.brand_color || "#8A96A3",
+        platformSlug: p.slug,
+        copyText: null,
+        headline: null,
+        hashtags: null,
+        subjectLine: null,
+        characterLimit: p.character_limit ?? null,
+        canvasWidth: p.image_width || 600,
+        canvasHeight: p.image_height || 600,
+        status: "generating",
+        isApproved: false,
+      } as CanvasItem;
+    });
+  }, [creatives, platformsMeta]);
+
+  // Default selection + reconcile when a placeholder gets replaced by a real creative.
+  useEffect(() => {
+    if (!canvases.length) return;
+    if (!activeId) {
+      setActiveId(canvases[0].id);
+      return;
+    }
+    if (activeId.startsWith(PLACEHOLDER_PREFIX)) {
+      const platformId = activeId.slice(PLACEHOLDER_PREFIX.length);
+      const real = creatives.find((c) => c.platform_id === platformId);
+      if (real) setActiveId(real.id);
+    } else if (!canvases.find((c) => c.id === activeId)) {
+      setActiveId(canvases[0].id);
+    }
+  }, [canvases, activeId, creatives]);
 
   const active = creatives.find((c) => c.id === activeId) || null;
-  const readyCount = creatives.filter((c) => c.status === "ready").length;
-  const approvedCount = creatives.filter((c) => c.is_approved).length;
+  const totalCount =
+    brief?.selected_platform_ids?.length ?? canvases.length;
+  const readyCount = creatives.filter(
+    (c) => c.status === "ready" && !!c.visual_html
+  ).length;
 
   const updateCreativeLocal = (id: string, patch: Partial<Creative>) => {
     setCreatives((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  };
-
-  const saveCopy = async (id: string, patch: Partial<Creative>) => {
-    updateCreativeLocal(id, patch);
-    await db.from("content_studio_creatives").update(patch).eq("id", id);
   };
 
   const handleRegenerateVisual = async () => {
@@ -119,7 +209,6 @@ export default function ContentStudioEditor() {
   const handleApprove = async () => {
     if (!active) return;
     try {
-      // For now, just mark as approved without scheduling
       await db.from("content_studio_creatives").update({ is_approved: true }).eq("id", active.id);
       updateCreativeLocal(active.id, { is_approved: true });
       toast.success("Creative approved");
@@ -142,28 +231,6 @@ export default function ContentStudioEditor() {
       toast.error(e.message || "Failed to save");
     }
   };
-
-  // Map creatives to CanvasItem format for StudioEditor
-  const canvases: CanvasItem[] = useMemo(
-    () =>
-      creatives.map((c) => ({
-        id: c.id,
-        html: c.visual_html,
-        label: c.content_platforms?.name || "Platform",
-        platformIcon: c.content_platforms?.brand_color || "#8A96A3",
-        platformSlug: c.content_platforms?.slug,
-        copyText: c.copy_text,
-        headline: c.headline,
-        hashtags: c.hashtags,
-        subjectLine: c.subject_line,
-        characterLimit: c.content_platforms?.character_limit,
-        canvasWidth: c.content_platforms?.image_width || 600,
-        canvasHeight: c.content_platforms?.image_height || 600,
-        status: c.status || "ready",
-        isApproved: !!c.is_approved,
-      })),
-    [creatives]
-  );
 
   if (loading) {
     return (
@@ -198,7 +265,7 @@ export default function ContentStudioEditor() {
       mode="content-studio"
       briefName={brief.name}
       readyCount={readyCount}
-      totalCount={creatives.length}
+      totalCount={totalCount}
       canvases={canvases}
       activeCanvasId={activeId}
       onSelectCanvas={setActiveId}
