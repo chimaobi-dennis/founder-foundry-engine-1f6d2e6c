@@ -606,8 +606,8 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
         dimensions: { width: el.offsetWidth || 600, height: el.offsetHeight || 600 },
       });
 
-      if (result.error) {
-        toast({ title: "Save failed", description: result.error, variant: "destructive" });
+      if (!result?.outputId) {
+        toast({ title: "Save failed", description: "Could not save asset.", variant: "destructive" });
         return;
       }
 
