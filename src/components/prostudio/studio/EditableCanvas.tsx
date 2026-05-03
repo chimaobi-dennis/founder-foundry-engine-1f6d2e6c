@@ -16,6 +16,13 @@ interface Props {
   getElementState: (id: string) => { visible: boolean; locked: boolean } | undefined;
   // Pulse counter to force re-measure (e.g. after applying property changes)
   refreshKey: number;
+  /**
+   * When true, prepend a CSS reset that forces the injected root to fill the
+   * stage exactly — used in content-studio mode where the canvas size is
+   * dictated by the platform (image_width × image_height) and the AI HTML
+   * must conform, not the other way around.
+   */
+  forceFillStage?: boolean;
 }
 
 type DragMode = null | "move" | "resize-tl" | "resize-tr" | "resize-bl" | "resize-br";
@@ -65,6 +72,7 @@ export function EditableCanvas({
   onIntrinsicSize,
   getElementState,
   refreshKey,
+  forceFillStage,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [selectionRect, setSelectionRect] = useState<SelectionRect | null>(null);
@@ -73,11 +81,24 @@ export function EditableCanvas({
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    stage.innerHTML = html;
+
+    // When the parent dictates exact canvas dimensions (content-studio mode),
+    // prepend a CSS reset so the AI-generated root fills the stage exactly —
+    // no white space, regardless of what the AI emitted.
+    const fillReset = forceFillStage
+      ? `<style data-fill-reset>
+          html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+          [data-studio-stage-root] > * { width: 100% !important; height: 100% !important; box-sizing: border-box; }
+        </style>`
+      : "";
+    stage.innerHTML = fillReset + html;
+    if (forceFillStage) {
+      // Wrap injected content in a marker so the > * selector above matches.
+      stage.setAttribute("data-studio-stage-root", "");
+    }
 
     // Assign unique data-studio-id to every [data-element] node based on its
-    // data-element value + DOM index. This avoids duplicate keys when the AI
-    // emits multiple nodes with the same data-element (e.g. accent-1).
+    // data-element value + DOM index.
     const nodes = Array.from(
       stage.querySelectorAll<HTMLElement>("[data-element]"),
     );
@@ -97,13 +118,14 @@ export function EditableCanvas({
     onElementsParsed(elements);
 
     // Detect intrinsic size from the HTML and report back so parent can
-    // size the stage container and show real px in the toolbar.
-    if (onIntrinsicSize) {
+    // size the stage container. Skipped when forceFillStage is true — the
+    // platform's image_width/image_height is the source of truth.
+    if (onIntrinsicSize && !forceFillStage) {
       const size = detectIntrinsicSize(stage, { width, height });
       onIntrinsicSize(size);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html]);
+  }, [html, forceFillStage]);
 
   // Apply visibility / lock attributes from layers panel
   useEffect(() => {
