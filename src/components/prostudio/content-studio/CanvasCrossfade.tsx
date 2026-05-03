@@ -272,8 +272,10 @@ export function CanvasCrossfade({
         />
       </div>
 
-      {/* Step label chip — phase badge + live step + percentage */}
-      {(() => {
+      {/* Floating phase/percent pill removed — top progress bar is the
+          single source of truth so the initial-generation state matches the
+          regenerate-visual state exactly. */}
+      {false && (() => {
         const phaseMeta: Record<string, { label: string; color: string }> = {
           generating: { label: "GENERATING", color: "#D4A017" },
           loading: { label: "LOADING", color: "#5BA9F2" },
