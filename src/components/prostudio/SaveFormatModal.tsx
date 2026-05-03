@@ -18,6 +18,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onConfirm: (format: SaveFormat) => void;
   saving?: boolean;
+  /** When provided, shows a small note below the format pills explaining
+   *  this save will create a new version of the named asset. */
+  versionNote?: string | null;
 }
 
 const FORMATS: { value: SaveFormat; label: string }[] = [
