@@ -771,6 +771,8 @@ interface SaveOutputParams {
   dimensions?: { width: number; height: number };
   /** Format to save as */
   format?: SaveFormat;
+  /** Optional: parent asset id for versioning */
+  parentAssetId?: string;
 }
 
 /**
@@ -786,6 +788,7 @@ export async function saveOutputToLibrary({
   outputHtml,
   dimensions,
   format = 'png',
+  parentAssetId,
 }: SaveOutputParams): Promise<{ outputId: string; publicUrl: string; asset?: Asset }> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -836,6 +839,7 @@ export async function saveOutputToLibrary({
       platformHeight: renderHeight,
       templateId,
       templateOutputId: id,
+      parentAssetId,
     });
 
     // Call the new asset service to save to library
@@ -850,6 +854,7 @@ export async function saveOutputToLibrary({
       platformHeight: renderHeight,
       templateId: templateId || undefined,
       templateOutputId: id,
+      parentAssetId,
     });
 
     if (!asset) {
@@ -886,7 +891,7 @@ export async function saveOutputToLibrary({
       callLocation: 'saveOutputToLibrary',
       userAction: 'save_to_library',
       pipelineStep: 'render_and_upload',
-      context: { outputId, brandId }
+      context: { outputId, brandId, parentAssetId }
     });
     throw error; // Re-throw so UI can show error
   }

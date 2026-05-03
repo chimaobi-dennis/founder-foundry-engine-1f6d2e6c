@@ -597,10 +597,12 @@ export async function saveCreativeToLibrary({
   creativeId,
   brandId,
   format = 'png',
+  parentAssetId,
 }: {
   creativeId: string;
   brandId: string;
   format?: SaveFormat;
+  parentAssetId?: string;
 }): Promise<{ publicUrl: string; asset?: Asset }> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -645,6 +647,7 @@ export async function saveCreativeToLibrary({
       format,
       platformWidth: renderWidth,
       platformHeight: renderHeight,
+      parentAssetId,
     });
 
     // Call the new asset service to save to library
@@ -660,6 +663,7 @@ export async function saveCreativeToLibrary({
       platformSlug: platform?.slug || platform?.name?.toLowerCase().replace(/\s+/g, '-'),
       briefId: brief?.id,
       creativeId: creativeId,
+      parentAssetId,
     });
 
     if (!asset) {

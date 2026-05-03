@@ -28,6 +28,7 @@ export interface SaveToLibraryParams {
   creativeId?: string;
   templateOutputId?: string;
   generationParams?: Record<string, unknown>;
+  parentAssetId?: string;
 }
 
 export interface Asset {
@@ -105,6 +106,7 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       creativeId,
       templateOutputId,
       generationParams,
+      parentAssetId,
     } = params;
 
     console.log('[assetService.saveToLibrary] Starting save with params:', {
@@ -115,7 +117,37 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       format,
       platformWidth,
       platformHeight,
+      parentAssetId,
     });
+
+    // Determine version number and label
+    let version = 1;
+    let versionLabel = 'v1';
+    let assetName = name;
+
+    if (parentAssetId) {
+      console.log('[assetService.saveToLibrary] Creating new version of asset:', parentAssetId);
+      // Fetch the highest version number for this asset family
+      const { data: versionData, error: versionError } = await db
+        .from('assets')
+        .select('version, name')
+        .or(`id.eq.${parentAssetId},parent_asset_id.eq.${parentAssetId}`)
+        .order('version', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (versionError && versionError.code !== 'PGRST116') {
+        console.error('[assetService.saveToLibrary] Failed to fetch version data:', versionError);
+        throw versionError;
+      }
+
+      if (versionData) {
+        version = (versionData.version || 0) + 1;
+        assetName = versionData.name || name; // Use parent's name
+      }
+      versionLabel = `v${version}`;
+      console.log('[assetService.saveToLibrary] New version:', version, versionLabel);
+    }
 
     // Render HTML to canvas
     const container = document.createElement('div');
@@ -200,7 +232,7 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
     const { data: asset, error: assetError } = await db
       .from('assets')
       .insert({
-        name,
+        name: assetName,
         brand_id: brandId,
         user_id: userId,
         source_module: sourceModule,
@@ -213,6 +245,9 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
         platform: platformSlug || null,
         template_id: templateId || null,
         is_trashed: false,
+        version,
+        parent_asset_id: parentAssetId || null,
+        version_label: versionLabel,
       })
       .select()
       .single();
@@ -241,6 +276,7 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
         creative_id: creativeId || null,
         template_output_id: templateOutputId || null,
         generation_params: generationParams || null,
+        version,
       });
 
     if (sessionError) {
@@ -429,5 +465,34 @@ export async function getAssetCounts(brandId: string): Promise<AssetCounts> {
       documents: 0,
       scripts: 0,
     };
+  }
+}
+
+// ─── Get Asset Versions ─────────────────────────────────────
+
+export async function getAssetVersions(assetIdOrParentId: string): Promise<Asset[]> {
+  try {
+    const { data, error } = await db
+      .from('assets')
+      .select('*')
+      .or(`id.eq.${assetIdOrParentId},parent_asset_id.eq.${assetIdOrParentId}`)
+      .order('version', { ascending: true });
+
+    if (error) throw error;
+
+    return data || [];
+  } catch (error: any) {
+    console.error('[assetService.getAssetVersions] Error:', error);
+    await logError({
+      errorMessage: error.message || 'Failed to fetch asset versions',
+      errorType: 'database',
+      module: 'prostudio',
+      componentName: 'assetService',
+      callLocation: 'getAssetVersions',
+      userAction: 'view_version_history',
+      pipelineStep: 'fetch_versions',
+      context: { assetIdOrParentId }
+    });
+    return [];
   }
 }
