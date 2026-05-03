@@ -4,7 +4,7 @@ import { useBrand } from "@/hooks/use-brand";
 import {
   getBrandProductImages,
   uploadBrandProductImage,
-  deleteProductImage,
+  deleteBrandProductImage,
 } from "@/services/projectAssetsService";
 import { toast } from "sonner";
 
