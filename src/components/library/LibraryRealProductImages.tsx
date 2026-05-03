@@ -49,7 +49,7 @@ export function LibraryRealProductImages({ onChange }: { onChange?: () => void }
 
   const handleDelete = async (id: string) => {
     if (!activeBrand?.id) return;
-    const res = await deleteProductImage(activeBrand.id, id);
+    const res = await deleteBrandProductImage(activeBrand.id, id);
     if (res.success) {
       setImages((prev) => prev.filter((i) => i.id !== id));
       onChange?.();
