@@ -720,7 +720,7 @@ export function StudioEditor({
         <div className="flex-1 flex min-h-0">
           {/* Left panel: Content Studio Platforms/Layers or ProStudio Layers/Elements */}
           {mode === 'content-studio' && canvases ? (
-            <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-border" style={{ backgroundColor: "#1A2A3A" }}>
+            <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-border bg-card">
               <div className="h-9 flex items-stretch border-b border-border flex-shrink-0">
                 {(["platforms", "layers"] as const).map((tab) => (
                   <button
