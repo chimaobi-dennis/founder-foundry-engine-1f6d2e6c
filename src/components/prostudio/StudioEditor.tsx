@@ -262,6 +262,21 @@ export function StudioEditor({
 
   const isCurrentSaved = !!activeCanvasId && savedCanvasIds.has(activeCanvasId);
 
+  // Per-canvas version tracking — set after first successful save in this session.
+  // value.assetId is used as parentAssetId on subsequent saves of the same canvas.
+  const [versionByCanvas, setVersionByCanvas] = useState<
+    Record<string, { assetId: string; name: string; count: number }>
+  >({});
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [savedVersionBadge, setSavedVersionBadge] = useState<string | null>(null);
+  const flashTimerRef = useRef<number | null>(null);
+  const badgeTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    if (badgeTimerRef.current) window.clearTimeout(badgeTimerRef.current);
+  }, []);
+  const currentVersion = activeCanvasId ? versionByCanvas[activeCanvasId] : undefined;
+
   /** Capture the inner stage (data-studio-stage > scaled child) at full resolution. */
   const captureStage = useCallback(async (scale: number): Promise<string | null> => {
     const host = stageHostElRef.current;
@@ -391,8 +406,14 @@ export function StudioEditor({
       toast({ title: "No active brand", variant: "destructive" });
       return;
     }
+    const canvasKey = activeCanvasId || variationId || "__default__";
+    const existing = versionByCanvas[canvasKey];
+    const parentAssetId = existing?.assetId;
     setIsSaving(true);
     try {
+      let savedAssetId: string | undefined;
+      let savedAssetName: string | undefined;
+
       if (mode === 'content-studio') {
         const creativeId = activeCanvasId;
         if (!creativeId) throw new Error("No active creative selected");
@@ -400,31 +421,54 @@ export function StudioEditor({
           creativeId,
           brandId,
           format,
+          parentAssetId,
         });
         if (!result?.asset) throw new Error("Save returned no asset");
-        if (activeCanvasId) {
-          setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
-        }
-        setHasUnsavedChanges(false);
-        toast({ title: "Saved to Library" });
-        setSaveModalOpen(false);
-        return;
+        savedAssetId = result.asset.id;
+        savedAssetName = result.asset.name;
+      } else {
+        const result = await saveOutputToLibrary({
+          outputId: outputId || null,
+          brandId,
+          templateId: templateId || null,
+          outputHtml: variationHtml || "",
+          dimensions: { width: canvasSize.width, height: canvasSize.height },
+          format,
+          parentAssetId,
+        });
+        if (!result?.outputId) throw new Error("Save returned no asset");
+        savedAssetId = result.asset?.id;
+        savedAssetName = result.asset?.name;
       }
 
-      const result = await saveOutputToLibrary({
-        outputId: outputId || null,
-        brandId,
-        templateId: templateId || null,
-        outputHtml: variationHtml || "",
-        dimensions: { width: canvasSize.width, height: canvasSize.height },
-        format,
-      });
-      if (!result?.outputId) throw new Error("Save returned no asset");
       if (activeCanvasId) {
         setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
       }
       setHasUnsavedChanges(false);
-      toast({ title: "Saved to Library" });
+
+      // Update per-canvas version state. The first save's asset id becomes the
+      // parent for all subsequent saves in this session.
+      const newCount = (existing?.count ?? 0) + 1;
+      const familyAssetId = parentAssetId || savedAssetId;
+      if (familyAssetId) {
+        setVersionByCanvas(prev => ({
+          ...prev,
+          [canvasKey]: {
+            assetId: familyAssetId,
+            name: existing?.name || savedAssetName || "this asset",
+            count: newCount,
+          },
+        }));
+      }
+
+      // Trigger temporary "Saved ✓" + "vN saved" badge.
+      setSavedFlash(true);
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = window.setTimeout(() => setSavedFlash(false), 2000);
+      setSavedVersionBadge(`v${newCount} saved`);
+      if (badgeTimerRef.current) window.clearTimeout(badgeTimerRef.current);
+      badgeTimerRef.current = window.setTimeout(() => setSavedVersionBadge(null), 3000);
+
       setSaveModalOpen(false);
     } catch (e: any) {
       console.error("Save failed:", e);
@@ -432,7 +476,7 @@ export function StudioEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [mode, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId]);
+  }, [mode, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId, variationId, versionByCanvas]);
 
   const handleSaveToLibrary = useCallback(() => {
     setSaveModalOpen(true);
@@ -782,23 +826,34 @@ export function StudioEditor({
                 <><Download size={13} /> Export</>
               )}
             </button>
-            {mode !== "content-studio" && isCurrentSaved ? (
-              <button disabled className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default">
-                <Check size={13} /> Saved
-              </button>
-            ) : (
-              <button
-                onClick={handleSaveToLibrary}
-                disabled={isSaving}
-                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
+            {/* Floating "vN saved" badge — non-blocking, fades out after 3s */}
+            {savedVersionBadge ? (
+              <span
+                key={savedVersionBadge}
+                className="text-[11px] font-ui text-emerald-500/90 animate-in fade-in zoom-in-95 duration-200"
+                aria-live="polite"
               >
-                {isSaving ? (
-                  <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…</>
-                ) : (
-                  <><Save size={13} /> Save to Library</>
-                )}
-              </button>
-            )}
+                {savedVersionBadge}
+              </span>
+            ) : null}
+            <button
+              onClick={handleSaveToLibrary}
+              disabled={isSaving}
+              className={cn(
+                "h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 disabled:opacity-70 disabled:cursor-not-allowed",
+                savedFlash
+                  ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/40"
+                  : "bg-primary text-primary-foreground",
+              )}
+            >
+              {isSaving ? (
+                <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…</>
+              ) : savedFlash ? (
+                <><Check size={13} /> Saved ✓</>
+              ) : (
+                <><Save size={13} /> Save to Library</>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1288,6 +1343,7 @@ export function StudioEditor({
         onOpenChange={setSaveModalOpen}
         onConfirm={(fmt) => performSave(fmt)}
         saving={isSaving}
+        versionNote={currentVersion ? currentVersion.name : null}
       />
 
       <ExportModal
