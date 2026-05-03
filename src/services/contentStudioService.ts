@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
+import html2canvas from 'html2canvas';
 
 const db = supabase as any;
 
@@ -582,6 +583,107 @@ Every editable element must have a data-element attribute.
       context: { creativeId, brandId }
     });
     throw error;
+  }
+}
+
+// ─── Save creative to Library (render HTML to PNG upload) ─────────────
+
+const TEMPLATE_OUTPUTS_BUCKET = 'template-outputs';
+
+/**
+ * Render HTML to PNG using html2canvas, upload to storage, and update the
+ * content_studio_creatives row with the image URL and saved flag.
+ */
+export async function saveCreativeToLibrary({
+  creativeId,
+  brandId,
+}: {
+  creativeId: string;
+  brandId: string;
+}): Promise<{ publicUrl: string; error?: string }> {
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('Not authenticated');
+
+    // Fetch the creative with platform dimensions
+    const { data: creative } = await db
+      .from('content_studio_creatives')
+      .select('*, content_platforms(*)')
+      .eq('id', creativeId)
+      .single();
+
+    if (!creative) throw new Error('Creative not found');
+    if (!creative.visual_html) throw new Error('No visual HTML to save');
+
+    const platform = creative.content_platforms;
+    const renderWidth = platform?.image_width || 600;
+    const renderHeight = platform?.image_height || 600;
+
+    // Render HTML to canvas using html2canvas
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = `${renderWidth}px`;
+    container.style.height = `${renderHeight}px`;
+    container.innerHTML = creative.visual_html;
+    document.body.appendChild(container);
+
+    try {
+      const canvas = await html2canvas(container, {
+        width: renderWidth,
+        height: renderHeight,
+        scale: 1,
+        useCORS: true,
+        logging: false,
+      });
+
+      // Convert canvas to PNG blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to convert canvas to blob'));
+        }, 'image/png');
+      });
+
+      // Upload the PNG blob to the bucket
+      const path = `${user.id}/${brandId}/${creativeId}.png`;
+      const { error: uploadErr } = await supabase.storage
+        .from(TEMPLATE_OUTPUTS_BUCKET)
+        .upload(path, blob, { upsert: true, contentType: 'image/png' });
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(TEMPLATE_OUTPUTS_BUCKET)
+        .getPublicUrl(path);
+
+      // Update the creative row with the image URL and saved flag
+      const { error: updateErr } = await db
+        .from('content_studio_creatives')
+        .update({
+          is_saved_to_library: true,
+          visual_thumbnail_url: publicUrl,
+        })
+        .eq('id', creativeId);
+      if (updateErr) throw updateErr;
+
+      return { publicUrl };
+    } finally {
+      // Clean up the temporary container
+      document.body.removeChild(container);
+    }
+  } catch (error: any) {
+    await logError({
+      errorMessage: error.message || 'Save to library failed',
+      errorType: 'storage',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'saveCreativeToLibrary',
+      userAction: 'save_to_library',
+      pipelineStep: 'render_and_upload',
+      context: { creativeId, brandId }
+    });
+    return { publicUrl: '', error: error?.message || 'Save failed' };
   }
 }
 

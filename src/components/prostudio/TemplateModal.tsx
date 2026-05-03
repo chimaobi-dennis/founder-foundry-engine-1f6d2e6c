@@ -598,23 +598,12 @@ export function TemplateModal({ template, open, onClose, type, brandName, brandI
     setSavingIdx(variationIndex);
     const originalTransform = el.style.transform;
     try {
-      el.style.transform = "scale(1)";
-      const canvas = await html2canvas(el, {
-        width: el.offsetWidth || 600,
-        height: el.offsetHeight || 600,
-        scale: 1,
-        backgroundColor: null,
-        useCORS: true,
-        logging: false,
-      });
-      const thumbBase64 = canvas.toDataURL("image/png");
-
       const result = await saveOutputToLibrary({
         outputId: outputIds[variationIndex] || null,
         brandId: activeBrand.id,
         templateId: template.id,
         outputHtml: variations[variationIndex] || "",
-        thumbnailBase64: thumbBase64,
+        dimensions: { width: el.offsetWidth || 600, height: el.offsetHeight || 600 },
       });
 
       if (result.error) {

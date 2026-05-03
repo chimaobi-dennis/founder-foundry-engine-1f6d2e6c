@@ -322,14 +322,12 @@ export function StudioEditor({
     }
     setIsSaving(true);
     try {
-      const thumb = await captureStage(1);
-      if (!thumb) throw new Error("Canvas not ready");
       const result = await saveOutputToLibrary({
         outputId: outputId || null,
         brandId,
         templateId: templateId || null,
         outputHtml: variationHtml || "",
-        thumbnailBase64: thumb,
+        dimensions: { width: canvasSize.width, height: canvasSize.height },
       });
       if (result.error) {
         toast({ title: "Save failed", description: result.error, variant: "destructive" });

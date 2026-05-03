@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { getBrandProductImages, setPrimaryProductImage, uploadBrandProductImage } from './projectAssetsService';
 import { logError } from './errorService';
+import html2canvas from 'html2canvas';
 
 const db = supabase as any;
 
@@ -764,13 +765,14 @@ interface SaveOutputParams {
   brandId: string;
   /** Required when outputId is null — used to create the new row. */
   templateId?: string | null;
-  outputHtml?: string | null;
-  /** Base64 PNG (with or without data: prefix) of the canvas thumbnail. */
-  thumbnailBase64: string;
+  /** The HTML content to render and save */
+  outputHtml: string;
+  /** Optional: dimensions for rendering (width x height). If not provided, defaults to 600x600. */
+  dimensions?: { width: number; height: number };
 }
 
 /**
- * Upload a thumbnail to the template-outputs bucket and flip the row's
+ * Render HTML to PNG using html2canvas, upload to storage, and flip the row's
  * is_saved_to_library flag. If outputId is missing, inserts a new row first.
  */
 export async function saveOutputToLibrary({
@@ -778,7 +780,7 @@ export async function saveOutputToLibrary({
   brandId,
   templateId,
   outputHtml,
-  thumbnailBase64,
+  dimensions,
 }: SaveOutputParams): Promise<{ outputId: string; publicUrl: string; error?: string }> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -796,8 +798,8 @@ export async function saveOutputToLibrary({
           user_id: user.id,
           brand_id: brandId,
           output_type: 'html_css',
-          output_html: outputHtml || '',
-          is_saved_to_library: true,
+          output_html: outputHtml,
+          is_saved_to_library: false,
           is_downloaded: false,
           generation_session_id: generationSessionId,
         })
@@ -807,31 +809,75 @@ export async function saveOutputToLibrary({
       id = inserted.id;
     }
 
-    // Upload the thumbnail PNG to the bucket
-    const path = `${user.id}/${brandId}/${id}-thumb.png`;
-    const blob = base64ToBlob(thumbnailBase64, 'image/png');
-    const { error: uploadErr } = await supabase.storage
-      .from(TEMPLATE_OUTPUTS_BUCKET)
-      .upload(path, blob, { upsert: true, contentType: 'image/png' });
-    if (uploadErr) throw uploadErr;
+    // Render HTML to canvas using html2canvas
+    const renderWidth = dimensions?.width || 600;
+    const renderHeight = dimensions?.height || 600;
 
-    const { data: { publicUrl } } = supabase.storage
-      .from(TEMPLATE_OUTPUTS_BUCKET)
-      .getPublicUrl(path);
+    // Create a temporary container to render the HTML
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = `${renderWidth}px`;
+    container.style.height = `${renderHeight}px`;
+    container.innerHTML = outputHtml;
+    document.body.appendChild(container);
 
-    // Flip the saved flag and store the thumbnail URL
-    const { error: updateErr } = await db
-      .from('template_outputs')
-      .update({
-        is_saved_to_library: true,
-        output_image_url: publicUrl,
-      })
-      .eq('id', id);
-    if (updateErr) throw updateErr;
+    try {
+      const canvas = await html2canvas(container, {
+        width: renderWidth,
+        height: renderHeight,
+        scale: 1,
+        useCORS: true,
+        logging: false,
+      });
 
-    return { outputId: id!, publicUrl };
+      // Convert canvas to PNG blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Failed to convert canvas to blob'));
+        }, 'image/png');
+      });
+
+      // Upload the PNG blob to the bucket
+      const path = `${user.id}/${brandId}/${id}.png`;
+      const { error: uploadErr } = await supabase.storage
+        .from(TEMPLATE_OUTPUTS_BUCKET)
+        .upload(path, blob, { upsert: true, contentType: 'image/png' });
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(TEMPLATE_OUTPUTS_BUCKET)
+        .getPublicUrl(path);
+
+      // Update the row with the image URL and saved flag
+      const { error: updateErr } = await db
+        .from('template_outputs')
+        .update({
+          is_saved_to_library: true,
+          output_image_url: publicUrl,
+          output_html: outputHtml,
+        })
+        .eq('id', id);
+      if (updateErr) throw updateErr;
+
+      return { outputId: id!, publicUrl };
+    } finally {
+      // Clean up the temporary container
+      document.body.removeChild(container);
+    }
   } catch (error: any) {
-    console.error('[saveOutputToLibrary] failed:', error);
+    await logError({
+      errorMessage: error.message || 'Save to library failed',
+      errorType: 'storage',
+      module: 'prostudio',
+      componentName: 'templateService',
+      callLocation: 'saveOutputToLibrary',
+      userAction: 'save_to_library',
+      pipelineStep: 'render_and_upload',
+      context: { outputId, brandId }
+    });
     return { outputId: outputId || '', publicUrl: '', error: error?.message || 'Save failed' };
   }
 }
