@@ -14,14 +14,16 @@ interface Props {
 const FADE_MS = 350;
 
 /**
- * Crossfade between the generating skeleton and the real canvas.
+ * Crossfade between the generating skeleton and the real canvas, with a
+ * lightweight top progress bar that updates as the HTML is painted and the
+ * images inside it finish loading.
  *
- * Behavior:
- *  - While `isGenerating`, only the skeleton is visible.
- *  - When generation completes, the real canvas is mounted but kept invisible
- *    until its images have loaded (or a short safety timeout elapses). Then the
- *    skeleton fades out and the canvas fades in simultaneously.
- *  - The skeleton stays mounted until the fade is complete to avoid flashes.
+ * Progress milestones:
+ *  - 10%  generation in progress / waiting for HTML
+ *  - 35%  HTML mounted (next frame queued)
+ *  - 55%  HTML painted, images discovered
+ *  - 55→95% images loading (incrementally per image)
+ *  - 100% ready — crossfade starts
  */
 export function CanvasCrossfade({
   isGenerating,
@@ -34,43 +36,70 @@ export function CanvasCrossfade({
 }: Props) {
   const [showSkeleton, setShowSkeleton] = useState(isGenerating || !hasHtml);
   const [canvasReady, setCanvasReady] = useState(!isGenerating && hasHtml);
+  const [progress, setProgress] = useState(isGenerating ? 10 : 100);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const skeletonTimerRef = useRef<number | null>(null);
+  const trickleRef = useRef<number | null>(null);
 
-  // When generation starts, immediately show the skeleton and hide the canvas.
+  // While generating, slowly trickle progress up to ~30% so the bar feels alive.
   useEffect(() => {
     if (isGenerating) {
       setShowSkeleton(true);
       setCanvasReady(false);
+      setProgress((p) => (p > 30 ? 10 : p));
       if (skeletonTimerRef.current) {
         window.clearTimeout(skeletonTimerRef.current);
         skeletonTimerRef.current = null;
       }
+      trickleRef.current = window.setInterval(() => {
+        setProgress((p) => (p < 30 ? p + 1 : p));
+      }, 250);
+      return () => {
+        if (trickleRef.current) {
+          window.clearInterval(trickleRef.current);
+          trickleRef.current = null;
+        }
+      };
     }
   }, [isGenerating]);
 
-  // When generation completes, wait for the canvas to be fully rendered before
-  // swapping. We wait for: next paint + all <img> elements inside to load.
+  // When generation completes, wait for paint + image loads before swapping.
   useEffect(() => {
     if (isGenerating || !hasHtml) return;
 
     let cancelled = false;
     setCanvasReady(false);
+    setProgress(35);
 
     const waitForReady = async () => {
-      // Wait two frames so the new HTML has been painted.
+      // Two frames so the new HTML has been painted.
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       if (cancelled) return;
+      setProgress(55);
 
       const root = canvasWrapRef.current;
       if (root) {
         const imgs = Array.from(root.querySelectorAll("img"));
+        const total = imgs.length;
+        let loaded = imgs.filter((img) => img.complete).length;
+
+        const reportProgress = () => {
+          if (total === 0) return;
+          const ratio = loaded / total;
+          setProgress(55 + Math.round(ratio * 40)); // 55 → 95
+        };
+        reportProgress();
+
         const pending = imgs
           .filter((img) => !img.complete)
           .map(
             (img) =>
               new Promise<void>((resolve) => {
-                const done = () => resolve();
+                const done = () => {
+                  loaded += 1;
+                  reportProgress();
+                  resolve();
+                };
                 img.addEventListener("load", done, { once: true });
                 img.addEventListener("error", done, { once: true });
               }),
@@ -83,8 +112,9 @@ export function CanvasCrossfade({
       }
       if (cancelled) return;
 
+      setProgress(100);
       setCanvasReady(true);
-      // Unmount skeleton after fade completes.
+      // Unmount skeleton + reset progress after fade completes.
       skeletonTimerRef.current = window.setTimeout(() => {
         setShowSkeleton(false);
       }, FADE_MS);
@@ -100,8 +130,30 @@ export function CanvasCrossfade({
     };
   }, [isGenerating, hasHtml]);
 
+  const showProgress = showSkeleton || progress < 100;
+
   return (
     <div className="relative flex items-center justify-center w-full h-full">
+      {/* Top progress bar */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[2px] z-20 overflow-hidden pointer-events-none"
+        style={{
+          background: "rgba(255,255,255,0.06)",
+          opacity: showProgress ? 1 : 0,
+          transition: `opacity ${FADE_MS}ms ease`,
+        }}
+      >
+        <div
+          className="h-full"
+          style={{
+            width: `${progress}%`,
+            background: "hsl(var(--primary))",
+            boxShadow: "0 0 8px hsl(var(--primary) / 0.6)",
+            transition: "width 220ms ease",
+          }}
+        />
+      </div>
+
       {/* Real canvas — mounted but hidden until ready */}
       <div
         ref={canvasWrapRef}
