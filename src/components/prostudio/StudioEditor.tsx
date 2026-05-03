@@ -1003,7 +1003,7 @@ export function StudioEditor({
               })()}
             </div>
 
-            <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground" style={{ backgroundColor: mode === 'content-studio' ? "#1A2A3A" : undefined }}>
+            <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground bg-card">
               <div className="flex items-center gap-3">
                 <span>Tool: <span className="text-foreground">{tool === "select" ? "Select" : "Pan"}</span></span>
                 {selected && <span>Selected: <span className="text-foreground">{selected.name}</span></span>}
