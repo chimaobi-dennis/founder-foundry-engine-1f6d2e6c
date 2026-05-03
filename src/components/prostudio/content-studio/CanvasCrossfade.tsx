@@ -56,6 +56,9 @@ export function CanvasCrossfade({
   const [progress, setProgress] = useState(initial.progress);
   const [canvasReady, setCanvasReady] = useState(initial.ready);
   const [showSkeleton, setShowSkeleton] = useState(!initial.ready);
+  const [step, setStep] = useState<string>(
+    initial.step || (initial.ready ? "Ready" : isGenerating ? "Generating…" : "Preparing…"),
+  );
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const skeletonTimerRef = useRef<number | null>(null);
   const trickleRef = useRef<number | null>(null);
@@ -66,6 +69,7 @@ export function CanvasCrossfade({
     setProgress(s.progress);
     setCanvasReady(s.ready);
     setShowSkeleton(!s.ready);
+    setStep(s.step || (s.ready ? "Ready" : isGenerating ? "Generating…" : "Preparing…"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasId]);
 
@@ -74,6 +78,7 @@ export function CanvasCrossfade({
   useEffect(() => {
     return subscribeCanvasProgress(canvasId, (s) => {
       setProgress(s.progress);
+      if (s.step) setStep(s.step);
       if (s.ready) {
         setCanvasReady(true);
       }
