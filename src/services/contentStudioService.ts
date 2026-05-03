@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logError } from './errorService';
+import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
 
 const db = supabase as any;
 
@@ -450,49 +451,138 @@ export async function regenerateCreative(
   creativeId: string,
   brandId: string
 ) {
-  const { data: creative } = await db
-    .from('content_studio_creatives')
-    .select('*, content_platforms(*), content_studio_briefs(*, brands(*, brand_dna(*)))')
-    .eq('id', creativeId)
-    .single();
+  try {
+    // Fetch the creative with full context
+    const { data: creative } = await db
+      .from('content_studio_creatives')
+      .select('*, content_platforms(*), content_studio_briefs(*, brands(*, brand_dna(*)))')
+      .eq('id', creativeId)
+      .single();
 
-  if (!creative) throw new Error('Creative not found');
+    if (!creative) throw new Error('Creative not found');
 
-  const platform = creative.content_platforms;
-  const brief = creative.content_studio_briefs;
-  const brand = brief.brands;
-  const dna = brand?.brand_dna?.[0];
+    const platform = creative.content_platforms;
+    const brief = creative.content_studio_briefs;
+    const brand = brief.brands;
+    const dna = brand?.brand_dna?.[0];
 
-  // Mark as generating
-  await db
-    .from('content_studio_creatives')
-    .update({ status: 'generating' })
-    .eq('id', creativeId);
+    // Mark as generating
+    await db
+      .from('content_studio_creatives')
+      .update({ status: 'generating' })
+      .eq('id', creativeId);
 
-  // Regenerate visual
-  const visualSystemPrompt = await getSystemPrompt('template_generation') || '';
-  const visualResult = await callAI({
-    taskType: 'template_generation',
-    messages: [{
-      role: 'user',
-      content: `Generate a fresh ${platform.name} visual (${platform.aspect_ratio}) for brand: ${brand.name}. Brief: ${brief.brief || brief.name}. Primary color: ${brand.primary_color}. Brand voice: ${dna?.brand_voice || ''}.` 
-    }],
-    maxTokens: 8000
-  });
+    // Fetch brand stage data for context
+    const { data: stageData } = await db
+      .from('brand_stage_data')
+      .select('stage_key, field_key, value')
+      .eq('brand_id', brand.id);
 
-  const visualHtml = visualResult.success && visualResult.text
-    ? visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
-    : creative.visual_html;
+    const capturedContext = (stageData || [])
+      .map(d => `${d.field_key}: ${d.value}`)
+      .join('\n');
 
-  await db
-    .from('content_studio_creatives')
-    .update({
-      visual_html: visualHtml,
-      status: 'ready'
-    })
-    .eq('id', creativeId);
+    // Fetch recent mentor messages for context
+    const { data: conversation } = await db
+      .from('mentor_conversations')
+      .select('id')
+      .eq('brand_id', brand.id)
+      .single();
 
-  return visualHtml;
+    let mentorContext = '';
+    if (conversation?.id) {
+      const { data: messages } = await db
+        .from('mentor_messages')
+        .select('content')
+        .eq('conversation_id', conversation.id)
+        .eq('role', 'assistant')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      mentorContext = (messages || []).reverse().map(m => m.content.slice(0, 150)).join('\n');
+    }
+
+    // Fetch project assets for AI context
+    const assetsContext = await getAssetsForAIContext(brand.id);
+
+    // Fetch primary product image
+    const productImages = await getBrandProductImages(brand.id);
+    const primaryImage = productImages?.find(img => img.is_primary);
+    const productImageUrl = primaryImage?.file_url || '';
+
+    // Generate new session ID for this regeneration
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    const sessionId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+
+    // Get the same system prompt used in initial generation
+    const visualSystemPrompt = await getSystemPrompt('template_generation') || `
+You are a professional graphic designer. Generate a complete self-contained HTML/CSS design.
+Return ONLY raw HTML. No markdown, no explanation, no code fences.
+Root element must be a single div sized to ${platform.image_width || 600}x${platform.image_height || 600}px.
+Every editable element must have a data-element attribute.
+`;
+
+    // Build the copy context from the existing creative
+    const copyContext = creative.headline || creative.copy_text
+      ? `\n\nEXISTING COPY TO MATCH:\nHeadline: ${creative.headline || ''}\nCopy: ${creative.copy_text || ''}\nHashtags: ${(creative.hashtags || []).join(', ')}\nSubject line: ${creative.subject_line || ''}`
+      : '';
+
+    // Inject all the same variables as initial generation
+    const visualPrompt = injectPromptVariables(visualSystemPrompt, {
+      generation_prompt: `Create a fresh ${platform.name} visual (${platform.aspect_ratio || '1:1'}) for: ${brief.brief || brief.campaign_goal || brand.name}. This is a regeneration - create a new visual variation that stays on-brand and matches the existing copy. Keep the same brand identity but vary the layout and composition.`,
+      aspectRatio: platform.aspect_ratio || '1:1',
+      styleIntensity: brief.tone === 'Bold and direct' ? 'bold' : 'balanced',
+      variant_index: '1',
+      variant_count: '1',
+      brand_voice: dna?.brand_voice || '',
+      core_promise: dna?.core_promise || '',
+      target_audience: dna?.target_audience || '',
+      positioning_statement: dna?.positioning_statement || '',
+      primary_color: brand.primary_color || '#000000',
+      secondary_color: brand.secondary_color || '#ffffff',
+      product_image_url: productImageUrl,
+      design_brief: `${platform.name} content for: ${brief.brief || brief.name}${copyContext}`,
+      mentor_memory: mentorContext,
+      journey_stage: brand.journey_stage || 'spark',
+      captured_stage_data: capturedContext
+    });
+
+    const visualResult = await callAI({
+      taskType: 'template_generation',
+      messages: [{ role: 'user', content: visualPrompt }],
+      maxTokens: 8000
+    });
+
+    const visualHtml = visualResult.success && visualResult.text
+      ? visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
+      : creative.visual_html;
+
+    await db
+      .from('content_studio_creatives')
+      .update({
+        visual_html: visualHtml,
+        status: 'ready',
+        generation_session_id: sessionId
+      })
+      .eq('id', creativeId);
+
+    return visualHtml;
+  } catch (error: any) {
+    await logError({
+      errorMessage: error.message || 'Regeneration failed',
+      errorType: 'ai_call',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'regenerateCreative',
+      userAction: 'regenerate_creative',
+      pipelineStep: 'ai_generation',
+      context: { creativeId, brandId }
+    });
+    throw error;
+  }
 }
 
 // ─── Series scheduling helpers ────────────────────────────
