@@ -1151,7 +1151,6 @@ export function StudioEditor({
             onDuplicate={onDuplicateCanvas}
             onDelete={onDeleteCanvas}
             onSetMain={onSetMainCanvas}
-            backgroundColor={mode === 'content-studio' ? "#1A2A3A" : undefined}
           />
         )}
       </div>
