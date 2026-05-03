@@ -291,44 +291,109 @@ export function StudioEditor({
     }
   }, [canvasSize.width, canvasSize.height]);
 
-  const handleExport = useCallback(async () => {
-    // Allow consumer to override entirely (legacy modal hand-off)
-    if (onDownload) {
-      onDownload();
-      return;
-    }
-    setIsExporting(true);
+
+  /** Render arbitrary HTML at given intrinsic dimensions to a canvas. Used for multi-platform export. */
+  const renderHtmlToCanvas = useCallback(async (htmlStr: string, w: number, h: number, scale = 2): Promise<HTMLCanvasElement> => {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = `position:fixed;left:-99999px;top:0;width:${w}px;height:${h}px;overflow:hidden;background:#fff;`;
+    wrapper.innerHTML = `<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;}div[data-export-root]>*{width:100%!important;height:100%!important;box-sizing:border-box;}</style><div data-export-root style="width:${w}px;height:${h}px;">${htmlStr || ""}</div>`;
+    document.body.appendChild(wrapper);
     try {
-      const dataUrl = await captureStage(2);
-      if (!dataUrl) throw new Error("Canvas not ready");
-      const safeTpl = (templateName || "design")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
+      const target = wrapper.querySelector<HTMLElement>("div[data-export-root]") || wrapper;
+      const canvas = await html2canvas(target, {
+        width: w, height: h, scale, backgroundColor: "#ffffff", useCORS: true, logging: false,
+      });
+      return canvas;
+    } finally {
+      wrapper.remove();
+    }
+  }, []);
+
+  const slugify = (s: string) => (s || "design").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const downloadFromCanvas = (canvas: HTMLCanvasElement, name: string, format: SaveFormat) => {
+    const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+    const ext = format === "jpeg" ? "jpg" : "png";
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `${safeTpl}-${variationId || "export"}.png`;
-      link.href = dataUrl;
+      link.download = `${name}.${ext}`;
+      link.href = url;
       link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, mime, 0.92);
+  };
+
+  const handleExportConfirm = useCallback(async (selectedIds: string[], format: SaveFormat) => {
+    setIsExporting(true);
+    setExportProgress({});
+    const safeName = slugify(briefName || templateName);
+    try {
+      const items = (canvases || []).filter((c) => selectedIds.includes(c.id));
+      const work = items.length > 0
+        ? items.map((c) => ({ id: c.id, name: c.label || c.id, html: c.html || "", w: c.canvasWidth || canvasSize.width, h: c.canvasHeight || canvasSize.height }))
+        : [{ id: variationId || "current", name: templateName || "design", html: variationHtml || "", w: canvasSize.width, h: canvasSize.height }];
+
+      const rendered: { id: string; name: string; canvas: HTMLCanvasElement }[] = [];
+      for (const it of work) {
+        const canvas = await renderHtmlToCanvas(it.html, it.w, it.h, 2);
+        rendered.push({ id: it.id, name: slugify(it.name), canvas });
+        setExportProgress((p) => ({ ...p, [it.id]: 1 }));
+      }
+
+      if (format === "pdf") {
+        const first = rendered[0].canvas;
+        const pdf = new jsPDF({ orientation: first.width >= first.height ? "l" : "p", unit: "px", format: [first.width, first.height] });
+        rendered.forEach((r, i) => {
+          if (i > 0) pdf.addPage([r.canvas.width, r.canvas.height], r.canvas.width >= r.canvas.height ? "l" : "p");
+          pdf.addImage(r.canvas.toDataURL("image/png"), "PNG", 0, 0, r.canvas.width, r.canvas.height);
+        });
+        pdf.save(`${safeName}.pdf`);
+      } else if (rendered.length === 1) {
+        downloadFromCanvas(rendered[0].canvas, `${safeName}-${rendered[0].name}`, format);
+      } else {
+        const zip = new JSZip();
+        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+        const ext = format === "jpeg" ? "jpg" : "png";
+        for (const r of rendered) {
+          const blob: Blob = await new Promise((res) => r.canvas.toBlob((b) => res(b!), mime, 0.92));
+          zip.file(`${safeName}-${r.name}.${ext}`, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.download = `${safeName}.zip`;
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      setExportModalOpen(false);
     } catch (e: any) {
       console.error("Export failed:", e);
-      toast({ title: "Export failed", description: e?.message || "Could not render PNG.", variant: "destructive" });
+      toast({ title: "Export failed", description: e?.message || "Could not export.", variant: "destructive" });
     } finally {
       setIsExporting(false);
+      setExportProgress({});
     }
-  }, [captureStage, onDownload, templateName, variationId]);
+  }, [canvases, variationId, variationHtml, templateName, briefName, canvasSize.width, canvasSize.height, renderHtmlToCanvas]);
 
-  const handleSaveToLibrary = useCallback(async () => {
-    // In content-studio mode, use the custom save handler
+  const handleExport = useCallback(() => {
+    if (onDownload) { onDownload(); return; }
+    setExportModalOpen(true);
+  }, [onDownload]);
+
+  const performSave = useCallback(async (format: SaveFormat) => {
     if (mode === 'content-studio' && onSaveCreative) {
       onSaveCreative();
       setHasUnsavedChanges(false);
+      setSaveModalOpen(false);
       return;
     }
-
-    // Original ProStudio save behavior
     if (onSaveToLibrary) {
       onSaveToLibrary();
       setHasUnsavedChanges(false);
+      setSaveModalOpen(false);
       return;
     }
     if (!brandId) {
@@ -349,21 +414,22 @@ export function StudioEditor({
         return;
       }
       if (activeCanvasId) {
-        setSavedCanvasIds(prev => {
-          const next = new Set(prev);
-          next.add(activeCanvasId);
-          return next;
-        });
+        setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
       }
       setHasUnsavedChanges(false);
-      toast({ title: "Saved to Library" });
+      toast({ title: `Saved to Library (${format.toUpperCase()})` });
+      setSaveModalOpen(false);
     } catch (e: any) {
       console.error("Save failed:", e);
-      toast({ title: "Save failed", description: e?.message || "Could not save thumbnail.", variant: "destructive" });
+      toast({ title: "Save failed", description: e?.message || "Could not save.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
-  }, [captureStage, onSaveToLibrary, onSaveCreative, mode, brandId, outputId, templateId, variationHtml, activeCanvasId]);
+  }, [mode, onSaveCreative, onSaveToLibrary, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId]);
+
+  const handleSaveToLibrary = useCallback(() => {
+    setSaveModalOpen(true);
+  }, []);
 
   const attemptClose = useCallback(() => {
     if (hasUnsavedChanges) setConfirmOpen(true);
