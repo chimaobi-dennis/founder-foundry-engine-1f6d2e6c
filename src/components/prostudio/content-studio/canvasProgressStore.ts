@@ -14,6 +14,7 @@ export interface CanvasProgressState {
   progress: number; // 0–100
   phase: CanvasPhase;
   ready: boolean;
+  step?: string;
   updatedAt: number;
 }
 
