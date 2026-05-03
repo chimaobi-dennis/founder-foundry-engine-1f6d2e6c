@@ -206,7 +206,6 @@ export default function ContentStudioEditor() {
       onRegenerateVisual={handleRegenerateVisual}
       regenerating={regenerating}
       onApproveActive={handleApprove}
-      onExportAll={() => toast.info("Export all coming soon")}
       onApproveAll={() => toast.info("Bulk approve coming soon")}
     />
   );

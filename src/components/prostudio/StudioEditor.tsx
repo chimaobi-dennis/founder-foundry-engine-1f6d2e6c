@@ -23,9 +23,13 @@ import {
   Check,
 } from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import JSZip from "jszip";
 import { saveOutputToLibrary } from "@/services/templateService";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { SaveFormatModal, type SaveFormat } from "./SaveFormatModal";
+import { ExportModal, type ExportPlatform } from "./ExportModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -155,6 +159,17 @@ export function StudioEditor({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(0.7);
   const [tool, setTool] = useState<"select" | "hand">("select");
+  const [tempPan, setTempPan] = useState(false); // Space-held temporary pan
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const panRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null);
+  // Undo/redo: simple stack of stage HTML snapshots
+  const undoStackRef = useRef<string[]>([]);
+  const redoStackRef = useRef<string[]>([]);
+  const [historyTick, setHistoryTick] = useState(0);
+  // Save / export modal state
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportProgress, setExportProgress] = useState<Record<string, number>>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
   // Intrinsic canvas size — detected from injected HTML so the stage matches
@@ -276,44 +291,109 @@ export function StudioEditor({
     }
   }, [canvasSize.width, canvasSize.height]);
 
-  const handleExport = useCallback(async () => {
-    // Allow consumer to override entirely (legacy modal hand-off)
-    if (onDownload) {
-      onDownload();
-      return;
-    }
-    setIsExporting(true);
+
+  /** Render arbitrary HTML at given intrinsic dimensions to a canvas. Used for multi-platform export. */
+  const renderHtmlToCanvas = useCallback(async (htmlStr: string, w: number, h: number, scale = 2): Promise<HTMLCanvasElement> => {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = `position:fixed;left:-99999px;top:0;width:${w}px;height:${h}px;overflow:hidden;background:#fff;`;
+    wrapper.innerHTML = `<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;}div[data-export-root]>*{width:100%!important;height:100%!important;box-sizing:border-box;}</style><div data-export-root style="width:${w}px;height:${h}px;">${htmlStr || ""}</div>`;
+    document.body.appendChild(wrapper);
     try {
-      const dataUrl = await captureStage(2);
-      if (!dataUrl) throw new Error("Canvas not ready");
-      const safeTpl = (templateName || "design")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-|-$/g, "");
+      const target = wrapper.querySelector<HTMLElement>("div[data-export-root]") || wrapper;
+      const canvas = await html2canvas(target, {
+        width: w, height: h, scale, backgroundColor: "#ffffff", useCORS: true, logging: false,
+      });
+      return canvas;
+    } finally {
+      wrapper.remove();
+    }
+  }, []);
+
+  const slugify = (s: string) => (s || "design").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const downloadFromCanvas = (canvas: HTMLCanvasElement, name: string, format: SaveFormat) => {
+    const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+    const ext = format === "jpeg" ? "jpg" : "png";
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `${safeTpl}-${variationId || "export"}.png`;
-      link.href = dataUrl;
+      link.download = `${name}.${ext}`;
+      link.href = url;
       link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, mime, 0.92);
+  };
+
+  const handleExportConfirm = useCallback(async (selectedIds: string[], format: SaveFormat) => {
+    setIsExporting(true);
+    setExportProgress({});
+    const safeName = slugify(briefName || templateName);
+    try {
+      const items = (canvases || []).filter((c) => selectedIds.includes(c.id));
+      const work = items.length > 0
+        ? items.map((c) => ({ id: c.id, name: c.label || c.id, html: c.html || "", w: c.canvasWidth || canvasSize.width, h: c.canvasHeight || canvasSize.height }))
+        : [{ id: variationId || "current", name: templateName || "design", html: variationHtml || "", w: canvasSize.width, h: canvasSize.height }];
+
+      const rendered: { id: string; name: string; canvas: HTMLCanvasElement }[] = [];
+      for (const it of work) {
+        const canvas = await renderHtmlToCanvas(it.html, it.w, it.h, 2);
+        rendered.push({ id: it.id, name: slugify(it.name), canvas });
+        setExportProgress((p) => ({ ...p, [it.id]: 1 }));
+      }
+
+      if (format === "pdf") {
+        const first = rendered[0].canvas;
+        const pdf = new jsPDF({ orientation: first.width >= first.height ? "l" : "p", unit: "px", format: [first.width, first.height] });
+        rendered.forEach((r, i) => {
+          if (i > 0) pdf.addPage([r.canvas.width, r.canvas.height], r.canvas.width >= r.canvas.height ? "l" : "p");
+          pdf.addImage(r.canvas.toDataURL("image/png"), "PNG", 0, 0, r.canvas.width, r.canvas.height);
+        });
+        pdf.save(`${safeName}.pdf`);
+      } else if (rendered.length === 1) {
+        downloadFromCanvas(rendered[0].canvas, `${safeName}-${rendered[0].name}`, format);
+      } else {
+        const zip = new JSZip();
+        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+        const ext = format === "jpeg" ? "jpg" : "png";
+        for (const r of rendered) {
+          const blob: Blob = await new Promise((res) => r.canvas.toBlob((b) => res(b!), mime, 0.92));
+          zip.file(`${safeName}-${r.name}.${ext}`, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.download = `${safeName}.zip`;
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      setExportModalOpen(false);
     } catch (e: any) {
       console.error("Export failed:", e);
-      toast({ title: "Export failed", description: e?.message || "Could not render PNG.", variant: "destructive" });
+      toast({ title: "Export failed", description: e?.message || "Could not export.", variant: "destructive" });
     } finally {
       setIsExporting(false);
+      setExportProgress({});
     }
-  }, [captureStage, onDownload, templateName, variationId]);
+  }, [canvases, variationId, variationHtml, templateName, briefName, canvasSize.width, canvasSize.height, renderHtmlToCanvas]);
 
-  const handleSaveToLibrary = useCallback(async () => {
-    // In content-studio mode, use the custom save handler
+  const handleExport = useCallback(() => {
+    if (onDownload) { onDownload(); return; }
+    setExportModalOpen(true);
+  }, [onDownload]);
+
+  const performSave = useCallback(async (format: SaveFormat) => {
     if (mode === 'content-studio' && onSaveCreative) {
       onSaveCreative();
       setHasUnsavedChanges(false);
+      setSaveModalOpen(false);
       return;
     }
-
-    // Original ProStudio save behavior
     if (onSaveToLibrary) {
       onSaveToLibrary();
       setHasUnsavedChanges(false);
+      setSaveModalOpen(false);
       return;
     }
     if (!brandId) {
@@ -334,31 +414,30 @@ export function StudioEditor({
         return;
       }
       if (activeCanvasId) {
-        setSavedCanvasIds(prev => {
-          const next = new Set(prev);
-          next.add(activeCanvasId);
-          return next;
-        });
+        setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
       }
       setHasUnsavedChanges(false);
-      toast({ title: "Saved to Library" });
+      toast({ title: `Saved to Library (${format.toUpperCase()})` });
+      setSaveModalOpen(false);
     } catch (e: any) {
       console.error("Save failed:", e);
-      toast({ title: "Save failed", description: e?.message || "Could not save thumbnail.", variant: "destructive" });
+      toast({ title: "Save failed", description: e?.message || "Could not save.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
-  }, [captureStage, onSaveToLibrary, onSaveCreative, mode, brandId, outputId, templateId, variationHtml, activeCanvasId]);
+  }, [mode, onSaveCreative, onSaveToLibrary, brandId, outputId, templateId, variationHtml, canvasSize.width, canvasSize.height, activeCanvasId]);
+
+  const handleSaveToLibrary = useCallback(() => {
+    setSaveModalOpen(true);
+  }, []);
 
   const attemptClose = useCallback(() => {
     if (hasUnsavedChanges) setConfirmOpen(true);
     else onClose();
   }, [hasUnsavedChanges, onClose]);
 
-  const handleSaveAndExit = async () => {
-    await handleSaveToLibrary();
-    setConfirmOpen(false);
-    onClose();
+  const handleSaveAndExit = () => {
+    setSaveModalOpen(true);
   };
   const handleDiscardAndExit = () => {
     setHasUnsavedChanges(false);
@@ -366,30 +445,72 @@ export function StudioEditor({
     onClose();
   };
 
+  // ── Undo / Redo ─────────────────────────────────────────────────────
+  const snapshotStage = useCallback(() => {
+    const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+    return stage ? stage.innerHTML : null;
+  }, []);
+  const restoreStage = useCallback((s: string) => {
+    const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+    if (stage) { stage.innerHTML = s; bumpRefresh(); }
+  }, [bumpRefresh]);
+  const undo = useCallback(() => {
+    const snap = undoStackRef.current.pop();
+    if (snap == null) return;
+    const cur = snapshotStage();
+    if (cur != null) redoStackRef.current.push(cur);
+    restoreStage(snap);
+    setHistoryTick((t) => t + 1);
+  }, [snapshotStage, restoreStage]);
+  const redo = useCallback(() => {
+    const snap = redoStackRef.current.pop();
+    if (snap == null) return;
+    const cur = snapshotStage();
+    if (cur != null) undoStackRef.current.push(cur);
+    restoreStage(snap);
+    setHistoryTick((t) => t + 1);
+  }, [snapshotStage, restoreStage]);
+  const canUndo = undoStackRef.current.length > 0;
+  const canRedo = redoStackRef.current.length > 0;
+  void historyTick;
+
   // Keyboard shortcuts
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      // Don't intercept while typing in form fields or inline-editing text
       const t = e.target as HTMLElement | null;
       const inField =
         t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable || t.tagName === "SELECT");
       if (e.key === "Escape" && !confirmOpen) attemptClose();
       if (inField) return;
-      if (e.key === "v") setTool("select");
-      if (e.key === "h") setTool("hand");
-      if ((e.key === "=" || e.key === "+") && (e.metaKey || e.ctrlKey)) {
+      if (e.code === "Space" && !e.repeat) { e.preventDefault(); setTempPan(true); }
+      if (e.key === "v" || e.key === "V") setTool("select");
+      if (e.key === "h" || e.key === "H") setTool("hand");
+      if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
-        setZoom((z) => Math.min(2, z + 0.1));
+        if (e.shiftKey) redo(); else undo();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault(); redo(); return;
+      }
+      if ((e.key === "=" || e.key === "+") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault(); setZoom((z) => Math.min(2, z + 0.1));
       }
       if (e.key === "-" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setZoom((z) => Math.max(0.2, z - 0.1));
+        e.preventDefault(); setZoom((z) => Math.max(0.2, z - 0.1));
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") setTempPan(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, attemptClose, confirmOpen]);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [open, attemptClose, confirmOpen, undo, redo]);
 
   const selected = useMemo(
     () => elements.find((e) => e.id === selectedId) || null,
@@ -423,11 +544,22 @@ export function StudioEditor({
     return root.querySelector<HTMLElement>(`[data-studio-id="${CSS.escape(id)}"]`);
   }, []);
 
+  // Snapshot helper used by mutators to push to undo stack BEFORE applying.
+  const pushUndo = useCallback(() => {
+    const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+    if (!stage) return;
+    undoStackRef.current.push(stage.innerHTML);
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+    redoStackRef.current = [];
+    setHistoryTick((t) => t + 1);
+  }, []);
+
   const apply = useCallback(
     (style: Partial<CSSStyleDeclaration> | Record<string, string>) => {
       if (!selectedId) return;
       const el = queryEl(selectedId);
       if (!el) return;
+      pushUndo();
       Object.entries(style).forEach(([k, v]) => {
         if (v == null) return;
         (el.style as unknown as Record<string, string>)[k] = v as string;
@@ -435,7 +567,7 @@ export function StudioEditor({
       bumpRefresh();
       markDirty();
     },
-    [selectedId, queryEl, bumpRefresh, markDirty],
+    [selectedId, queryEl, bumpRefresh, markDirty, pushUndo],
   );
 
   const applyAttr = useCallback(
@@ -443,11 +575,12 @@ export function StudioEditor({
       if (!selectedId) return;
       const el = queryEl(selectedId);
       if (!el) return;
+      pushUndo();
       Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
       bumpRefresh();
       markDirty();
     },
-    [selectedId, queryEl, bumpRefresh, markDirty],
+    [selectedId, queryEl, bumpRefresh, markDirty, pushUndo],
   );
 
   const read = useCallback(
@@ -592,125 +725,72 @@ export function StudioEditor({
             )}
           </div>
 
+          {/* Center cluster — unified across both modes */}
           <div className="flex items-center gap-0.5">
-            {mode === 'content-studio' ? (
+            <ToolbarButton title="Undo (⌘Z)" onClick={undo} disabled={!canUndo}>
+              <Undo2 size={15} />
+            </ToolbarButton>
+            <ToolbarButton title="Redo (⌘⇧Z)" onClick={redo} disabled={!canRedo}>
+              <Redo2 size={15} />
+            </ToolbarButton>
+            <div className="w-px h-5 mx-1.5 bg-border" />
+            <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
+              <ZoomOut size={15} />
+            </ToolbarButton>
+            <button
+              className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
+              style={{ minWidth: 56 }}
+              onClick={() => setZoom(mode === "content-studio" ? fitScale : 0.7)}
+              title="Fit to screen"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
+              <ZoomIn size={15} />
+            </ToolbarButton>
+            <div className="w-px h-5 mx-1.5 bg-border" />
+            <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
+              {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
+            </div>
+            {mode === "content-studio" && onApproveAll && (
               <>
-                <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
-                  <ZoomOut size={15} />
-                </ToolbarButton>
-                <button
-                  className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
-                  style={{ minWidth: 56 }}
-                  onClick={() => setZoom(fitScale)}
-                  title="Fit to screen"
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-                <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
-                  <ZoomIn size={15} />
-                </ToolbarButton>
                 <div className="w-px h-5 mx-1.5 bg-border" />
-                <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
-                  {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
-                </div>
-                <div className="w-px h-5 mx-1.5 bg-border" />
-                {onExportAll && (
-                  <ToolbarButton title="Export all" onClick={onExportAll}>
-                    <Download size={13} />
-                  </ToolbarButton>
-                )}
-                {onApproveAll && (
-                  <ToolbarButton title="Approve all" onClick={onApproveAll}>
-                    <Check size={13} />
-                  </ToolbarButton>
-                )}
-              </>
-            ) : (
-              <>
-                <ToolbarButton title="Undo (⌘Z)"><Undo2 size={15} /></ToolbarButton>
-                <ToolbarButton title="Redo (⌘⇧Z)"><Redo2 size={15} /></ToolbarButton>
-                <div className="w-px h-5 mx-1.5 bg-border" />
-                <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
-                  <ZoomOut size={15} />
+                <ToolbarButton title="Approve all" onClick={onApproveAll}>
+                  <Check size={13} />
                 </ToolbarButton>
-                <button
-                  className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
-                  style={{ minWidth: 56 }}
-                  onClick={() => setZoom(0.7)}
-                  title="Reset zoom"
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-                <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
-                  <ZoomIn size={15} />
-                </ToolbarButton>
-                <div className="w-px h-5 mx-1.5 bg-border" />
-                <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
-                  {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
-                </div>
               </>
             )}
           </div>
 
+          {/* Right cluster — Export + Save (both modes) */}
           <div className="flex items-center gap-2">
-            {mode === 'content-studio' ? (
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isExporting ? (
+                <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Exporting…</>
+              ) : (
+                <><Download size={13} /> Export</>
+              )}
+            </button>
+            {mode !== "content-studio" && isCurrentSaved ? (
+              <button disabled className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default">
+                <Check size={13} /> Saved
+              </button>
+            ) : (
               <button
                 onClick={handleSaveToLibrary}
                 disabled={isSaving}
-                className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
+                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…
-                  </>
+                  <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…</>
                 ) : (
-                  <>
-                    <Save size={13} /> Save to Library
-                  </>
+                  <><Save size={13} /> Save to Library</>
                 )}
               </button>
-            ) : (
-              <>
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting}
-                  className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isExporting ? (
-                    <>
-                      <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Exporting…
-                    </>
-                  ) : (
-                    <>
-                      <Download size={13} /> Export
-                    </>
-                  )}
-                </button>
-                {isCurrentSaved ? (
-                  <button
-                    disabled
-                    className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default"
-                  >
-                    <Check size={13} /> Saved
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSaveToLibrary}
-                    disabled={isSaving}
-                    className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? (
-                      <>
-                        <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…
-                      </>
-                    ) : (
-                      <>
-                        <Save size={13} /> Save to Library
-                      </>
-                    )}
-                  </button>
-                )}
-              </>
             )}
           </div>
         </div>
@@ -936,8 +1016,38 @@ export function StudioEditor({
                 minHeight: 0,
                 background: "#111111",
                 overflow: "hidden",
+                cursor: (tool === "hand" || tempPan) ? (panRef.current ? "grabbing" : "grab") : "default",
+              }}
+              onWheel={(e) => {
+                setPanOffset((p) => ({
+                  x: p.x - (e.shiftKey ? e.deltaY : e.deltaX),
+                  y: p.y - (e.shiftKey ? 0 : e.deltaY),
+                }));
+              }}
+              onMouseDown={(e) => {
+                if (!(tool === "hand" || tempPan)) return;
+                e.preventDefault();
+                panRef.current = { x: panOffset.x, y: panOffset.y, startX: e.clientX, startY: e.clientY };
+                const onMove = (ev: MouseEvent) => {
+                  const p = panRef.current;
+                  if (!p) return;
+                  setPanOffset({ x: p.x + (ev.clientX - p.startX), y: p.y + (ev.clientY - p.startY) });
+                };
+                const onUp = () => {
+                  panRef.current = null;
+                  window.removeEventListener("mousemove", onMove);
+                  window.removeEventListener("mouseup", onUp);
+                };
+                window.addEventListener("mousemove", onMove);
+                window.addEventListener("mouseup", onUp);
               }}
             >
+              <div
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px)`,
+                  transition: panRef.current ? "none" : "transform 120ms ease-out",
+                }}
+              >
               {(() => {
                 const activeCanvas = mode === 'content-studio' && canvases && activeCanvasId
                   ? canvases.find(c => c.id === activeCanvasId)
@@ -963,6 +1073,7 @@ export function StudioEditor({
                         width: canvasSize.width * zoom,
                         height: canvasSize.height * zoom,
                         overflow: "hidden",
+                        pointerEvents: (tool === "hand" || tempPan) ? "none" : "auto",
                       }}
                     >
                       <div
@@ -989,6 +1100,7 @@ export function StudioEditor({
                   </CanvasCrossfade>
                 );
               })()}
+              </div>
             </div>
 
             <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground bg-card">
@@ -1163,6 +1275,38 @@ export function StudioEditor({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SaveFormatModal
+        open={saveModalOpen}
+        onOpenChange={setSaveModalOpen}
+        onConfirm={(fmt) => performSave(fmt)}
+        saving={isSaving}
+      />
+
+      <ExportModal
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        platforms={
+          (canvases && canvases.length > 0
+            ? canvases.map((c) => ({
+                id: c.id,
+                name: c.label || "Canvas",
+                width: c.canvasWidth || canvasSize.width,
+                height: c.canvasHeight || canvasSize.height,
+                color: c.platformIcon,
+              }))
+            : [{
+                id: variationId || "current",
+                name: templateName || "Design",
+                width: canvasSize.width,
+                height: canvasSize.height,
+              }]) as ExportPlatform[]
+        }
+        onConfirm={handleExportConfirm}
+        exporting={isExporting}
+        progress={exportProgress}
+        variantMode={mode !== "content-studio"}
+      />
     </>
   );
 }
@@ -1173,16 +1317,19 @@ function ToolbarButton({
   children,
   title,
   onClick,
+  disabled,
 }: {
   children: React.ReactNode;
   title?: string;
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-muted text-foreground"
+      disabled={disabled}
+      className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-muted text-foreground disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
     >
       {children}
     </button>
