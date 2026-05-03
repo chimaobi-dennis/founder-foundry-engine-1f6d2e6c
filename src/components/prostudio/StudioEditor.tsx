@@ -1275,6 +1275,38 @@ export function StudioEditor({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SaveFormatModal
+        open={saveModalOpen}
+        onOpenChange={setSaveModalOpen}
+        onConfirm={(fmt) => performSave(fmt)}
+        saving={isSaving}
+      />
+
+      <ExportModal
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        platforms={
+          (canvases && canvases.length > 0
+            ? canvases.map((c) => ({
+                id: c.id,
+                name: c.label || "Canvas",
+                width: c.canvasWidth || canvasSize.width,
+                height: c.canvasHeight || canvasSize.height,
+                color: c.platformIcon,
+              }))
+            : [{
+                id: variationId || "current",
+                name: templateName || "Design",
+                width: canvasSize.width,
+                height: canvasSize.height,
+              }]) as ExportPlatform[]
+        }
+        onConfirm={handleExportConfirm}
+        exporting={isExporting}
+        progress={exportProgress}
+        variantMode={mode !== "content-studio"}
+      />
     </>
   );
 }
