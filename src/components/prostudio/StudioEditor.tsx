@@ -1046,7 +1046,7 @@ export function StudioEditor({
                   isApproved={!!(canvases.find(c => c.id === activeCanvasId)?.isApproved)}
                 />
               ) : (
-                <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 pr-4 py-4 space-y-5">
                   {!selected ? (
                     <div className="text-center py-10">
                       <Maximize2 size={20} className="mx-auto mb-2 text-muted-foreground opacity-50" />
