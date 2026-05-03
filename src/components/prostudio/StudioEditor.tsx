@@ -544,11 +544,22 @@ export function StudioEditor({
     return root.querySelector<HTMLElement>(`[data-studio-id="${CSS.escape(id)}"]`);
   }, []);
 
+  // Snapshot helper used by mutators to push to undo stack BEFORE applying.
+  const pushUndo = useCallback(() => {
+    const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+    if (!stage) return;
+    undoStackRef.current.push(stage.innerHTML);
+    if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+    redoStackRef.current = [];
+    setHistoryTick((t) => t + 1);
+  }, []);
+
   const apply = useCallback(
     (style: Partial<CSSStyleDeclaration> | Record<string, string>) => {
       if (!selectedId) return;
       const el = queryEl(selectedId);
       if (!el) return;
+      pushUndo();
       Object.entries(style).forEach(([k, v]) => {
         if (v == null) return;
         (el.style as unknown as Record<string, string>)[k] = v as string;
@@ -556,7 +567,7 @@ export function StudioEditor({
       bumpRefresh();
       markDirty();
     },
-    [selectedId, queryEl, bumpRefresh, markDirty],
+    [selectedId, queryEl, bumpRefresh, markDirty, pushUndo],
   );
 
   const applyAttr = useCallback(
@@ -564,11 +575,12 @@ export function StudioEditor({
       if (!selectedId) return;
       const el = queryEl(selectedId);
       if (!el) return;
+      pushUndo();
       Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
       bumpRefresh();
       markDirty();
     },
-    [selectedId, queryEl, bumpRefresh, markDirty],
+    [selectedId, queryEl, bumpRefresh, markDirty, pushUndo],
   );
 
   const read = useCallback(
