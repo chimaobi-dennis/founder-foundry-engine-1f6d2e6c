@@ -713,125 +713,72 @@ export function StudioEditor({
             )}
           </div>
 
+          {/* Center cluster — unified across both modes */}
           <div className="flex items-center gap-0.5">
-            {mode === 'content-studio' ? (
+            <ToolbarButton title="Undo (⌘Z)" onClick={undo} disabled={!canUndo}>
+              <Undo2 size={15} />
+            </ToolbarButton>
+            <ToolbarButton title="Redo (⌘⇧Z)" onClick={redo} disabled={!canRedo}>
+              <Redo2 size={15} />
+            </ToolbarButton>
+            <div className="w-px h-5 mx-1.5 bg-border" />
+            <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
+              <ZoomOut size={15} />
+            </ToolbarButton>
+            <button
+              className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
+              style={{ minWidth: 56 }}
+              onClick={() => setZoom(mode === "content-studio" ? fitScale : 0.7)}
+              title="Fit to screen"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
+              <ZoomIn size={15} />
+            </ToolbarButton>
+            <div className="w-px h-5 mx-1.5 bg-border" />
+            <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
+              {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
+            </div>
+            {mode === "content-studio" && onApproveAll && (
               <>
-                <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
-                  <ZoomOut size={15} />
-                </ToolbarButton>
-                <button
-                  className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
-                  style={{ minWidth: 56 }}
-                  onClick={() => setZoom(fitScale)}
-                  title="Fit to screen"
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-                <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
-                  <ZoomIn size={15} />
-                </ToolbarButton>
                 <div className="w-px h-5 mx-1.5 bg-border" />
-                <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
-                  {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
-                </div>
-                <div className="w-px h-5 mx-1.5 bg-border" />
-                {onExportAll && (
-                  <ToolbarButton title="Export all" onClick={onExportAll}>
-                    <Download size={13} />
-                  </ToolbarButton>
-                )}
-                {onApproveAll && (
-                  <ToolbarButton title="Approve all" onClick={onApproveAll}>
-                    <Check size={13} />
-                  </ToolbarButton>
-                )}
-              </>
-            ) : (
-              <>
-                <ToolbarButton title="Undo (⌘Z)"><Undo2 size={15} /></ToolbarButton>
-                <ToolbarButton title="Redo (⌘⇧Z)"><Redo2 size={15} /></ToolbarButton>
-                <div className="w-px h-5 mx-1.5 bg-border" />
-                <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
-                  <ZoomOut size={15} />
+                <ToolbarButton title="Approve all" onClick={onApproveAll}>
+                  <Check size={13} />
                 </ToolbarButton>
-                <button
-                  className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
-                  style={{ minWidth: 56 }}
-                  onClick={() => setZoom(0.7)}
-                  title="Reset zoom"
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-                <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
-                  <ZoomIn size={15} />
-                </ToolbarButton>
-                <div className="w-px h-5 mx-1.5 bg-border" />
-                <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
-                  {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
-                </div>
               </>
             )}
           </div>
 
+          {/* Right cluster — Export + Save (both modes) */}
           <div className="flex items-center gap-2">
-            {mode === 'content-studio' ? (
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isExporting ? (
+                <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Exporting…</>
+              ) : (
+                <><Download size={13} /> Export</>
+              )}
+            </button>
+            {mode !== "content-studio" && isCurrentSaved ? (
+              <button disabled className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default">
+                <Check size={13} /> Saved
+              </button>
+            ) : (
               <button
                 onClick={handleSaveToLibrary}
                 disabled={isSaving}
-                className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
+                className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
-                  <>
-                    <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…
-                  </>
+                  <><span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…</>
                 ) : (
-                  <>
-                    <Save size={13} /> Save to Library
-                  </>
+                  <><Save size={13} /> Save to Library</>
                 )}
               </button>
-            ) : (
-              <>
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting}
-                  className="h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors hover:bg-muted text-foreground border border-border disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isExporting ? (
-                    <>
-                      <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Exporting…
-                    </>
-                  ) : (
-                    <>
-                      <Download size={13} /> Export
-                    </>
-                  )}
-                </button>
-                {isCurrentSaved ? (
-                  <button
-                    disabled
-                    className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 border border-primary/40 text-primary opacity-90 cursor-default"
-                  >
-                    <Check size={13} /> Saved
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSaveToLibrary}
-                    disabled={isSaving}
-                    className="h-8 px-3.5 rounded-md text-[12px] font-ui font-semibold flex items-center gap-1.5 transition-all hover:opacity-90 bg-primary text-primary-foreground disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? (
-                      <>
-                        <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" /> Saving…
-                      </>
-                    ) : (
-                      <>
-                        <Save size={13} /> Save to Library
-                      </>
-                    )}
-                  </button>
-                )}
-              </>
             )}
           </div>
         </div>
