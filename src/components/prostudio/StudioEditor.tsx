@@ -1241,16 +1241,19 @@ function ToolbarButton({
   children,
   title,
   onClick,
+  disabled,
 }: {
   children: React.ReactNode;
   title?: string;
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-muted text-foreground"
+      disabled={disabled}
+      className="w-8 h-8 rounded-md flex items-center justify-center transition-colors hover:bg-muted text-foreground disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
     >
       {children}
     </button>
