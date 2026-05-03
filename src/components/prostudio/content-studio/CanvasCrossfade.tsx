@@ -227,30 +227,52 @@ export function CanvasCrossfade({
         />
       </div>
 
-      {/* Step label chip */}
-      <div
-        className="absolute top-2 right-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1 rounded-full font-ui text-[10px] tracking-wide"
-        style={{
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(6px)",
-          color: "rgba(255,255,255,0.85)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          opacity: showProgress ? 1 : 0,
-          transform: showProgress ? "translateY(0)" : "translateY(-4px)",
-          transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease`,
-        }}
-      >
-        <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{
-            background: "hsl(var(--primary))",
-            boxShadow: "0 0 6px hsl(var(--primary) / 0.8)",
-            animation: progress < 100 ? "pulse 1.4s ease-in-out infinite" : undefined,
-          }}
-        />
-        <span>{step}</span>
-        <span className="opacity-60 tabular-nums">{Math.round(progress)}%</span>
-      </div>
+      {/* Step label chip — phase badge + live step + percentage */}
+      {(() => {
+        const phaseMeta: Record<string, { label: string; color: string }> = {
+          generating: { label: "GENERATING", color: "#D4A017" },
+          loading: { label: "LOADING", color: "#5BA9F2" },
+          ready: { label: "READY", color: "#4ADE80" },
+          idle: { label: "IDLE", color: "#8A96A3" },
+        };
+        const meta = phaseMeta[phase] || phaseMeta.idle;
+        return (
+          <div
+            className="absolute top-2 right-3 z-20 pointer-events-none flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full font-ui text-[10px] tracking-wide"
+            style={{
+              background: "rgba(0,0,0,0.6)",
+              backdropFilter: "blur(6px)",
+              color: "rgba(255,255,255,0.9)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              opacity: showProgress ? 1 : 0,
+              transform: showProgress ? "translateY(0)" : "translateY(-4px)",
+              transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease`,
+            }}
+            title={`${meta.label} — ${step} (${Math.round(progress)}%)`}
+          >
+            <span
+              className="px-1.5 py-[2px] rounded-full text-[9px] font-semibold tracking-[0.08em]"
+              style={{
+                background: `${meta.color}22`,
+                color: meta.color,
+                border: `1px solid ${meta.color}55`,
+              }}
+            >
+              {meta.label}
+            </span>
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: meta.color,
+                boxShadow: `0 0 6px ${meta.color}cc`,
+                animation: progress < 100 ? "pulse 1.4s ease-in-out infinite" : undefined,
+              }}
+            />
+            <span className="text-foreground/90">{step}</span>
+            <span className="opacity-60 tabular-nums">{Math.round(progress)}%</span>
+          </div>
+        );
+      })()}
 
       <div
         ref={canvasWrapRef}
