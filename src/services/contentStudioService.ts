@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
-import { saveToLibrary as saveToAssetLibrary, type SaveFormat } from './assetService';
+import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
 
 const db = supabase as any;
 
@@ -591,8 +591,7 @@ Every editable element must have a data-element attribute.
 /**
  * Save creative to Library using the new asset service.
  * This renders HTML to image/PDF, uploads to storage, and creates entries in
- * assets and studio_sessions tables. The content_studio_creatives row is kept for
- * backward compatibility but is no longer the primary storage for library items.
+ * assets and studio_sessions tables.
  */
 export async function saveCreativeToLibrary({
   creativeId,
@@ -602,25 +601,51 @@ export async function saveCreativeToLibrary({
   creativeId: string;
   brandId: string;
   format?: SaveFormat;
-}): Promise<{ publicUrl: string; error?: string }> {
+}): Promise<{ publicUrl: string; asset?: Asset }> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Not authenticated');
+    if (authError || !user) {
+      console.error('[saveCreativeToLibrary] Not authenticated');
+      throw new Error('Not authenticated');
+    }
+
+    console.log('[saveCreativeToLibrary] Fetching creative:', creativeId);
 
     // Fetch the creative with platform dimensions and brief
-    const { data: creative } = await db
+    const { data: creative, error: creativeError } = await db
       .from('content_studio_creatives')
       .select('*, content_platforms(*), content_studio_briefs(*)')
       .eq('id', creativeId)
       .single();
 
-    if (!creative) throw new Error('Creative not found');
-    if (!creative.visual_html) throw new Error('No visual HTML to save');
+    if (creativeError) {
+      console.error('[saveCreativeToLibrary] Failed to fetch creative:', creativeError);
+      throw creativeError;
+    }
+
+    if (!creative) {
+      console.error('[saveCreativeToLibrary] Creative not found');
+      throw new Error('Creative not found');
+    }
+    if (!creative.visual_html) {
+      console.error('[saveCreativeToLibrary] No visual HTML to save');
+      throw new Error('No visual HTML to save');
+    }
 
     const platform = creative.content_platforms;
     const brief = creative.content_studio_briefs;
     const renderWidth = platform?.image_width || 600;
     const renderHeight = platform?.image_height || 600;
+
+    console.log('[saveCreativeToLibrary] Calling assetService.saveToLibrary with:', {
+      brandId,
+      userId: user.id,
+      name: platform?.name || 'Design',
+      sourceModule: 'contentstudio',
+      format,
+      platformWidth: renderWidth,
+      platformHeight: renderHeight,
+    });
 
     // Call the new asset service to save to library
     const asset = await saveToAssetLibrary({
@@ -638,8 +663,11 @@ export async function saveCreativeToLibrary({
     });
 
     if (!asset) {
-      throw new Error('Failed to save asset');
+      console.error('[saveCreativeToLibrary] assetService.saveToLibrary returned null');
+      throw new Error('Failed to save asset - asset service returned null');
     }
+
+    console.log('[saveCreativeToLibrary] Asset saved successfully:', asset.id);
 
     // Update the creative row to mark it as saved
     const { error: updateErr } = await db
@@ -649,10 +677,17 @@ export async function saveCreativeToLibrary({
         visual_thumbnail_url: asset.file_url,
       })
       .eq('id', creativeId);
-    if (updateErr) throw updateErr;
 
-    return { publicUrl: asset.file_url };
+    if (updateErr) {
+      console.error('[saveCreativeToLibrary] Failed to update creative:', updateErr);
+      throw updateErr;
+    }
+
+    console.log('[saveCreativeToLibrary] Creative updated successfully');
+
+    return { publicUrl: asset.file_url, asset };
   } catch (error: any) {
+    console.error('[saveCreativeToLibrary] Error:', error);
     await logError({
       errorMessage: error.message || 'Save to library failed',
       errorType: 'storage',
@@ -663,7 +698,7 @@ export async function saveCreativeToLibrary({
       pipelineStep: 'render_and_upload',
       context: { creativeId, brandId }
     });
-    return { publicUrl: '', error: error?.message || 'Save failed' };
+    throw error; // Re-throw so UI can show error
   }
 }
 

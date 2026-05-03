@@ -409,10 +409,6 @@ export function StudioEditor({
         outputHtml: variationHtml || "",
         dimensions: { width: canvasSize.width, height: canvasSize.height },
       });
-      if (result.error) {
-        toast({ title: "Save failed", description: result.error, variant: "destructive" });
-        return;
-      }
       if (activeCanvasId) {
         setSavedCanvasIds(prev => { const next = new Set(prev); next.add(activeCanvasId); return next; });
       }

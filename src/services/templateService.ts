@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { getBrandProductImages, setPrimaryProductImage, uploadBrandProductImage } from './projectAssetsService';
 import { logError } from './errorService';
-import { saveToLibrary as saveToAssetLibrary, type SaveFormat } from './assetService';
+import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
 
 const db = supabase as any;
 
@@ -786,12 +786,17 @@ export async function saveOutputToLibrary({
   outputHtml,
   dimensions,
   format = 'png',
-}: SaveOutputParams): Promise<{ outputId: string; publicUrl: string; error?: string }> {
+}: SaveOutputParams): Promise<{ outputId: string; publicUrl: string; asset?: Asset }> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Not authenticated');
+    if (authError || !user) {
+      console.error('[saveOutputToLibrary] Not authenticated');
+      throw new Error('Not authenticated');
+    }
 
     let id = outputId || null;
+
+    console.log('[saveOutputToLibrary] Creating/updating template output record:', id);
 
     // No existing row (e.g. blank canvas added in studio) — create one first.
     if (!id) {
@@ -810,12 +815,28 @@ export async function saveOutputToLibrary({
         })
         .select('id')
         .single();
-      if (insertErr) throw insertErr;
+      if (insertErr) {
+        console.error('[saveOutputToLibrary] Failed to insert template output:', insertErr);
+        throw insertErr;
+      }
       id = inserted.id;
+      console.log('[saveOutputToLibrary] Created template output:', id);
     }
 
     const renderWidth = dimensions?.width || 600;
     const renderHeight = dimensions?.height || 600;
+
+    console.log('[saveOutputToLibrary] Calling assetService.saveToLibrary with:', {
+      brandId,
+      userId: user.id,
+      name: templateId ? `Template ${templateId}` : 'Design',
+      sourceModule: 'prostudio',
+      format,
+      platformWidth: renderWidth,
+      platformHeight: renderHeight,
+      templateId,
+      templateOutputId: id,
+    });
 
     // Call the new asset service to save to library
     const asset = await saveToAssetLibrary({
@@ -832,8 +853,11 @@ export async function saveOutputToLibrary({
     });
 
     if (!asset) {
-      throw new Error('Failed to save asset');
+      console.error('[saveOutputToLibrary] assetService.saveToLibrary returned null');
+      throw new Error('Failed to save asset - asset service returned null');
     }
+
+    console.log('[saveOutputToLibrary] Asset saved successfully:', asset.id);
 
     // Update the template_outputs row to mark it as saved
     const { error: updateErr } = await db
@@ -843,10 +867,17 @@ export async function saveOutputToLibrary({
         output_image_url: asset.file_url,
       })
       .eq('id', id);
-    if (updateErr) throw updateErr;
 
-    return { outputId: id!, publicUrl: asset.file_url };
+    if (updateErr) {
+      console.error('[saveOutputToLibrary] Failed to update template output:', updateErr);
+      throw updateErr;
+    }
+
+    console.log('[saveOutputToLibrary] Template output updated successfully');
+
+    return { outputId: id!, publicUrl: asset.file_url, asset };
   } catch (error: any) {
+    console.error('[saveOutputToLibrary] Error:', error);
     await logError({
       errorMessage: error.message || 'Save to library failed',
       errorType: 'storage',
@@ -857,7 +888,7 @@ export async function saveOutputToLibrary({
       pipelineStep: 'render_and_upload',
       context: { outputId, brandId }
     });
-    return { outputId: outputId || '', publicUrl: '', error: error?.message || 'Save failed' };
+    throw error; // Re-throw so UI can show error
   }
 }
 

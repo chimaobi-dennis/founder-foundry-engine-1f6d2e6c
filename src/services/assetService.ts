@@ -107,6 +107,16 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       generationParams,
     } = params;
 
+    console.log('[assetService.saveToLibrary] Starting save with params:', {
+      brandId,
+      userId,
+      name,
+      sourceModule,
+      format,
+      platformWidth,
+      platformHeight,
+    });
+
     // Render HTML to canvas
     const container = document.createElement('div');
     container.style.position = 'absolute';
@@ -122,6 +132,7 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
     let extension: string;
 
     try {
+      console.log('[assetService.saveToLibrary] Rendering HTML to canvas...');
       if (format === 'pdf') {
         const canvas = await html2canvas(container, {
           width: platformWidth,
@@ -160,6 +171,7 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
         mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
         extension = format === 'jpeg' ? 'jpg' : 'png';
       }
+      console.log('[assetService.saveToLibrary] Canvas rendered, blob size:', blob.size);
     } finally {
       document.body.removeChild(container);
     }
@@ -167,17 +179,24 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
     // Upload to storage
     const timestamp = Date.now();
     const storagePath = `${userId}/${brandId}/${sourceModule}/${timestamp}.${extension}`;
+    console.log('[assetService.saveToLibrary] Uploading to storage:', storagePath);
+    
     const { error: uploadError } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(storagePath, blob, { upsert: true, contentType: mimeType });
     
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('[assetService.saveToLibrary] Storage upload failed:', uploadError);
+      throw uploadError;
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from(STORAGE_BUCKET)
       .getPublicUrl(storagePath);
+    console.log('[assetService.saveToLibrary] Public URL:', publicUrl);
 
     // Insert into assets table
+    console.log('[assetService.saveToLibrary] Inserting into assets table...');
     const { data: asset, error: assetError } = await db
       .from('assets')
       .insert({
@@ -198,9 +217,14 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       .select()
       .single();
 
-    if (assetError) throw assetError;
+    if (assetError) {
+      console.error('[assetService.saveToLibrary] Assets insert failed:', assetError);
+      throw assetError;
+    }
+    console.log('[assetService.saveToLibrary] Asset created:', asset.id);
 
     // Insert into studio_sessions table
+    console.log('[assetService.saveToLibrary] Inserting into studio_sessions table...');
     const { error: sessionError } = await db
       .from('studio_sessions')
       .insert({
@@ -219,10 +243,15 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
         generation_params: generationParams || null,
       });
 
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      console.error('[assetService.saveToLibrary] Studio session insert failed:', sessionError);
+      throw sessionError;
+    }
+    console.log('[assetService.saveToLibrary] Studio session created');
 
     return asset;
   } catch (error: any) {
+    console.error('[assetService.saveToLibrary] Error:', error);
     await logError({
       errorMessage: error.message || 'Save to library failed',
       errorType: 'storage',
