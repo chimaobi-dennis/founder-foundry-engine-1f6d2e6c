@@ -436,16 +436,43 @@ export function StudioEditor({
     else onClose();
   }, [hasUnsavedChanges, onClose]);
 
-  const handleSaveAndExit = async () => {
-    await handleSaveToLibrary();
-    setConfirmOpen(false);
-    onClose();
+  const handleSaveAndExit = () => {
+    setSaveModalOpen(true);
   };
   const handleDiscardAndExit = () => {
     setHasUnsavedChanges(false);
     setConfirmOpen(false);
     onClose();
   };
+
+  // ── Undo / Redo ─────────────────────────────────────────────────────
+  const snapshotStage = useCallback(() => {
+    const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+    return stage ? stage.innerHTML : null;
+  }, []);
+  const restoreStage = useCallback((s: string) => {
+    const stage = document.querySelector<HTMLElement>("[data-studio-stage] > div[style*='transform']");
+    if (stage) { stage.innerHTML = s; bumpRefresh(); }
+  }, [bumpRefresh]);
+  const undo = useCallback(() => {
+    const snap = undoStackRef.current.pop();
+    if (snap == null) return;
+    const cur = snapshotStage();
+    if (cur != null) redoStackRef.current.push(cur);
+    restoreStage(snap);
+    setHistoryTick((t) => t + 1);
+  }, [snapshotStage, restoreStage]);
+  const redo = useCallback(() => {
+    const snap = redoStackRef.current.pop();
+    if (snap == null) return;
+    const cur = snapshotStage();
+    if (cur != null) undoStackRef.current.push(cur);
+    restoreStage(snap);
+    setHistoryTick((t) => t + 1);
+  }, [snapshotStage, restoreStage]);
+  const canUndo = undoStackRef.current.length > 0;
+  const canRedo = redoStackRef.current.length > 0;
+  void historyTick;
 
   // Keyboard shortcuts
   useEffect(() => {
