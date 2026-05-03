@@ -130,10 +130,11 @@ export function CanvasCrossfade({
     writeProgress({ phase: "loading", progress: Math.max(stored?.progress ?? 0, 35) });
 
     const waitForReady = async () => {
+      writeProgress({ step: "Mounting layout…" });
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       if (cancelled) return;
       setProgress((p) => Math.max(p, 55));
-      writeProgress({ progress: 55 });
+      writeProgress({ progress: 55, step: "Rendering HTML…" });
 
       const root = canvasWrapRef.current;
       if (root) {
@@ -142,11 +143,17 @@ export function CanvasCrossfade({
         let loaded = imgs.filter((img) => img.complete).length;
 
         const reportProgress = () => {
-          if (total === 0) return;
+          if (total === 0) {
+            writeProgress({ step: "Finalizing…" });
+            return;
+          }
           const ratio = loaded / total;
           const next = 55 + Math.round(ratio * 40);
           setProgress(next);
-          writeProgress({ progress: next });
+          writeProgress({
+            progress: next,
+            step: `Loading images (${loaded}/${total})…`,
+          });
         };
         reportProgress();
 
@@ -173,7 +180,7 @@ export function CanvasCrossfade({
 
       setProgress(100);
       setCanvasReady(true);
-      writeProgress({ progress: 100, phase: "ready", ready: true });
+      writeProgress({ progress: 100, phase: "ready", ready: true, step: "Ready" });
       skeletonTimerRef.current = window.setTimeout(() => {
         setShowSkeleton(false);
       }, FADE_MS);
