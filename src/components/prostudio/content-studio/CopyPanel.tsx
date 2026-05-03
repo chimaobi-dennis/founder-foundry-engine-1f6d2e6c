@@ -105,7 +105,7 @@ export function CopyPanel({
           </Field>
         )}
       </div>
-      <div className="p-4 border-t border-border space-y-2">
+      <div className="px-4 pr-4 py-3 border-t border-border space-y-2 flex-shrink-0">
         <button
           onClick={onRegenerateVisual}
           disabled={regenerating}
