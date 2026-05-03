@@ -1343,6 +1343,7 @@ export function StudioEditor({
         onOpenChange={setSaveModalOpen}
         onConfirm={(fmt) => performSave(fmt)}
         saving={isSaving}
+        versionNote={currentVersion ? currentVersion.name : null}
       />
 
       <ExportModal
