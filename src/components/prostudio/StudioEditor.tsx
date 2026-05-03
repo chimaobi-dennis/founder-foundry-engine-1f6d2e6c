@@ -918,30 +918,17 @@ export function StudioEditor({
               </ToolButton>
             </div>
 
-            {/* Generation progress bar — only shown in content-studio when any platform is generating */}
-            {mode === 'content-studio' && canvases && (() => {
-              const gen = canvases.filter(c => c.status === "generating").length;
-              const total = canvases.length;
-              if (gen === 0) return null;
-              const done = total - gen;
-              const pct = total ? (done / total) * 100 : 0;
-              return (
-                <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-2 pointer-events-none">
-                  <div className="bg-card/90 backdrop-blur-sm border border-border rounded-md px-3 py-1.5 flex items-center gap-3 shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse flex-shrink-0" />
-                    <span className="text-[11px] font-ui text-foreground flex-shrink-0">
-                      Generating {done + 1} of {total} platforms…
-                    </span>
-                    <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Generation progress strip — sits between toolbar and canvas.
+                Collapses to height 0 when nothing is generating, so the
+                toolbar (zoom controls, dimensions, download/approve) is
+                never overlapped. */}
+            {mode === 'content-studio' && (
+              <ContentStudioGenerationStrip
+                canvases={canvases || []}
+                activeCanvasId={activeCanvasId || null}
+                regenerating={!!regenerating}
+              />
+            )}
 
             <div
               ref={canvasContainerRef}
