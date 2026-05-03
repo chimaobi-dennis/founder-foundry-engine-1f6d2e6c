@@ -95,7 +95,8 @@ export function CanvasCrossfade({
     if (isGenerating) {
       setShowSkeleton(true);
       setCanvasReady(false);
-      writeProgress({ phase: "generating", ready: false });
+      setStep("Generating…");
+      writeProgress({ phase: "generating", ready: false, step: "Generating…" });
       if (skeletonTimerRef.current) {
         window.clearTimeout(skeletonTimerRef.current);
         skeletonTimerRef.current = null;
