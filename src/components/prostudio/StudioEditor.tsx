@@ -478,26 +478,39 @@ export function StudioEditor({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      // Don't intercept while typing in form fields or inline-editing text
       const t = e.target as HTMLElement | null;
       const inField =
         t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable || t.tagName === "SELECT");
       if (e.key === "Escape" && !confirmOpen) attemptClose();
       if (inField) return;
-      if (e.key === "v") setTool("select");
-      if (e.key === "h") setTool("hand");
-      if ((e.key === "=" || e.key === "+") && (e.metaKey || e.ctrlKey)) {
+      if (e.code === "Space" && !e.repeat) { e.preventDefault(); setTempPan(true); }
+      if (e.key === "v" || e.key === "V") setTool("select");
+      if (e.key === "h" || e.key === "H") setTool("hand");
+      if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
-        setZoom((z) => Math.min(2, z + 0.1));
+        if (e.shiftKey) redo(); else undo();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "y" || e.key === "Y")) {
+        e.preventDefault(); redo(); return;
+      }
+      if ((e.key === "=" || e.key === "+") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault(); setZoom((z) => Math.min(2, z + 0.1));
       }
       if (e.key === "-" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setZoom((z) => Math.max(0.2, z - 0.1));
+        e.preventDefault(); setZoom((z) => Math.max(0.2, z - 0.1));
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") setTempPan(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, attemptClose, confirmOpen]);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [open, attemptClose, confirmOpen, undo, redo]);
 
   const selected = useMemo(
     () => elements.find((e) => e.id === selectedId) || null,
