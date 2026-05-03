@@ -22,6 +22,7 @@ export function CopyPanel({
   regenerating,
   isApproved,
 }: CopyPanelProps) {
+  const isGenerating = canvas.status === "generating";
   const isEmail = canvas.platformSlug === "email";
   const isSocial = ["instagram", "twitter_x", "facebook_ad"].includes(canvas.platformSlug || "");
   const charCount = (canvas.copyText || "").length;
@@ -35,6 +36,55 @@ export function CopyPanel({
   const handleFieldSave = (field: keyof CanvasItem, value: any) => {
     onSave?.({ [field]: value });
   };
+
+  if (isGenerating) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col bg-card overflow-hidden">
+        <div className="px-4 pr-4 py-3 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse"
+              style={{ background: canvas.platformIcon || "#8A96A3" }}
+            />
+            <h3 className="font-ui text-[13px] font-semibold text-foreground uppercase tracking-wider truncate">
+              {canvas.label}
+            </h3>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pr-4 py-4 space-y-4">
+          <style>{`
+            @keyframes copy-skel { 0%,100% { opacity: 0.55; } 50% { opacity: 1; } }
+          `}</style>
+          {isEmail && <SkeletonField labelHeight={10} barHeight={40} />}
+          <SkeletonField labelHeight={10} barHeight={40} />
+          <SkeletonField labelHeight={10} barHeight={140} lines={5} />
+          {isSocial && (
+            <div>
+              <div className="h-[10px] w-16 rounded mb-1.5" style={{ background: "rgba(255,255,255,0.06)" }} />
+              <div className="flex flex-wrap gap-1.5">
+                {[40, 60, 50, 35].map((w, i) => (
+                  <div
+                    key={i}
+                    className="h-5 rounded-full"
+                    style={{
+                      width: w,
+                      background: "rgba(212,160,23,0.10)",
+                      animation: `copy-skel 1.6s ease-in-out infinite`,
+                      animationDelay: `${i * 120}ms`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="px-4 pr-4 py-3 border-t border-border space-y-2 flex-shrink-0">
+          <div className="w-full h-9 rounded-md" style={{ background: "rgba(255,255,255,0.04)" }} />
+          <div className="w-full h-10 rounded-md" style={{ background: "rgba(212,160,23,0.18)" }} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-card overflow-hidden">
