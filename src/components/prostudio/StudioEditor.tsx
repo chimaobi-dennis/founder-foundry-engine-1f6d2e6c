@@ -262,6 +262,21 @@ export function StudioEditor({
 
   const isCurrentSaved = !!activeCanvasId && savedCanvasIds.has(activeCanvasId);
 
+  // Per-canvas version tracking — set after first successful save in this session.
+  // value.assetId is used as parentAssetId on subsequent saves of the same canvas.
+  const [versionByCanvas, setVersionByCanvas] = useState<
+    Record<string, { assetId: string; name: string; count: number }>
+  >({});
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [savedVersionBadge, setSavedVersionBadge] = useState<string | null>(null);
+  const flashTimerRef = useRef<number | null>(null);
+  const badgeTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+    if (badgeTimerRef.current) window.clearTimeout(badgeTimerRef.current);
+  }, []);
+  const currentVersion = activeCanvasId ? versionByCanvas[activeCanvasId] : undefined;
+
   /** Capture the inner stage (data-studio-stage > scaled child) at full resolution. */
   const captureStage = useCallback(async (scale: number): Promise<string | null> => {
     const host = stageHostElRef.current;
