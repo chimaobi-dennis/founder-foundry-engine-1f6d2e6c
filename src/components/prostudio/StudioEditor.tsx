@@ -23,9 +23,13 @@ import {
   Check,
 } from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import JSZip from "jszip";
 import { saveOutputToLibrary } from "@/services/templateService";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { SaveFormatModal, type SaveFormat } from "./SaveFormatModal";
+import { ExportModal, type ExportPlatform } from "./ExportModal";
 import {
   AlertDialog,
   AlertDialogAction,
