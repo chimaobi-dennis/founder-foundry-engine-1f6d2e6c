@@ -554,9 +554,9 @@ export function StudioEditor({
 
   return (
     <>
-      <div className="fixed inset-0 z-[100] flex flex-col text-foreground" style={{ backgroundColor: mode === 'content-studio' ? "#0D1B2A" : undefined }}>
+      <div className="absolute inset-0 z-[40] flex flex-col text-foreground bg-background">
         {/* Top toolbar */}
-        <div className="h-12 flex items-center justify-between px-3 border-b border-border flex-shrink-0" style={{ backgroundColor: mode === 'content-studio' ? "#1A2A3A" : undefined }}>
+        <div className="h-12 flex items-center justify-between px-3 border-b border-border flex-shrink-0 bg-card">
           <div className="flex items-center gap-1.5">
             <button
               onClick={attemptClose}
