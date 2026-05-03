@@ -554,9 +554,9 @@ export function StudioEditor({
 
   return (
     <>
-      <div className="fixed inset-0 z-[100] flex flex-col text-foreground" style={{ backgroundColor: mode === 'content-studio' ? "#0D1B2A" : undefined }}>
+      <div className="flex-1 min-h-0 flex flex-col text-foreground bg-background">
         {/* Top toolbar */}
-        <div className="h-12 flex items-center justify-between px-3 border-b border-border flex-shrink-0" style={{ backgroundColor: mode === 'content-studio' ? "#1A2A3A" : undefined }}>
+        <div className="h-12 flex items-center justify-between px-3 border-b border-border flex-shrink-0 bg-card">
           <div className="flex items-center gap-1.5">
             <button
               onClick={attemptClose}
@@ -720,7 +720,7 @@ export function StudioEditor({
         <div className="flex-1 flex min-h-0">
           {/* Left panel: Content Studio Platforms/Layers or ProStudio Layers/Elements */}
           {mode === 'content-studio' && canvases ? (
-            <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-border" style={{ backgroundColor: "#1A2A3A" }}>
+            <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-border bg-card">
               <div className="h-9 flex items-stretch border-b border-border flex-shrink-0">
                 {(["platforms", "layers"] as const).map((tab) => (
                   <button
@@ -1003,7 +1003,7 @@ export function StudioEditor({
               })()}
             </div>
 
-            <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground" style={{ backgroundColor: mode === 'content-studio' ? "#1A2A3A" : undefined }}>
+            <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground bg-card">
               <div className="flex items-center gap-3">
                 <span>Tool: <span className="text-foreground">{tool === "select" ? "Select" : "Pan"}</span></span>
                 {selected && <span>Selected: <span className="text-foreground">{selected.name}</span></span>}
@@ -1017,7 +1017,7 @@ export function StudioEditor({
 
           {/* Properties or Copy Panel */}
           {mode === 'content-studio' && canvases && activeCanvasId ? (
-            <div className="w-[280px] flex-shrink-0 flex flex-col border-l border-border" style={{ backgroundColor: "#1A2A3A" }}>
+            <div className="w-[280px] flex-shrink-0 flex flex-col border-l border-border bg-card">
               <div className="h-9 flex items-stretch border-b border-border flex-shrink-0">
                 {(["copy", "design"] as const).map((tab) => (
                   <button
@@ -1151,7 +1151,6 @@ export function StudioEditor({
             onDuplicate={onDuplicateCanvas}
             onDelete={onDeleteCanvas}
             onSetMain={onSetMainCanvas}
-            backgroundColor={mode === 'content-studio' ? "#1A2A3A" : undefined}
           />
         )}
       </div>

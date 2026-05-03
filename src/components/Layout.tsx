@@ -10,8 +10,16 @@ const fullHeightPaths = ["/mentor", "/content-calendar"];
 
 export function Layout() {
   const location = useLocation();
-  const showBrandBar = modulePaths.includes(location.pathname);
-  const isFullHeight = fullHeightPaths.includes(location.pathname);
+  const isEditorRoute =
+    location.pathname === "/pro-studio/editor" ||
+    location.pathname.startsWith("/content-studio/");
+  const isContentStudioListRoute =
+    location.pathname === "/content-studio" ||
+    location.pathname === "/content-studio/new";
+  const isContentStudioEditor =
+    location.pathname.startsWith("/content-studio/") && !isContentStudioListRoute;
+  const showBrandBar = modulePaths.includes(location.pathname) && !isEditorRoute;
+  const isFullHeight = fullHeightPaths.includes(location.pathname) || isEditorRoute;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">

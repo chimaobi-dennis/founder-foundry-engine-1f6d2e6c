@@ -105,11 +105,11 @@ const App = () => (
                         <Route path="journey-stages" element={<AdminJourneyStages />} />
                         <Route path="errors" element={<AdminErrorLogs />} />
                       </Route>
-                      {/* Editor routes — full-screen, no app shell */}
-                      <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
-                      <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
                       {/* Main app shell */}
                       <Route element={<Layout />}>
+                        {/* Editor routes — render inside Layout below top nav */}
+                        <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
+                        <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
                         <Route path="/" element={<Home />} />
                         <Route path="/mentor" element={<Mentor />} />
                         <Route path="/pro-studio" element={<ProStudio />} />
