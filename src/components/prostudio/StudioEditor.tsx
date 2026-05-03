@@ -1017,7 +1017,7 @@ export function StudioEditor({
 
           {/* Properties or Copy Panel */}
           {mode === 'content-studio' && canvases && activeCanvasId ? (
-            <div className="w-[280px] flex-shrink-0 flex flex-col border-l border-border" style={{ backgroundColor: "#1A2A3A" }}>
+            <div className="w-[280px] flex-shrink-0 flex flex-col border-l border-border bg-card">
               <div className="h-9 flex items-stretch border-b border-border flex-shrink-0">
                 {(["copy", "design"] as const).map((tab) => (
                   <button
