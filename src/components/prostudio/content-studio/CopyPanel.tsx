@@ -37,19 +37,19 @@ export function CopyPanel({
   };
 
   return (
-    <div className="w-[360px] flex-shrink-0 flex flex-col border-l border-border bg-card overflow-hidden">
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-2">
+    <div className="flex-1 min-h-0 flex flex-col bg-card overflow-hidden">
+      <div className="px-4 pr-4 py-3 border-b border-border flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
           <span
-            className="w-2.5 h-2.5 rounded-full"
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
             style={{ background: canvas.platformIcon || "#8A96A3" }}
           />
-          <h3 className="font-ui text-[13px] font-semibold text-foreground uppercase tracking-wider">
+          <h3 className="font-ui text-[13px] font-semibold text-foreground uppercase tracking-wider truncate">
             {canvas.label}
           </h3>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pr-4 py-4 space-y-4">
         {isEmail && (
           <Field label="Subject line">
             <input
