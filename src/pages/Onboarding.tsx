@@ -151,15 +151,6 @@ export default function Onboarding() {
         Skip for now
       </button>
 
-      {/* Back */}
-      {currentStep > 0 && !completed && (
-        <button
-          onClick={handleBack}
-          className="fixed top-6 left-6 text-muted-foreground hover:text-foreground transition-colors z-50"
-        >
-          <ChevronLeft size={20} />
-        </button>
-      )}
 
       {/* Card */}
       <div
