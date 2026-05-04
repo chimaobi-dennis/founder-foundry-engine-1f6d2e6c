@@ -1155,8 +1155,22 @@ export function StudioEditor({
                 const activeCanvas = mode === 'content-studio' && canvases && activeCanvasId
                   ? canvases.find(c => c.id === activeCanvasId)
                   : null;
-                const isGenerating = activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating);
+                const isFailed = activeCanvas?.status === "failed";
+                const isGenerating = !isFailed && (activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating));
                 const hasHtml = !!html;
+
+                if (isFailed) {
+                  return (
+                    <CanvasFailed
+                      width={canvasSize.width}
+                      height={canvasSize.height}
+                      zoom={zoom}
+                      retrying={!!regenerating}
+                      onRetry={onRegenerateVisual}
+                      onSkip={onSkipActive}
+                    />
+                  );
+                }
 
                 return (
                   <CanvasCrossfade
