@@ -1244,6 +1244,9 @@ export function StudioEditor({
                   regenerating={regenerating}
                   onApproveClick={onApproveActive}
                   isApproved={!!(canvases.find(c => c.id === activeCanvasId)?.isApproved)}
+                  schedule={activeSchedule}
+                  onReschedule={onRescheduleActive}
+                  onRemoveSchedule={onRemoveScheduleActive}
                 />
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto px-4 pr-4 py-4 space-y-5">
