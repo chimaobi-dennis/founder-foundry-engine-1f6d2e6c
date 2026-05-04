@@ -1861,13 +1861,52 @@ Be selective — only mark significant shifts, not minor tangents.`,
   const showRightInline = !isMobile && !isTablet;
 
 
-  // If no brand is selected, show empty state with CTA
+  // Multi-projects user — show simple "name your first project" prompt
+  if (showMultiProjectPrompt && !currentActiveBrand) {
+    return (
+      <div className="flex-1 min-h-0 flex items-center justify-center px-4">
+        <div className="w-[90%] max-w-[480px] rounded-2xl p-8 bg-card dark:bg-[#1A2A3A] border-[0.5px] border-[#E8E2D9] dark:border-[#2A3A4A]">
+          <div className="w-2 h-2 rounded-full bg-primary animate-amber-pulse mb-4" />
+          <h2 className="font-display text-[20px] leading-[1.4] text-foreground mb-2">Create your first project</h2>
+          <p className="font-ui text-[13px] text-muted-foreground mb-5">Give it a name — you can change it anytime.</p>
+          <input
+            type="text"
+            value={multiProjectName}
+            onChange={(e) => setMultiProjectName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleMultiProjectStart(); }}
+            placeholder="e.g. Acme Co. — Spring campaign"
+            className="w-full h-11 rounded-lg px-4 bg-muted/30 dark:bg-[#1E3040] border-[0.5px] border-border dark:border-[#2A3A4A] text-[14px] font-ui text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 mb-4"
+            autoFocus
+          />
+          <button
+            onClick={handleMultiProjectStart}
+            className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-[14px] hover:bg-primary/90 transition-colors"
+          >
+            Start
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Brand-new user (zero projects) — auto-init is in flight, show loading
+  // instead of the cold empty state. The auto-init effect will create a
+  // project and either open the stage picker or drop into the conversation.
+  if (!currentActiveBrand && !isLoading && realBrands.length === 0) {
+    return (
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <div className="text-muted-foreground text-sm">Setting up your project...</div>
+      </div>
+    );
+  }
+
+  // Existing user with projects but none selected — show the standard CTA
   if (!currentActiveBrand && !isLoading) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center px-4">
         <div className="w-[90%] max-w-[560px] rounded-2xl p-8 bg-card dark:bg-[#1A2A3A] border-[0.5px] border-[#E8E2D9] dark:border-[#2A3A4A]">
           <div className="w-2 h-2 rounded-full bg-primary animate-amber-pulse mb-4" />
-          <p className="font-display text-[18px] leading-[1.7] text-foreground mb-2">No project selected — start by creating your first project</p>
+          <p className="font-display text-[18px] leading-[1.7] text-foreground mb-2">No project selected — pick one or create a new one</p>
           <div className="my-6 h-px bg-border dark:border-[#2A3A4A] w-full" style={{ height: "0.5px" }} />
           <div className="flex gap-3">
             <button
@@ -1875,12 +1914,6 @@ Be selective — only mark significant shifts, not minor tangents.`,
               onClick={handleAddBrand}
             >
               + New Project
-            </button>
-            <button
-              className="flex-1 h-12 rounded-lg border border-primary text-primary font-semibold text-[15px] hover:bg-primary/10 transition-colors"
-              onClick={handleAddBrand}
-            >
-              Try Demo
             </button>
           </div>
         </div>
