@@ -570,14 +570,19 @@ const Mentor = () => {
 
   const getDNAContext = useCallback(() => {
     const data = brandDataMap[activeBrandId];
-    if (!data) return {};
     const fieldMap: Record<string, string> = {};
-    for (const f of data.dnaFields) {
-      const key = f.key.toLowerCase().replace(/\s+/g, "_");
-      fieldMap[key] = f.value || "Not yet defined";
+    if (data) {
+      for (const f of data.dnaFields) {
+        const key = f.key.toLowerCase().replace(/\s+/g, "_");
+        fieldMap[key] = f.value || "Not yet defined";
+      }
     }
+    // Pass user's onboarding brand_status as context so the mentor can
+    // tailor opener / tone (in_progress / have_idea / exploring / multiple_projects).
+    if (profile?.brand_status) fieldMap.brand_status = profile.brand_status;
     return fieldMap;
-  }, [activeBrandId, brandDataMap]);
+  }, [activeBrandId, brandDataMap, profile?.brand_status]);
+
 
   // ─── Persist a DNA field to Supabase ─────────────────────────────────────
 
