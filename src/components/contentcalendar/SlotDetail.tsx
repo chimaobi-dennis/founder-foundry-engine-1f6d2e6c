@@ -99,7 +99,7 @@ export function SlotDetail({ slot, onClose, onChanged }: SlotDetailProps) {
 
   const handleOpenStudio = () => {
     if (!briefIdState) {
-      toast.info("This entry isn't linked to a brief");
+      toast.error("Could not open in Studio — brief not found");
       return;
     }
     navigate(`/content-studio/${briefIdState}`);
