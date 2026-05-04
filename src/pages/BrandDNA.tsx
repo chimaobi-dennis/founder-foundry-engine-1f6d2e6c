@@ -187,7 +187,7 @@ const BrandDNA = () => {
 
     Promise.all([
       getFullBrandProfile(activeBrand.id),
-      user ? getMilestones(user.id, activeBrand.id) : Promise.resolve([]),
+      getMilestones(activeBrand.id),
     ])
       .then(([p, ms]) => {
         if (cancelled) return;
