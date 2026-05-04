@@ -8,6 +8,7 @@ import { ReelStoryboard } from "@/components/reelbuilder/ReelStoryboard";
 export type ReelPlatform = "Instagram Reels" | "TikTok" | "YouTube Shorts" | "Facebook Reels";
 
 const ReelBuilder = () => {
+  useBrandUrlSync("/reel-builder");
   const { activeBrand } = useBrand();
   const [state, setState] = useState<"home" | "brief" | "storyboard">("home");
   const [loading, setLoading] = useState(false);
