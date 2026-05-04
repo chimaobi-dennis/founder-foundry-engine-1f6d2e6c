@@ -59,46 +59,49 @@ export default function Onboarding() {
   const [slideDir, setSlideDir] = useState<"right" | "left">("right");
   const [animating, setAnimating] = useState(false);
 
+  const finishFlow = async (finalAnswers: string[]) => {
+    if (user) {
+      await supabase
+        .from("profiles")
+        .update({
+          profession: finalAnswers[0],
+          brand_status: finalAnswers[1],
+          team_size: finalAnswers[2],
+          onboarding_completed: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+    }
+    setCompleted(true);
+    setTimeout(() => {
+      const bs = finalAnswers[1];
+      if (bs === "just_an_idea" || bs === "early_stage") {
+        navigate("/mentor?mode=idea");
+      } else {
+        navigate("/mentor?mode=brand");
+      }
+    }, 1500);
+  };
+
   const selectOption = (value: string) => {
+    if (animating) return;
     const next = [...answers];
     next[currentStep] = value;
     setAnswers(next);
-  };
 
-  const handleContinue = async () => {
-    if (!answers[currentStep]) return;
-
-    if (currentStep < 2) {
-      setSlideDir("right");
-      setAnimating(true);
-      setTimeout(() => {
-        setCurrentStep(currentStep + 1);
-        setAnimating(false);
-      }, 250);
-    } else {
-      // Final step — save and show completion
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({
-            profession: answers[0],
-            brand_status: answers[1],
-            team_size: answers[2],
-            onboarding_completed: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id);
+    // Brief delay so user sees selection register, then advance
+    setTimeout(() => {
+      if (currentStep < 2) {
+        setSlideDir("right");
+        setAnimating(true);
+        setTimeout(() => {
+          setCurrentStep((s) => s + 1);
+          setAnimating(false);
+        }, 250);
+      } else {
+        finishFlow(next);
       }
-      setCompleted(true);
-      setTimeout(() => {
-        const bs = answers[1];
-        if (bs === "just_an_idea" || bs === "early_stage") {
-          navigate("/mentor?mode=idea");
-        } else {
-          navigate("/mentor?mode=brand");
-        }
-      }, 1500);
-    }
+    }, 150);
   };
 
   const handleBack = () => {
