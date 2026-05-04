@@ -25,6 +25,7 @@ const FILTER_MAP: Record<string, AssetFilter> = {
 };
 
 const Library = () => {
+  useBrandUrlSync("/library");
   const { activeBrand } = useBrand();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
