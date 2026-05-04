@@ -1,14 +1,13 @@
 import { useBrand } from "@/contexts/BrandContext";
 import { ChevronDown, Check, Plus } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export function BrandContextBar() {
   const { brands, activeBrand, switchBrand, createNewBrand, isLoading } = useBrand();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -84,7 +83,10 @@ export function BrandContextBar() {
             {brands.map((brand) => (
               <button
                 key={brand.id}
-                onClick={() => handleSwitchBrand(brand.id)}
+                onClick={async () => { 
+                  await switchBrand(brand.id); 
+                  setOpen(false); 
+                }}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-ui text-foreground hover:bg-muted/50 transition-colors duration-200"
               >
                 <div 

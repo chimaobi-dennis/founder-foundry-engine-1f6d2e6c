@@ -3,36 +3,27 @@ import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
 import { NavigationProgress } from "./NavigationProgress";
+import { useBrand } from "@/hooks/use-brand";
 
-const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
+const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder"];
 
 const fullHeightPaths = ["/mentor", "/content-calendar"];
 
 export function Layout() {
   const location = useLocation();
+  const { brands } = useBrand();
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+  const lastSegment = pathSegments[pathSegments.length - 1];
+  const isContentStudioBrandRoute = location.pathname.startsWith("/content-studio/") && brands.some((brand) => brand.id === lastSegment);
   const isEditorRoute =
     location.pathname === "/pro-studio/editor" ||
-    (location.pathname.startsWith("/content-studio/") && location.pathname !== "/content-studio/new");
+    location.pathname.startsWith("/content-studio/");
   const isContentStudioListRoute =
     location.pathname === "/content-studio" ||
-    location.pathname === "/content-studio/new" ||
-    (location.pathname.startsWith("/content-studio/") && !isEditorRoute);
+    location.pathname === "/content-studio/new";
   const isContentStudioEditor =
     location.pathname.startsWith("/content-studio/") && !isContentStudioListRoute;
-  
-  // Check if current path matches any module path (with or without brandId suffix)
-  const showBrandBar = modulePaths.some(path => {
-    if (location.pathname === path) return true;
-    if (location.pathname.startsWith(path + "/")) {
-      // Check if the next segment is a brandId (not a sub-route like "editor")
-      const remainingPath = location.pathname.slice(path.length + 1);
-      // Don't show for known sub-routes
-      const knownSubRoutes = ["editor", "new"];
-      return !knownSubRoutes.some(sub => remainingPath.startsWith(sub));
-    }
-    return false;
-  }) && !isEditorRoute;
-  
+  const showBrandBar = modulePaths.includes(location.pathname) && !isEditorRoute;
   const isFullHeight = fullHeightPaths.includes(location.pathname) || isEditorRoute;
 
   return (

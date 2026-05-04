@@ -24,6 +24,8 @@ const routeTitles: Record<string, string> = {
   "/brand-dna": "Brand DNA",
 };
 
+const BRAND_SCOPED_BASES = new Set(["mentor", "pro-studio", "content-studio", "content-calendar", "doc-studio", "reel-builder", "library", "brand-dna"]);
+
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -263,9 +265,14 @@ export function TopBar() {
                       key={brand.id}
                       onClick={async () => {
                         await switchBrand(brand.id);
-                        const brandScoped = ["/content-calendar", "/doc-studio", "/reel-builder", "/library", "/brand-dna"];
-                        const match = brandScoped.find((p) => location.pathname === p || location.pathname.startsWith(p + "/"));
-                        if (match) navigate(`${match}/${brand.id}`);
+                        const pathSegments = location.pathname.split('/');
+                        const moduleKey = pathSegments[1];
+                        const currentLast = pathSegments[pathSegments.length - 1];
+                        const lastIsBrand = brands.some((b) => b.id === currentLast);
+                        if (BRAND_SCOPED_BASES.has(moduleKey) && pathSegments.length >= 3 && lastIsBrand) {
+                          pathSegments[pathSegments.length - 1] = brand.id;
+                          navigate(`${pathSegments.join('/')}${location.search}`, { replace: true });
+                        }
                         setDropdownOpen(false);
                       }}
                       className="w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-[13px] font-ui text-foreground hover:bg-muted/50 transition-colors duration-200"
