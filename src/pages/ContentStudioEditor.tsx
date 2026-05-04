@@ -65,6 +65,7 @@ export default function ContentStudioEditor() {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [scheduleMode, setScheduleMode] = useState<"new" | "reschedule">("new");
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [approveAllModalOpen, setApproveAllModalOpen] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   const load = async () => {
