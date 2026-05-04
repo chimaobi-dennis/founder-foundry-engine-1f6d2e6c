@@ -3,25 +3,15 @@ import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
 import { NavigationProgress } from "./NavigationProgress";
-import { useBrand } from "@/hooks/use-brand";
 
-<<<<<<< HEAD
-const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
-=======
 const modulePaths = ["/mentor", "/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
->>>>>>> 19918c53fb06d8455b3131bb452c2632e4171d72
 
 const fullHeightPaths = ["/mentor", "/content-calendar"];
 
 export function Layout() {
   const location = useLocation();
-  const { brands } = useBrand();
-  const pathSegments = location.pathname.split("/").filter(Boolean);
-  const lastSegment = pathSegments[pathSegments.length - 1];
-  const isContentStudioBrandRoute = location.pathname.startsWith("/content-studio/") && brands.some((brand) => brand.id === lastSegment);
   const isEditorRoute =
     location.pathname === "/pro-studio/editor" ||
-<<<<<<< HEAD
     (location.pathname.startsWith("/content-studio/") && location.pathname !== "/content-studio/new");
   const isContentStudioListRoute =
     location.pathname === "/content-studio" ||
@@ -44,17 +34,6 @@ export function Layout() {
   }) && !isEditorRoute;
   
   const isFullHeight = fullHeightPaths.includes(location.pathname) || isEditorRoute;
-=======
-    (location.pathname.startsWith("/content-studio/") && !isContentStudioBrandRoute);
-  const isContentStudioListRoute =
-    location.pathname === "/content-studio" ||
-    location.pathname === "/content-studio/new" ||
-    isContentStudioBrandRoute;
-  const isContentStudioEditor =
-    location.pathname.startsWith("/content-studio/") && !isContentStudioListRoute;
-  const showBrandBar = modulePaths.some((path) => location.pathname === path || location.pathname.startsWith(path + "/")) && !isEditorRoute;
-  const isFullHeight = fullHeightPaths.some((path) => location.pathname === path || location.pathname.startsWith(path + "/")) || isEditorRoute;
->>>>>>> 19918c53fb06d8455b3131bb452c2632e4171d72
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
