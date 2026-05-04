@@ -164,10 +164,9 @@ export function StudioEditor({
   allApproved,
 }: Props) {
   const { theme } = useTheme();
-  // For now we always render the sample template; once AI generation is wired
-  // we'll prefer variationHtml when present.
+  // Render the generated HTML; loading state is handled by parent component
   const html = useMemo(
-    () => variationHtml && variationHtml.includes("data-element") ? variationHtml : SAMPLE_TEMPLATE_HTML,
+    () => variationHtml || "",
     [variationHtml],
   );
 
