@@ -27,17 +27,17 @@ export function ContentStudioGenerationStrip({
   regenerating,
 }: Props) {
   const generatingCount = canvases.filter((c) => c.status === "generating").length;
+  const failedCount = canvases.filter((c) => c.status === "failed").length;
+  const readyCount = canvases.filter(
+    (c) => c.status === "ready" || c.status === "approved" || c.status === "scheduled" || c.isApproved,
+  ).length;
   const total = canvases.length;
   const active = canvases.find((c) => c.id === activeCanvasId) || null;
 
-  // Distinguish "single regen" from "full generation":
-  //  - single  → user clicked Regenerate (regenerating=true) OR exactly one
-  //              canvas is in `generating` state.
-  //  - full    → multiple canvases generating at once.
   const isSingle =
     regenerating || (generatingCount === 1 && total > 1 ? true : generatingCount === 1);
   const isFull = generatingCount > 1;
-  const visible = isFull || regenerating || generatingCount > 0;
+  const visible = isFull || regenerating || generatingCount > 0 || failedCount > 0;
 
   // ---- Single-regen time-based animation ----
   const [singlePct, setSinglePct] = useState(0);
