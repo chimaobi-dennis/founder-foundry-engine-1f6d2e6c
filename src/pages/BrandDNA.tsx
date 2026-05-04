@@ -287,11 +287,11 @@ const BrandDNA = () => {
     );
   }
 
-  const brand = profile.brand;
+  const brand = profile.brand as any;
   const dna = profile.dna || ({} as any);
   const subtitle = [brand.industry, brand.location].filter(Boolean).join(" · ") || "Add an industry in Mentor";
   const completeness = brand.completeness_score ?? 0;
-  const lastUpdatedRel = formatRelative(brand.journey_stage_updated_at as any) || "—";
+  const lastUpdatedRel = formatRelative(brand.journey_stage_updated_at) || "—";
 
   // ─── Empty state ───
   if (!hasAnyData) {
