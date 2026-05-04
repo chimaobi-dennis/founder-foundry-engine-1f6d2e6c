@@ -485,22 +485,65 @@ const Mentor = () => {
     }, 300);
   }, [activeBrandId, refreshBrands, refreshBrandDNA]);
 
-  // ─── Handle CTA query param (idea / brand mode) ───────────────────────────
+  // ─── First-launch auto-init based on profile.brand_status ────────────────
+  // When the user has zero projects, branch the first Mentor experience based
+  // on what they answered in onboarding. We never show the cold empty state
+  // to a brand-new user who just completed onboarding.
 
   useEffect(() => {
-    const mode = searchParams.get("mode") as MentorMode;
-    if (mode === "idea" || mode === "brand") {
-      const init = async () => {
-        const newBrand = await createNewBrand("Untitled Project");
-        if (newBrand) {
-          setEmptyBrands(prev => ({ ...prev, [newBrand.id]: mode }));
-        }
-        setSearchParams({}, { replace: true });
-      };
-      init();
+    if (autoInitDone) return;
+    if (isLoading) return;
+    if (!profile) return;
+    if (realBrands.length > 0) {
+      // User already has projects — let the standard flow handle it.
+      // Clear any stale ?mode= from the URL so it does not retrigger.
+      if (searchParams.get("mode")) setSearchParams({}, { replace: true });
+      setAutoInitDone(true);
+      return;
     }
+
+    const status = profile.brand_status;
+    setAutoInitBrandStatus(status);
+    setAutoInitDone(true);
+    // Clear ?mode= param — we use brand_status instead
+    if (searchParams.get("mode")) setSearchParams({}, { replace: true });
+
+    const run = async () => {
+      if (status === "multiple_projects") {
+        // Show name-input prompt before creating
+        setShowMultiProjectPrompt(true);
+        return;
+      }
+
+      const newBrand = await createNewBrand("Untitled Project");
+      if (!newBrand) return;
+
+      if (status === "in_progress") {
+        // Show the stage picker modal — picks up where they left off
+        setShowOnboarding(true);
+      } else {
+        // 'have_idea', 'exploring' or null — skip stage picker entirely.
+        // Auto-set the project to 'spark' via markFreshStart and drop straight
+        // into the Mentor conversation.
+        await markFreshStart(newBrand.id);
+        const mode: MentorMode = status === "have_idea" ? "idea" : "new";
+        setEmptyBrands(prev => ({ ...prev, [newBrand.id]: mode }));
+        await refreshBrands();
+      }
+    };
+    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isLoading, profile, realBrands.length, autoInitDone]);
+
+  const handleMultiProjectStart = async () => {
+    const name = multiProjectName.trim() || "Untitled Project";
+    const newBrand = await createNewBrand(name);
+    setShowMultiProjectPrompt(false);
+    if (newBrand) {
+      setShowOnboarding(true);
+    }
+  };
+
 
   const activeBrandData = brandDataMap[activeBrandId] || null;
   const activeEmptyMode = emptyBrands[activeBrandId] || null;
