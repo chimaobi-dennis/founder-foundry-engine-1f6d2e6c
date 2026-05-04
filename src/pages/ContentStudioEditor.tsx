@@ -120,7 +120,7 @@ export default function ContentStudioEditor() {
     const stillBuilding =
       brief?.status === "generating" ||
       creatives.length < expectedTotal ||
-      creatives.some((c) => c.status === "generating" || !c.visual_html);
+      creatives.some((c) => c.status === "generating");
     if (!stillBuilding) {
       if (pollRef.current) {
         clearInterval(pollRef.current);
