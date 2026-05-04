@@ -195,14 +195,38 @@ export function CopyPanel({
           )}
           Regenerate visual
         </button>
-        <button
-          onClick={onApproveClick}
-          disabled={canvas.status !== "ready" || isApproved}
-          className="w-full h-10 rounded-md bg-primary text-primary-foreground text-[13px] font-ui font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-        >
-          <CalendarPlus size={14} />
-          {isApproved ? "Approved" : "Approve & Schedule"}
-        </button>
+        {schedule ? (
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-[12px] font-ui text-muted-foreground">
+              <CalendarIcon size={13} className="text-primary" />
+              <span>Scheduled for {formatScheduleLabel(schedule)}</span>
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <button
+                onClick={onReschedule}
+                className="text-[11px] font-ui text-primary hover:underline"
+              >
+                Reschedule
+              </button>
+              <span className="text-muted-foreground/40">·</span>
+              <button
+                onClick={onRemoveSchedule}
+                className="text-[11px] font-ui text-muted-foreground hover:text-destructive transition-colors"
+              >
+                Remove from calendar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={onApproveClick}
+            disabled={canvas.status !== "ready"}
+            className="w-full h-10 rounded-md bg-primary text-primary-foreground text-[13px] font-ui font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            <CalendarPlus size={14} />
+            Approve & Schedule
+          </button>
+        )}
       </div>
     </div>
   );
