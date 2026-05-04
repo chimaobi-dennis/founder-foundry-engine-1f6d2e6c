@@ -158,6 +158,7 @@ const BrandDNA = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { activeBrand, brands, switchBrand } = useBrand();
+  useBrandUrlSync("/brand-dna");
 
   const [profile, setProfile] = useState<FullBrandProfile | null>(null);
   const [loading, setLoading] = useState(true);
