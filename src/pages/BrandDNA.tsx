@@ -6,6 +6,7 @@ import {
   Sparkles, Film, Calendar, FileText, Lightbulb, AlertCircle
 } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getFullBrandProfile,
