@@ -6,67 +6,56 @@ export interface CalendarAsset {
   platformColor: string;
 }
 
+// "platform" is the canonical platform slug from content_platforms (e.g. "instagram",
+// "facebook_ad", "twitter_x", "linkedin", "tiktok", "whatsapp", "email"). Older code
+// also used display names like "Instagram"; we accept both via platformStyles below.
 export interface CalendarSlot {
   id: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
-  platform: "Instagram" | "Facebook" | "Twitter/X" | "WhatsApp";
+  platform: string;
   title: string;
   copy: string;
-  assetId: string;
+  assetId?: string;
+  // Optional fields populated when this slot maps to a real calendar_post.
+  calendarPostId?: string;
+  briefId?: string;
+  visualThumbUrl?: string | null;
+  visualHtml?: string | null;
+  headline?: string | null;
 }
 
 export const platformStyles: Record<string, { bg: string; text: string; dot: string }> = {
-  Instagram: { bg: "rgba(45,74,62,0.19)", text: "#2D4A3E", dot: "#2D4A3E" },
+  // Slug-based (canonical)
+  instagram: { bg: "rgba(225,48,108,0.13)", text: "#E1306C", dot: "#E1306C" },
+  facebook_ad: { bg: "rgba(24,119,242,0.13)", text: "#1877F2", dot: "#1877F2" },
+  facebook: { bg: "rgba(24,119,242,0.13)", text: "#1877F2", dot: "#1877F2" },
+  twitter_x: { bg: "rgba(138,150,163,0.18)", text: "#8A96A3", dot: "#8A96A3" },
+  linkedin: { bg: "rgba(10,102,194,0.13)", text: "#0A66C2", dot: "#0A66C2" },
+  tiktok: { bg: "rgba(255,99,99,0.15)", text: "#FF6363", dot: "#FF6363" },
+  whatsapp: { bg: "rgba(37,211,102,0.13)", text: "#25D366", dot: "#25D366" },
+  email: { bg: "rgba(212,160,23,0.18)", text: "#D4A017", dot: "#D4A017" },
+  // Legacy display-name fallbacks
+  Instagram: { bg: "rgba(225,48,108,0.13)", text: "#E1306C", dot: "#E1306C" },
   Facebook: { bg: "rgba(24,119,242,0.13)", text: "#1877F2", dot: "#1877F2" },
-  "Twitter/X": { bg: "rgba(29,161,242,0.13)", text: "#1DA1F2", dot: "#1DA1F2" },
+  "Twitter/X": { bg: "rgba(138,150,163,0.18)", text: "#8A96A3", dot: "#8A96A3" },
   WhatsApp: { bg: "rgba(37,211,102,0.13)", text: "#25D366", dot: "#25D366" },
 };
 
-export const calendarAssets: CalendarAsset[] = [
-  { id: "a1", name: "Daily Stack on counter", color: "#2D4A3E", platform: "Instagram", platformColor: "#E1306C" },
-  { id: "a2", name: "Testimonial card", color: "#1A2A3A", platform: "Facebook", platformColor: "#4267B2" },
-  { id: "a3", name: "Feature card", color: "#1A3A38", platform: "General", platformColor: "#6B7280" },
-  { id: "a4", name: "Announcement visual", color: "#1E2E1E", platform: "Instagram", platformColor: "#E1306C" },
-  { id: "a5", name: "Lifestyle scene", color: "#3A4A3E", platform: "Facebook", platformColor: "#4267B2" },
-  { id: "a6", name: "Pricing card", color: "#F5F0E8", platform: "General", platformColor: "#6B7280" },
-];
+export function platformLabel(slug: string): string {
+  const map: Record<string, string> = {
+    instagram: "Instagram",
+    facebook: "Facebook",
+    facebook_ad: "Facebook",
+    twitter_x: "X / Twitter",
+    linkedin: "LinkedIn",
+    tiktok: "TikTok",
+    whatsapp: "WhatsApp",
+    email: "Email",
+  };
+  return map[slug] || slug;
+}
 
-export const defaultSlots: CalendarSlot[] = [
-  {
-    id: "s1",
-    date: "2026-03-17",
-    time: "09:00",
-    platform: "Instagram",
-    title: "Morning ritual",
-    copy: "Morning ritual with Nordform Daily Stack ✦",
-    assetId: "a1",
-  },
-  {
-    id: "s2",
-    date: "2026-03-19",
-    time: "12:00",
-    platform: "Facebook",
-    title: "Customer story",
-    copy: "What our customers actually say about Lion's Mane",
-    assetId: "a2",
-  },
-  {
-    id: "s3",
-    date: "2026-03-21",
-    time: "17:00",
-    platform: "Twitter/X",
-    title: "Ashwagandha science",
-    copy: "The science behind Ashwagandha — honestly explained",
-    assetId: "a3",
-  },
-  {
-    id: "s4",
-    date: "2026-03-24",
-    time: "09:00",
-    platform: "Instagram",
-    title: "Built for Stockholm",
-    copy: "Built for Stockholm professionals",
-    assetId: "a1",
-  },
-];
+// Kept exported for backwards compatibility — no longer rendered anywhere.
+export const calendarAssets: CalendarAsset[] = [];
+export const defaultSlots: CalendarSlot[] = [];

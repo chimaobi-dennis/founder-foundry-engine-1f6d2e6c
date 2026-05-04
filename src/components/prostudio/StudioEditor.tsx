@@ -107,6 +107,14 @@ interface Props {
   regenerating?: boolean;
   /** Approve the active canvas (content-studio mode) */
   onApproveActive?: () => void;
+  /** Schedule info for the active canvas (content-studio mode) */
+  activeSchedule?: { calendarPostId: string; date: string; time: string } | null;
+  onRescheduleActive?: () => void;
+  onRemoveScheduleActive?: () => void;
+  /** Whether bulk approve-all is in progress */
+  approvingAll?: boolean;
+  /** Whether all platforms are approved (controls top button success state) */
+  allApproved?: boolean;
   /** Brief id for content-studio mode (passed to saveCreativeToLibrary) */
   briefId?: string;
 }
@@ -149,6 +157,11 @@ export function StudioEditor({
   onRegenerateVisual,
   regenerating,
   onApproveActive,
+  activeSchedule,
+  onRescheduleActive,
+  onRemoveScheduleActive,
+  approvingAll,
+  allApproved,
 }: Props) {
   const { theme } = useTheme();
   // For now we always render the sample template; once AI generation is wired
@@ -806,9 +819,34 @@ export function StudioEditor({
             {mode === "content-studio" && onApproveAll && (
               <>
                 <div className="w-px h-5 mx-1.5 bg-border" />
-                <ToolbarButton title="Approve all" onClick={onApproveAll}>
-                  <Check size={13} />
-                </ToolbarButton>
+                <button
+                  onClick={onApproveAll}
+                  disabled={approvingAll}
+                  className={cn(
+                    "h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border",
+                    allApproved
+                      ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/40"
+                      : "border-border text-foreground hover:bg-muted",
+                  )}
+                  title={allApproved ? "All approved" : "Approve all"}
+                >
+                  {approvingAll ? (
+                    <>
+                      <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />
+                      Approving…
+                    </>
+                  ) : allApproved ? (
+                    <>
+                      <Check size={13} />
+                      All approved
+                    </>
+                  ) : (
+                    <>
+                      <Check size={13} />
+                      Approve all
+                    </>
+                  )}
+                </button>
               </>
             )}
           </div>
@@ -1206,6 +1244,9 @@ export function StudioEditor({
                   regenerating={regenerating}
                   onApproveClick={onApproveActive}
                   isApproved={!!(canvases.find(c => c.id === activeCanvasId)?.isApproved)}
+                  schedule={activeSchedule}
+                  onReschedule={onRescheduleActive}
+                  onRemoveSchedule={onRemoveScheduleActive}
                 />
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto px-4 pr-4 py-4 space-y-5">

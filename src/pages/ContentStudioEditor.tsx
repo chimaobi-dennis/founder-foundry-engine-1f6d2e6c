@@ -3,12 +3,30 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   getBriefWithCreatives,
   regenerateCreative,
+  approveAllCreatives,
+  scheduleCreative,
+  rescheduleCreative,
+  getScheduledCreative,
+  type CalendarPost,
 } from "@/services/contentStudioService";
+import { deleteCalendarPost } from "@/services/calendarService";
 import { supabase } from "@/integrations/supabase/client";
 import { StudioEditor } from "@/components/prostudio/StudioEditor";
+import { ScheduleModal } from "@/components/prostudio/content-studio/ScheduleModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { CanvasItem } from "@/components/prostudio/CanvasSwitcher";
 
 const db = supabase as any;
@@ -33,12 +51,19 @@ export default function ContentStudioEditor() {
   const { briefId } = useParams<{ briefId: string }>();
   const navigate = useNavigate();
   const { activeBrand } = useBrand();
+  const { user } = useAuth();
   const [brief, setBrief] = useState<any>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [platformsMeta, setPlatformsMeta] = useState<any[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+  const [approvingAll, setApprovingAll] = useState(false);
+  const [allApprovedFlash, setAllApprovedFlash] = useState(false);
+  const [schedulesByCreative, setSchedulesByCreative] = useState<Record<string, CalendarPost | null>>({});
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<"new" | "reschedule">("new");
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   const load = async () => {
@@ -64,9 +89,6 @@ export default function ContentStudioEditor() {
     load();
   }, [briefId]);
 
-  // Fetch platform metadata for selected_platform_ids so we can show
-  // placeholder canvases (with proper dimensions + names) the instant the
-  // editor mounts — before any content_studio_creatives rows exist.
   useEffect(() => {
     const ids: string[] = brief?.selected_platform_ids || [];
     if (!ids.length) return;
@@ -84,7 +106,6 @@ export default function ContentStudioEditor() {
     };
   }, [brief?.selected_platform_ids?.join("|")]);
 
-  // Poll while initial generation is in progress OR any creative is generating.
   useEffect(() => {
     const expectedTotal = brief?.selected_platform_ids?.length ?? 0;
     const stillBuilding =
@@ -108,9 +129,6 @@ export default function ContentStudioEditor() {
     };
   }, [brief?.status, brief?.selected_platform_ids?.length, creatives]);
 
-  // Map selected platforms → canvases. Use real creative when present,
-  // otherwise a placeholder in `generating` state so the loading UI shows
-  // immediately on mount.
   const canvases: CanvasItem[] = useMemo(() => {
     const byPlatform = new Map<string, Creative>();
     creatives.forEach((c) => byPlatform.set(c.platform_id, c));
@@ -141,7 +159,6 @@ export default function ContentStudioEditor() {
           isApproved: !!c.is_approved,
         };
       }
-      // Placeholder while generation is in flight.
       return {
         id: `${PLACEHOLDER_PREFIX}${p.id}`,
         html: null,
@@ -161,7 +178,6 @@ export default function ContentStudioEditor() {
     });
   }, [creatives, platformsMeta]);
 
-  // Default selection + reconcile when a placeholder gets replaced by a real creative.
   useEffect(() => {
     if (!canvases.length) return;
     if (!activeId) {
@@ -177,12 +193,38 @@ export default function ContentStudioEditor() {
     }
   }, [canvases, activeId, creatives]);
 
+  // Fetch schedule info for the active creative when it changes.
+  useEffect(() => {
+    if (!activeId || activeId.startsWith(PLACEHOLDER_PREFIX)) return;
+    if (schedulesByCreative[activeId] !== undefined) return;
+    let cancelled = false;
+    (async () => {
+      const post = await getScheduledCreative(activeId);
+      if (!cancelled) {
+        setSchedulesByCreative((prev) => ({ ...prev, [activeId]: post }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId]);
+
   const active = creatives.find((c) => c.id === activeId) || null;
-  const totalCount =
-    brief?.selected_platform_ids?.length ?? canvases.length;
+  const totalCount = brief?.selected_platform_ids?.length ?? canvases.length;
   const readyCount = creatives.filter(
     (c) => c.status === "ready" && !!c.visual_html
   ).length;
+  const allApproved =
+    creatives.length > 0 &&
+    creatives.every((c) => c.is_approved === true || c.status === "scheduled");
+  const activeSchedulePost = activeId ? schedulesByCreative[activeId] : null;
+  const activeSchedule = activeSchedulePost
+    ? {
+        calendarPostId: activeSchedulePost.id,
+        date: activeSchedulePost.scheduled_date,
+        time: (activeSchedulePost.scheduled_time || "").slice(0, 5),
+      }
+    : null;
 
   const updateCreativeLocal = (id: string, patch: Partial<Creative>) => {
     setCreatives((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -206,14 +248,98 @@ export default function ContentStudioEditor() {
     }
   };
 
-  const handleApprove = async () => {
-    if (!active) return;
+  const handleApproveAll = async () => {
+    if (!briefId) return;
+    setApprovingAll(true);
     try {
-      await db.from("content_studio_creatives").update({ is_approved: true }).eq("id", active.id);
-      updateCreativeLocal(active.id, { is_approved: true });
-      toast.success("Creative approved");
+      await approveAllCreatives(briefId);
+      setCreatives((prev) =>
+        prev.map((c) =>
+          c.status === "ready" ? { ...c, is_approved: true, status: "approved" } : c
+        )
+      );
+      toast.success("All platforms approved");
+      setAllApprovedFlash(true);
+      setTimeout(() => setAllApprovedFlash(false), 2000);
     } catch (e: any) {
-      toast.error(e.message || "Failed to approve");
+      toast.error(e.message || "Failed to approve all");
+    } finally {
+      setApprovingAll(false);
+    }
+  };
+
+  const handleApproveActive = () => {
+    if (!active || activeSchedule) return;
+    setScheduleMode("new");
+    setScheduleModalOpen(true);
+  };
+
+  const handleReschedule = () => {
+    if (!activeSchedule) return;
+    setScheduleMode("reschedule");
+    setScheduleModalOpen(true);
+  };
+
+  const handleScheduleConfirm = async (date: string, time: string) => {
+    if (!active || !activeBrand?.id || !user?.id || !briefId) return;
+    try {
+      if (scheduleMode === "reschedule" && activeSchedule) {
+        await rescheduleCreative(activeSchedule.calendarPostId, date, time);
+        const updated: CalendarPost = {
+          ...(activeSchedulePost as CalendarPost),
+          scheduled_date: date,
+          scheduled_time: time,
+        };
+        setSchedulesByCreative((prev) => ({ ...prev, [active.id]: updated }));
+        toast.success(`Rescheduled to ${date} at ${time}`);
+      } else {
+        const platformSlug = active.content_platforms?.slug;
+        const post = await scheduleCreative({
+          creativeId: active.id,
+          briefId,
+          brandId: activeBrand.id,
+          userId: user.id,
+          platformSlug,
+          scheduledDate: date,
+          scheduledTime: time,
+          copyText: active.copy_text || undefined,
+          headline: active.headline || undefined,
+          visualHtml: active.visual_html || undefined,
+        });
+        setSchedulesByCreative((prev) => ({ ...prev, [active.id]: post }));
+        updateCreativeLocal(active.id, {
+          is_approved: true,
+          status: "scheduled",
+          scheduled_at: `${date} ${time}`,
+        });
+        toast.success(`Scheduled for ${date} at ${time}`);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to schedule");
+      throw e;
+    }
+  };
+
+  const handleRemoveSchedule = () => {
+    if (!activeSchedule) return;
+    setRemoveConfirmOpen(true);
+  };
+
+  const confirmRemoveSchedule = async () => {
+    if (!activeSchedule || !active) return;
+    try {
+      await deleteCalendarPost(activeSchedule.calendarPostId);
+      setSchedulesByCreative((prev) => ({ ...prev, [active.id]: null }));
+      updateCreativeLocal(active.id, {
+        is_approved: true,
+        status: "approved",
+        scheduled_at: null,
+      });
+      toast.success("Removed from calendar");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to remove");
+    } finally {
+      setRemoveConfirmOpen(false);
     }
   };
 
@@ -254,26 +380,66 @@ export default function ContentStudioEditor() {
     );
   }
 
+  const activePlatformName = active?.content_platforms?.name || "Platform";
+
   return (
-    <StudioEditor
-      open={true}
-      onClose={() => navigate("/content-studio")}
-      templateName={brief.name}
-      variationHtml={active?.visual_html || null}
-      variationId={activeId || ""}
-      brandId={activeBrand?.id}
-      mode="content-studio"
-      briefName={brief.name}
-      readyCount={readyCount}
-      totalCount={totalCount}
-      canvases={canvases}
-      activeCanvasId={activeId}
-      onSelectCanvas={setActiveId}
-      onSaveCreative={handleSaveCreative}
-      onRegenerateVisual={handleRegenerateVisual}
-      regenerating={regenerating}
-      onApproveActive={handleApprove}
-      onApproveAll={() => toast.info("Bulk approve coming soon")}
-    />
+    <>
+      <StudioEditor
+        open={true}
+        onClose={() => navigate("/content-studio")}
+        templateName={brief.name}
+        variationHtml={active?.visual_html || null}
+        variationId={activeId || ""}
+        brandId={activeBrand?.id}
+        mode="content-studio"
+        briefName={brief.name}
+        readyCount={readyCount}
+        totalCount={totalCount}
+        canvases={canvases}
+        activeCanvasId={activeId}
+        onSelectCanvas={setActiveId}
+        onSaveCreative={handleSaveCreative}
+        onRegenerateVisual={handleRegenerateVisual}
+        regenerating={regenerating}
+        onApproveActive={handleApproveActive}
+        activeSchedule={activeSchedule}
+        onRescheduleActive={handleReschedule}
+        onRemoveScheduleActive={handleRemoveSchedule}
+        onApproveAll={handleApproveAll}
+        approvingAll={approvingAll}
+        allApproved={allApprovedFlash || allApproved}
+      />
+
+      <ScheduleModal
+        open={scheduleModalOpen}
+        onOpenChange={setScheduleModalOpen}
+        platformName={activePlatformName}
+        initialDate={scheduleMode === "reschedule" ? activeSchedule?.date : undefined}
+        initialTime={scheduleMode === "reschedule" ? activeSchedule?.time : undefined}
+        onConfirm={handleScheduleConfirm}
+        confirmLabel={scheduleMode === "reschedule" ? "Reschedule" : "Schedule"}
+      />
+
+      <AlertDialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this from the calendar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The scheduled post will be removed from your calendar. You can
+              schedule it again at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveSchedule}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
