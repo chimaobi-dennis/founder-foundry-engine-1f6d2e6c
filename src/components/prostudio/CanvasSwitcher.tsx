@@ -348,6 +348,17 @@ function ThumbShimmer() {
   );
 }
 
+function ThumbFailed() {
+  return (
+    <div className="relative w-full h-full flex items-center justify-center" style={{ background: "#1A2A3A" }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E05C5C" strokeWidth="2" strokeLinecap="round">
+        <line x1="6" y1="6" x2="18" y2="18" />
+        <line x1="18" y1="6" x2="6" y2="18" />
+      </svg>
+    </div>
+  );
+}
+
 function StatusDot({ status, approved }: { status: string; approved?: boolean }) {
   if (approved) return <Check size={10} className="text-emerald-500" />;
   if (status === "generating")
@@ -355,6 +366,6 @@ function StatusDot({ status, approved }: { status: string; approved?: boolean })
   if (status === "ready")
     return <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />;
   if (status === "failed")
-    return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
+    return <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#E05C5C" }} />;
   return <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />;
 }
