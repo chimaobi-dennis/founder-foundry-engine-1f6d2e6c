@@ -111,8 +111,11 @@ export function TopBar() {
   const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const email = user?.email || '';
 
-  const titleKey = routeTitles[location.pathname] || "Home";
-  const title = titleKey === "greeting" ? `${getGreeting()}, ${fullName.split(' ')[0]}` : titleKey;
+  const titleKey = Object.keys(routeTitles).find((p) =>
+    p === "/" ? location.pathname === "/" : location.pathname === p || location.pathname.startsWith(p + "/")
+  );
+  const resolvedTitle = titleKey ? routeTitles[titleKey] : "Home";
+  const title = resolvedTitle === "greeting" ? `${getGreeting()}, ${fullName.split(' ')[0]}` : resolvedTitle;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
