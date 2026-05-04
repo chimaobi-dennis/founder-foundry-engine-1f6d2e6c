@@ -60,6 +60,7 @@ export interface FullBrandProfile {
   dna: BrandDNA | null;
   stageData: Record<string, StageData>;
   milestoneCountByStage: Record<string, number>;
+  overallCompletion: number;
 }
 
 // ─── Get Full Brand Profile ────────────────────────────────────
@@ -199,11 +200,31 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       milestoneCountByStage[stage.stage_key] = milestones?.filter(m => m.stage_key === stage.stage_key).length || 0;
     });
 
+    // 9. Calculate overall profile completeness across all stages
+    const totalFieldsAllStages = stageFields?.length || 0;
+    const capturedFieldsAllStages = stageDataRows?.filter(row => 
+      row.value && row.value.trim() !== ''
+    ).length || 0;
+    
+    const overallCompletion = totalFieldsAllStages > 0 
+      ? Math.round((capturedFieldsAllStages / totalFieldsAllStages) * 100) 
+      : 0;
+
+    console.log('[getFullBrandProfile] Overall completion:', overallCompletion, 
+                `(${capturedFieldsAllStages}/${totalFieldsAllStages} fields)`);
+
+    // 10. Update brands.completeness_score in the database
+    await db
+      .from('brands')
+      .update({ completeness_score: overallCompletion })
+      .eq('id', brandId);
+
     const profile: FullBrandProfile = {
       brand,
       dna,
       stageData: stageDataMap,
       milestoneCountByStage,
+      overallCompletion,
     };
 
     console.log('[getFullBrandProfile] Profile fetched successfully');
