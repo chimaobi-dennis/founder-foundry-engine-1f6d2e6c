@@ -86,14 +86,24 @@ export function ContentStudioGenerationStrip({
     const done = total - generatingCount;
     label = `Generating ${done + 1} of ${total} platforms…`;
     pct = total ? (done / total) * 100 : 0;
-  } else if (visible) {
+  } else if (generatingCount > 0 || regenerating) {
     const name = active?.label || "platform";
     label = `Regenerating ${name} visual…`;
     pct = singlePct;
+  } else if (failedCount > 0) {
+    // Generation finished but some platforms failed
+    pct = 100;
+    label = `${readyCount} ready · ${failedCount} failed`;
+  }
+  // If multiple states present and we're in "full" mode, surface a richer summary.
+  if (isFull && failedCount > 0) {
+    label = `${readyCount} ready · ${failedCount} failed · ${generatingCount} generating`;
   }
   if (snapFull) pct = 100;
 
   const showStrip = visible || snapFull;
+  const failedPct = total ? (failedCount / total) * 100 : 0;
+  const hasFailed = failedCount > 0;
 
   return (
     <div
@@ -112,18 +122,29 @@ export function ContentStudioGenerationStrip({
         className="absolute inset-y-0 left-0"
         style={{
           width: `${pct}%`,
-          background:
-            "linear-gradient(90deg, rgba(212,160,23,0.18), rgba(212,160,23,0.32))",
+          background: hasFailed
+            ? "linear-gradient(90deg, rgba(224,92,92,0.18), rgba(224,92,92,0.32))"
+            : "linear-gradient(90deg, rgba(212,160,23,0.18), rgba(212,160,23,0.32))",
           transition: "width 220ms ease",
         }}
       />
+      {/* Red overlay portion for failed share */}
+      {hasFailed && (
+        <div
+          className="absolute inset-y-0 right-0"
+          style={{
+            width: `${failedPct}%`,
+            background: "linear-gradient(90deg, rgba(224,92,92,0.25), rgba(224,92,92,0.4))",
+          }}
+        />
+      )}
       {/* Top hairline accent */}
       <div
         className="absolute top-0 left-0 h-[2px]"
         style={{
           width: `${pct}%`,
-          background: "#D4A017",
-          boxShadow: "0 0 8px rgba(212,160,23,0.6)",
+          background: hasFailed ? "#E05C5C" : "#D4A017",
+          boxShadow: hasFailed ? "0 0 8px rgba(224,92,92,0.6)" : "0 0 8px rgba(212,160,23,0.6)",
           transition: "width 220ms ease",
         }}
       />
@@ -131,17 +152,22 @@ export function ContentStudioGenerationStrip({
         <span
           className="w-1.5 h-1.5 rounded-full flex-shrink-0"
           style={{
-            background: "#D4A017",
-            boxShadow: "0 0 6px rgba(212,160,23,0.7)",
-            animation: pct < 100 ? "pulse 1.4s ease-in-out infinite" : undefined,
+            background: hasFailed ? "#E05C5C" : "#D4A017",
+            boxShadow: hasFailed ? "0 0 6px rgba(224,92,92,0.7)" : "0 0 6px rgba(212,160,23,0.7)",
+            animation: pct < 100 && !hasFailed ? "pulse 1.4s ease-in-out infinite" : undefined,
           }}
         />
-        <span className="text-[11px] font-ui text-foreground tracking-wide truncate">
+        <span
+          className="text-[11px] font-ui tracking-wide truncate"
+          style={{ color: hasFailed && generatingCount === 0 ? "#E05C5C" : "hsl(var(--foreground))" }}
+        >
           {label}
         </span>
-        <span className="text-[10px] font-ui text-muted-foreground tabular-nums">
-          {Math.round(pct)}%
-        </span>
+        {generatingCount > 0 && (
+          <span className="text-[10px] font-ui text-muted-foreground tabular-nums">
+            {Math.round(pct)}%
+          </span>
+        )}
       </div>
     </div>
   );
