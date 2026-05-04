@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { DocHome } from "@/components/docstudio/DocHome";
 import { DocBrief } from "@/components/docstudio/DocBrief";
 import { DocPreview } from "@/components/docstudio/DocPreview";
@@ -15,6 +16,7 @@ export type DocType =
   | "Partnership Proposal";
 
 const DocStudio = () => {
+  useBrandUrlSync("/doc-studio");
   const { activeBrand } = useBrand();
   const [state, setState] = useState<"home" | "brief" | "preview">("home");
   const [selectedType, setSelectedType] = useState<DocType>("One-Pager");

@@ -111,8 +111,11 @@ export function TopBar() {
   const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const email = user?.email || '';
 
-  const titleKey = routeTitles[location.pathname] || "Home";
-  const title = titleKey === "greeting" ? `${getGreeting()}, ${fullName.split(' ')[0]}` : titleKey;
+  const titleKey = Object.keys(routeTitles).find((p) =>
+    p === "/" ? location.pathname === "/" : location.pathname === p || location.pathname.startsWith(p + "/")
+  );
+  const resolvedTitle = titleKey ? routeTitles[titleKey] : "Home";
+  const title = resolvedTitle === "greeting" ? `${getGreeting()}, ${fullName.split(' ')[0]}` : resolvedTitle;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -258,7 +261,13 @@ export function TopBar() {
                   {brands.map((brand) => (
                     <button
                       key={brand.id}
-                      onClick={() => switchBrand(brand.id)}
+                      onClick={async () => {
+                        await switchBrand(brand.id);
+                        const brandScoped = ["/content-calendar", "/doc-studio", "/reel-builder", "/library", "/brand-dna"];
+                        const match = brandScoped.find((p) => location.pathname === p || location.pathname.startsWith(p + "/"));
+                        if (match) navigate(`${match}/${brand.id}`);
+                        setDropdownOpen(false);
+                      }}
                       className="w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-[13px] font-ui text-foreground hover:bg-muted/50 transition-colors duration-200"
                     >
                       <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: brand.primary_color || '#D4A017' }} />

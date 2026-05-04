@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Folder, Image as ImageIcon, FileText, Film } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { LibraryToolbar } from "@/components/library/LibraryToolbar";
 import { LibraryStats } from "@/components/library/LibraryStats";
 import { LibraryFAB } from "@/components/library/LibraryFAB";
@@ -24,6 +25,7 @@ const FILTER_MAP: Record<string, AssetFilter> = {
 };
 
 const Library = () => {
+  useBrandUrlSync("/library");
   const { activeBrand } = useBrand();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");

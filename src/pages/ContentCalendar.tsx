@@ -3,6 +3,7 @@ import { PanelLeft, Download, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { AssetLibrary } from "@/components/contentcalendar/AssetLibrary";
 import { CalendarGrid } from "@/components/contentcalendar/CalendarGrid";
 import { SlotDetail } from "@/components/contentcalendar/SlotDetail";
@@ -52,6 +53,7 @@ export default function ContentCalendar() {
   const isTablet =
     !isMobile && typeof window !== "undefined" && window.innerWidth < 1024;
   const { activeBrand } = useBrand();
+  useBrandUrlSync("/content-calendar");
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());

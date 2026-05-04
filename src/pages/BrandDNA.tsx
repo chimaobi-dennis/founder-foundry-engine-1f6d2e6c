@@ -6,6 +6,7 @@ import {
   Sparkles, Film, Calendar, FileText, Lightbulb, AlertCircle
 } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getFullBrandProfile,
@@ -157,6 +158,7 @@ const BrandDNA = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { activeBrand, brands, switchBrand } = useBrand();
+  useBrandUrlSync("/brand-dna");
 
   const [profile, setProfile] = useState<FullBrandProfile | null>(null);
   const [loading, setLoading] = useState(true);

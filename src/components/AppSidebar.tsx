@@ -2,6 +2,7 @@ import { Home, MessageCircle, Camera, Megaphone, Calendar, FileText, Film, Layer
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useProfile } from "@/hooks/use-profile";
+import { useBrand } from "@/hooks/use-brand";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -27,9 +28,14 @@ const creatorItem = { label: "Creator Studio", icon: Palette, path: "/creator" }
 const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, ContentStudio, ContentCalendar
 const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
 
+const BRAND_SCOPED_PATHS = new Set(["/content-calendar", "/doc-studio", "/reel-builder", "/library", "/brand-dna"]);
+
 export function AppSidebar() {
   const location = useLocation();
   const { profile } = useProfile();
+  const { activeBrand } = useBrand();
+  const resolvePath = (path: string) =>
+    BRAND_SCOPED_PATHS.has(path) && activeBrand?.id ? `${path}/${activeBrand.id}` : path;
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
   const showCreator = profile?.role === "creator" || profile?.role === "admin";
   
@@ -51,7 +57,7 @@ export function AppSidebar() {
     return (
       <NavLink
         key={item.path}
-        to={item.path}
+        to={resolvePath(item.path)}
         className={`
           flex items-center ${showLabel ? "gap-3" : "justify-center"} px-3 py-2.5 rounded-md text-sm font-ui
           transition-all duration-200 ease-in-out group relative
@@ -73,7 +79,7 @@ export function AppSidebar() {
       <Tooltip key={item.path} delayDuration={0}>
         <TooltipTrigger asChild>
           <NavLink
-            to={item.path}
+            to={resolvePath(item.path)}
             className={`
               flex items-center justify-center w-full py-2.5 rounded-md
               transition-all duration-200 ease-in-out
@@ -157,7 +163,7 @@ export function AppSidebar() {
           return (
             <NavLink
               key={item.path}
-              to={item.path}
+              to={resolvePath(item.path)}
               className={`
                 flex flex-col items-center justify-center p-1.5 rounded-md
                 transition-all duration-200
@@ -188,7 +194,7 @@ export function AppSidebar() {
               return (
                 <NavLink
                   key={item.path}
-                  to={item.path}
+                  to={resolvePath(item.path)}
                   onClick={() => setMoreOpen(false)}
                   className={`flex items-center gap-3 px-3 py-3 rounded-md text-sm font-ui transition-colors ${
                     active

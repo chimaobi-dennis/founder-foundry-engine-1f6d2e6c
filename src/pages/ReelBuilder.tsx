@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { ReelHome } from "@/components/reelbuilder/ReelHome";
 import { ReelBrief } from "@/components/reelbuilder/ReelBrief";
 import { ReelStoryboard } from "@/components/reelbuilder/ReelStoryboard";
@@ -7,6 +8,7 @@ import { ReelStoryboard } from "@/components/reelbuilder/ReelStoryboard";
 export type ReelPlatform = "Instagram Reels" | "TikTok" | "YouTube Shorts" | "Facebook Reels";
 
 const ReelBuilder = () => {
+  useBrandUrlSync("/reel-builder");
   const { activeBrand } = useBrand();
   const [state, setState] = useState<"home" | "brief" | "storyboard">("home");
   const [loading, setLoading] = useState(false);
