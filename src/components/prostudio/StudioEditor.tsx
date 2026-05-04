@@ -107,6 +107,14 @@ interface Props {
   regenerating?: boolean;
   /** Approve the active canvas (content-studio mode) */
   onApproveActive?: () => void;
+  /** Schedule info for the active canvas (content-studio mode) */
+  activeSchedule?: { calendarPostId: string; date: string; time: string } | null;
+  onRescheduleActive?: () => void;
+  onRemoveScheduleActive?: () => void;
+  /** Whether bulk approve-all is in progress */
+  approvingAll?: boolean;
+  /** Whether all platforms are approved (controls top button success state) */
+  allApproved?: boolean;
   /** Brief id for content-studio mode (passed to saveCreativeToLibrary) */
   briefId?: string;
 }
