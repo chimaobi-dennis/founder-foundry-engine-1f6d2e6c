@@ -104,9 +104,10 @@ export function BrandMilestonePanel({
       return;
     }
     let cancelled = false;
+    const defaultStageKey = journeyStages[0]?.stage_key ?? 'spark';
     getSubstagesWithData(
       realActiveBrand.id,
-      realActiveBrand.journey_stage ?? 'spark',
+      realActiveBrand.journey_stage ?? defaultStageKey,
       currentStageData.substages ?? []
     ).then(rows => {
       if (!cancelled) setStageSubstages(rows);
@@ -227,8 +228,21 @@ export function BrandMilestonePanel({
       : 'Keep talking — your brand memory builds as you share more.';
   };
 
-  const currentStage = realActiveBrand?.journey_stage ?? 'spark';
-  const stageInfo = currentStageData ?? {
+  const defaultStageKey = journeyStages[0]?.stage_key ?? 'spark';
+  const currentStage = realActiveBrand?.journey_stage ?? defaultStageKey;
+  const stageInfo = currentStageData ?? (journeyStages[0] ? {
+    id: journeyStages[0].id,
+    stage_key: journeyStages[0].stage_key,
+    name: journeyStages[0].name,
+    emoji: journeyStages[0].emoji,
+    description: journeyStages[0].description,
+    sort_order: journeyStages[0].sort_order,
+    is_active: journeyStages[0].is_active,
+    mentor_focus: journeyStages[0].mentor_focus,
+    relevant_modules: journeyStages[0].relevant_modules,
+    suggested_next_steps: journeyStages[0].suggested_next_steps,
+    substages: journeyStages[0].substages,
+  } : {
     id: 'spark',
     stage_key: 'spark',
     name: 'Spark',
@@ -240,7 +254,7 @@ export function BrandMilestonePanel({
     relevant_modules: [],
     suggested_next_steps: [],
     substages: []
-  };
+  });
   const stageIndex = journeyStages.findIndex(s => s.stage_key === currentStage);
 
   // Helper to get brand color from real brands

@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callAI } from './aiService';
 import { saveMultipleStageFields } from './journeyDataService';
-import { updateProjectName, updateJourneyStage } from './brandService';
+import { updateProjectName, updateJourneyStage, getAllJourneyStages } from './brandService';
 import { uploadProjectFile } from './projectAssetsService';
 import { logError } from './errorService';
 
@@ -83,6 +83,18 @@ export const extractProjectContext = async (
 
   if (!contentToProcess.trim()) return null;
 
+  // Fetch stages dynamically from database
+  const stages = await getAllJourneyStages();
+  const stageKeys = stages.map(s => s.stage_key).join('|');
+  
+  // Build dynamic prompt structure based on actual stages
+  const fieldsStructure = stages.map(stage => 
+    `    "${stage.stage_key}": {
+      // Field keys for ${stage.name} stage
+      // Include any extracted values as "field_key": "value or null"
+    }`
+  ).join(',\n');
+
   const extractionPrompt = `You are extracting structured product and brand data from a founder's existing work. 
 
 The founder says they are in the "${context.declaredStage}" stage of their journey.
@@ -91,49 +103,11 @@ Analyze the content provided and extract as much structured data as possible. Re
 
 {
   "suggested_name": "3 word project title or null",
-  "detected_stage": "spark|shape|validate|brand|launch|grow",
+  "detected_stage": "${stageKeys}",
   "confidence": "high|medium|low",
   "summary": "2 sentence summary of what this founder is building",
   "fields": {
-    "spark": {
-      "problem_statement": "extracted value or null",
-      "who_has_problem": "extracted value or null",
-      "problem_intensity": "extracted value or null",
-      "key_assumptions": "extracted value or null",
-      "existing_solutions": "extracted value or null"
-    },
-    "shape": {
-      "core_features": "extracted value or null",
-      "not_building": "extracted value or null",
-      "user_flow": "extracted value or null",
-      "build_approach": "extracted value or null"
-    },
-    "validate": {
-      "validation_method": "extracted value or null",
-      "who_tested": "extracted value or null",
-      "key_findings": "extracted value or null",
-      "what_to_change": "extracted value or null",
-      "decision": "extracted value or null"
-    },
-    "brand": {
-      "brand_name": "extracted value or null",
-      "brand_voice": "extracted value or null",
-      "positioning": "extracted value or null",
-      "core_promise": "extracted value or null",
-      "visual_direction": "extracted value or null"
-    },
-    "launch": {
-      "primary_channel": "extracted value or null",
-      "campaign_strategy": "extracted value or null",
-      "launch_date": "extracted value or null",
-      "success_metrics": "extracted value or null"
-    },
-    "grow": {
-      "whats_working": "extracted value or null",
-      "top_channel": "extracted value or null",
-      "next_move": "extracted value or null",
-      "retention_approach": "extracted value or null"
-    }
+${fieldsStructure}
   }
 }
 
@@ -203,6 +177,8 @@ export const saveExtractedContext = async (
   extracted: ExtractedProjectData,
   file?: File
 ): Promise<{ fieldsCount: number; error?: string }> => {
+  // Fetch stages dynamically for brand DNA mapping
+  const stages = await getAllJourneyStages();
   let totalSaved = 0;
 
   // Save name if extracted
@@ -231,11 +207,19 @@ export const saveExtractedContext = async (
   }
 
   // Save brand DNA fields that map from stage data
-  const brandFields = extracted.fields['brand'] ?? {};
-  if (brandFields.brand_name) {
-    await (supabase as any)
-      .from('brand_dna')
-      .upsert({ brand_id: brandId, brand_voice: brandFields.brand_voice }, { onConflict: 'brand_id' });
+  // Find a stage that has brand-related fields (typically has brand in the name or key)
+  const brandStageKey = stages.find(s => 
+    s.stage_key.toLowerCase().includes('brand') || 
+    s.name.toLowerCase().includes('brand')
+  )?.stage_key;
+  
+  if (brandStageKey) {
+    const brandFields = extracted.fields[brandStageKey] ?? {};
+    if (brandFields.brand_name) {
+      await (supabase as any)
+        .from('brand_dna')
+        .upsert({ brand_id: brandId, brand_voice: brandFields.brand_voice }, { onConflict: 'brand_id' });
+    }
   }
 
   // Note: project asset saving (file/URL/text) is handled by the caller

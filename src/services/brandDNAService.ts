@@ -92,10 +92,11 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       throw dnaError;
     }
 
-    // 3. Fetch all journey stages ordered by sort_order
+    // 3. Fetch all active journey stages ordered by sort_order
     const { data: stages, error: stagesError } = await db
       .from('journey_stages')
       .select('*')
+      .eq('is_active', true)
       .order('sort_order', { ascending: true });
 
     if (stagesError) {
@@ -103,7 +104,21 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       throw stagesError;
     }
 
-    // 4. Fetch brand stage data for all stages
+    // 4. Fetch all field definitions for active stages
+    const activeStageKeys = stages?.map(s => s.stage_key) || [];
+    const { data: stageFields, error: stageFieldsError } = await db
+      .from('journey_stage_fields')
+      .select('*')
+      .in('stage_key', activeStageKeys)
+      .order('stage_key', { ascending: true })
+      .order('sort_order', { ascending: true });
+
+    if (stageFieldsError) {
+      console.error('[getFullBrandProfile] Failed to fetch stage fields:', stageFieldsError);
+      throw stageFieldsError;
+    }
+
+    // 5. Fetch all captured values for this brand
     const { data: stageDataRows, error: stageDataError } = await db
       .from('brand_stage_data')
       .select('*')
@@ -114,17 +129,7 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       throw stageDataError;
     }
 
-    // 5. Fetch journey stage fields for all stages
-    const { data: stageFields, error: stageFieldsError } = await db
-      .from('journey_stage_fields')
-      .select('*');
-
-    if (stageFieldsError) {
-      console.error('[getFullBrandProfile] Failed to fetch stage fields:', stageFieldsError);
-      throw stageFieldsError;
-    }
-
-    // 6. Fetch brand stage progress
+    // 6. Fetch stage completion
     const { data: stageProgress, error: progressError } = await db
       .from('brand_stage_progress')
       .select('*')
@@ -146,50 +151,53 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       throw milestonesError;
     }
 
-    // 8. Group stage data by stage_key and join with fields
+    // 8. Assemble stage data dynamically based on database configuration
     const stageDataMap: Record<string, StageData> = {};
-    const stageKeys = ['spark', 'shape', 'validate', 'brand', 'launch', 'grow'];
 
-    stageKeys.forEach(stageKey => {
-      const stageMeta = stages?.find(s => s.stage_key === stageKey);
-      const stageRows = stageDataRows?.filter(row => row.stage_key === stageKey) || [];
+    stages?.forEach(stage => {
+      const stageKey = stage.stage_key;
       
-      const fields: StageField[] = stageRows.map(row => {
-        const fieldDef = stageFields?.find(
-          f => f.stage_key === stageKey && f.field_key === row.field_key
+      // Get field definitions for this stage
+      const fieldsForStage = stageFields
+        ?.filter(f => f.stage_key === stageKey)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) || [];
+      
+      // Map fields with their values
+      const fields: StageField[] = fieldsForStage.map(field => {
+        const capturedValue = stageDataRows?.find(
+          d => d.stage_key === stageKey && d.field_key === field.field_key
         );
         return {
-          field_key: row.field_key,
-          label: fieldDef?.field_label || row.field_key,
-          value: row.value,
-          description: fieldDef?.field_description || null,
-          maps_to_dna_field: fieldDef?.maps_to_dna_field || null,
+          field_key: field.field_key,
+          label: field.field_label,
+          value: capturedValue?.value ?? null,
+          description: field.field_description,
+          maps_to_dna_field: field.maps_to_dna_field,
         };
       });
 
-      // Calculate completion percentage
-      const stageProgressRows = stageProgress?.filter(p => p.stage_key === stageKey) || [];
-      const totalSubstages = stageMeta?.substages ? Object.keys(stageMeta.substages).length : 1;
-      const completedSubstages = stageProgressRows.filter(p => p.is_completed).length;
-      const completion = totalSubstages > 0 ? Math.round((completedSubstages / totalSubstages) * 100) : 0;
+      // Get completion percentage from progress table
+      const stageProgressRow = stageProgress?.find(p => p.stage_key === stageKey);
+      const completion = stageProgressRow?.is_completed ? 100 : 0;
 
       stageDataMap[stageKey] = {
         stageKey,
         fields,
         completion,
-        stageMeta: stageMeta || {
-          stage_key: stageKey,
-          name: stageKey.charAt(0).toUpperCase() + stageKey.slice(1),
-          emoji: '📌',
-          description: '',
+        stageMeta: {
+          stage_key: stage.stage_key,
+          name: stage.name,
+          emoji: stage.emoji,
+          description: stage.description,
+          mentor_focus: stage.mentor_focus,
         },
       };
     });
 
     // 9. Count milestones by stage
     const milestoneCountByStage: Record<string, number> = {};
-    stageKeys.forEach(stageKey => {
-      milestoneCountByStage[stageKey] = milestones?.filter(m => m.stage_key === stageKey).length || 0;
+    stages?.forEach(stage => {
+      milestoneCountByStage[stage.stage_key] = milestones?.filter(m => m.stage_key === stage.stage_key).length || 0;
     });
 
     const profile: FullBrandProfile = {
@@ -299,21 +307,12 @@ export async function exportBrandDNAAsPDF(brandId: string): Promise<Blob> {
       addField('Brand References', profile.dna.brand_references);
     }
 
-    // Stage sections
-    const stageSections: Record<string, string> = {
-      spark: 'Discovery',
-      shape: 'Ideation',
-      validate: 'Testing',
-      brand: 'Brand',
-      launch: 'Launch',
-      grow: 'Growth',
-    };
-
+    // Stage sections - dynamic based on database configuration
     Object.keys(profile.stageData).forEach(stageKey => {
       const stage = profile.stageData[stageKey];
       if (!stage || stage.fields.length === 0) return;
 
-      addSectionHeader(stageSections[stageKey] || stage.stageMeta.name);
+      addSectionHeader(stage.stageMeta.name);
       
       stage.fields.forEach(field => {
         if (field.value) {

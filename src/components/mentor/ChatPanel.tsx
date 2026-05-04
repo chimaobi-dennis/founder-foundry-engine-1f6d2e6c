@@ -489,7 +489,7 @@ export function ChatPanel({
           <span className="text-[12px] font-ui font-medium text-foreground truncate">{brand.name}</span>
         </div>
         <span className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary flex-shrink-0 whitespace-nowrap">
-          {stageName ?? 'Spark'} · Active
+          {stageName ?? 'Stage'} · Active
         </span>
       </div>
 

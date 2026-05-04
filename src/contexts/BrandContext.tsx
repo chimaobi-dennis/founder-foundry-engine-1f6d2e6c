@@ -54,7 +54,7 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
   // Update currentStageData when activeBrand or stages change
   useEffect(() => {
     if (activeBrand && journeyStages.length > 0) {
-      const stageKey = activeBrand.journey_stage ?? 'spark';
+      const stageKey = activeBrand.journey_stage ?? journeyStages[0]?.stage_key ?? 'spark';
       const stage = journeyStages.find(s => s.stage_key === stageKey) ?? null;
       setCurrentStageData(stage);
     }

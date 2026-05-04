@@ -148,9 +148,10 @@ export function BrandDNAPanel({
     let cancelled = false;
     setSubstagesLoading(true);
 
+    const defaultStageKey = journeyStages[0]?.stage_key ?? 'spark';
     getSubstagesWithData(
       activeBrand.id,
-      activeBrand.journey_stage ?? 'spark',
+      activeBrand.journey_stage ?? defaultStageKey,
       currentStageData.substages ?? []
     )
       .then(rows => {
@@ -175,7 +176,8 @@ export function BrandDNAPanel({
   // Clear "refining" state for any substage whose captured value has changed
   // since the user clicked Redefine — i.e. the AI saved a new SAVE_PROMPT
   // for that field_key. Restores the green check automatically.
-  const stageKeyForActive = activeBrand?.journey_stage ?? 'spark';
+  const defaultStageKey = journeyStages[0]?.stage_key ?? 'spark';
+  const stageKeyForActive = activeBrand?.journey_stage ?? defaultStageKey;
   useEffect(() => {
     if (refiningKeys.size === 0) return;
     const next = new Set(refiningKeys);
@@ -210,7 +212,19 @@ export function BrandDNAPanel({
     onClearSubstage?.(stageKeyForActive, sub.fieldKey, sub.label);
   };
 
-  const currentStageInfo = currentStageData ?? {
+  const currentStageInfo = currentStageData ?? (journeyStages[0] ? {
+    id: journeyStages[0].id,
+    stage_key: journeyStages[0].stage_key,
+    name: journeyStages[0].name,
+    emoji: journeyStages[0].emoji,
+    description: journeyStages[0].description,
+    sort_order: journeyStages[0].sort_order,
+    is_active: journeyStages[0].is_active,
+    mentor_focus: journeyStages[0].mentor_focus,
+    relevant_modules: journeyStages[0].relevant_modules,
+    suggested_next_steps: journeyStages[0].suggested_next_steps,
+    substages: journeyStages[0].substages,
+  } : {
     id: 'spark',
     stage_key: 'spark',
     name: 'Spark',
@@ -222,7 +236,7 @@ export function BrandDNAPanel({
     relevant_modules: [],
     suggested_next_steps: [],
     substages: []
-  };
+  });
 
   // Load full stage field map + captured data once per brand (and on refresh)
   useEffect(() => {

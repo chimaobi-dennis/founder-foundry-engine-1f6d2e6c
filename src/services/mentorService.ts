@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, type TaskType, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logAIError } from './errorService';
 import { getAssetsForAIContext } from './projectAssetsService';
-import { isUntitledProject, updateProjectName } from './brandService';
+import { isUntitledProject, updateProjectName, getAllJourneyStages } from './brandService';
 import { getSubstagesWithData } from './journeyDataService';
 
 // ─── Types ───────────────────────────────────────────────
@@ -365,6 +365,10 @@ export const getMentorAIResponse = async (
   onChunk?: (text: string) => void,
   onProjectNamed?: (name: string) => void
 ): Promise<MentorAIResult | null> => {
+  // Fetch stages dynamically for fallback
+  const stages = await getAllJourneyStages();
+  const defaultStageKey = stages[0]?.stage_key ?? 'spark';
+
   let systemPrompt = await getSystemPrompt('mentor_chat');
 
   if (!systemPrompt) {
@@ -439,7 +443,7 @@ export const getMentorAIResponse = async (
     brand_references: dna?.brand_references ?? '',
     campaign_strategy: dna?.campaign_strategy ?? '',
     customer_insight: dna?.customer_insight ?? '',
-    journey_stage: brand?.journey_stage ?? 'spark',
+    journey_stage: brand?.journey_stage ?? defaultStageKey,
     stage_focus: stageFocus,
     current_substages: currentSubstages,
     next_uncaptured_substage: nextUncapturedSubstage,
@@ -750,6 +754,7 @@ export const detectStageFields = (
 
   const lower = responseText.toLowerCase();
 
+  // Build patterns dynamically from allStageFields
   const patterns: {
     stageKey: string;
     fieldKey: string;
@@ -757,72 +762,90 @@ export const detectStageFields = (
     keywords: string[];
     confidence: 'high' | 'medium';
     check?: (text: string) => boolean;
-  }[] = [
-    {
-      stageKey: 'spark',
-      fieldKey: 'problem_statement',
-      fieldLabel: 'Problem Statement',
-      keywords: ['the problem is', 'problem you are solving', 'core problem'],
-      confidence: 'high'
-    },
-    {
-      stageKey: 'spark',
-      fieldKey: 'who_has_problem',
-      fieldLabel: 'Who Has This Problem',
-      keywords: ['your target', 'primary customer', 'solo architect', 'your ideal'],
-      confidence: 'high'
-    },
-    {
-      stageKey: 'brand',
-      fieldKey: 'brand_voice',
-      fieldLabel: 'Brand Voice',
-      keywords: ['brand voice', 'your voice is', 'tone should be', 'sharp strategist'],
-      confidence: 'high',
-      check: (text) => (
-        (lower.includes('brand voice is') ||
-        lower.includes('your voice is') ||
-        lower.includes('voice should be') ||
-        lower.includes('sharp strategist') ||
-        lower.includes('tone is')) &&
-        !lower.includes('?') &&
-        !lower.includes('my mistake') &&
-        responseText.length > 100
-      )
-    },
-    {
-      stageKey: 'brand',
-      fieldKey: 'positioning',
-      fieldLabel: 'Positioning',
-      keywords: ['positioning', 'vision vault', 'position yourself'],
-      confidence: 'high',
-      check: (text) => (
-        (lower.includes('your positioning is') ||
-        lower.includes('position yourself as') ||
-        lower.includes('positioning statement') ||
-        lower.includes('you are positioned as') ||
-        lower.includes('vision vault') ||
-        lower.includes('what makes you different')) &&
-        !lower.includes('we have to lean') &&
-        !lower.includes('my mistake') &&
-        !lower.includes('got ahead') &&
-        !lower.includes('?')
-      )
-    },
-    {
-      stageKey: 'brand',
-      fieldKey: 'core_promise',
-      fieldLabel: 'Core Promise',
-      keywords: ['core promise', 'unfair advantage', 'you promise', 'the promise is'],
-      confidence: 'high'
-    },
-    {
-      stageKey: 'launch',
-      fieldKey: 'campaign_strategy',
-      fieldLabel: 'Campaign Strategy',
-      keywords: ['campaign strategy', 'stop the tax', 'build your vault', 'launch approach'],
-      confidence: 'medium'
-    }
-  ];
+  }[] = [];
+
+  // Add patterns for fields that exist in the database
+  Object.entries(allStageFields).forEach(([stageKey, fields]) => {
+    fields.forEach((field: any) => {
+      const fieldKey = field.field_key;
+      const fieldLabel = field.field_label;
+      const labelLower = fieldLabel.toLowerCase();
+      const fieldKeyWords = fieldKey.replace(/_/g, ' ');
+      
+      // Specific patterns for known fields with custom keywords (for backward compatibility)
+      // These are keyed by field_key only, not stage_key
+      const specialPatterns: Record<string, { keywords: string[]; confidence: 'high' | 'medium'; check?: (text: string) => boolean }> = {
+        'problem_statement': {
+          keywords: ['the problem is', 'problem you are solving', 'core problem'],
+          confidence: 'high'
+        },
+        'who_has_problem': {
+          keywords: ['your target', 'primary customer', 'solo architect', 'your ideal'],
+          confidence: 'high'
+        },
+        'brand_voice': {
+          keywords: ['brand voice', 'your voice is', 'tone should be', 'sharp strategist'],
+          confidence: 'high',
+          check: (text) => (
+            (lower.includes('brand voice is') ||
+            lower.includes('your voice is') ||
+            lower.includes('voice should be') ||
+            lower.includes('sharp strategist') ||
+            lower.includes('tone is')) &&
+            !lower.includes('?') &&
+            !lower.includes('my mistake') &&
+            responseText.length > 100
+          )
+        },
+        'positioning': {
+          keywords: ['positioning', 'vision vault', 'position yourself'],
+          confidence: 'high',
+          check: (text) => (
+            (lower.includes('your positioning is') ||
+            lower.includes('position yourself as') ||
+            lower.includes('positioning statement') ||
+            lower.includes('you are positioned as') ||
+            lower.includes('vision vault') ||
+            lower.includes('what makes you different')) &&
+            !lower.includes('we have to lean') &&
+            !lower.includes('my mistake') &&
+            !lower.includes('got ahead') &&
+            !lower.includes('?')
+          )
+        },
+        'core_promise': {
+          keywords: ['core promise', 'unfair advantage', 'you promise', 'the promise is'],
+          confidence: 'high'
+        },
+        'campaign_strategy': {
+          keywords: ['campaign strategy', 'stop the tax', 'build your vault', 'launch approach'],
+          confidence: 'medium'
+        }
+      };
+      
+      const specialPattern = specialPatterns[fieldKey];
+      
+      if (specialPattern) {
+        patterns.push({
+          stageKey,
+          fieldKey,
+          fieldLabel,
+          keywords: specialPattern.keywords,
+          confidence: specialPattern.confidence,
+          check: specialPattern.check
+        });
+      } else {
+        // Generic pattern for other fields based on field label
+        patterns.push({
+          stageKey,
+          fieldKey,
+          fieldLabel,
+          keywords: [labelLower, fieldKeyWords],
+          confidence: 'medium'
+        });
+      }
+    });
+  });
 
   patterns.forEach(pattern => {
     if (pattern.check && !pattern.check(responseText)) return;
