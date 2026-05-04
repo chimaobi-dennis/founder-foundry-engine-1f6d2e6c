@@ -500,6 +500,14 @@ export default function ContentStudioEditor() {
         confirmLabel={scheduleMode === "reschedule" ? "Reschedule" : "Schedule"}
       />
 
+      <ApproveScheduleAllModal
+        open={approveAllModalOpen}
+        onOpenChange={setApproveAllModalOpen}
+        platforms={approveAllPlatforms}
+        onScheduleSelected={handleScheduleSelectedAll}
+        onApproveOnly={handleApproveOnlyAll}
+      />
+
       <AlertDialog open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
