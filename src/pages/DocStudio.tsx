@@ -16,6 +16,7 @@ export type DocType =
   | "Partnership Proposal";
 
 const DocStudio = () => {
+  useBrandUrlSync("/doc-studio");
   const { activeBrand } = useBrand();
   const [state, setState] = useState<"home" | "brief" | "preview">("home");
   const [selectedType, setSelectedType] = useState<DocType>("One-Pager");
