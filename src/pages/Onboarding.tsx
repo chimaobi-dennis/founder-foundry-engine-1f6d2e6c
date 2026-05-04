@@ -96,7 +96,7 @@ export default function Onboarding() {
     setCompleted(true);
     setTimeout(() => {
       const bs = finalAnswers[1];
-      if (bs === "just_an_idea" || bs === "early_stage") {
+      if (bs === "have_idea" || bs === "exploring") {
         navigate("/mentor?mode=idea", { replace: true });
       } else {
         navigate("/mentor?mode=brand", { replace: true });
