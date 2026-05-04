@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { DocHome } from "@/components/docstudio/DocHome";
 import { DocBrief } from "@/components/docstudio/DocBrief";
 import { DocPreview } from "@/components/docstudio/DocPreview";
