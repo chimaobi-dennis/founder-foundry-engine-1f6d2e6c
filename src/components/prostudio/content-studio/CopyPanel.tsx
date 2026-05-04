@@ -45,6 +45,9 @@ export function CopyPanel({
   onApproveClick,
   regenerating,
   isApproved,
+  schedule,
+  onReschedule,
+  onRemoveSchedule,
 }: CopyPanelProps) {
   const isGenerating = canvas.status === "generating";
   const isEmail = canvas.platformSlug === "email";
