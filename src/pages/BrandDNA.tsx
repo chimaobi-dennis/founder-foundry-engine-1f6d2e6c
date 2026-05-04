@@ -17,18 +17,6 @@ import { getMilestones } from "@/services/mentorService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
-const STAGE_ORDER = ["spark", "shape", "validate", "brand", "launch", "grow"] as const;
-type StageKey = typeof STAGE_ORDER[number];
-
-const STAGE_META: Record<StageKey, { emoji: string; name: string; description: string }> = {
-  spark:    { emoji: "✨", name: "Spark",    description: "The seed of your idea — the problem you're solving and who it affects." },
-  shape:    { emoji: "🔧", name: "Shape",    description: "The shape of your solution — how it works and what makes it different." },
-  validate: { emoji: "🧪", name: "Validate", description: "What you've tested and learned from real users." },
-  brand:    { emoji: "🎨", name: "Brand",    description: "Your brand identity — voice, visuals, and audience." },
-  launch:   { emoji: "🚀", name: "Launch",   description: "Your go-to-market plan — channels, metrics, and rollout." },
-  grow:     { emoji: "📈", name: "Grow",     description: "Scaling what works — partnerships, growth, and iteration." },
-};
-
 const modules = [
   { name: "Mentor", icon: MessageCircle },
   { name: "ProStudio", icon: Sparkles },
