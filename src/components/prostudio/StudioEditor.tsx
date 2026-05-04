@@ -57,6 +57,7 @@ import { PlatformsPanel } from "./content-studio/PlatformsPanel";
 import { CopyPanel } from "./content-studio/CopyPanel";
 import { CanvasGenerating } from "./content-studio/CanvasGenerating";
 import { CanvasCrossfade } from "./content-studio/CanvasCrossfade";
+import { CanvasFailed } from "./content-studio/CanvasFailed";
 import { ContentStudioGenerationStrip } from "./content-studio/GenerationStrip";
 
 interface Props {
@@ -107,6 +108,8 @@ interface Props {
   regenerating?: boolean;
   /** Approve the active canvas (content-studio mode) */
   onApproveActive?: () => void;
+  /** Skip active failed canvas (content-studio mode) — moves selection to next platform */
+  onSkipActive?: () => void;
   /** Schedule info for the active canvas (content-studio mode) */
   activeSchedule?: { calendarPostId: string; date: string; time: string } | null;
   onRescheduleActive?: () => void;
@@ -157,6 +160,7 @@ export function StudioEditor({
   onRegenerateVisual,
   regenerating,
   onApproveActive,
+  onSkipActive,
   activeSchedule,
   onRescheduleActive,
   onRemoveScheduleActive,
@@ -1151,8 +1155,22 @@ export function StudioEditor({
                 const activeCanvas = mode === 'content-studio' && canvases && activeCanvasId
                   ? canvases.find(c => c.id === activeCanvasId)
                   : null;
-                const isGenerating = activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating);
+                const isFailed = activeCanvas?.status === "failed";
+                const isGenerating = !isFailed && (activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating));
                 const hasHtml = !!html;
+
+                if (isFailed) {
+                  return (
+                    <CanvasFailed
+                      width={canvasSize.width}
+                      height={canvasSize.height}
+                      zoom={zoom}
+                      retrying={!!regenerating}
+                      onRetry={onRegenerateVisual}
+                      onSkip={onSkipActive}
+                    />
+                  );
+                }
 
                 return (
                   <CanvasCrossfade

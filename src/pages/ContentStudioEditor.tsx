@@ -120,7 +120,7 @@ export default function ContentStudioEditor() {
     const stillBuilding =
       brief?.status === "generating" ||
       creatives.length < expectedTotal ||
-      creatives.some((c) => c.status === "generating" || !c.visual_html);
+      creatives.some((c) => c.status === "generating");
     if (!stillBuilding) {
       if (pollRef.current) {
         clearInterval(pollRef.current);
@@ -489,6 +489,15 @@ export default function ContentStudioEditor() {
         onRegenerateVisual={handleRegenerateVisual}
         regenerating={regenerating}
         onApproveActive={handleApproveActive}
+        onSkipActive={() => {
+          // Move focus to next non-failed canvas
+          if (!activeId) return;
+          const idx = canvases.findIndex((c) => c.id === activeId);
+          const next =
+            canvases.slice(idx + 1).find((c) => c.status !== "failed") ||
+            canvases.find((c) => c.status !== "failed" && c.id !== activeId);
+          if (next) setActiveId(next.id);
+        }}
         activeSchedule={activeSchedule}
         onRescheduleActive={handleReschedule}
         onRemoveScheduleActive={handleRemoveSchedule}
