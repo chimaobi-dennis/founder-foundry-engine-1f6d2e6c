@@ -708,6 +708,288 @@ export async function saveCreativeToLibrary({
 
 // ─── Series scheduling helpers ────────────────────────────
 
+// ─── Approve and Schedule functions ───────────────────────
+
+export async function approveSingleCreative(creativeId: string): Promise<void> {
+  try {
+    console.log('[approveSingleCreative] Approving creative:', creativeId);
+    const { error } = await db
+      .from('content_studio_creatives')
+      .update({
+        is_approved: true,
+        status: 'approved',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', creativeId);
+
+    if (error) {
+      console.error('[approveSingleCreative] Failed to approve creative:', error);
+      throw error;
+    }
+    console.log('[approveSingleCreative] Creative approved successfully');
+  } catch (error: any) {
+    console.error('[approveSingleCreative] Error:', error);
+    await logError({
+      errorMessage: error.message || 'Failed to approve creative',
+      errorType: 'database',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'approveSingleCreative',
+      userAction: 'approve_creative',
+      pipelineStep: 'update_database',
+      context: { creativeId }
+    });
+    throw error;
+  }
+}
+
+export interface ScheduleCreativeParams {
+  creativeId: string;
+  briefId: string;
+  brandId: string;
+  userId: string;
+  platformSlug: string;
+  scheduledDate: string; // YYYY-MM-DD
+  scheduledTime: string; // HH:MM
+  copyText?: string;
+  headline?: string;
+  visualHtml?: string;
+}
+
+export interface CalendarPost {
+  id: string;
+  brand_id: string;
+  user_id: string;
+  platform: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  copy_text?: string;
+  headline?: string;
+  visual_html?: string;
+  content_studio_creative_id?: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function scheduleCreative(params: ScheduleCreativeParams): Promise<CalendarPost> {
+  try {
+    const {
+      creativeId,
+      briefId,
+      brandId,
+      userId,
+      platformSlug,
+      scheduledDate,
+      scheduledTime,
+      copyText,
+      headline,
+      visualHtml,
+    } = params;
+
+    console.log('[scheduleCreative] Scheduling creative:', { creativeId, platformSlug, scheduledDate, scheduledTime });
+
+    // a. Fetch platform record to confirm it exists
+    const { data: platform, error: platformError } = await db
+      .from('content_platforms')
+      .select('*')
+      .eq('slug', platformSlug)
+      .single();
+
+    if (platformError) {
+      console.error('[scheduleCreative] Platform not found:', platformError);
+      throw new Error(`Platform '${platformSlug}' not found`);
+    }
+    console.log('[scheduleCreative] Platform confirmed:', platform.name);
+
+    // b. Insert into calendar_posts
+    const { data: calendarPost, error: insertError } = await db
+      .from('calendar_posts')
+      .insert({
+        brand_id: brandId,
+        user_id: userId,
+        platform: platformSlug,
+        scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime,
+        copy_text: copyText,
+        headline: headline,
+        visual_html: visualHtml,
+        content_studio_creative_id: creativeId,
+        status: 'scheduled',
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('[scheduleCreative] Failed to insert calendar post:', insertError);
+      throw insertError;
+    }
+    console.log('[scheduleCreative] Calendar post created:', calendarPost.id);
+
+    // c. Update content_studio_creatives
+    const scheduledAt = `${scheduledDate} ${scheduledTime}`;
+    const { error: updateError } = await db
+      .from('content_studio_creatives')
+      .update({
+        is_approved: true,
+        scheduled_at: scheduledAt,
+        calendar_post_id: calendarPost.id,
+        status: 'scheduled',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', creativeId);
+
+    if (updateError) {
+      console.error('[scheduleCreative] Failed to update creative:', updateError);
+      throw updateError;
+    }
+    console.log('[scheduleCreative] Creative updated successfully');
+
+    return calendarPost;
+  } catch (error: any) {
+    console.error('[scheduleCreative] Error:', error);
+    await logError({
+      errorMessage: error.message || 'Failed to schedule creative',
+      errorType: 'database',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'scheduleCreative',
+      userAction: 'schedule_creative',
+      pipelineStep: 'create_calendar_post',
+      context: { params }
+    });
+    throw error;
+  }
+}
+
+export async function approveAllCreatives(briefId: string): Promise<void> {
+  try {
+    console.log('[approveAllCreatives] Approving all creatives for brief:', briefId);
+    const { error } = await db
+      .from('content_studio_creatives')
+      .update({
+        is_approved: true,
+        status: 'approved',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('brief_id', briefId)
+      .eq('status', 'ready');
+
+    if (error) {
+      console.error('[approveAllCreatives] Failed to approve creatives:', error);
+      throw error;
+    }
+    console.log('[approveAllCreatives] All creatives approved successfully');
+  } catch (error: any) {
+    console.error('[approveAllCreatives] Error:', error);
+    await logError({
+      errorMessage: error.message || 'Failed to approve all creatives',
+      errorType: 'database',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'approveAllCreatives',
+      userAction: 'approve_all',
+      pipelineStep: 'update_database',
+      context: { briefId }
+    });
+    throw error;
+  }
+}
+
+export async function rescheduleCreative(
+  calendarPostId: string,
+  newDate: string,
+  newTime: string
+): Promise<void> {
+  try {
+    console.log('[rescheduleCreative] Rescheduling calendar post:', calendarPostId, { newDate, newTime });
+
+    // Update calendar_posts
+    const { error: updatePostError } = await db
+      .from('calendar_posts')
+      .update({
+        scheduled_date: newDate,
+        scheduled_time: newTime,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', calendarPostId);
+
+    if (updatePostError) {
+      console.error('[rescheduleCreative] Failed to update calendar post:', updatePostError);
+      throw updatePostError;
+    }
+
+    // Also update the linked content_studio_creatives.scheduled_at
+    const scheduledAt = `${newDate} ${newTime}`;
+    const { error: updateCreativeError } = await db
+      .from('content_studio_creatives')
+      .update({
+        scheduled_at: scheduledAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('calendar_post_id', calendarPostId);
+
+    if (updateCreativeError) {
+      console.error('[rescheduleCreative] Failed to update creative scheduled_at:', updateCreativeError);
+      throw updateCreativeError;
+    }
+
+    console.log('[rescheduleCreative] Rescheduled successfully');
+  } catch (error: any) {
+    console.error('[rescheduleCreative] Error:', error);
+    await logError({
+      errorMessage: error.message || 'Failed to reschedule creative',
+      errorType: 'database',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'rescheduleCreative',
+      userAction: 'reschedule',
+      pipelineStep: 'update_database',
+      context: { calendarPostId, newDate, newTime }
+    });
+    throw error;
+  }
+}
+
+export async function getScheduledCreative(creativeId: string): Promise<CalendarPost | null> {
+  try {
+    console.log('[getScheduledCreative] Fetching scheduled creative:', creativeId);
+    const { data, error } = await db
+      .from('calendar_posts')
+      .select('*')
+      .eq('content_studio_creative_id', creativeId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned - creative not scheduled yet
+        console.log('[getScheduledCreative] Creative not scheduled yet');
+        return null;
+      }
+      console.error('[getScheduledCreative] Error fetching scheduled creative:', error);
+      throw error;
+    }
+
+    console.log('[getScheduledCreative] Scheduled creative found:', data?.id);
+    return data;
+  } catch (error: any) {
+    console.error('[getScheduledCreative] Error:', error);
+    await logError({
+      errorMessage: error.message || 'Failed to fetch scheduled creative',
+      errorType: 'database',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'getScheduledCreative',
+      userAction: 'fetch_scheduled',
+      pipelineStep: 'fetch_database',
+      context: { creativeId }
+    });
+    return null;
+  }
+}
+
+// ─── Series scheduling helpers ────────────────────────────
+
 export function calculateNextGenerationTime(interval: string): string {
   const now = new Date();
   switch (interval) {
