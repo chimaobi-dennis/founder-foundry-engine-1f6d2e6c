@@ -59,46 +59,49 @@ export default function Onboarding() {
   const [slideDir, setSlideDir] = useState<"right" | "left">("right");
   const [animating, setAnimating] = useState(false);
 
+  const finishFlow = async (finalAnswers: string[]) => {
+    if (user) {
+      await supabase
+        .from("profiles")
+        .update({
+          profession: finalAnswers[0],
+          brand_status: finalAnswers[1],
+          team_size: finalAnswers[2],
+          onboarding_completed: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+    }
+    setCompleted(true);
+    setTimeout(() => {
+      const bs = finalAnswers[1];
+      if (bs === "just_an_idea" || bs === "early_stage") {
+        navigate("/mentor?mode=idea");
+      } else {
+        navigate("/mentor?mode=brand");
+      }
+    }, 1500);
+  };
+
   const selectOption = (value: string) => {
+    if (animating) return;
     const next = [...answers];
     next[currentStep] = value;
     setAnswers(next);
-  };
 
-  const handleContinue = async () => {
-    if (!answers[currentStep]) return;
-
-    if (currentStep < 2) {
-      setSlideDir("right");
-      setAnimating(true);
-      setTimeout(() => {
-        setCurrentStep(currentStep + 1);
-        setAnimating(false);
-      }, 250);
-    } else {
-      // Final step — save and show completion
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({
-            profession: answers[0],
-            brand_status: answers[1],
-            team_size: answers[2],
-            onboarding_completed: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id);
+    // Brief delay so user sees selection register, then advance
+    setTimeout(() => {
+      if (currentStep < 2) {
+        setSlideDir("right");
+        setAnimating(true);
+        setTimeout(() => {
+          setCurrentStep((s) => s + 1);
+          setAnimating(false);
+        }, 250);
+      } else {
+        finishFlow(next);
       }
-      setCompleted(true);
-      setTimeout(() => {
-        const bs = answers[1];
-        if (bs === "just_an_idea" || bs === "early_stage") {
-          navigate("/mentor?mode=idea");
-        } else {
-          navigate("/mentor?mode=brand");
-        }
-      }, 1500);
-    }
+    }, 150);
   };
 
   const handleBack = () => {
@@ -148,15 +151,6 @@ export default function Onboarding() {
         Skip for now
       </button>
 
-      {/* Back */}
-      {currentStep > 0 && !completed && (
-        <button
-          onClick={handleBack}
-          className="fixed top-6 left-6 text-muted-foreground hover:text-foreground transition-colors z-50"
-        >
-          <ChevronLeft size={20} />
-        </button>
-      )}
 
       {/* Card */}
       <div
@@ -183,9 +177,20 @@ export default function Onboarding() {
           </div>
         ) : (
           <>
-            <p className="text-[11px] font-ui uppercase tracking-[0.08em] text-muted-foreground mb-4">
-              Step {currentStep + 1} of 3
-            </p>
+            <div className="flex items-center justify-between mb-4 h-5">
+              {currentStep > 0 ? (
+                <button
+                  onClick={handleBack}
+                  className="inline-flex items-center gap-1 text-[12px] font-ui text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                  Back
+                </button>
+              ) : <span />}
+              <p className="text-[11px] font-ui uppercase tracking-[0.08em] text-muted-foreground">
+                Step {currentStep + 1} of 3
+              </p>
+            </div>
             <h2 className="font-display text-[26px] leading-[1.3] text-foreground mb-2">
               {step.question}
             </h2>
@@ -223,13 +228,6 @@ export default function Onboarding() {
               })}
             </div>
 
-            <button
-              onClick={handleContinue}
-              disabled={!answers[currentStep]}
-              className="w-full h-12 rounded-lg bg-primary text-primary-foreground font-ui text-[14px] font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed mt-6 transition-colors"
-            >
-              Continue →
-            </button>
           </>
         )}
       </div>
