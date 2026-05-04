@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { ReelHome } from "@/components/reelbuilder/ReelHome";
 import { ReelBrief } from "@/components/reelbuilder/ReelBrief";
 import { ReelStoryboard } from "@/components/reelbuilder/ReelStoryboard";
