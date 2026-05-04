@@ -54,32 +54,52 @@ function getCompletionMessage(profession: string, brandStatus: string): string {
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { profile, refetch } = useProfile();
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<string[]>(["", "", ""]);
   const [completed, setCompleted] = useState(false);
   const [slideDir, setSlideDir] = useState<"right" | "left">("right");
   const [animating, setAnimating] = useState(false);
 
-  const finishFlow = async (finalAnswers: string[]) => {
-    if (user) {
-      await supabase
-        .from("profiles")
-        .update({
-          profession: finalAnswers[0],
-          brand_status: finalAnswers[1],
-          team_size: finalAnswers[2],
-          onboarding_completed: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
+  // Guard: if onboarding already complete, never show this screen
+  useEffect(() => {
+    if (profile?.onboarding_completed) {
+      navigate("/", { replace: true });
     }
+  }, [profile?.onboarding_completed, navigate]);
+
+  if (profile?.onboarding_completed) {
+    return null;
+  }
+
+  const finishFlow = async (finalAnswers: string[]) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        profession: finalAnswers[0],
+        brand_status: finalAnswers[1],
+        team_size: finalAnswers[2],
+        onboarding_completed: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Failed to save onboarding:", error);
+      return;
+    }
+
+    // Refresh profile so AuthGuard sees onboarding_completed = true
+    await refetch();
+
     setCompleted(true);
     setTimeout(() => {
       const bs = finalAnswers[1];
       if (bs === "just_an_idea" || bs === "early_stage") {
-        navigate("/mentor?mode=idea");
+        navigate("/mentor?mode=idea", { replace: true });
       } else {
-        navigate("/mentor?mode=brand");
+        navigate("/mentor?mode=brand", { replace: true });
       }
     }, 1500);
   };
