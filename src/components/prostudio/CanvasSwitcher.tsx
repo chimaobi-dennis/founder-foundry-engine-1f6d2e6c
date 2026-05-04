@@ -223,6 +223,8 @@ function CanvasThumb({
             }}
             dangerouslySetInnerHTML={{ __html: canvas.html }}
           />
+        ) : canvas.status === "failed" ? (
+          <ThumbFailed />
         ) : canvas.status === "generating" ? (
           <ThumbShimmer />
         ) : (
