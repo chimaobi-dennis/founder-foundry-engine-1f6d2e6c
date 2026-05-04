@@ -489,6 +489,15 @@ export default function ContentStudioEditor() {
         onRegenerateVisual={handleRegenerateVisual}
         regenerating={regenerating}
         onApproveActive={handleApproveActive}
+        onSkipActive={() => {
+          // Move focus to next non-failed canvas
+          if (!activeId) return;
+          const idx = canvases.findIndex((c) => c.id === activeId);
+          const next =
+            canvases.slice(idx + 1).find((c) => c.status !== "failed") ||
+            canvases.find((c) => c.status !== "failed" && c.id !== activeId);
+          if (next) setActiveId(next.id);
+        }}
         activeSchedule={activeSchedule}
         onRescheduleActive={handleReschedule}
         onRemoveScheduleActive={handleRemoveSchedule}
