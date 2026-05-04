@@ -55,6 +55,8 @@ import {
 } from "@/components/mentor/types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useProfile } from "@/hooks/use-profile";
+import { markFreshStart } from "@/services/projectOnboardingService";
 
 const TABLET_MAX = 1024;
 let milestoneCounter = 100;
