@@ -118,10 +118,15 @@ const App = () => (
                         <Route path="/content-studio" element={<ContentStudio />} />
                         <Route path="/content-studio/new" element={<ContentStudioNew />} />
                         <Route path="/content-calendar" element={<ContentCalendar />} />
+                        <Route path="/content-calendar/:brandId" element={<ContentCalendar />} />
                         <Route path="/library" element={<Library />} />
+                        <Route path="/library/:brandId" element={<Library />} />
                         <Route path="/doc-studio" element={<DocStudio />} />
+                        <Route path="/doc-studio/:brandId" element={<DocStudio />} />
                         <Route path="/reel-builder" element={<ReelBuilder />} />
+                        <Route path="/reel-builder/:brandId" element={<ReelBuilder />} />
                         <Route path="/brand-dna" element={<BrandDNA />} />
+                        <Route path="/brand-dna/:brandId" element={<BrandDNA />} />
                         <Route path="/settings/ai-models" element={<SettingsAIModels />} />
                         <Route path="/creator/apply" element={<CreatorApply />} />
                         <Route path="/creator" element={<CreatorStudio />} />
