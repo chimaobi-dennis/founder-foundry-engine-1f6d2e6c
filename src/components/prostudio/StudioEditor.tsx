@@ -819,9 +819,34 @@ export function StudioEditor({
             {mode === "content-studio" && onApproveAll && (
               <>
                 <div className="w-px h-5 mx-1.5 bg-border" />
-                <ToolbarButton title="Approve all" onClick={onApproveAll}>
-                  <Check size={13} />
-                </ToolbarButton>
+                <button
+                  onClick={onApproveAll}
+                  disabled={approvingAll}
+                  className={cn(
+                    "h-8 px-3 rounded-md text-[12px] font-ui font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed border",
+                    allApproved
+                      ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/40"
+                      : "border-border text-foreground hover:bg-muted",
+                  )}
+                  title={allApproved ? "All approved" : "Approve all"}
+                >
+                  {approvingAll ? (
+                    <>
+                      <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />
+                      Approving…
+                    </>
+                  ) : allApproved ? (
+                    <>
+                      <Check size={13} />
+                      All approved
+                    </>
+                  ) : (
+                    <>
+                      <Check size={13} />
+                      Approve all
+                    </>
+                  )}
+                </button>
               </>
             )}
           </div>
