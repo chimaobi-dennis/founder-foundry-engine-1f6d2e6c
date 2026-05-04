@@ -129,18 +129,7 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       throw stageDataError;
     }
 
-    // 6. Fetch stage completion
-    const { data: stageProgress, error: progressError } = await db
-      .from('brand_stage_progress')
-      .select('*')
-      .eq('brand_id', brandId);
-
-    if (progressError) {
-      console.error('[getFullBrandProfile] Failed to fetch stage progress:', progressError);
-      throw progressError;
-    }
-
-    // 7. Fetch milestones
+    // 6. Fetch milestones
     const { data: milestones, error: milestonesError } = await db
       .from('milestones')
       .select('*')
@@ -151,7 +140,7 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       throw milestonesError;
     }
 
-    // 8. Assemble stage data dynamically based on database configuration
+    // 7. Assemble stage data dynamically based on database configuration
     const stageDataMap: Record<string, StageData> = {};
 
     stages?.forEach(stage => {
@@ -176,9 +165,19 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
         };
       });
 
-      // Get completion percentage from progress table
-      const stageProgressRow = stageProgress?.find(p => p.stage_key === stageKey);
-      const completion = stageProgressRow?.is_completed ? 100 : 0;
+      // Calculate completion percentage directly from captured data
+      // Do not rely on brand_stage_progress which may be outdated
+      const totalFields = fieldsForStage.length;
+      const capturedFields = fieldsForStage.filter(field => {
+        const capturedValue = stageDataRows?.find(
+          d => d.stage_key === stageKey && d.field_key === field.field_key
+        );
+        return capturedValue?.value && capturedValue.value.trim() !== '';
+      }).length;
+      
+      const completion = totalFields > 0 
+        ? Math.round((capturedFields / totalFields) * 100) 
+        : 0;
 
       stageDataMap[stageKey] = {
         stageKey,
@@ -194,7 +193,7 @@ export async function getFullBrandProfile(brandId: string): Promise<FullBrandPro
       };
     });
 
-    // 9. Count milestones by stage
+    // 8. Count milestones by stage
     const milestoneCountByStage: Record<string, number> = {};
     stages?.forEach(stage => {
       milestoneCountByStage[stage.stage_key] = milestones?.filter(m => m.stage_key === stage.stage_key).length || 0;
