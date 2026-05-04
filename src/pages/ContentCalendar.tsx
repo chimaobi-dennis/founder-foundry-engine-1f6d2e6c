@@ -23,9 +23,11 @@ function postToSlot(p: CalendarPost): CalendarSlot {
   const time = (p.scheduled_time || "").slice(0, 5);
   const headline = p.creative_headline || p.headline || "";
   const copy = p.creative_copy_text || p.copy_text || "";
+  const briefId = (p as any).content_studio_creative?.brief_id ?? undefined;
   return {
     id: p.id,
     calendarPostId: p.id,
+    briefId,
     date: p.scheduled_date,
     time,
     platform: p.platform,
