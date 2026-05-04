@@ -28,9 +28,14 @@ const creatorItem = { label: "Creator Studio", icon: Palette, path: "/creator" }
 const mobileVisibleItems = moduleItems.slice(0, 5); // Home, Mentor, ProStudio, ContentStudio, ContentCalendar
 const mobileDrawerItems = [...moduleItems.slice(5), ...secondaryItems]; // DocStudio, ReelBuilder, Library, Brand DNA
 
+const BRAND_SCOPED_PATHS = new Set(["/content-calendar", "/doc-studio", "/reel-builder", "/library", "/brand-dna"]);
+
 export function AppSidebar() {
   const location = useLocation();
   const { profile } = useProfile();
+  const { activeBrand } = useBrand();
+  const resolvePath = (path: string) =>
+    BRAND_SCOPED_PATHS.has(path) && activeBrand?.id ? `${path}/${activeBrand.id}` : path;
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
   const showCreator = profile?.role === "creator" || profile?.role === "admin";
   
