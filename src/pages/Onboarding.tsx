@@ -24,13 +24,13 @@ const steps: Step[] = [
     ],
   },
   {
-    question: "Where are you with your brand?",
-    subtext: "Your mentor will start from the right place.",
+    question: "Are you currently working on a project?",
+    subtext: "This helps your mentor know where to start.",
     options: [
-      { emoji: "💡", label: "Just an idea right now", desc: "Still in the thinking and planning phase", value: "just_an_idea" },
-      { emoji: "🌱", label: "Early stage brand", desc: "Launched but still finding my footing", value: "early_stage" },
-      { emoji: "📈", label: "Established brand", desc: "Up and running, looking to grow", value: "established" },
-      { emoji: "🗂", label: "I manage multiple brands", desc: "Agency or portfolio work", value: "multiple_brands" },
+      { emoji: "⚡", label: "Yes, I have something in progress", desc: "A project or brand I'm actively building", value: "in_progress" },
+      { emoji: "💡", label: "I have an idea I want to explore", desc: "Something I'm thinking about but haven't started", value: "have_idea" },
+      { emoji: "🔭", label: "Not yet, just exploring", desc: "Curious about what this can do for me", value: "exploring" },
+      { emoji: "🗂", label: "I manage multiple projects", desc: "Agency, portfolio, or client work", value: "multiple_projects" },
     ],
   },
   {
