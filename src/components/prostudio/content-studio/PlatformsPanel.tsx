@@ -45,6 +45,11 @@ export function PlatformsPanel({ canvases, activeId, onSelect }: PlatformsPanelP
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                     <span className="text-[10px] font-ui text-primary">Generating…</span>
                   </span>
+                ) : status === "failed" ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#E05C5C" }} />
+                    <span className="text-[10px] font-ui" style={{ color: "#E05C5C" }}>Failed · Retry →</span>
+                  </span>
                 ) : (
                   <StatusDot status={status} approved={canvas.isApproved} />
                 )}
