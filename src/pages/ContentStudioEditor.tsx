@@ -252,23 +252,101 @@ export default function ContentStudioEditor() {
 
   const handleApproveAll = async () => {
     if (!briefId) return;
+    // Pre-fetch schedule info for all ready creatives so the modal can
+    // mark already-scheduled platforms as ineligible.
+    const ready = creatives.filter(
+      (c) => (c.status === "ready" || c.status === "approved" || c.status === "scheduled") && !!c.visual_html,
+    );
+    const missing = ready.filter((c) => schedulesByCreative[c.id] === undefined);
+    if (missing.length) {
+      const results = await Promise.all(
+        missing.map(async (c) => [c.id, await getScheduledCreative(c.id)] as const),
+      );
+      setSchedulesByCreative((prev) => {
+        const next = { ...prev };
+        results.forEach(([id, post]) => {
+          next[id] = post;
+        });
+        return next;
+      });
+    }
+    setApproveAllModalOpen(true);
+  };
+
+  const approveAllPlatforms: ApproveSchedulePlatform[] = useMemo(() => {
+    return creatives
+      .filter(
+        (c) => (c.status === "ready" || c.status === "approved" || c.status === "scheduled") && !!c.visual_html,
+      )
+      .map((c) => ({
+        creativeId: c.id,
+        platformName: c.content_platforms?.name || "Platform",
+        platformColor: c.content_platforms?.brand_color || "#8A96A3",
+        alreadyScheduled:
+          c.status === "scheduled" || !!schedulesByCreative[c.id],
+      }));
+  }, [creatives, schedulesByCreative]);
+
+  const handleApproveOnlyAll = async () => {
+    if (!briefId) return;
     setApprovingAll(true);
     try {
       await approveAllCreatives(briefId);
       setCreatives((prev) =>
         prev.map((c) =>
-          c.status === "ready" ? { ...c, is_approved: true, status: "approved" } : c
-        )
+          c.status === "ready" ? { ...c, is_approved: true, status: "approved" } : c,
+        ),
       );
       toast.success("All platforms approved");
       setAllApprovedFlash(true);
       setTimeout(() => setAllApprovedFlash(false), 2000);
     } catch (e: any) {
       toast.error(e.message || "Failed to approve all");
+      throw e;
     } finally {
       setApprovingAll(false);
     }
   };
+
+  const handleScheduleSelectedAll = async (
+    items: { creativeId: string; date: string; time: string }[],
+    onProgress: (current: number, total: number, name: string) => void,
+  ) => {
+    if (!activeBrand?.id || !user?.id || !briefId) return;
+    let count = 0;
+    for (const item of items) {
+      const c = creatives.find((cc) => cc.id === item.creativeId);
+      if (!c) continue;
+      count++;
+      const name = c.content_platforms?.name || "Platform";
+      onProgress(count, items.length, name);
+      try {
+        const post = await scheduleCreative({
+          creativeId: c.id,
+          briefId,
+          brandId: activeBrand.id,
+          userId: user.id,
+          platformSlug: c.content_platforms?.slug,
+          scheduledDate: item.date,
+          scheduledTime: item.time,
+          copyText: c.copy_text || undefined,
+          headline: c.headline || undefined,
+          visualHtml: c.visual_html || undefined,
+        });
+        setSchedulesByCreative((prev) => ({ ...prev, [c.id]: post }));
+        updateCreativeLocal(c.id, {
+          is_approved: true,
+          status: "scheduled",
+          scheduled_at: `${item.date} ${item.time}`,
+        });
+      } catch (e: any) {
+        toast.error(`${name}: ${e.message || "Failed to schedule"}`);
+        throw e;
+      }
+    }
+    toast.success(`${items.length} ${items.length === 1 ? "platform" : "platforms"} scheduled`);
+  };
+
 
   const handleApproveActive = () => {
     if (!active || activeSchedule) return;
