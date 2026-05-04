@@ -108,6 +108,8 @@ interface Props {
   regenerating?: boolean;
   /** Approve the active canvas (content-studio mode) */
   onApproveActive?: () => void;
+  /** Skip active failed canvas (content-studio mode) — moves selection to next platform */
+  onSkipActive?: () => void;
   /** Schedule info for the active canvas (content-studio mode) */
   activeSchedule?: { calendarPostId: string; date: string; time: string } | null;
   onRescheduleActive?: () => void;
