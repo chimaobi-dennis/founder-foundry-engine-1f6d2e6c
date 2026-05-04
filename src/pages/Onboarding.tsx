@@ -228,13 +228,6 @@ export default function Onboarding() {
               })}
             </div>
 
-            <button
-              onClick={handleContinue}
-              disabled={!answers[currentStep]}
-              className="w-full h-12 rounded-lg bg-primary text-primary-foreground font-ui text-[14px] font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed mt-6 transition-colors"
-            >
-              Continue →
-            </button>
           </>
         )}
       </div>
