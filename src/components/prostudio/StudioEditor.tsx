@@ -157,6 +157,11 @@ export function StudioEditor({
   onRegenerateVisual,
   regenerating,
   onApproveActive,
+  activeSchedule,
+  onRescheduleActive,
+  onRemoveScheduleActive,
+  approvingAll,
+  allApproved,
 }: Props) {
   const { theme } = useTheme();
   // For now we always render the sample template; once AI generation is wired
