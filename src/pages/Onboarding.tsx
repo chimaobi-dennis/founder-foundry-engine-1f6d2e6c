@@ -45,8 +45,8 @@ const steps: Step[] = [
 ];
 
 function getCompletionMessage(profession: string, brandStatus: string): string {
-  if ((profession === "founder") && brandStatus === "just_an_idea") return "Your mentor is ready to help you build from scratch.";
-  if ((profession === "founder") && brandStatus === "established") return "Your mentor is ready to help you scale what you have built.";
+  if ((profession === "founder") && (brandStatus === "have_idea" || brandStatus === "exploring")) return "Your mentor is ready to help you build from scratch.";
+  if ((profession === "founder") && brandStatus === "in_progress") return "Your mentor is ready to help you scale what you have built.";
   if (profession === "freelancer") return "Your mentor is ready to help you build a brand that wins clients.";
   return "Your mentor is ready. Let us build something worth building.";
 }
