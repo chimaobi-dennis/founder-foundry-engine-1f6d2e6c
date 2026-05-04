@@ -48,11 +48,17 @@ export async function getCalendarPosts(
       .from('calendar_posts')
       .select(`
         *,
-        content_studio_creatives (
+        content_studio_creative:content_studio_creative_id(
           id,
+          brief_id,
+          platform_id,
           visual_html,
+          visual_thumbnail_url,
           headline,
-          copy_text
+          copy_text,
+          hashtags,
+          status,
+          scheduled_at
         )
       `)
       .eq('brand_id', brandId)
@@ -69,9 +75,9 @@ export async function getCalendarPosts(
     // Flatten the joined creative data into the calendar post object
     const posts = (data || []).map((post: any) => ({
       ...post,
-      creative_visual_html: post.content_studio_creatives?.visual_html || post.visual_html,
-      creative_headline: post.content_studio_creatives?.headline || post.headline,
-      creative_copy_text: post.content_studio_creatives?.copy_text || post.copy_text,
+      creative_visual_html: post.content_studio_creative?.visual_html || post.visual_html,
+      creative_headline: post.content_studio_creative?.headline || post.headline,
+      creative_copy_text: post.content_studio_creative?.copy_text || post.copy_text,
     }));
 
     console.log('[getCalendarPosts] Fetched posts:', posts.length);
@@ -106,11 +112,17 @@ export async function getCalendarPostsForRange(
       .from('calendar_posts')
       .select(`
         *,
-        content_studio_creatives (
+        content_studio_creative:content_studio_creative_id(
           id,
+          brief_id,
+          platform_id,
           visual_html,
+          visual_thumbnail_url,
           headline,
-          copy_text
+          copy_text,
+          hashtags,
+          status,
+          scheduled_at
         )
       `)
       .eq('brand_id', brandId)
@@ -127,9 +139,9 @@ export async function getCalendarPostsForRange(
     // Flatten the joined creative data into the calendar post object
     const posts = (data || []).map((post: any) => ({
       ...post,
-      creative_visual_html: post.content_studio_creatives?.visual_html || post.visual_html,
-      creative_headline: post.content_studio_creatives?.headline || post.headline,
-      creative_copy_text: post.content_studio_creatives?.copy_text || post.copy_text,
+      creative_visual_html: post.content_studio_creative?.visual_html || post.visual_html,
+      creative_headline: post.content_studio_creative?.headline || post.headline,
+      creative_copy_text: post.content_studio_creative?.copy_text || post.copy_text,
     }));
 
     console.log('[getCalendarPostsForRange] Fetched posts:', posts.length);
