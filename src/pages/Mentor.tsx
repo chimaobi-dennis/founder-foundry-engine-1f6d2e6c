@@ -211,6 +211,11 @@ const Mentor = () => {
 
   const { brands: realBrands, activeBrand, activeBrandDNA, switchBrand, createNewBrand, refreshBrands, refreshBrandDNA, isLoading, currentStageData } = useBrand();
   const { user } = useAuth();
+  const { profile } = useProfile();
+  const [multiProjectName, setMultiProjectName] = useState("");
+  const [showMultiProjectPrompt, setShowMultiProjectPrompt] = useState(false);
+  const [autoInitDone, setAutoInitDone] = useState(false);
+  const [autoInitBrandStatus, setAutoInitBrandStatus] = useState<string | null>(null);
 
   const brands: MentorBrand[] = realBrands.map(brand => ({
     id: brand.id,
