@@ -1,13 +1,26 @@
 import { useBrand } from "@/contexts/BrandContext";
 import { ChevronDown, Check, Plus } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+
+const BRAND_SCOPED_BASES = new Set(["mentor", "pro-studio", "content-studio", "content-calendar", "doc-studio", "reel-builder", "library", "brand-dna"]);
 
 export function BrandContextBar() {
   const { brands, activeBrand, switchBrand, createNewBrand, isLoading } = useBrand();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const updateScopedUrl = (newBrandId: string) => {
+    const pathSegments = location.pathname.split('/');
+    const moduleKey = pathSegments[1];
+    const currentLast = pathSegments[pathSegments.length - 1];
+    const lastIsBrand = brands.some((brand) => brand.id === currentLast);
+    if (!BRAND_SCOPED_BASES.has(moduleKey) || pathSegments.length < 3 || !lastIsBrand) return;
+    pathSegments[pathSegments.length - 1] = newBrandId;
+    navigate(`${pathSegments.join('/')}${location.search}`, { replace: true });
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -72,6 +85,7 @@ export function BrandContextBar() {
                 key={brand.id}
                 onClick={async () => { 
                   await switchBrand(brand.id); 
+                  updateScopedUrl(brand.id);
                   setOpen(false); 
                 }}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-ui text-foreground hover:bg-muted/50 transition-colors duration-200"
