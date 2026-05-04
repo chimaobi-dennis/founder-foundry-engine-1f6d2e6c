@@ -87,17 +87,16 @@ function ColorSwatch({ label, hex, onExplore }: { label: string; hex?: string; o
 }
 
 function StagePanel({
-  stageKey, stage, milestoneCount, onOpenMentor,
+  stage, milestoneCount, onOpenMentor,
 }: {
-  stageKey: StageKey;
-  stage: StageData | undefined;
+  stage: StageData;
   milestoneCount: number;
   onOpenMentor: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const meta = STAGE_META[stageKey];
-  const completion = stage?.completion ?? 0;
-  const populatedFields = stage?.fields.filter(f => f.value && String(f.value).trim() !== "") ?? [];
+  const meta = stage.stageMeta;
+  const completion = stage.completion ?? 0;
+  const populatedFields = stage.fields.filter(f => f.value && String(f.value).trim() !== "");
   const hasData = populatedFields.length > 0;
 
   const status = completion >= 100 ? "complete" : hasData || completion > 0 ? "in-progress" : "not-started";
@@ -113,7 +112,7 @@ function StagePanel({
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors"
       >
-        <span className="text-lg flex-shrink-0">{meta.emoji}</span>
+        {meta.emoji && <span className="text-lg flex-shrink-0">{meta.emoji}</span>}
         <span className="font-display text-[15px] text-foreground flex-shrink-0">{meta.name}</span>
         <span className={`text-[10px] px-2 py-0.5 rounded-[10px] font-medium ${statusStyles.cls}`}>
           {statusStyles.label}
@@ -128,7 +127,9 @@ function StagePanel({
         <div className="border-t border-border">
           {!hasData ? (
             <div className="px-4 py-5">
-              <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">{meta.description}</p>
+              {meta.description && (
+                <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">{meta.description}</p>
+              )}
               <button onClick={onOpenMentor} className="text-[12px] text-primary hover:underline">
                 Start exploring this stage in Mentor →
               </button>
