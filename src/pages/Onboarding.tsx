@@ -177,9 +177,20 @@ export default function Onboarding() {
           </div>
         ) : (
           <>
-            <p className="text-[11px] font-ui uppercase tracking-[0.08em] text-muted-foreground mb-4">
-              Step {currentStep + 1} of 3
-            </p>
+            <div className="flex items-center justify-between mb-4 h-5">
+              {currentStep > 0 ? (
+                <button
+                  onClick={handleBack}
+                  className="inline-flex items-center gap-1 text-[12px] font-ui text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                  Back
+                </button>
+              ) : <span />}
+              <p className="text-[11px] font-ui uppercase tracking-[0.08em] text-muted-foreground">
+                Step {currentStep + 1} of 3
+              </p>
+            </div>
             <h2 className="font-display text-[26px] leading-[1.3] text-foreground mb-2">
               {step.question}
             </h2>
