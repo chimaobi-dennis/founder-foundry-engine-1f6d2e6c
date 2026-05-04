@@ -53,6 +53,7 @@ export default function ContentCalendar() {
   const isTablet =
     !isMobile && typeof window !== "undefined" && window.innerWidth < 1024;
   const { activeBrand } = useBrand();
+  useBrandUrlSync("/content-calendar");
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
