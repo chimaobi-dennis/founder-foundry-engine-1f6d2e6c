@@ -814,7 +814,9 @@ export async function scheduleCreative(params: ScheduleCreativeParams): Promise<
         copy_text: copyText,
         headline: headline,
         visual_html: visualHtml,
+        content: copyText, // Duplicate for backward compatibility with calendar display
         content_studio_creative_id: creativeId,
+        campaign_creative_id: null, // Deprecated, always null for new records
         status: 'scheduled',
       })
       .select()
