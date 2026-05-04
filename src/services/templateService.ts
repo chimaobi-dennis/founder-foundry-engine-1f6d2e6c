@@ -6,6 +6,21 @@ import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from
 
 const db = supabase as any;
 
+const GENERATION_TIMEOUT_MS = 60000; // 60 seconds
+
+// ─── Timeout wrapper for AI generation calls ────────────────────────────────
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = GENERATION_TIMEOUT_MS,
+  errorMessage: string = 'GENERATION_TIMEOUT'
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+  );
+  return Promise.race([promise, timeoutPromise]);
+}
+
 // ─── Helper functions ───────────────────────────────────────
 
 /**
@@ -652,87 +667,140 @@ Every editable element must have a data-element attribute.
       Array.from({ length: variantCount }).map(async (_, i) => {
         const variantIndex = i + 1;
 
-        // Inject template variables into the system prompt
-        const filledPrompt = injectPromptVariables(systemPrompt, {
-          generation_prompt: generationPrompt,
-          aspectRatio,
-          styleIntensity,
-          variant_index: String(variantIndex),
-          variant_count: String(variantCount),
-          brand_voice: brandDNA?.brand_voice || 'Not yet defined',
-          core_promise: brandDNA?.core_promise || 'Not yet defined',
-          target_audience: brandDNA?.target_audience || 'Not yet defined',
-          positioning_statement: brandDNA?.positioning_statement || 'Not yet defined',
-          primary_color: brand?.primary_color || '#000000',
-          secondary_color: brand?.secondary_color || '#ffffff',
-          product_image_url: productImageUrl,
-          mentor_memory: mentorMemory,
-          journey_stage: brand?.journey_stage || 'spark',
-          captured_stage_data: capturedStageData
-        });
+        try {
+          // Inject template variables into the system prompt
+          const filledPrompt = injectPromptVariables(systemPrompt, {
+            generation_prompt: generationPrompt,
+            aspectRatio,
+            styleIntensity,
+            variant_index: String(variantIndex),
+            variant_count: String(variantCount),
+            brand_voice: brandDNA?.brand_voice || 'Not yet defined',
+            core_promise: brandDNA?.core_promise || 'Not yet defined',
+            target_audience: brandDNA?.target_audience || 'Not yet defined',
+            positioning_statement: brandDNA?.positioning_statement || 'Not yet defined',
+            primary_color: brand?.primary_color || '#000000',
+            secondary_color: brand?.secondary_color || '#ffffff',
+            product_image_url: productImageUrl,
+            mentor_memory: mentorMemory,
+            journey_stage: brand?.journey_stage || 'spark',
+            captured_stage_data: capturedStageData
+          });
 
-        const digitalContentBlock = digitalInputs && Object.keys(digitalInputs).length > 0
-          ? `\n\nCONTENT TO USE IN THIS DESIGN:\n${Object.entries(digitalInputs)
-              .filter(([, v]) => v != null && String(v).trim() !== '')
-              .map(([k, v]) => `${k}: ${v}`)
-              .join('\n')}\n\nUse this exact content in the design — do not invent placeholder text.`
-          : '';
+          const digitalContentBlock = digitalInputs && Object.keys(digitalInputs).length > 0
+            ? `\n\nCONTENT TO USE IN THIS DESIGN:\n${Object.entries(digitalInputs)
+                .filter(([, v]) => v != null && String(v).trim() !== '')
+                .map(([k, v]) => `${k}: ${v}`)
+                .join('\n')}\n\nUse this exact content in the design — do not invent placeholder text.`
+            : '';
 
-        const briefBlock = designBrief && designBrief.trim()
-          ? `\n\nUSER BRIEF (this design's specific purpose — let it guide the headline, mood, and copy):\n${designBrief.trim()}`
-          : '';
+          const briefBlock = designBrief && designBrief.trim()
+            ? `\n\nUSER BRIEF (this design's specific purpose — let it guide the headline, mood, and copy):\n${designBrief.trim()}`
+            : '';
 
-        const userContent = [filledPrompt, digitalContentBlock, briefBlock, extraInstructions ? `\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}` : '']
-          .filter(Boolean)
-          .join('');
-        console.log('Template generation user content:', userContent);
-        const result = await callAI({
-          taskType: 'template_generation',
-          messages: [{ role: 'user', content: userContent }],
-          maxTokens: 8000,
-          imageBase64,
-          imageMimeType
-        });
-        console.log('Template generation result:', result);
-        if (!result.success || !result.text) {
-          throw result.error || 'Failed to generate template variant';
+          const userContent = [filledPrompt, digitalContentBlock, briefBlock, extraInstructions ? `\n\nADDITIONAL INSTRUCTIONS:\n${extraInstructions}` : '']
+            .filter(Boolean)
+            .join('');
+          console.log('Template generation user content:', userContent);
+          const result = await withTimeout(
+            callAI({
+              taskType: 'template_generation',
+              messages: [{ role: 'user', content: userContent }],
+              maxTokens: 8000,
+              imageBase64,
+              imageMimeType
+            })
+          );
+          console.log('Template generation result:', result);
+          if (!result.success || !result.text) {
+            throw result.error || 'Failed to generate template variant';
+          }
+
+          // Strip any code fences the model adds despite instructions.
+          let htmlContent = result.text.trim();
+          htmlContent = htmlContent.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+          // Save to template_outputs
+          const { data: outputData, error: outputError } = await db
+            .from('template_outputs')
+            .insert({
+              template_id: templateId,
+              user_id: userId,
+              brand_id: brandId,
+              output_type: 'html_css',
+              output_html: htmlContent,
+              aspect_ratio: aspectRatio,
+              style_intensity: styleIntensity === 'subtle' ? 1 : styleIntensity === 'balanced' ? 2 : 3,
+              product_image_used: !!productImageUrl,
+              variation_index: variantIndex,
+              is_saved_to_library: false,
+              is_downloaded: false,
+              generation_session_id: generationSessionId,
+              generation_params: { aspectRatio, styleIntensity, variantIndex }
+            })
+            .select('id')
+            .single();
+
+          if (outputError) throw outputError;
+
+          variants[i] = htmlContent;
+          outputIds[i] = outputData.id;
+          onVariant?.({ index: i, html: htmlContent, outputId: outputData.id });
+
+          // Parse and save elements to studio_elements (fire and forget - don't block on errors)
+          saveElementsFromHtml(htmlContent, userId, brandId).catch(err => {
+            console.error('Failed to save elements:', err);
+          });
+        } catch (error: any) {
+          // Save failed output to template_outputs with status 'failed'
+          try {
+            await db
+              .from('template_outputs')
+              .insert({
+                template_id: templateId,
+                user_id: userId,
+                brand_id: brandId,
+                output_type: 'html_css',
+                output_html: null,
+                aspect_ratio: aspectRatio,
+                style_intensity: styleIntensity === 'subtle' ? 1 : styleIntensity === 'balanced' ? 2 : 3,
+                product_image_used: !!productImageUrl,
+                variation_index: variantIndex,
+                is_saved_to_library: false,
+                is_downloaded: false,
+                generation_session_id: generationSessionId,
+                generation_params: { aspectRatio, styleIntensity, variantIndex },
+                status: 'failed',
+                error_message: error.message
+              });
+          } catch (dbError) {
+            console.error('Failed to save failed output:', dbError);
+          }
+          
+          // Handle timeout specifically
+          if (error.message === 'GENERATION_TIMEOUT') {
+            await logError({
+              errorMessage: 'Template generation timed out after 60 seconds',
+              errorType: 'ai_call',
+              module: 'prostudio',
+              componentName: 'templateService',
+              callLocation: 'generateTemplateVariants',
+              pipelineStep: 'timeout',
+              context: { templateId, userId, brandId, variantIndex }
+            });
+          } else {
+            await logError({
+              errorMessage: error.message || 'Template generation failed',
+              errorType: 'ai_call',
+              module: 'prostudio',
+              componentName: 'templateService',
+              callLocation: 'generateTemplateVariants',
+              pipelineStep: 'ai_generation',
+              context: { templateId, userId, brandId, variantIndex }
+            });
+          }
+          throw error;
         }
-
-        // Strip any code fences the model adds despite instructions.
-        let htmlContent = result.text.trim();
-        htmlContent = htmlContent.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-
-        // Save to template_outputs
-        const { data: outputData, error: outputError } = await db
-          .from('template_outputs')
-          .insert({
-            template_id: templateId,
-            user_id: userId,
-            brand_id: brandId,
-            output_type: 'html_css',
-            output_html: htmlContent,
-            aspect_ratio: aspectRatio,
-            style_intensity: styleIntensity === 'subtle' ? 1 : styleIntensity === 'balanced' ? 2 : 3,
-            product_image_used: !!productImageUrl,
-            variation_index: variantIndex,
-            is_saved_to_library: false,
-            is_downloaded: false,
-            generation_session_id: generationSessionId,
-            generation_params: { aspectRatio, styleIntensity, variantIndex }
-          })
-          .select('id')
-          .single();
-
-        if (outputError) throw outputError;
-
-        variants[i] = htmlContent;
-        outputIds[i] = outputData.id;
-        onVariant?.({ index: i, html: htmlContent, outputId: outputData.id });
-
-        // Parse and save elements to studio_elements (fire and forget - don't block on errors)
-        saveElementsFromHtml(htmlContent, userId, brandId).catch(err => {
-          console.error('Failed to save elements:', err);
-        });
       })
     );
 

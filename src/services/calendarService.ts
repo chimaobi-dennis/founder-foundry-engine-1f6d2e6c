@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logError } from './errorService';
+import { markStuckGenerationsAsFailed } from './contentStudioService';
 
 const db = supabase as any;
 
@@ -34,6 +35,16 @@ export async function getCalendarPosts(
 ): Promise<CalendarPost[]> {
   try {
     console.log('[getCalendarPosts] Fetching posts for:', { brandId, year, month });
+
+    // Clean up stuck generations for all briefs in this brand
+    const { data: briefs } = await db
+      .from('content_studio_briefs')
+      .select('id')
+      .eq('brand_id', brandId);
+    
+    if (briefs && briefs.length > 0) {
+      await Promise.all(briefs.map(brief => markStuckGenerationsAsFailed(brief.id)));
+    }
 
     // Calculate first and last day of the month
     const firstDay = new Date(year, month - 1, 1);
