@@ -3,6 +3,7 @@ import { PanelLeft, Download, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { AssetLibrary } from "@/components/contentcalendar/AssetLibrary";
 import { CalendarGrid } from "@/components/contentcalendar/CalendarGrid";
 import { SlotDetail } from "@/components/contentcalendar/SlotDetail";
