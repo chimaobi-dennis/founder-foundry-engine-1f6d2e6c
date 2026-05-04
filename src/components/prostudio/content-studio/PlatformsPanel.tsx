@@ -69,6 +69,6 @@ function StatusDot({ status, approved }: { status: string; approved?: boolean })
   if (status === "ready")
     return <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />;
   if (status === "failed")
-    return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
+    return <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#E05C5C" }} />;
   return <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />;
 }
