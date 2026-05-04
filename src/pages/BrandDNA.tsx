@@ -399,12 +399,11 @@ const BrandDNA = () => {
                   <h2 className="font-display text-[18px] text-foreground">Journey Record</h2>
                   <p className="text-[12px] text-muted-foreground mb-4">Everything captured across your brand journey</p>
                 </div>
-                {STAGE_ORDER.map(key => (
+                {Object.values(profile.stageData).map(stage => (
                   <StagePanel
-                    key={key}
-                    stageKey={key}
-                    stage={profile.stageData[key]}
-                    milestoneCount={profile.milestoneCountByStage[key] || 0}
+                    key={stage.stageKey}
+                    stage={stage}
+                    milestoneCount={profile.milestoneCountByStage[stage.stageKey] || 0}
                     onOpenMentor={goMentor}
                   />
                 ))}
