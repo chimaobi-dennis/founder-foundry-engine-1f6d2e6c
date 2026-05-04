@@ -3,23 +3,29 @@ import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
 import { NavigationProgress } from "./NavigationProgress";
+import { useBrand } from "@/hooks/use-brand";
 
-const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder"];
+const modulePaths = ["/mentor", "/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
 const fullHeightPaths = ["/mentor", "/content-calendar"];
 
 export function Layout() {
   const location = useLocation();
+  const { brands } = useBrand();
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+  const lastSegment = pathSegments[pathSegments.length - 1];
+  const isContentStudioBrandRoute = location.pathname.startsWith("/content-studio/") && brands.some((brand) => brand.id === lastSegment);
   const isEditorRoute =
     location.pathname === "/pro-studio/editor" ||
-    location.pathname.startsWith("/content-studio/");
+    (location.pathname.startsWith("/content-studio/") && !isContentStudioBrandRoute);
   const isContentStudioListRoute =
     location.pathname === "/content-studio" ||
-    location.pathname === "/content-studio/new";
+    location.pathname === "/content-studio/new" ||
+    isContentStudioBrandRoute;
   const isContentStudioEditor =
     location.pathname.startsWith("/content-studio/") && !isContentStudioListRoute;
-  const showBrandBar = modulePaths.includes(location.pathname) && !isEditorRoute;
-  const isFullHeight = fullHeightPaths.includes(location.pathname) || isEditorRoute;
+  const showBrandBar = modulePaths.some((path) => location.pathname === path || location.pathname.startsWith(path + "/")) && !isEditorRoute;
+  const isFullHeight = fullHeightPaths.some((path) => location.pathname === path || location.pathname.startsWith(path + "/")) || isEditorRoute;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
