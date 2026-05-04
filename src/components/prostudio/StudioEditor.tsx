@@ -160,6 +160,7 @@ export function StudioEditor({
   onRegenerateVisual,
   regenerating,
   onApproveActive,
+  onSkipActive,
   activeSchedule,
   onRescheduleActive,
   onRemoveScheduleActive,
