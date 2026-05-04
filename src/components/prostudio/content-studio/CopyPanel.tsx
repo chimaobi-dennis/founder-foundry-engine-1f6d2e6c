@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { RefreshCw, CalendarPlus, Loader2 } from "lucide-react";
+import { RefreshCw, CalendarPlus, Loader2, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CanvasItem } from "../CanvasSwitcher";
+
+interface ScheduleInfo {
+  calendarPostId: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+}
 
 interface CopyPanelProps {
   canvas: CanvasItem;
@@ -11,6 +17,24 @@ interface CopyPanelProps {
   onApproveClick?: () => void;
   regenerating?: boolean;
   isApproved?: boolean;
+  schedule?: ScheduleInfo | null;
+  onReschedule?: () => void;
+  onRemoveSchedule?: () => void;
+}
+
+function formatScheduleLabel(info: ScheduleInfo) {
+  try {
+    const [y, m, d] = info.date.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    const day = dt.toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    return `${day} at ${info.time}`;
+  } catch {
+    return `${info.date} at ${info.time}`;
+  }
 }
 
 export function CopyPanel({
