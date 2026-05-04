@@ -220,7 +220,7 @@ export function CopyPanel({
         ) : (
           <button
             onClick={onApproveClick}
-            disabled={canvas.status !== "ready"}
+            disabled={canvas.status === "generating" || canvas.status === "failed"}
             className="w-full h-10 rounded-md bg-primary text-primary-foreground text-[13px] font-ui font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
             <CalendarPlus size={14} />
