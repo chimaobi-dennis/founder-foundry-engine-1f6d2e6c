@@ -57,7 +57,7 @@ export function AppSidebar() {
     return (
       <NavLink
         key={item.path}
-        to={item.path}
+        to={resolvePath(item.path)}
         className={`
           flex items-center ${showLabel ? "gap-3" : "justify-center"} px-3 py-2.5 rounded-md text-sm font-ui
           transition-all duration-200 ease-in-out group relative
@@ -79,7 +79,7 @@ export function AppSidebar() {
       <Tooltip key={item.path} delayDuration={0}>
         <TooltipTrigger asChild>
           <NavLink
-            to={item.path}
+            to={resolvePath(item.path)}
             className={`
               flex items-center justify-center w-full py-2.5 rounded-md
               transition-all duration-200 ease-in-out
@@ -163,7 +163,7 @@ export function AppSidebar() {
           return (
             <NavLink
               key={item.path}
-              to={item.path}
+              to={resolvePath(item.path)}
               className={`
                 flex flex-col items-center justify-center p-1.5 rounded-md
                 transition-all duration-200
@@ -194,7 +194,7 @@ export function AppSidebar() {
               return (
                 <NavLink
                   key={item.path}
-                  to={item.path}
+                  to={resolvePath(item.path)}
                   onClick={() => setMoreOpen(false)}
                   className={`flex items-center gap-3 px-3 py-3 rounded-md text-sm font-ui transition-colors ${
                     active
