@@ -72,6 +72,11 @@ export default function ContentStudioEditor() {
     if (!briefId) return;
     try {
       const data = await getBriefWithCreatives(briefId);
+      if (!data) {
+        // Brief doesn't exist, redirect to brief list
+        navigate('/content-studio');
+        return;
+      }
       setBrief(data);
       const cs: Creative[] = data.content_studio_creatives || [];
       cs.sort(
@@ -82,6 +87,8 @@ export default function ContentStudioEditor() {
       setCreatives(cs);
     } catch (e) {
       console.error(e);
+      // On error, also redirect to brief list
+      navigate('/content-studio');
     } finally {
       setLoading(false);
     }

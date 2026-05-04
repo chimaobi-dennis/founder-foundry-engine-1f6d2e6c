@@ -3,6 +3,7 @@ import { Menu, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBrand } from "@/contexts/BrandContext";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { useAuth } from "@/contexts/AuthContext";
 import { addBreadcrumb } from "@/services/errorService";
 import { getBrandDNA, updateBrandDNAField, updateBrandName, BrandDNA, type JourneyStage } from "@/services/brandService";
@@ -197,6 +198,7 @@ function upsertMessages(existing: Message[], incoming: Message[]): Message[] {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const Mentor = () => {
+  useBrandUrlSync('/mentor');
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1845,9 +1847,9 @@ Be selective — only mark significant shifts, not minor tangents.`,
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
+    <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full h-full" style={{ minWidth: 0 }}>
       {showLeftInline ? (
-        <aside className="w-60 flex-shrink-0 min-w-0 border-r border-border bg-card/50 overflow-hidden">
+        <aside className="w-60 flex-shrink-0 min-w-0 border-r border-border bg-card/50 overflow-y-auto h-full">
           <BrandMilestonePanel
             brands={brands}
             activeBrand={currentActiveBrand}
@@ -1887,7 +1889,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         </Sheet>
       )}
 
-      <div className="flex-1 min-w-0 max-w-full flex flex-col overflow-hidden relative" style={{ boxSizing: "border-box" }}>
+      <div className="flex-1 min-w-0 max-w-full flex flex-col overflow-hidden relative h-full" style={{ boxSizing: "border-box" }}>
         {isMobile && (
           <div className="h-10 flex items-center px-3 gap-2 border-b border-border flex-shrink-0">
             <button onClick={() => setLeftOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
@@ -1964,7 +1966,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
       </div>
 
       {showRightInline ? (
-        <aside className="w-[280px] flex-shrink-0 min-w-0 border-l border-border bg-card/50 overflow-hidden">
+        <aside className="w-[280px] flex-shrink-0 min-w-0 border-l border-border bg-card/50 overflow-y-auto h-full">
           <BrandDNAPanel
             fields={activeBrandData?.dnaFields || emptyDNAFields}
             highlightField={highlightDNAField}

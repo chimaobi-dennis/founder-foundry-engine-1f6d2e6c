@@ -111,7 +111,9 @@ const App = () => (
                         <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
                         <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
                         <Route path="/" element={<Home />} />
+                        <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />
+                        <Route path="/pro-studio/:brandId" element={<ProStudio />} />
                         <Route path="/pro-studio" element={<ProStudio />} />
                         <Route path="/campaign-kit" element={<CampaignKit />} />
                         <Route path="/campaign-kit/:campaignId" element={<CampaignDetail />} />

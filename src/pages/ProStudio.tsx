@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useBrand } from "@/hooks/use-brand";
+import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
 import { PhysicalProductTab } from "@/components/prostudio/PhysicalProductTab";
 import { DigitalProductTab } from "@/components/prostudio/DigitalProductTab";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,7 @@ const tabs = ["Physical Product", "Digital Product"] as const;
 type Tab = typeof tabs[number];
 
 const ProStudio = () => {
+  useBrandUrlSync('/pro-studio');
   const [activeTab, setActiveTab] = useState<Tab>("Physical Product");
   const { activeBrand } = useBrand();
 

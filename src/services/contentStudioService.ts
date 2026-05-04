@@ -44,7 +44,7 @@ export async function getBriefWithCreatives(briefId: string) {
       )
     `)
     .eq('id', briefId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
   return data;
 }
