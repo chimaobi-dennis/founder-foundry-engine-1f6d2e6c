@@ -332,7 +332,7 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
 // ─── Sub-components ─────────────────────────────────────────────────────
 
 function StagePicker({
-  stages,
+  stages: stagesFromContext,
   onSelect,
   onSkip,
 }: {
@@ -340,6 +340,34 @@ function StagePicker({
   onSelect: (stageKey: string) => void;
   onSkip: () => void;
 }) {
+  const [stages, setStages] = useState<any[]>(stagesFromContext ?? []);
+  const [loading, setLoading] = useState((stagesFromContext?.length ?? 0) === 0);
+
+  // Always fetch directly so the picker doesn't depend on BrandContext warmup.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("journey_stages")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (cancelled) return;
+      if (error) {
+        console.error("StagePicker: failed to fetch journey_stages", error);
+        setStages(stagesFromContext ?? []);
+      } else {
+        setStages(data ?? []);
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const truncate = (s: string | null | undefined, n = 60) =>
+    !s ? "" : s.length > n ? s.slice(0, n).trimEnd() + "…" : s;
+
   return (
     <>
       <h2 className="font-display text-foreground" style={{ fontSize: 24, lineHeight: 1.3, marginBottom: 8 }}>
@@ -349,7 +377,7 @@ function StagePicker({
         This helps your mentor understand your context and start from the right place.
       </p>
 
-      {/* Fresh start option (top, distinct) */}
+      {/* Fresh start option (top, distinct) — not from DB */}
       <button
         onClick={() => onSelect("spark_fresh")}
         className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border-[0.5px] border-primary/40 bg-primary/5 hover:bg-primary/10 transition-colors text-left mb-4"
@@ -366,25 +394,44 @@ function StagePicker({
       </button>
 
       <div className="flex flex-col gap-2">
-        {stages.map(stage => (
-          <button
-            key={stage.stage_key}
-            onClick={() => onSelect(stage.stage_key)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border-[0.5px] border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-colors text-left"
-          >
-            <div className="w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center text-[18px] flex-shrink-0">
-              {stage.emoji}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-ui text-[14px] font-medium text-foreground">
-                {stage.name}
-              </div>
-              <div className="font-ui text-[12px] text-muted-foreground line-clamp-1">
-                {stage.description}
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border-[0.5px] border-border bg-background animate-pulse"
+            >
+              <div className="w-9 h-9 rounded-lg bg-muted/50 flex-shrink-0" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-3 w-1/3 rounded bg-muted/60" />
+                <div className="h-2.5 w-2/3 rounded bg-muted/40" />
               </div>
             </div>
-          </button>
-        ))}
+          ))
+        ) : stages.length === 0 ? (
+          <div className="text-[12px] text-muted-foreground px-1 py-2">
+            No stages available — pick "Starting fresh" above to continue.
+          </div>
+        ) : (
+          stages.map(stage => (
+            <button
+              key={stage.stage_key}
+              onClick={() => onSelect(stage.stage_key)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border-[0.5px] border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-colors text-left"
+            >
+              <div className="w-9 h-9 rounded-lg bg-muted/50 flex items-center justify-center text-[18px] flex-shrink-0">
+                {stage.emoji}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-ui text-[14px] font-medium text-foreground">
+                  {stage.name}
+                </div>
+                <div className="font-ui text-[12px] text-muted-foreground line-clamp-1">
+                  {truncate(stage.description, 60)}
+                </div>
+              </div>
+            </button>
+          ))
+        )}
       </div>
 
       <div className="flex justify-center mt-6">
