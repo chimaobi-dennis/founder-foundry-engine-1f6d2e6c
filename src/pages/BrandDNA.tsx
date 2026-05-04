@@ -17,18 +17,6 @@ import { getMilestones } from "@/services/mentorService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
-const STAGE_ORDER = ["spark", "shape", "validate", "brand", "launch", "grow"] as const;
-type StageKey = typeof STAGE_ORDER[number];
-
-const STAGE_META: Record<StageKey, { emoji: string; name: string; description: string }> = {
-  spark:    { emoji: "✨", name: "Spark",    description: "The seed of your idea — the problem you're solving and who it affects." },
-  shape:    { emoji: "🔧", name: "Shape",    description: "The shape of your solution — how it works and what makes it different." },
-  validate: { emoji: "🧪", name: "Validate", description: "What you've tested and learned from real users." },
-  brand:    { emoji: "🎨", name: "Brand",    description: "Your brand identity — voice, visuals, and audience." },
-  launch:   { emoji: "🚀", name: "Launch",   description: "Your go-to-market plan — channels, metrics, and rollout." },
-  grow:     { emoji: "📈", name: "Grow",     description: "Scaling what works — partnerships, growth, and iteration." },
-};
-
 const modules = [
   { name: "Mentor", icon: MessageCircle },
   { name: "ProStudio", icon: Sparkles },
@@ -99,17 +87,16 @@ function ColorSwatch({ label, hex, onExplore }: { label: string; hex?: string; o
 }
 
 function StagePanel({
-  stageKey, stage, milestoneCount, onOpenMentor,
+  stage, milestoneCount, onOpenMentor,
 }: {
-  stageKey: StageKey;
-  stage: StageData | undefined;
+  stage: StageData;
   milestoneCount: number;
   onOpenMentor: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const meta = STAGE_META[stageKey];
-  const completion = stage?.completion ?? 0;
-  const populatedFields = stage?.fields.filter(f => f.value && String(f.value).trim() !== "") ?? [];
+  const meta = stage.stageMeta;
+  const completion = stage.completion ?? 0;
+  const populatedFields = stage.fields.filter(f => f.value && String(f.value).trim() !== "");
   const hasData = populatedFields.length > 0;
 
   const status = completion >= 100 ? "complete" : hasData || completion > 0 ? "in-progress" : "not-started";
@@ -125,7 +112,7 @@ function StagePanel({
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors"
       >
-        <span className="text-lg flex-shrink-0">{meta.emoji}</span>
+        {meta.emoji && <span className="text-lg flex-shrink-0">{meta.emoji}</span>}
         <span className="font-display text-[15px] text-foreground flex-shrink-0">{meta.name}</span>
         <span className={`text-[10px] px-2 py-0.5 rounded-[10px] font-medium ${statusStyles.cls}`}>
           {statusStyles.label}
@@ -140,7 +127,9 @@ function StagePanel({
         <div className="border-t border-border">
           {!hasData ? (
             <div className="px-4 py-5">
-              <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">{meta.description}</p>
+              {meta.description && (
+                <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">{meta.description}</p>
+              )}
               <button onClick={onOpenMentor} className="text-[12px] text-primary hover:underline">
                 Start exploring this stage in Mentor →
               </button>
@@ -410,12 +399,11 @@ const BrandDNA = () => {
                   <h2 className="font-display text-[18px] text-foreground">Journey Record</h2>
                   <p className="text-[12px] text-muted-foreground mb-4">Everything captured across your brand journey</p>
                 </div>
-                {STAGE_ORDER.map(key => (
+                {Object.values(profile.stageData).map(stage => (
                   <StagePanel
-                    key={key}
-                    stageKey={key}
-                    stage={profile.stageData[key]}
-                    milestoneCount={profile.milestoneCountByStage[key] || 0}
+                    key={stage.stageKey}
+                    stage={stage}
+                    milestoneCount={profile.milestoneCountByStage[stage.stageKey] || 0}
                     onOpenMentor={goMentor}
                   />
                 ))}
