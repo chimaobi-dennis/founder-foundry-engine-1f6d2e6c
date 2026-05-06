@@ -14,7 +14,7 @@ import {
 } from "@/services/contentStudioService";
 
 const routeTitles: Record<string, string> = {
-  "/": "greeting",
+  "/home": "greeting",
   "/mentor": "Mentor",
   "/pro-studio": "ProStudio",
   "/content-studio": "ContentStudio",
