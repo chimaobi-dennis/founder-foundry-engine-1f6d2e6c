@@ -12,6 +12,7 @@ import { StudioSessionProvider } from "@/contexts/StudioSessionContext";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Home from "./pages/Home";
+import Landing from "./pages/Landing";
 import Mentor from "./pages/Mentor";
 import ReelBuilder from "./pages/ReelBuilder";
 import DocStudio from "./pages/DocStudio";
