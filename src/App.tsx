@@ -51,6 +51,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up";
   const isOnboarding = location.pathname === "/onboarding";
+  const isLanding = location.pathname === "/";
+  const isPublic = isLanding || isAuthRoute;
 
   if (isLoading || (session && profileLoading)) {
     return (
@@ -60,7 +62,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!session && !isAuthRoute) {
+  if (!session && !isPublic) {
     return <Navigate to="/sign-in" replace />;
   }
 
@@ -68,10 +70,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (profile && !profile.onboarding_completed) {
       return <Navigate to="/onboarding" replace />;
     }
-    return <Navigate to="/" replace />;
+    return <Navigate to="/home" replace />;
   }
 
-  if (session && profile && !profile.onboarding_completed && !isOnboarding && !isAuthRoute) {
+  if (session && profile && !profile.onboarding_completed && !isOnboarding && !isPublic) {
     return <Navigate to="/onboarding" replace />;
   }
 
