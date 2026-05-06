@@ -12,6 +12,7 @@ import { StudioSessionProvider } from "@/contexts/StudioSessionContext";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Home from "./pages/Home";
+import Landing from "./pages/Landing";
 import Mentor from "./pages/Mentor";
 import ReelBuilder from "./pages/ReelBuilder";
 import DocStudio from "./pages/DocStudio";
@@ -50,6 +51,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up";
   const isOnboarding = location.pathname === "/onboarding";
+  const isLanding = location.pathname === "/";
+  const isPublic = isLanding || isAuthRoute;
 
   if (isLoading || (session && profileLoading)) {
     return (
@@ -59,7 +62,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!session && !isAuthRoute) {
+  if (!session && !isPublic) {
     return <Navigate to="/sign-in" replace />;
   }
 
@@ -67,10 +70,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (profile && !profile.onboarding_completed) {
       return <Navigate to="/onboarding" replace />;
     }
-    return <Navigate to="/" replace />;
+    return <Navigate to="/home" replace />;
   }
 
-  if (session && profile && !profile.onboarding_completed && !isOnboarding && !isAuthRoute) {
+  if (session && profile && !profile.onboarding_completed && !isOnboarding && !isPublic) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -91,6 +94,7 @@ const App = () => (
                 <BrowserRouter>
                   <AuthGuard>
                     <Routes>
+                      <Route path="/" element={<Landing />} />
                       <Route path="/sign-up" element={<SignUp />} />
                       <Route path="/sign-in" element={<SignIn />} />
                       <Route path="/onboarding" element={<Onboarding />} />
@@ -110,7 +114,7 @@ const App = () => (
                         {/* Editor routes — render inside Layout below top nav */}
                         <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
                         <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
-                        <Route path="/" element={<Home />} />
+                        <Route path="/home" element={<Home />} />
                         <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />
                         <Route path="/pro-studio/:brandId" element={<ProStudio />} />

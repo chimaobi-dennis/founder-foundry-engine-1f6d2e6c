@@ -42,7 +42,7 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (!loading && profile?.role !== "admin") {
-      navigate("/", { replace: true });
+      navigate("/home", { replace: true });
     }
   }, [loading, profile]);
 
@@ -81,7 +81,7 @@ export function AdminLayout() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/home")}
             className="text-xs font-ui px-3.5 py-1.5 rounded-lg transition-colors"
             style={{
               border: "0.5px solid #2A3A4A",

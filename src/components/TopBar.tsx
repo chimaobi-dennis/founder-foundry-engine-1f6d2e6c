@@ -14,7 +14,7 @@ import {
 } from "@/services/contentStudioService";
 
 const routeTitles: Record<string, string> = {
-  "/": "greeting",
+  "/home": "greeting",
   "/mentor": "Mentor",
   "/pro-studio": "ProStudio",
   "/content-studio": "ContentStudio",
@@ -114,7 +114,7 @@ export function TopBar() {
   const email = user?.email || '';
 
   const titleKey = Object.keys(routeTitles).find((p) =>
-    p === "/" ? location.pathname === "/" : location.pathname === p || location.pathname.startsWith(p + "/")
+    p === "/home" ? location.pathname === "/home" : location.pathname === p || location.pathname.startsWith(p + "/")
   );
   const resolvedTitle = titleKey ? routeTitles[titleKey] : "Home";
   const title = resolvedTitle === "greeting" ? `${getGreeting()}, ${fullName.split(' ')[0]}` : resolvedTitle;
