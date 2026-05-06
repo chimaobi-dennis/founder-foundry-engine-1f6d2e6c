@@ -64,7 +64,7 @@ export default function Onboarding() {
   // Guard: if onboarding already complete, never show this screen
   useEffect(() => {
     if (profile?.onboarding_completed) {
-      navigate("/", { replace: true });
+      navigate("/home", { replace: true });
     }
   }, [profile?.onboarding_completed, navigate]);
 
@@ -143,7 +143,7 @@ export default function Onboarding() {
         .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
         .eq("id", user.id);
     }
-    navigate("/");
+    navigate("/home");
   };
 
   const step = steps[currentStep];
