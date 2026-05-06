@@ -42,7 +42,7 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (!loading && profile?.role !== "admin") {
-      navigate("/", { replace: true });
+      navigate("/home", { replace: true });
     }
   }, [loading, profile]);
 
