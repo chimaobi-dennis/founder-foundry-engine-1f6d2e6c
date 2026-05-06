@@ -114,7 +114,7 @@ const App = () => (
                         {/* Editor routes — render inside Layout below top nav */}
                         <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
                         <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
-                        <Route path="/" element={<Home />} />
+                        <Route path="/home" element={<Home />} />
                         <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />
                         <Route path="/pro-studio/:brandId" element={<ProStudio />} />
