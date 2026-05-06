@@ -94,6 +94,7 @@ const App = () => (
                 <BrowserRouter>
                   <AuthGuard>
                     <Routes>
+                      <Route path="/" element={<Landing />} />
                       <Route path="/sign-up" element={<SignUp />} />
                       <Route path="/sign-in" element={<SignIn />} />
                       <Route path="/onboarding" element={<Onboarding />} />
