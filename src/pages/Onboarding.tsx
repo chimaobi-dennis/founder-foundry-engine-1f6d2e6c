@@ -64,7 +64,7 @@ export default function Onboarding() {
   // Guard: if onboarding already complete, never show this screen
   useEffect(() => {
     if (profile?.onboarding_completed) {
-      navigate("/", { replace: true });
+      navigate("/home", { replace: true });
     }
   }, [profile?.onboarding_completed, navigate]);
 
