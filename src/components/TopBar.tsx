@@ -117,7 +117,8 @@ export function TopBar() {
     p === "/home" ? location.pathname === "/home" : location.pathname === p || location.pathname.startsWith(p + "/")
   );
   const resolvedTitle = titleKey ? routeTitles[titleKey] : "Home";
-  const title = resolvedTitle === "greeting" ? `${getGreeting()}, ${fullName.split(' ')[0]}` : resolvedTitle;
+  const firstNameForGreeting = profile?.full_name?.trim().split(/\s+/)[0] || "";
+  const title = resolvedTitle === "greeting" ? (firstNameForGreeting ? `${getGreeting()}, ${firstNameForGreeting}` : getGreeting()) : resolvedTitle;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
