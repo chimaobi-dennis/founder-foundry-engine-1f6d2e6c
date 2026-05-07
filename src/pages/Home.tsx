@@ -357,7 +357,7 @@ const Home = () => {
                   )}
                 </div>
                 <Button onClick={() => navigate("/mentor")} className="bg-primary text-primary-foreground hover:bg-primary/90 flex-shrink-0">
-                  Continue in Mentor →
+                  Continue with Kinika →
                 </Button>
               </div>
             </div>
