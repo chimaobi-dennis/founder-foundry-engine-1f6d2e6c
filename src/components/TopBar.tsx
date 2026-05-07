@@ -133,7 +133,7 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-sidebar/95 backdrop-blur-sm border-b-[0.5px] border-border flex-shrink-0 z-50">
+    <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-sidebar/95 backdrop-blur-sm border-b-[0.5px] border-border flex-shrink-0 z-50 fixed md:static top-0 inset-x-0">
       {/* Left — page title */}
       <h1 className="font-display text-lg text-foreground truncate">{title}</h1>
 
