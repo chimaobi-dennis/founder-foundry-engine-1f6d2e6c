@@ -30,8 +30,8 @@ export function DocHome({ brandName, onSelectType, onOpenRecent }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="font-display text-[24px] text-foreground">DocStudio</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">{brandName}</p>
+          <h1 className="hidden md:block font-display text-[24px] text-foreground">DocStudio</h1>
+          <p className="text-[13px] text-muted-foreground md:mt-0.5">{brandName}</p>
         </div>
         <button
           onClick={() => onSelectType("One-Pager")}

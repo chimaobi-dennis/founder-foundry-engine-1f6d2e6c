@@ -174,8 +174,8 @@ const Home = () => {
   const [upcomingPosts, setUpcomingPosts] = useState<CalendarPost[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
 
-  const firstName = profile?.full_name?.split(" ")[0] || "there";
-  const greeting = `${getGreeting()}, ${firstName}`;
+  const firstName = profile?.full_name?.trim().split(/\s+/)[0] || "";
+  const greeting = firstName ? `${getGreeting()}, ${firstName}` : getGreeting();
   const onboarded = !!profile?.onboarding_completed;
   const status = profile?.brand_status ?? null;
   const brandCount = brands?.length ?? 0;
@@ -264,7 +264,7 @@ const Home = () => {
 
   return (
     <FadeIn>
-      <div className="relative min-h-screen pb-16 overflow-x-hidden">
+      <div className="relative min-h-screen pb-16 overflow-x-hidden bg-background">
         <div className="pointer-events-none absolute top-0 right-0 w-[500px] h-[400px] bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.06),transparent_70%)]" />
 
         {/* ── Incomplete onboarding banner ── */}

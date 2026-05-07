@@ -157,11 +157,19 @@ export default function ContentCalendar() {
         {(isMobile || isTablet) && showLibrary && (
           <>
             <div
-              className="fixed inset-0 z-30 bg-background/80"
+              className="fixed inset-0 z-30 bg-black/50"
               onClick={() => setShowLibrary(false)}
             />
-            <div className="fixed left-0 top-0 bottom-0 z-40 w-[240px] bg-card border-r border-border shadow-xl">
-              <AssetLibrary />
+            <div
+              className="fixed left-0 right-0 bottom-0 z-40 bg-card border-t border-border shadow-xl flex flex-col"
+              style={{ maxHeight: "70vh", borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
+            >
+              <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
+              </div>
+              <div className="flex-1 overflow-hidden">
+                <AssetLibrary />
+              </div>
             </div>
           </>
         )}
