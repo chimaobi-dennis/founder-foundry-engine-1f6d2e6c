@@ -108,7 +108,7 @@ function ModuleCard({
   let actionLabel = "Open →";
   if (mod.key === "mentor") actionLabel = hasBrand ? "Continue conversation →" : "Start your first session →";
   else if (mod.key === "prostudio") actionLabel = "Browse templates →";
-  else if (mod.key === "contentstudio") actionLabel = blockedNoDNA ? "Available after your first Mentor session" : "Create content →";
+  else if (mod.key === "contentstudio") actionLabel = blockedNoDNA ? "Available after your first session with Kinika" : "Create content →";
   else if (mod.key === "contentcalendar") actionLabel = activity ?? "View calendar →";
   else if (mod.key === "docstudio") actionLabel = "Create a document →";
   else if (mod.key === "reelbuilder") actionLabel = "Write a script →";
@@ -152,7 +152,7 @@ function ModuleCard({
         <Tooltip>
           <TooltipTrigger asChild>{card}</TooltipTrigger>
           <TooltipContent side="top">
-            <p className="font-ui text-xs">Start a Mentor session first to unlock this</p>
+            <p className="font-ui text-xs">Start with Kinika first to unlock this</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
