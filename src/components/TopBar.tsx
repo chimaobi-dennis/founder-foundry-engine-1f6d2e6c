@@ -125,16 +125,29 @@ export function TopBar() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      // Skip outside-click on mobile (backdrop handles closing)
+      if (isMobile) return;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setDropdownOpen(false);
       }
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+      if (notifRef.current && !notifRef.current.contains(target)) {
         setNotifOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [isMobile]);
+
+  // Lock body scroll when a mobile sheet is open
+  useEffect(() => {
+    if (!isMobile) return;
+    if (notifOpen || dropdownOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [isMobile, notifOpen, dropdownOpen]);
 
   return (
     <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-sidebar/95 backdrop-blur-sm border-b-[0.5px] border-border flex-shrink-0 z-50 fixed md:static top-0 inset-x-0">
