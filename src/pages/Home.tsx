@@ -29,7 +29,7 @@ interface ModuleDef {
 }
 
 const MODULES: ModuleDef[] = [
-  { key: "mentor", name: "Mentor", icon: MessageCircle, path: "/mentor", tagline: "Your AI thinking partner",
+  { key: "mentor", name: "Kinika", icon: MessageCircle, path: "/mentor", tagline: "Your AI thinking partner",
     desc: "Remembers everything. Helps you think through your brand, strategy, and decisions — one conversation at a time.",
     requiresBrand: false },
   { key: "prostudio", name: "ProStudio", icon: Camera, path: "/pro-studio", tagline: "Product visuals without a studio",
