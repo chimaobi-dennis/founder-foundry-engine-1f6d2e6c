@@ -16,7 +16,7 @@ const ProStudio = () => {
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {/* Sticky tab bar */}
-      <div className="sticky top-[96px] md:top-10 z-[9] bg-background border-b border-border flex-shrink-0">
+      <div className="sticky top-0 md:top-10 z-[9] bg-background border-b border-border flex-shrink-0">
         <div className="flex">
           {tabs.map((tab) => (
             <button
