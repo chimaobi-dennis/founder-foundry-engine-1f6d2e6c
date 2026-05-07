@@ -1983,7 +1983,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             <button onClick={() => setLeftOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               <Menu size={18} />
             </button>
-            <span className="text-[13px] font-ui text-foreground flex-1">Mentor</span>
+            <span className="text-[13px] font-ui text-foreground flex-1">Kinika</span>
             <button onClick={() => setRightOpen(!rightOpen)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               {rightOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
             </button>
