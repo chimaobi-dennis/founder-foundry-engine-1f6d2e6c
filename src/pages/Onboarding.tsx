@@ -185,13 +185,10 @@ export default function Onboarding() {
 
       {/* Card */}
       <div
-        className={`w-[90%] max-w-[520px] rounded-2xl border-[0.5px] border-[#2A3A4A] dark:bg-[#1A2A3A] bg-white p-12 transition-all duration-250 ${
-          animating
-            ? slideDir === "right"
-              ? "opacity-0 translate-x-8"
-              : "opacity-0 -translate-x-8"
-            : "opacity-100 translate-x-0"
+        className={`w-full max-w-[520px] rounded-2xl border-[0.5px] border-[#2A3A4A] dark:bg-[#1A2A3A] bg-white p-12 transition-opacity duration-250 ${
+          animating ? "opacity-0" : "opacity-100"
         }`}
+        style={{ maxWidth: "min(520px, 100vw - 2rem)", overflowX: "hidden", boxSizing: "border-box", touchAction: "pan-y" }}
       >
         {completed ? (
           <div className="flex flex-col items-center text-center gap-3 animate-in fade-in duration-300">
