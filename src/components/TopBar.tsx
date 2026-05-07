@@ -252,7 +252,7 @@ export function TopBar() {
             <>
               {/* Mobile backdrop */}
               <div
-                className="md:hidden fixed inset-0 z-40 bg-background/60"
+                className="md:hidden fixed inset-0 z-40 bg-black/50"
                 onClick={() => setDropdownOpen(false)}
               />
               <div
