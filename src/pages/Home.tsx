@@ -264,12 +264,15 @@ const Home = () => {
 
   return (
     <FadeIn>
-      <div className="relative min-h-screen pb-16 overflow-x-hidden bg-background">
-        <div className="pointer-events-none absolute top-0 right-0 w-[500px] h-[400px] bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.06),transparent_70%)]" />
+      <div
+        className="relative min-h-screen pb-16 overflow-x-hidden bg-background"
+        style={{ maxWidth: "100vw", boxSizing: "border-box" }}
+      >
+        <div className="pointer-events-none absolute top-0 right-0 w-[500px] max-w-full h-[400px] bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.06),transparent_70%)]" />
 
         {/* ── Incomplete onboarding banner ── */}
         {viewState === "incomplete" && (
-          <div className="px-4 md:px-6 pt-6 max-w-[1200px] mx-auto">
+          <div className="px-4 md:px-6 pt-6 max-w-[1200px] mx-auto" style={{ maxWidth: "min(1200px, 100vw)", boxSizing: "border-box" }}>
             <div className="flex items-center gap-3 rounded-xl bg-primary/10 border border-primary/20 px-4 py-3">
               <AlertCircle size={18} className="text-primary flex-shrink-0" />
               <p className="font-ui text-sm text-foreground flex-1">
@@ -287,10 +290,10 @@ const Home = () => {
         )}
 
         {/* ── Hero ── */}
-        <section className="relative px-4 md:px-6 pt-8 md:pt-10 pb-8 max-w-[1200px] mx-auto">
+        <section className="relative px-4 md:px-6 pt-8 md:pt-10 pb-8 max-w-[1200px] mx-auto" style={{ maxWidth: "min(1200px, 100vw)", boxSizing: "border-box" }}>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse flex-shrink-0" />
-            <h1 className="font-display text-[32px] md:text-[40px] lg:text-[48px] leading-tight text-foreground">
+            <h1 className="font-display leading-tight text-foreground" style={{ fontSize: "clamp(28px, 8vw, 48px)" }}>
               {greeting}
             </h1>
           </div>
