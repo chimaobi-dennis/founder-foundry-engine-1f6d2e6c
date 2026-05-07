@@ -165,7 +165,7 @@ export default function Landing() {
               </span>
             </h1>
             <p className="fade-up-1 mt-8" style={{ color: C.muted, fontSize: 20, lineHeight: 1.6, maxWidth: 480 }}>
-              The AI that knows your business from day one. Every piece of content, every visual, every document — generated from your actual brand context.
+              A tool that knows your business from day one. Every piece of content, every visual, every document — generated from your actual brand context.
             </p>
             <div className="fade-up-2 mt-10 flex flex-col sm:flex-row gap-4">
               <Link
