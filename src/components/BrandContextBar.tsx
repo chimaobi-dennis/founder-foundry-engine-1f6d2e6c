@@ -41,7 +41,7 @@ export function BrandContextBar() {
 
   if (isLoading) {
     return (
-      <div className="h-10 flex items-center px-4 md:px-6 bg-muted/30 border-b border-border text-[12px] font-ui text-muted-foreground flex-shrink-0">
+    <div className="h-10 flex items-center px-4 md:px-6 bg-background border-b border-border text-[12px] font-ui text-muted-foreground flex-shrink-0">
         <span className="text-[11px] font-ui text-muted-foreground mr-2">Working on:</span>
         <div className="w-16 h-4 bg-muted rounded animate-pulse" />
       </div>
@@ -50,21 +50,21 @@ export function BrandContextBar() {
 
   if (!activeBrand) {
     return (
-      <div className="h-10 flex items-center px-4 md:px-6 bg-muted/30 border-b border-border text-[12px] font-ui text-muted-foreground flex-shrink-0">
+      <div className="h-10 flex items-center px-4 md:px-6 bg-background border-b border-border text-[12px] font-ui text-muted-foreground flex-shrink-0">
         <span className="text-[11px] font-ui text-muted-foreground mr-2">Working on:</span>
         <button
           onClick={handleCreateBrand}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-card hover:border-card-border-hover transition-colors duration-200"
         >
           <Plus size={12} className="text-muted-foreground" />
-          <span className="text-[12px] font-ui text-muted-foreground">No brand yet</span>
+          <span className="text-[12px] font-ui text-muted-foreground">No project yet</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="h-10 flex items-center px-4 md:px-6 bg-muted/30 border-b border-border flex-shrink-0" ref={ref}>
+    <div className="h-10 flex items-center px-4 md:px-6 bg-background border-b border-border flex-shrink-0" ref={ref} style={{ backdropFilter: "none" }}>
       <span className="text-[11px] font-ui text-muted-foreground mr-2">Working on:</span>
       <button
         onClick={() => setOpen(!open)}

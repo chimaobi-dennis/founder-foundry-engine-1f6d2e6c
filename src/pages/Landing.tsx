@@ -16,7 +16,7 @@ const C = {
 const CYCLING = ["finally understood.", "finally heard.", "finally alive.", "finally yours."];
 
 const MODULES = [
-  { emoji: "🧠", name: "Mentor", desc: "Your AI thinking partner. Remembers everything." },
+  { emoji: "🧠", name: "Kinika", desc: "Your AI thinking partner. Remembers everything." },
   { emoji: "📸", name: "ProStudio", desc: "Product visuals without a studio." },
   { emoji: "📢", name: "ContentStudio", desc: "One brief. Eight platforms. Ready to post." },
   { emoji: "📅", name: "ContentCalendar", desc: "Plan your content month visually." },
@@ -31,9 +31,9 @@ const PROBLEMS = [
 ];
 
 const STEPS = [
-  { n: "1", title: "Talk to Mentor", body: "Start a conversation about your business. No forms. No setup. Just talk." },
+  { n: "1", title: "Talk to Kinika", body: "Start a conversation about your business. No forms. No setup. Just talk." },
   { n: "2", title: "Build your Brand DNA", body: "Every insight is captured automatically. Your brand knowledge compounds over time." },
-  { n: "3", title: "Create from context", body: "Every module uses what Mentor learned. Content, visuals, docs — all on-brand, always." },
+  { n: "3", title: "Create from context", body: "Every module uses what Kinika learned. Content, visuals, docs — all on-brand, always." },
 ];
 
 function useScrolled() {
@@ -225,7 +225,7 @@ export default function Landing() {
             </h2>
             <div className="mt-8" style={{ width: 60, height: 2, background: C.amber }} />
             <p className="mt-8" style={{ color: C.muted, fontSize: 18, lineHeight: 1.6, maxWidth: 380 }}>
-              Tell Mentor your story once. Kinika builds your Brand DNA and powers every module from it.
+              Tell Kinika your story once. Kinika builds your Brand DNA and powers every module from it.
             </p>
           </div>
           <div className="flex flex-col gap-4">

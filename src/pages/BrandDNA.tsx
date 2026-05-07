@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 const modules = [
-  { name: "Mentor", icon: MessageCircle },
+  { name: "Kinika", icon: MessageCircle },
   { name: "ProStudio", icon: Sparkles },
   { name: "ContentStudio", icon: Lightbulb },
   { name: "ContentCalendar", icon: Calendar },
@@ -54,7 +54,7 @@ function FieldValue({ label, value, onExplore }: { label: string; value: any; on
         <div className="flex items-center gap-2">
           <span className="text-[12px] text-muted-foreground italic">Not yet defined</span>
           <button onClick={onExplore} className="text-[11px] text-primary hover:underline">
-            Explore in Mentor →
+            Explore with Kinika →
           </button>
         </div>
       ) : (
@@ -79,7 +79,7 @@ function ColorSwatch({ label, hex, onExplore }: { label: string; hex?: string; o
         <div className="flex items-center gap-2">
           <span className="text-[12px] text-muted-foreground italic">Not yet defined</span>
           <button onClick={onExplore} className="text-[11px] text-primary hover:underline">
-            Explore in Mentor →
+            Explore with Kinika →
           </button>
         </div>
       )}
@@ -132,7 +132,7 @@ function StagePanel({
                 <p className="text-[13px] text-muted-foreground leading-relaxed mb-3">{meta.description}</p>
               )}
               <button onClick={onOpenMentor} className="text-[12px] text-primary hover:underline">
-                Start exploring this stage in Mentor →
+                Start exploring this stage with Kinika →
               </button>
             </div>
           ) : (
@@ -142,7 +142,7 @@ function StagePanel({
                   <p className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground mb-1">{f.label}</p>
                   <p className="text-[13px] text-foreground leading-relaxed mb-1.5">{f.value}</p>
                   <button onClick={onOpenMentor} className="text-[11px] text-primary hover:underline">
-                    Refine in Mentor →
+                    Refine with Kinika →
                   </button>
                 </div>
               ))}
@@ -280,7 +280,7 @@ const BrandDNA = () => {
 
   const brand = profile.brand as any;
   const dna = profile.dna || ({} as any);
-  const subtitle = [brand.industry, brand.location].filter(Boolean).join(" · ") || "Add an industry in Mentor";
+  const subtitle = [brand.industry, brand.location].filter(Boolean).join(" · ") || "Add an industry with Kinika";
   const completeness = brand.completeness_score ?? 0;
   const lastUpdatedRel = formatRelative(brand.journey_stage_updated_at) || "—";
 
@@ -305,16 +305,16 @@ const BrandDNA = () => {
             <div className="text-center py-16 max-w-md mx-auto">
               <Fingerprint size={40} className="mx-auto text-primary mb-4 opacity-60" />
               <h2 className="font-display text-[22px] text-foreground mb-2">
-                Your Brand DNA grows with every Mentor conversation
+                Your Brand DNA grows with every Kinika conversation
               </h2>
               <p className="text-[13px] text-muted-foreground mb-6 leading-relaxed">
-                Start a conversation in Mentor and your brand insights will automatically appear here.
+                Start a conversation with Kinika and your brand insights will automatically appear here.
               </p>
               <button
                 onClick={goMentor}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-[13px] font-medium hover:opacity-90 transition-opacity"
               >
-                Go to Mentor →
+                Talk to Kinika →
               </button>
             </div>
           </div>
@@ -364,7 +364,7 @@ const BrandDNA = () => {
                 <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${completeness}%` }} />
               </div>
               <p className="text-[11px] text-muted-foreground mt-2">
-                Last updated from Mentor session · {lastUpdatedRel}
+                Last updated from Kinika session · {lastUpdatedRel}
               </p>
             </div>
           </div>
@@ -414,7 +414,7 @@ const BrandDNA = () => {
               <div className="rounded-lg bg-muted/50 p-3 px-4 mt-4 flex items-start gap-2.5">
                 <MessageCircle size={14} className="text-primary flex-shrink-0 mt-0.5" />
                 <p className="text-[12px] text-muted-foreground leading-relaxed">
-                  Brand DNA grows automatically as you chat with your Mentor. The more you build together, the more complete your profile becomes.
+                  Brand DNA grows automatically as you chat with Kinika. The more you build together, the more complete your profile becomes.
                 </p>
               </div>
             </div>
@@ -460,7 +460,7 @@ const BrandDNA = () => {
                   <span className="text-[12px] text-muted-foreground">total milestone{totalMilestones === 1 ? "" : "s"}</span>
                 </div>
                 <button onClick={goMentor} className="text-[11px] text-primary mt-2 hover:underline">
-                  View in Mentor →
+                  View with Kinika →
                 </button>
               </div>
 

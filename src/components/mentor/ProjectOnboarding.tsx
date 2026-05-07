@@ -268,16 +268,21 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-8"
+      className="fixed inset-0 z-50 flex items-start md:items-center justify-center px-4 py-8"
       style={{
         background: "rgba(0,0,0,0.85)",
         backdropFilter: "blur(4px)",
         WebkitBackdropFilter: "blur(4px)",
+        overflowY: "auto",
+        overflowX: "hidden",
+        touchAction: "pan-y",
+        overscrollBehavior: "none",
+        WebkitOverflowScrolling: "touch",
       }}
     >
       <div
-        className="w-[90%] max-w-[560px] rounded-2xl bg-card border-[0.5px] border-border"
-        style={{ padding: "32px" }}
+        className="w-full max-w-[560px] rounded-2xl bg-card border-[0.5px] border-border"
+        style={{ padding: "32px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}
       >
         {step === "stage" && (
           <StagePicker

@@ -15,7 +15,7 @@ import {
 
 const routeTitles: Record<string, string> = {
   "/home": "greeting",
-  "/mentor": "Mentor",
+  "/mentor": "Kinika",
   "/pro-studio": "ProStudio",
   "/content-studio": "ContentStudio",
   "/content-calendar": "ContentCalendar",
@@ -312,7 +312,7 @@ export function TopBar() {
                   ))}
                 </div>
                 {brands.length === 0 && (
-                  <p className="text-[11px] font-ui text-muted-foreground mt-2">Create your first project by starting a Mentor session.</p>
+                  <p className="text-[11px] font-ui text-muted-foreground mt-2">Create your first project by starting with Kinika.</p>
                 )}
                 <button className="w-full flex items-center gap-2 px-2 py-2 mt-1 rounded-md text-[12px] font-ui text-primary/70 hover:text-primary hover:bg-muted/50 transition-colors duration-200">
                   + Add new project
