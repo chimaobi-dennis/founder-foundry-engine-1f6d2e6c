@@ -54,6 +54,7 @@ export function TopBar() {
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const { application: creatorApp } = useCreatorApplication();
+  const isMobile = useIsMobile();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
