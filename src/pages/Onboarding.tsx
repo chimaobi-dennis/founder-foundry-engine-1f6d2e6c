@@ -149,7 +149,17 @@ export default function Onboarding() {
   const step = steps[currentStep];
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div
+      className="fixed inset-0 bg-background flex items-center justify-center px-4 py-20"
+      style={{
+        overflowY: "auto",
+        overflowX: "hidden",
+        touchAction: "pan-y",
+        overscrollBehavior: "none",
+        WebkitOverflowScrolling: "touch",
+        boxSizing: "border-box",
+      }}
+    >
       {/* Progress dots */}
       <div className="fixed top-6 left-1/2 -translate-x-1/2 flex gap-2 z-50">
         {[0, 1, 2].map((i) => (
