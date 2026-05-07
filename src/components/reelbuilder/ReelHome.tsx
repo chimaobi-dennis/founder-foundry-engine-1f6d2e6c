@@ -178,8 +178,8 @@ export function ReelHome({ brandName, onNewReel, onOpenRecent, onUseTemplate }: 
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <h1 className="font-display text-2xl text-foreground">ReelBuilder</h1>
-          <p className="text-[13px] text-muted-foreground mt-1">{brandName}</p>
+          <h1 className="hidden md:block font-display text-2xl text-foreground">ReelBuilder</h1>
+          <p className="text-[13px] text-muted-foreground md:mt-1">{brandName}</p>
         </div>
         <Button onClick={onNewReel} className="h-12 px-6 gap-2">
           <Plus size={18} /> New reel
