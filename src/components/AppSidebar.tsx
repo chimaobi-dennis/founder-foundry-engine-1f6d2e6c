@@ -9,7 +9,7 @@ import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 const moduleItems = [
   { label: "Home", icon: Home, path: "/home" },
-  { label: "Mentor", icon: MessageCircle, path: "/mentor" },
+  { label: "Kinika", icon: MessageCircle, path: "/mentor" },
   { label: "ProStudio", icon: Camera, path: "/pro-studio" },
   { label: "ContentStudio", icon: Megaphone, path: "/content-studio" },
   { label: "ContentCalendar", icon: Calendar, path: "/content-calendar" },
