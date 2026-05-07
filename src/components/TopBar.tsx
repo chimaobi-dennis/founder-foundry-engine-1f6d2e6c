@@ -233,28 +233,37 @@ export function TopBar() {
           </button>
 
           {dropdownOpen && (
-            <div className="absolute top-12 right-0 w-[280px] rounded-2xl bg-card border border-card-border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200" style={{ maxHeight: '85vh', overflowY: 'auto', scrollbarWidth: 'none' }}>
-              <style>{`
-                div[style*="max-height"]::-webkit-scrollbar {
-                  display: none;
-                }
-              `}</style>
-              {/* User identity */}
-              <div className="p-5 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-lg font-ui font-semibold flex-shrink-0">
-                  {initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-display text-base text-foreground">{fullName}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[13px] font-ui text-muted-foreground">Founder</span>
-                    <span className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">Pro Plan</span>
+            <>
+              {/* Mobile backdrop */}
+              <div
+                className="md:hidden fixed inset-0 z-40 bg-background/60"
+                onClick={() => setDropdownOpen(false)}
+              />
+              <div
+                className="fixed md:absolute z-50 bg-card border border-card-border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200
+                  inset-x-0 bottom-0 md:inset-x-auto md:bottom-auto md:top-12 md:right-0 md:w-[280px]
+                  rounded-t-[20px] md:rounded-2xl
+                  flex flex-col"
+                style={{ maxHeight: '85vh' }}
+              >
+                {/* Sticky user identity header */}
+                <div className="sticky top-0 z-10 bg-card p-4 flex items-center gap-3 border-b border-border flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-lg font-ui font-semibold flex-shrink-0">
+                    {initials}
                   </div>
-                  <p className="text-[12px] font-ui text-muted-foreground mt-0.5 truncate">{email}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display text-base text-foreground">{fullName}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[13px] font-ui text-muted-foreground">Founder</span>
+                      <span className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">Pro Plan</span>
+                    </div>
+                    <p className="text-[12px] font-ui text-muted-foreground mt-0.5 truncate">{email}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="border-t border-border" />
+                {/* Scrollable content */}
+                <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                  <style>{`div[style*="scrollbar-width: none"]::-webkit-scrollbar { display: none; }`}</style>
 
               {/* Brand switcher */}
               <div className="p-4">
