@@ -5,6 +5,8 @@ import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
 import { useCreatorApplication } from "@/hooks/use-creator-application";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { createPortal } from "react-dom";
 import { useState, useRef, useEffect } from "react";
 import {
   getNotifications,
