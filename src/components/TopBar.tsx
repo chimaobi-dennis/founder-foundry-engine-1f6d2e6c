@@ -262,6 +262,9 @@ export function TopBar() {
                   flex flex-col"
                 style={{ maxHeight: '85vh' }}
               >
+                <div className="md:hidden flex justify-center pt-2.5 pb-1 flex-shrink-0">
+                  <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
+                </div>
                 {/* Sticky user identity header */}
                 <div className="sticky top-0 z-10 bg-card p-4 flex items-center gap-3 border-b border-border flex-shrink-0">
                   <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-lg font-ui font-semibold flex-shrink-0">
