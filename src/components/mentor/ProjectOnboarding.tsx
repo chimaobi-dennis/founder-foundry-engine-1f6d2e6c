@@ -267,23 +267,62 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
   // ─── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start md:items-center justify-center px-4 py-8"
-      style={{
-        background: "rgba(0,0,0,0.85)",
-        backdropFilter: "blur(4px)",
-        WebkitBackdropFilter: "blur(4px)",
-        overflowY: "auto",
-        overflowX: "hidden",
-        touchAction: "pan-y",
-        overscrollBehavior: "none",
-        WebkitOverflowScrolling: "touch",
-      }}
-    >
+    <>
+      {/* Backdrop */}
       <div
-        className="w-full max-w-[560px] rounded-2xl bg-card border-[0.5px] border-border"
-        style={{ padding: "32px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}
+        className="fixed inset-0"
+        style={{
+          background: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+          zIndex: 49,
+        }}
+      />
+      {/* Mobile: full-screen scroll container with bottom-sheet feel.
+          Desktop: centered modal card. */}
+      <div
+        className="fixed inset-0 md:hidden flex items-start justify-center px-4 py-8"
+        style={{
+          zIndex: 50,
+          overflowY: "auto",
+          overflowX: "hidden",
+          touchAction: "pan-y",
+          overscrollBehavior: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
       >
+        <div
+          className="w-full rounded-2xl bg-card border-[0.5px] border-border"
+          style={{ padding: "24px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}
+        >
+          {renderStep()}
+        </div>
+      </div>
+
+      <div
+        className="hidden md:block fixed top-1/2 left-1/2"
+        style={{
+          transform: "translate(-50%, -50%)",
+          zIndex: 50,
+          width: 560,
+          maxWidth: "90vw",
+          maxHeight: "80vh",
+          overflowY: "auto",
+          background: "hsl(var(--card))",
+          borderRadius: 16,
+          padding: 40,
+          boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
+          boxSizing: "border-box",
+        }}
+      >
+        {renderStep()}
+      </div>
+    </>
+  );
+
+  function renderStep() {
+    return (
+      <>
         {step === "stage" && (
           <StagePicker
             stages={journeyStages}
@@ -291,7 +330,6 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
             onSkip={handleSkipFresh}
           />
         )}
-
         {step === "context" && (
           <ContextStep
             selectedStage={selectedStage}
@@ -313,11 +351,9 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
             formatBytes={formatBytes}
           />
         )}
-
         {step === "processing" && (
           <ProcessingStep currentStep={processingStep} />
         )}
-
         {step === "results" && extracted && (
           <ResultsStep
             extracted={extracted}
@@ -329,9 +365,9 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
             saving={saving}
           />
         )}
-      </div>
-    </div>
-  );
+      </>
+    );
+  }
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────────
