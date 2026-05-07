@@ -401,7 +401,9 @@ export function TopBar() {
                 <LogOut size={14} />
                 <span>Sign out</span>
               </button>
-            </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>
