@@ -1133,7 +1133,7 @@ function FragmentedDiagram() {
 
 function LivingWorkspace() {
   return (
-    <div className="relative" style={{ width: "100%", aspectRatio: "1 / 1.05", maxWidth: 560, marginLeft: "auto" }}>
+    <div className="relative mx-auto lg:ml-auto lg:mr-0" style={{ width: "100%", aspectRatio: "1 / 1.05", maxWidth: 560 }}>
       {/* connecting lines */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 560 588" fill="none" style={{ zIndex: 1 }}>
         <path className="draw-line" d="M 150 170 C 220 200, 280 240, 340 270" stroke={L.rule} strokeWidth="1" />
