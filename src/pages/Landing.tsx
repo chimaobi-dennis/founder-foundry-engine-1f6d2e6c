@@ -2056,22 +2056,226 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer style={{ background: C.bgDark, borderTop: `1px solid ${C.border}` }}>
-        <div className="max-w-[1280px] mx-auto px-6 md:px-10 h-16 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs" style={{ color: C.muted }}>
-          <span className="pf" style={{ color: C.amber, fontSize: 18, fontWeight: 600 }}>
-            kinika
-          </span>
-          <div className="flex gap-5">
-            <a href="#" className="hover:opacity-80">Privacy</a>
-            <span>·</span>
-            <a href="#" className="hover:opacity-80">Terms</a>
-            <span>·</span>
-            <a href="#" className="hover:opacity-80">Contact</a>
+      {/* EDITORIAL FOOTER — closing spread */}
+      <footer
+        style={{
+          background: L.paperDeep,
+          borderTop: `1px solid ${L.rule}`,
+          position: "relative",
+        }}
+      >
+        {/* subtle paper grain */}
+        <svg aria-hidden className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.35 }}>
+          <filter id="footerGrain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+            <feComponentTransfer><feFuncA type="linear" slope="0.06" /></feComponentTransfer>
+          </filter>
+          <rect width="100%" height="100%" filter="url(#footerGrain)" />
+        </svg>
+
+        <div className="relative max-w-[1320px] mx-auto" style={{ padding: "80px 24px 64px" }}>
+          {/* top rule */}
+          <div style={{ height: 1, background: L.rule, marginBottom: 56 }} />
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-12">
+            {/* LEFT — closing statement + nav */}
+            <div className="lg:col-span-7">
+              {/* editorial closing statement */}
+              <p className="pf" style={{
+                color: L.ink,
+                fontSize: "clamp(22px, 2.6vw, 30px)",
+                lineHeight: 1.35,
+                fontWeight: 500,
+                letterSpacing: "-0.015em",
+                maxWidth: "32ch",
+              }}>
+                Built for founders who think long-term.
+              </p>
+
+              <div style={{ height: 1, background: L.ruleSoft, margin: "32px 0 36px", width: 48 }} />
+
+              {/* small elegant nav groups */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+                {[
+                  {
+                    title: "Product",
+                    links: ["Mentor", "ProStudio", "CampaignKit", "Calendar"],
+                  },
+                  {
+                    title: "Philosophy",
+                    links: ["Memory First", "Brand DNA", "The Loop", "Journey"],
+                  },
+                  {
+                    title: "Journal",
+                    links: ["Field Notes", "Founder Stories", "Release Notes"],
+                  },
+                  {
+                    title: "Access",
+                    links: ["Sign In", "Get Started", "Contact"],
+                  },
+                ].map((group) => (
+                  <div key={group.title}>
+                    <span style={{
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: 10,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color: L.amber,
+                      fontWeight: 600,
+                    }}>
+                      {group.title}
+                    </span>
+                    <ul style={{ marginTop: 14, display: "grid", gap: 9 }}>
+                      {group.links.map((link) => (
+                        <li key={link}>
+                          <a
+                            href="#"
+                            className="inline-block transition-colors duration-200"
+                            style={{
+                              fontFamily: "'DM Sans', sans-serif",
+                              fontSize: 13,
+                              color: L.inkSoft,
+                              letterSpacing: "0.01em",
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.target as HTMLElement).style.color = L.ink;
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.target as HTMLElement).style.color = L.inkSoft;
+                            }}
+                          >
+                            {link}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT — publication metadata */}
+            <div className="lg:col-span-5 lg:pl-12">
+              <div
+                style={{
+                  borderLeft: `1px solid ${L.ruleSoft}`,
+                  paddingLeft: 32,
+                  height: "100%",
+                }}
+                className="hidden lg:block"
+              />
+              <div className="lg:pl-8 -mt-0 lg:-mt-[100%]">
+                <div style={{ marginBottom: 28 }}>
+                  <span style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 10,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: L.inkMuted,
+                    fontWeight: 500,
+                  }}>
+                    Kinika Studio
+                  </span>
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <span className="pf" style={{
+                    color: L.ink,
+                    fontSize: 20,
+                    fontWeight: 500,
+                    letterSpacing: "-0.01em",
+                  }}>
+                    Vol. 01
+                  </span>
+                  <span style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 13,
+                    color: L.inkSoft,
+                    marginLeft: 8,
+                  }}>
+                    — The Memory Issue
+                  </span>
+                </div>
+
+                <div style={{ height: 1, background: L.ruleSoft, margin: "24px 0", width: 32 }} />
+
+                <p style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 12,
+                  color: L.inkMuted,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                }}>
+                  End of Edition
+                </p>
+
+                <p className="pf" style={{
+                  color: L.inkMuted,
+                  fontSize: 14,
+                  fontStyle: "italic",
+                  marginTop: 20,
+                  lineHeight: 1.5,
+                }}>
+                  "The next conversation begins inside."
+                </p>
+
+                <div style={{ marginTop: 32 }}>
+                  <span style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 11,
+                    color: L.inkMuted,
+                    letterSpacing: "0.06em",
+                  }}>
+                    © 2026 Kinika
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <span>© 2025 Kinika</span>
+
+          {/* bottom rule + quiet sign-off */}
+          <div style={{ height: 1, background: L.rule, marginTop: 64, marginBottom: 24 }} />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 11,
+              color: L.inkMuted,
+              letterSpacing: "0.06em",
+            }}>
+              A system that remembers.
+            </span>
+            <div className="flex items-center gap-4">
+              <a
+                href="#"
+                className="transition-colors duration-200"
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 11,
+                  color: L.inkMuted,
+                  letterSpacing: "0.06em",
+                }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.color = L.ink; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.color = L.inkMuted; }}
+              >
+                Privacy
+              </a>
+              <span style={{ color: L.rule }}>·</span>
+              <a
+                href="#"
+                className="transition-colors duration-200"
+                style={{
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontSize: 11,
+                  color: L.inkMuted,
+                  letterSpacing: "0.06em",
+                }}
+                onMouseEnter={(e) => { (e.target as HTMLElement).style.color = L.ink; }}
+                onMouseLeave={(e) => { (e.target as HTMLElement).style.color = L.inkMuted; }}
+              >
+                Terms
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
-    </div>
-  );
-}
