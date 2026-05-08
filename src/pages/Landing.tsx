@@ -123,8 +123,19 @@ export default function Landing() {
         .reveal.in { opacity: 1; transform: translateY(0); }
         .module-card { transition: background .25s ease, transform .25s ease; }
         .module-card:hover { background: ${C.cardHover}; transform: translateY(-2px); }
+        @keyframes floatA { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes floatB { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes floatC { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes pulseDot { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+        @keyframes drawLine { from { stroke-dashoffset: 200; } to { stroke-dashoffset: 0; } }
+        .float-a { animation: floatA 7s ease-in-out infinite; }
+        .float-b { animation: floatB 9s ease-in-out infinite .8s; }
+        .float-c { animation: floatC 8s ease-in-out infinite .4s; }
+        .pulse-dot { animation: pulseDot 2.4s ease-in-out infinite; }
+        .draw-line { stroke-dasharray: 200; animation: drawLine 2s ease-out .6s forwards; }
         @media (prefers-reduced-motion: reduce) {
-          .diag-bg, .amber-line, .fade-up-1, .fade-up-2, .reveal { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; width: 40% !important; }
+          .diag-bg, .amber-line, .fade-up-1, .fade-up-2, .reveal,
+          .float-a, .float-b, .float-c, .pulse-dot, .draw-line { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; width: 40% !important; }
         }
       `}</style>
 
