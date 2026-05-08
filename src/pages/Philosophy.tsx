@@ -188,7 +188,6 @@ function MemoryDiagram() {
             fontSize="10"
             letterSpacing="2"
             fill={L.inkMuted}
-            textTransform="uppercase"
           >
             FRAGMENTS
           </text>
