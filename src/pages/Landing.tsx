@@ -1341,6 +1341,29 @@ export default function Landing() {
               — Brand Intelligence
             </span>
           </Link>
+          <nav className="hidden md:flex items-center gap-7">
+            {[
+              { to: "/philosophy", label: "Philosophy" },
+              { to: "/system", label: "System" },
+              { to: "/journal", label: "Journal" },
+              { to: "/pricing", label: "Pricing" },
+            ].map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                style={{
+                  color: L.inkSoft,
+                  fontSize: 13,
+                  letterSpacing: "0.02em",
+                  fontFamily: "'DM Sans', sans-serif",
+                  fontWeight: 500,
+                }}
+                className="hover:opacity-70 transition-opacity"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
           <div className="flex items-center gap-7">
             <Link to="/sign-in" style={{ color: L.inkSoft, fontSize: 14, letterSpacing: "0.01em" }} className="hover:opacity-70 transition-opacity hidden sm:inline">
               Sign in
@@ -1357,7 +1380,7 @@ export default function Landing() {
                 letterSpacing: "0.01em",
               }}
             >
-              Begin
+              Enter Kinika
             </Link>
           </div>
         </div>
