@@ -455,6 +455,118 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ───────── SECTION 02 — The Memory Problem (warm editorial) ───────── */}
+      <section className="relative overflow-hidden" style={{ background: L.paperDeep }}>
+        {/* paper grain */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            opacity: 0.4,
+            mixBlendMode: "multiply",
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05  0 0 0 0 0.07  0 0 0 0 0.1  0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+
+        <div
+          className="relative w-full mx-auto"
+          style={{
+            maxWidth: 1320,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+            paddingTop: "clamp(96px, 14vh, 160px)",
+            paddingBottom: "clamp(96px, 14vh, 160px)",
+          }}
+        >
+          {/* chapter marker */}
+          <div className="flex items-center gap-3" style={{ marginBottom: 64 }}>
+            <span style={{ width: 24, height: 1, background: L.amber }} />
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+              letterSpacing: "0.22em", textTransform: "uppercase",
+              color: L.inkSoft, fontWeight: 500,
+            }}>
+              Chapter 02 · The Memory Problem
+            </span>
+          </div>
+
+          <div className="grid grid-cols-12 gap-x-8 lg:gap-x-20 gap-y-16 items-start">
+            {/* LEFT — fragmented interactions diagram */}
+            <div className="col-span-12 lg:col-span-7 order-2 lg:order-1">
+              <FragmentedDiagram />
+            </div>
+
+            {/* RIGHT — editorial copy */}
+            <div className="col-span-12 lg:col-span-5 order-1 lg:order-2 lg:pt-6">
+              <h2
+                className="pf"
+                style={{
+                  color: L.ink,
+                  fontSize: "clamp(34px, 4.4vw, 56px)",
+                  lineHeight: 1.05,
+                  fontWeight: 500,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                AI without memory creates{" "}
+                <span style={{ fontStyle: "italic" }}>generic</span> brands
+                <span style={{ color: L.amber }}>.</span>
+              </h2>
+
+              <div style={{ height: 1, background: L.rule, margin: "32px 0 28px", width: 80 }} />
+
+              <p style={{
+                color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
+                lineHeight: 1.65, maxWidth: "42ch",
+              }}>
+                Every conversation resets. Every prompt starts from zero. Every output lacks continuity. You explain your audience, your voice and your direction over and over — and the work still arrives in someone else's accent.
+              </p>
+
+              <p style={{
+                color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
+                lineHeight: 1.65, maxWidth: "42ch", marginTop: 20,
+              }}>
+                It isn't a prompting problem. It's a memory problem.
+              </p>
+
+              {/* pull quote */}
+              <div style={{ marginTop: 44, paddingLeft: 22, borderLeft: `2px solid ${L.amber}` }}>
+                <p className="pf" style={{
+                  color: L.ink, fontSize: "clamp(18px, 1.6vw, 22px)",
+                  lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
+                  letterSpacing: "-0.005em",
+                }}>
+                  Business context isn't a prompt. It's something that compounds — quietly, conversation by conversation.
+                </p>
+                <p style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                  letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: L.inkMuted, fontWeight: 600, marginTop: 14,
+                }}>
+                  — The Kinika Premise
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* footer rule */}
+        <div style={{
+          borderTop: `1px solid ${L.rule}`,
+          paddingLeft: "clamp(24px, 6vw, 96px)",
+          paddingRight: "clamp(24px, 6vw, 96px)",
+        }}>
+          <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
+              № 02 — On Forgetting
+            </span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
+              Continued ↓
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* PROBLEM */}
       <section style={{ background: C.bgDark, padding: "120px 0" }}>
         <div className="max-w-[1280px] mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16">
