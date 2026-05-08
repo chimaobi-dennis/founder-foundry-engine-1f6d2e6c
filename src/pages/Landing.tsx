@@ -13,6 +13,18 @@ const C = {
   border: "#1A2A3A",
 };
 
+// Warm editorial palette (Section 1: Nav + Hero)
+const L = {
+  paper: "#F2EDE4",         // parchment
+  paperDeep: "#EAE3D6",     // slightly deeper ivory for depth
+  ink: "#0D1B2A",           // navy ink
+  inkSoft: "#3A4856",       // secondary ink
+  inkMuted: "#6B7480",      // tertiary ink
+  amber: "#B8860B",         // restrained amber for warm bg
+  rule: "rgba(13, 27, 42, 0.14)",
+  ruleSoft: "rgba(13, 27, 42, 0.08)",
+};
+
 const CYCLING = ["finally understood.", "finally heard.", "finally alive.", "finally yours."];
 
 const MODULES = [
@@ -116,76 +128,219 @@ export default function Landing() {
         }
       `}</style>
 
-      {/* NAV */}
+      {/* ───────── NAV (editorial) ───────── */}
       <header
         className="fixed top-0 left-0 right-0 z-50 transition-all"
         style={{
-          background: scrolled ? `${C.bg}cc` : "transparent",
-          backdropFilter: scrolled ? "blur(12px)" : "none",
-          borderBottom: scrolled ? `1px solid ${C.border}` : "1px solid transparent",
+          background: scrolled ? `${L.paper}f2` : "transparent",
+          backdropFilter: scrolled ? "blur(8px) saturate(1.1)" : "none",
+          borderBottom: scrolled ? `1px solid ${L.rule}` : "1px solid transparent",
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-6 md:px-10 h-[64px] flex items-center justify-between">
-          <Link to="/" className="pf" style={{ color: C.amber, fontSize: 24, fontWeight: 600 }}>
-            kinika
+        <div className="max-w-[1320px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between">
+          <Link to="/" className="pf flex items-baseline gap-2" style={{ color: L.ink }}>
+            <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.01em" }}>Kinika</span>
+            <span style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
+              — Brand Intelligence
+            </span>
           </Link>
-          <div className="flex items-center gap-5">
-            <Link to="/sign-in" style={{ color: C.muted, fontSize: 14 }} className="hover:opacity-80">
+          <div className="flex items-center gap-7">
+            <Link to="/sign-in" style={{ color: L.inkSoft, fontSize: 14, letterSpacing: "0.01em" }} className="hover:opacity-70 transition-opacity hidden sm:inline">
               Sign in
             </Link>
             <Link
               to="/sign-up"
-              className="rounded-full px-4 flex items-center text-sm font-medium hover:-translate-y-0.5 transition-transform"
-              style={{ background: C.amber, color: C.bg, height: 36 }}
+              className="inline-flex items-center text-sm font-medium transition-all hover:-translate-y-px"
+              style={{
+                background: L.ink,
+                color: L.paper,
+                height: 38,
+                padding: "0 18px",
+                borderRadius: 2,
+                letterSpacing: "0.01em",
+              }}
             >
-              Get started
+              Begin
             </Link>
           </div>
         </div>
       </header>
 
-      {/* HERO */}
-      <section className="relative min-h-screen flex items-center overflow-hidden" style={{ background: C.bg }}>
-        <div className="absolute inset-0 diag-bg opacity-[0.35] pointer-events-none" />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(ellipse at 30% 50%, transparent 0%, ${C.bg} 80%)` }} />
-        <div className="relative w-full" style={{ paddingLeft: "clamp(24px, 10%, 160px)", paddingRight: 24 }}>
-          <div style={{ maxWidth: 700 }}>
-            <h1 className="pf" style={{ fontSize: "clamp(40px, 7vw, 72px)", lineHeight: 1.05, fontStyle: "italic", color: C.text, fontWeight: 600 }}>
-              Your brand,
-              <br />
-              <span
-                className="word-fade inline-block"
+      {/* ───────── HERO (asymmetric editorial spread) ───────── */}
+      <section className="relative overflow-hidden" style={{ background: L.paper, minHeight: "100vh" }}>
+        {/* very subtle paper grain */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            opacity: 0.5,
+            mixBlendMode: "multiply",
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05  0 0 0 0 0.07  0 0 0 0 0.1  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+
+        <div
+          className="relative w-full mx-auto"
+          style={{
+            maxWidth: 1320,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+            paddingTop: "clamp(140px, 18vh, 200px)",
+            paddingBottom: "clamp(80px, 12vh, 140px)",
+          }}
+        >
+          {/* Top kicker bar */}
+          <div className="fade-up-1 flex items-center gap-4" style={{ marginBottom: "clamp(48px, 7vh, 80px)" }}>
+            <span style={{ width: 28, height: 1, background: L.amber }} />
+            <span
+              style={{
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 11,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: L.inkSoft,
+                fontWeight: 500,
+              }}
+            >
+              Vol. 01 · A New Kind of Operating System for Founders
+            </span>
+          </div>
+
+          {/* Editorial grid: 12-col, headline left (8), sidebar right (4) */}
+          <div className="grid grid-cols-12 gap-x-6 md:gap-x-10 gap-y-12">
+            {/* Headline + body — left column */}
+            <div className="col-span-12 lg:col-span-8">
+              <h1
+                className="pf fade-up-1"
                 style={{
-                  color: C.amber,
-                  opacity: wordVisible ? 1 : 0,
-                  transform: wordVisible ? "translateY(0)" : "translateY(8px)",
+                  color: L.ink,
+                  fontSize: "clamp(44px, 7.4vw, 104px)",
+                  lineHeight: 0.98,
+                  fontWeight: 500,
+                  letterSpacing: "-0.025em",
+                  marginBottom: 0,
                 }}
               >
-                {CYCLING[wordIdx]}
-              </span>
-            </h1>
-            <p className="fade-up-1 mt-8" style={{ color: C.muted, fontSize: 20, lineHeight: 1.6, maxWidth: 480 }}>
-              A tool that knows your business from day one. Every piece of content, every visual, every document — generated from your actual brand context.
-            </p>
-            <div className="fade-up-2 mt-10 flex flex-col sm:flex-row gap-4">
-              <Link
-                to="/sign-up"
-                className="btn-primary inline-flex items-center justify-center gap-2 rounded-md font-medium hover:-translate-y-0.5 transition-transform"
-                style={{ background: C.amber, color: C.bg, height: 48, padding: "0 24px", fontSize: 15 }}
+                Your business
+                <br />
+                finally has{" "}
+                <span style={{ fontStyle: "italic", fontWeight: 500, color: L.ink }}>
+                  memory
+                </span>
+                <span style={{ color: L.amber }}>.</span>
+              </h1>
+
+              {/* hairline below headline */}
+              <div className="fade-up-2" style={{ height: 1, background: L.rule, marginTop: "clamp(40px, 6vh, 64px)", marginBottom: "clamp(28px, 4vh, 40px)", maxWidth: 540 }} />
+
+              <p
+                className="fade-up-2"
+                style={{
+                  color: L.inkSoft,
+                  fontSize: "clamp(17px, 1.5vw, 20px)",
+                  lineHeight: 1.55,
+                  maxWidth: "44ch",
+                  fontWeight: 400,
+                }}
               >
-                Start building free <ArrowRight className="w-4 h-4 arrow-shift" />
-              </Link>
-              <a
-                href="#"
-                className="inline-flex items-center justify-center rounded-md font-medium border"
-                style={{ color: C.amber, borderColor: C.amber, height: 48, padding: "0 24px", fontSize: 15 }}
-              >
-                Watch 60s demo
-              </a>
+                Kinika learns the shape of your business — your voice, your customer, your direction — and uses that intelligence to author every piece of content, visual and document that follows.
+              </p>
+
+              <div className="fade-up-2 flex items-center gap-8" style={{ marginTop: "clamp(36px, 5vh, 48px)" }}>
+                <Link
+                  to="/sign-up"
+                  className="btn-primary inline-flex items-center gap-3 transition-all hover:-translate-y-px"
+                  style={{
+                    background: L.ink,
+                    color: L.paper,
+                    height: 52,
+                    padding: "0 28px",
+                    fontSize: 15,
+                    fontWeight: 500,
+                    borderRadius: 2,
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  Begin your edition
+                  <ArrowRight className="w-4 h-4 arrow-shift" />
+                </Link>
+                <a
+                  href="#how"
+                  className="inline-flex items-center gap-2 text-sm transition-opacity hover:opacity-60"
+                  style={{
+                    color: L.ink,
+                    borderBottom: `1px solid ${L.ink}`,
+                    paddingBottom: 2,
+                    fontWeight: 500,
+                  }}
+                >
+                  How it thinks
+                </a>
+              </div>
             </div>
+
+            {/* Right sidebar — Editor's note */}
+            <aside
+              className="col-span-12 lg:col-span-4 fade-up-2 lg:pl-10"
+              style={{
+                borderLeft: `1px solid ${L.rule}`,
+              }}
+            >
+              <div className="lg:pl-0 pl-0 lg:border-0">
+                <div
+                  style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 10,
+                    letterSpacing: "0.24em",
+                    textTransform: "uppercase",
+                    color: L.amber,
+                    fontWeight: 600,
+                    marginBottom: 18,
+                  }}
+                >
+                  Editor's note
+                </div>
+                <p
+                  className="pf"
+                  style={{
+                    color: L.ink,
+                    fontSize: "clamp(17px, 1.4vw, 19px)",
+                    lineHeight: 1.5,
+                    fontStyle: "italic",
+                    fontWeight: 400,
+                    letterSpacing: "-0.005em",
+                    marginBottom: 20,
+                  }}
+                >
+                  Most tools forget you the moment you close the tab. Kinika is built to remember — quietly, accurately, indefinitely.
+                </p>
+                <div style={{ height: 1, background: L.ruleSoft, marginBottom: 16, width: 32 }} />
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: L.inkMuted, letterSpacing: "0.04em" }}>
+                  A founder intelligence system,<br />written one conversation at a time.
+                </p>
+              </div>
+            </aside>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 amber-line" style={{ height: 2, background: C.amber }} />
+
+        {/* Bottom editorial footer rule */}
+        <div
+          className="absolute bottom-0 left-0 right-0"
+          style={{
+            borderTop: `1px solid ${L.rule}`,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+          }}
+        >
+          <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
+              № 01 — The Memory Issue
+            </span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
+              Scroll to read ↓
+            </span>
+          </div>
+        </div>
       </section>
 
       {/* PROBLEM */}
