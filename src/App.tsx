@@ -55,7 +55,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up";
   const isOnboarding = location.pathname === "/onboarding";
-  const isLanding = location.pathname === "/";
+  const editorialPaths = ["/", "/philosophy", "/system", "/journal", "/pricing"];
+  const isLanding = editorialPaths.includes(location.pathname);
   const isPublic = isLanding || isAuthRoute;
 
   if (isLoading || (session && profileLoading)) {
