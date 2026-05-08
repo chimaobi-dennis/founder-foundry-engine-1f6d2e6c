@@ -71,6 +71,377 @@ function useReveal<T extends HTMLElement>(): [React.RefObject<T>, boolean] {
   return [ref, v];
 }
 
+function ModuleEcosystem() {
+  // Modules positioned around the central Kinika core (desktop orbital layout)
+  // Coordinates are in % of the 1000x620 stage
+  const modules = [
+    {
+      name: "ProStudio",
+      kind: "Visuals",
+      inherits: ["voice", "audience", "visual identity"],
+      sample: "Founder-grade product visuals.",
+      pos: { left: "6%", top: "8%" },
+      align: "right",
+      float: "float-a",
+    },
+    {
+      name: "ContentStudio",
+      kind: "Content",
+      inherits: ["voice", "audience", "stage"],
+      sample: "Captions that sound like you.",
+      pos: { right: "6%", top: "8%" },
+      align: "left",
+      float: "float-b",
+    },
+    {
+      name: "ContentCalendar",
+      kind: "Rhythm",
+      inherits: ["cadence", "stage", "channels"],
+      sample: "A month of intentional posts.",
+      pos: { left: "0%", bottom: "6%" },
+      align: "right",
+      float: "float-c",
+    },
+    {
+      name: "DocStudio",
+      kind: "Documents",
+      inherits: ["positioning", "voice", "audience"],
+      sample: "Decks, briefs, one-pagers.",
+      pos: { left: "50%", bottom: "0%", transform: "translateX(-50%)" },
+      align: "center",
+      float: "float-a",
+    },
+    {
+      name: "ReelBuilder",
+      kind: "Story",
+      inherits: ["voice", "promise", "audience"],
+      sample: "Scripts that hold attention.",
+      pos: { right: "0%", bottom: "6%" },
+      align: "left",
+      float: "float-b",
+    },
+  ];
+
+  // Endpoints in viewBox coords (1000x620) for SVG connectors
+  const endpoints = [
+    { x: 165, y: 110 },   // ProStudio (top-left)
+    { x: 835, y: 110 },   // ContentStudio (top-right)
+    { x: 130, y: 500 },   // ContentCalendar (bottom-left)
+    { x: 500, y: 560 },   // DocStudio (bottom-center)
+    { x: 870, y: 500 },   // ReelBuilder (bottom-right)
+  ];
+  const core = { x: 500, y: 310 };
+
+  return (
+    <div>
+      {/* ═══ DESKTOP — orbital ecosystem ═══ */}
+      <div
+        className="hidden lg:block relative mx-auto"
+        style={{ maxWidth: 1080, height: 620 }}
+      >
+        {/* SVG connectors + concentric rings */}
+        <svg
+          viewBox="0 0 1000 620"
+          preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none"
+        >
+          {/* concentric memory rings */}
+          {[140, 200, 260].map((r, i) => (
+            <circle
+              key={r}
+              cx={core.x}
+              cy={core.y}
+              r={r}
+              fill="none"
+              stroke={L.amber}
+              strokeWidth={i === 0 ? 0.6 : 0.4}
+              strokeDasharray={i === 0 ? "0" : "2 6"}
+              opacity={0.18 - i * 0.04}
+            />
+          ))}
+
+          {/* relationship lines core → modules */}
+          {endpoints.map((p, i) => (
+            <g key={i}>
+              <line
+                x1={core.x}
+                y1={core.y}
+                x2={p.x}
+                y2={p.y}
+                stroke={L.amber}
+                strokeWidth="0.8"
+                strokeDasharray="3 5"
+                opacity="0.45"
+              />
+              {/* signal dot mid-line */}
+              <circle
+                cx={core.x + (p.x - core.x) * 0.55}
+                cy={core.y + (p.y - core.y) * 0.55}
+                r="2.2"
+                fill={L.amber}
+                opacity="0.6"
+                className="pulse-dot"
+              />
+            </g>
+          ))}
+        </svg>
+
+        {/* CORE — Kinika memory */}
+        <div
+          className="absolute"
+          style={{
+            left: "50%", top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 260,
+          }}
+        >
+          {/* halo */}
+          <div
+            aria-hidden
+            className="absolute"
+            style={{
+              inset: -28,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(184,134,11,0.18), transparent 70%)",
+            }}
+          />
+          <div
+            style={{
+              position: "relative",
+              background: "#FFFFFF",
+              border: `1.5px solid rgba(184,134,11,0.5)`,
+              borderRadius: 6,
+              padding: "26px 26px 28px",
+              boxShadow: "0 24px 60px -28px rgba(184,134,11,0.45), 0 1px 0 rgba(13,27,42,0.04)",
+              textAlign: "center",
+            }}
+          >
+            <div className="flex items-center justify-center gap-2" style={{ marginBottom: 10 }}>
+              <span className="pulse-dot" style={{
+                width: 6, height: 6, borderRadius: "50%", background: L.amber,
+              }} />
+              <span style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: 10.5,
+                letterSpacing: "0.24em", textTransform: "uppercase",
+                color: L.amber, fontWeight: 600,
+              }}>
+                The Core
+              </span>
+            </div>
+
+            <h3 className="pf" style={{
+              color: L.ink, fontSize: 30, lineHeight: 1.05,
+              fontWeight: 500, letterSpacing: "-0.015em",
+            }}>
+              Kinika
+            </h3>
+            <p style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 11.5,
+              letterSpacing: "0.18em", textTransform: "uppercase",
+              color: L.inkMuted, marginTop: 6, fontWeight: 500,
+            }}>
+              Memory · Mentor · Brand DNA
+            </p>
+
+            <div style={{ height: 1, background: L.ruleSoft, margin: "16px auto 14px", width: 36 }} />
+
+            <p style={{
+              color: L.inkSoft, fontSize: 13, lineHeight: 1.55,
+            }}>
+              The intelligence layer every surface listens to.
+            </p>
+          </div>
+        </div>
+
+        {/* MODULES around the core */}
+        {modules.map((m) => (
+          <div
+            key={m.name}
+            className={`absolute ${m.float}`}
+            style={{ ...m.pos, width: 230 } as React.CSSProperties}
+          >
+            <div
+              style={{
+                background: "#FFFFFF",
+                border: `1px solid ${L.rule}`,
+                borderRadius: 4,
+                padding: "16px 18px 18px",
+                boxShadow: "0 14px 32px -22px rgba(13,27,42,0.22)",
+                textAlign: m.align as React.CSSProperties["textAlign"],
+              }}
+            >
+              <span style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+                letterSpacing: "0.22em", textTransform: "uppercase",
+                color: L.inkMuted, fontWeight: 600,
+              }}>
+                {m.kind}
+              </span>
+              <h4 className="pf" style={{
+                color: L.ink, fontSize: 19, lineHeight: 1.1,
+                fontWeight: 500, letterSpacing: "-0.005em",
+                marginTop: 4,
+              }}>
+                {m.name}
+              </h4>
+              <p style={{
+                color: L.inkSoft, fontSize: 12.5, lineHeight: 1.5,
+                marginTop: 8,
+              }}>
+                {m.sample}
+              </p>
+              <div style={{
+                marginTop: 12, paddingTop: 10,
+                borderTop: `1px dashed ${L.ruleSoft}`,
+              }}>
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+                  letterSpacing: "0.16em", textTransform: "uppercase",
+                  color: L.amber, fontWeight: 600,
+                }}>
+                  inherits ·
+                </span>{" "}
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                  color: L.inkSoft,
+                }}>
+                  {m.inherits.join(" · ")}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ═══ MOBILE / TABLET — vertical stack with center anchored ═══ */}
+      <div className="lg:hidden">
+        {/* core card */}
+        <div
+          style={{
+            position: "relative",
+            background: "#FFFFFF",
+            border: `1.5px solid rgba(184,134,11,0.45)`,
+            borderRadius: 6,
+            padding: "22px 22px 24px",
+            boxShadow: "0 18px 44px -24px rgba(184,134,11,0.4)",
+            textAlign: "center",
+            maxWidth: 420, margin: "0 auto",
+          }}
+        >
+          <div className="flex items-center justify-center gap-2" style={{ marginBottom: 8 }}>
+            <span className="pulse-dot" style={{
+              width: 6, height: 6, borderRadius: "50%", background: L.amber,
+            }} />
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 10.5,
+              letterSpacing: "0.24em", textTransform: "uppercase",
+              color: L.amber, fontWeight: 600,
+            }}>
+              The Core
+            </span>
+          </div>
+          <h3 className="pf" style={{
+            color: L.ink, fontSize: 28, lineHeight: 1.05,
+            fontWeight: 500, letterSpacing: "-0.015em",
+          }}>
+            Kinika
+          </h3>
+          <p style={{
+            fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+            letterSpacing: "0.18em", textTransform: "uppercase",
+            color: L.inkMuted, marginTop: 6,
+          }}>
+            Memory · Mentor · Brand DNA
+          </p>
+        </div>
+
+        {/* connector */}
+        <div className="flex justify-center" style={{ margin: "8px 0" }}>
+          <svg width="14" height="32" viewBox="0 0 14 32" fill="none">
+            <path d="M7 0 V28 M2 23 L7 28 L12 23" stroke={L.amber} strokeWidth="1" fill="none" opacity="0.6" />
+          </svg>
+        </div>
+
+        {/* shared label */}
+        <div className="flex items-center gap-3 justify-center" style={{ marginBottom: 18 }}>
+          <span style={{ width: 18, height: 1, background: L.rule }} />
+          <span style={{
+            fontFamily: "'DM Sans', sans-serif", fontSize: 10.5,
+            letterSpacing: "0.22em", textTransform: "uppercase",
+            color: L.inkMuted,
+          }}>
+            Modules · listening to the core
+          </span>
+          <span style={{ width: 18, height: 1, background: L.rule }} />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[640px] mx-auto">
+          {modules.map((m) => (
+            <div
+              key={m.name}
+              style={{
+                background: "#FFFFFF",
+                border: `1px solid ${L.ruleSoft}`,
+                borderRadius: 4,
+                padding: "16px 18px 18px",
+              }}
+            >
+              <span style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+                letterSpacing: "0.22em", textTransform: "uppercase",
+                color: L.inkMuted, fontWeight: 600,
+              }}>
+                {m.kind}
+              </span>
+              <h4 className="pf" style={{
+                color: L.ink, fontSize: 19, lineHeight: 1.1,
+                fontWeight: 500, marginTop: 4,
+              }}>
+                {m.name}
+              </h4>
+              <p style={{
+                color: L.inkSoft, fontSize: 12.5, lineHeight: 1.5,
+                marginTop: 8,
+              }}>
+                {m.sample}
+              </p>
+              <div style={{
+                marginTop: 12, paddingTop: 10,
+                borderTop: `1px dashed ${L.ruleSoft}`,
+              }}>
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+                  letterSpacing: "0.16em", textTransform: "uppercase",
+                  color: L.amber, fontWeight: 600,
+                }}>
+                  inherits ·
+                </span>{" "}
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                  color: L.inkSoft,
+                }}>
+                  {m.inherits.join(" · ")}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* closing line */}
+      <div style={{ marginTop: 64, textAlign: "center" }}>
+        <p className="pf" style={{
+          color: L.ink, fontSize: "clamp(20px, 2vw, 26px)",
+          lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
+          letterSpacing: "-0.01em", maxWidth: "36ch", margin: "0 auto",
+        }}>
+          Five surfaces. One mind underneath all of them.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function JourneyRecord() {
   const stages = [
     {
@@ -1442,6 +1813,94 @@ export default function Landing() {
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
               № 04 — On Becoming
+            </span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
+              Continued ↓
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────── SECTION 05 — Module Ecosystem (one intelligence, many surfaces) ───────── */}
+      <section className="relative overflow-hidden" style={{ background: L.paper }}>
+        {/* paper grain */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            opacity: 0.35,
+            mixBlendMode: "multiply",
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05  0 0 0 0 0.07  0 0 0 0 0.1  0 0 0 0.04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+        {/* warm center glow */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 60%, rgba(184,134,11,0.08), transparent 55%)",
+          }}
+        />
+
+        <div
+          className="relative w-full mx-auto"
+          style={{
+            maxWidth: 1320,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+            paddingTop: "clamp(96px, 14vh, 160px)",
+            paddingBottom: "clamp(96px, 14vh, 160px)",
+          }}
+        >
+          {/* chapter marker */}
+          <div className="flex items-center gap-3" style={{ marginBottom: 56 }}>
+            <span style={{ width: 24, height: 1, background: L.amber }} />
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+              letterSpacing: "0.22em", textTransform: "uppercase",
+              color: L.inkSoft, fontWeight: 500,
+            }}>
+              Chapter 05 · The Ecosystem
+            </span>
+          </div>
+
+          {/* header */}
+          <div className="grid grid-cols-12 gap-x-8 lg:gap-x-20 gap-y-8 items-end" style={{ marginBottom: 56 }}>
+            <div className="col-span-12 lg:col-span-7">
+              <h2 className="pf" style={{
+                color: L.ink,
+                fontSize: "clamp(34px, 4.4vw, 56px)",
+                lineHeight: 1.05,
+                fontWeight: 500,
+                letterSpacing: "-0.02em",
+              }}>
+                One intelligence.{" "}
+                <span style={{ fontStyle: "italic" }}>Many surfaces</span>
+                <span style={{ color: L.amber }}>.</span>
+              </h2>
+            </div>
+            <div className="col-span-12 lg:col-span-5">
+              <p style={{
+                color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
+                lineHeight: 1.65, maxWidth: "44ch",
+              }}>
+                Every module pulls from the same brand memory. The voice in your captions, the tone of your decks and the rhythm of your visuals — all sourced from the same understanding.
+              </p>
+            </div>
+          </div>
+
+          <ModuleEcosystem />
+        </div>
+
+        {/* footer rule */}
+        <div style={{
+          borderTop: `1px solid ${L.rule}`,
+          paddingLeft: "clamp(24px, 6vw, 96px)",
+          paddingRight: "clamp(24px, 6vw, 96px)",
+        }}>
+          <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
+              № 05 — On Continuity
             </span>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
               Continued ↓
