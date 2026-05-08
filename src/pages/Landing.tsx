@@ -720,6 +720,109 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ───────── SECTION 03 — How Kinika Works (intelligence loop) ───────── */}
+      <section className="relative overflow-hidden" style={{ background: L.paper }}>
+        {/* paper grain */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            opacity: 0.35,
+            mixBlendMode: "multiply",
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05  0 0 0 0 0.07  0 0 0 0 0.1  0 0 0 0.04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+        {/* warm vignette to add depth */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 0%, rgba(184,134,11,0.06), transparent 60%)",
+          }}
+        />
+
+        <div
+          className="relative w-full mx-auto"
+          style={{
+            maxWidth: 1320,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+            paddingTop: "clamp(96px, 14vh, 160px)",
+            paddingBottom: "clamp(96px, 14vh, 160px)",
+          }}
+        >
+          {/* chapter marker */}
+          <div className="flex items-center gap-3" style={{ marginBottom: 56 }}>
+            <span style={{ width: 24, height: 1, background: L.amber }} />
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+              letterSpacing: "0.22em", textTransform: "uppercase",
+              color: L.inkSoft, fontWeight: 500,
+            }}>
+              Chapter 03 · The Intelligence Loop
+            </span>
+          </div>
+
+          {/* header — editorial split */}
+          <div className="grid grid-cols-12 gap-x-8 lg:gap-x-20 gap-y-8 items-end" style={{ marginBottom: 80 }}>
+            <div className="col-span-12 lg:col-span-7">
+              <h2
+                className="pf"
+                style={{
+                  color: L.ink,
+                  fontSize: "clamp(34px, 4.4vw, 56px)",
+                  lineHeight: 1.05,
+                  fontWeight: 500,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                How Kinika{" "}
+                <span style={{ fontStyle: "italic" }}>compounds</span> understanding
+                <span style={{ color: L.amber }}>.</span>
+              </h2>
+            </div>
+            <div className="col-span-12 lg:col-span-5">
+              <p style={{
+                color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
+                lineHeight: 1.65, maxWidth: "44ch",
+              }}>
+                Each conversation thickens the next. Memory becomes understanding. Understanding becomes the surface every output is shaped on.
+              </p>
+            </div>
+          </div>
+
+          {/* ═══ Intelligence loop diagram ═══ */}
+          <IntelligenceLoop />
+
+          {/* closing line */}
+          <div style={{ marginTop: 96, textAlign: "center" }}>
+            <p className="pf" style={{
+              color: L.ink, fontSize: "clamp(20px, 2vw, 26px)",
+              lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
+              letterSpacing: "-0.01em", maxWidth: "32ch", margin: "0 auto",
+            }}>
+              The system gets quieter, sharper, and more like you — every week.
+            </p>
+          </div>
+        </div>
+
+        {/* footer rule */}
+        <div style={{
+          borderTop: `1px solid ${L.rule}`,
+          paddingLeft: "clamp(24px, 6vw, 96px)",
+          paddingRight: "clamp(24px, 6vw, 96px)",
+        }}>
+          <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
+              № 03 — On Compounding
+            </span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
+              Continued ↓
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* PROBLEM */}
       <section style={{ background: C.bgDark, padding: "120px 0" }}>
         <div className="max-w-[1280px] mx-auto px-6 md:px-10 grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16">
