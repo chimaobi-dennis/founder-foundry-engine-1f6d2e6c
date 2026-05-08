@@ -17,6 +17,7 @@ import Philosophy from "./pages/Philosophy";
 import System from "./pages/System";
 import Journal from "./pages/Journal";
 import Pricing from "./pages/Pricing";
+import Memory from "./pages/Memory";
 import Mentor from "./pages/Mentor";
 import ReelBuilder from "./pages/ReelBuilder";
 import DocStudio from "./pages/DocStudio";
@@ -55,7 +56,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up";
   const isOnboarding = location.pathname === "/onboarding";
-  const editorialPaths = ["/", "/philosophy", "/system", "/journal", "/pricing"];
+  const editorialPaths = ["/", "/philosophy", "/system", "/journal", "/pricing", "/memory"];
   const isLanding = editorialPaths.includes(location.pathname);
   const isPublic = isLanding || isAuthRoute;
 
@@ -104,6 +105,7 @@ const App = () => (
                       <Route path="/system" element={<System />} />
                       <Route path="/journal" element={<Journal />} />
                       <Route path="/pricing" element={<Pricing />} />
+                      <Route path="/memory" element={<Memory />} />
                       <Route path="/sign-up" element={<SignUp />} />
                       <Route path="/sign-in" element={<SignIn />} />
                       <Route path="/onboarding" element={<Onboarding />} />
