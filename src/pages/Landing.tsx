@@ -2031,30 +2031,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FINAL CTA */}
-      <section style={{ background: C.bg, padding: "140px 24px" }}>
-        <div className="max-w-[700px] mx-auto text-center">
-          <h2 className="pf" style={{ color: C.text, fontSize: "clamp(40px, 5vw, 56px)", fontWeight: 600 }}>
-            Start building.
-          </h2>
-          <p className="mt-5" style={{ color: C.muted, fontSize: 18 }}>
-            Free to start. No credit card required.
-          </p>
-          <Link
-            to="/sign-up"
-            className="mt-10 inline-flex items-center justify-center gap-2 rounded-md font-medium hover:-translate-y-0.5 transition-transform"
-            style={{ background: C.amber, color: C.bg, height: 56, width: 240, fontSize: 16 }}
-          >
-            Create your account <ArrowRight className="w-4 h-4" />
-          </Link>
-          <p className="mt-8 text-sm" style={{ color: C.muted }}>
-            Already have an account?{" "}
-            <Link to="/sign-in" style={{ color: C.amber }} className="hover:underline">
-              Sign in →
-            </Link>
-          </p>
-        </div>
-      </section>
 
       {/* EDITORIAL FOOTER — closing spread */}
       <footer
