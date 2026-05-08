@@ -100,6 +100,10 @@ const App = () => (
                   <AuthGuard>
                     <Routes>
                       <Route path="/" element={<Landing />} />
+                      <Route path="/philosophy" element={<Philosophy />} />
+                      <Route path="/system" element={<System />} />
+                      <Route path="/journal" element={<Journal />} />
+                      <Route path="/pricing" element={<Pricing />} />
                       <Route path="/sign-up" element={<SignUp />} />
                       <Route path="/sign-in" element={<SignIn />} />
                       <Route path="/onboarding" element={<Onboarding />} />
