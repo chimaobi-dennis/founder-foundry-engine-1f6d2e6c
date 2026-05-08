@@ -71,6 +71,302 @@ function useReveal<T extends HTMLElement>(): [React.RefObject<T>, boolean] {
   return [ref, v];
 }
 
+function JourneyRecord() {
+  const stages = [
+    {
+      r: "I", name: "Spark",
+      state: "Captured",
+      brief: "First instincts, half-formed ideas, the reason this exists.",
+      insights: 14, milestones: 2,
+      tag: "origin signal",
+    },
+    {
+      r: "II", name: "Shape",
+      state: "Captured",
+      brief: "The idea sharpens. Audience and problem come into focus.",
+      insights: 22, milestones: 3,
+      tag: "first conviction",
+    },
+    {
+      r: "III", name: "Validate",
+      state: "In progress",
+      brief: "Conversations, signals, evidence. What's real vs. assumed.",
+      insights: 31, milestones: 4,
+      tag: "early traction",
+      active: true,
+    },
+    {
+      r: "IV", name: "Brand",
+      state: "Forming",
+      brief: "Voice, promise, point of view — the way you sound when seen.",
+      insights: 9, milestones: 1,
+      tag: "identity emerging",
+    },
+    {
+      r: "V", name: "Launch",
+      state: "Ahead",
+      brief: "First public surface. The world meets the work.",
+      insights: 0, milestones: 0,
+      tag: "—",
+    },
+    {
+      r: "VI", name: "Grow",
+      state: "Ahead",
+      brief: "Compounding distribution. The brand starts to remember itself.",
+      insights: 0, milestones: 0,
+      tag: "—",
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-12 gap-x-8 lg:gap-x-16 gap-y-12">
+      {/* LEFT — Stage map (notebook-style staggered grid) */}
+      <div className="col-span-12 lg:col-span-8 relative">
+        {/* faint vertical rule on desktop */}
+        <div
+          className="hidden lg:block absolute pointer-events-none"
+          style={{
+            top: 18, bottom: 18, left: "50%",
+            width: 1, background: L.ruleSoft, transform: "translateX(-0.5px)",
+          }}
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 relative">
+          {stages.map((s, i) => {
+            const isAhead = s.state === "Ahead";
+            const isActive = !!s.active;
+            const offset = i % 2 === 1 ? "lg:mt-12" : "";
+            return (
+              <div key={s.name} className={`relative ${offset}`}>
+                {/* connector dot to vertical rule (desktop) */}
+                <div
+                  className="hidden lg:block absolute"
+                  style={{
+                    top: 22,
+                    [i % 2 === 0 ? "right" : "left"]: -40,
+                    width: 9, height: 9, borderRadius: "50%",
+                    background: isActive ? L.amber : L.paper,
+                    border: `1px solid ${isActive ? L.amber : L.rule}`,
+                  } as React.CSSProperties}
+                />
+
+                {/* layered card */}
+                <div className="relative">
+                  <div
+                    aria-hidden
+                    className="absolute inset-0"
+                    style={{
+                      transform: "translate(5px, 5px)",
+                      background: isActive ? "rgba(184,134,11,0.05)" : L.paper,
+                      border: `1px solid ${L.ruleSoft}`,
+                      borderRadius: 4,
+                    }}
+                  />
+                  <div
+                    className={i % 3 === 0 ? "float-a" : i % 3 === 1 ? "float-b" : "float-c"}
+                    style={{
+                      position: "relative",
+                      background: "#FFFFFF",
+                      border: `1px solid ${isActive ? "rgba(184,134,11,0.45)" : L.rule}`,
+                      borderRadius: 4,
+                      padding: "20px 22px 22px",
+                      opacity: isAhead ? 0.55 : 1,
+                      boxShadow: isActive
+                        ? "0 12px 36px -22px rgba(184,134,11,0.55)"
+                        : "0 10px 26px -20px rgba(13,27,42,0.18)",
+                    }}
+                  >
+                    {/* head row */}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="flex items-baseline gap-3">
+                        <span className="pf" style={{
+                          color: isActive ? L.amber : L.inkMuted,
+                          fontSize: 13, letterSpacing: "0.18em",
+                          fontWeight: 500,
+                        }}>
+                          {s.r}
+                        </span>
+                        <h3 className="pf" style={{
+                          color: L.ink, fontSize: 22, lineHeight: 1.1,
+                          fontWeight: 500, letterSpacing: "-0.01em",
+                        }}>
+                          {s.name}
+                        </h3>
+                      </div>
+                      <span style={{
+                        fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+                        letterSpacing: "0.2em", textTransform: "uppercase",
+                        color: isActive ? L.amber : L.inkMuted, fontWeight: 600,
+                      }}>
+                        {s.state}
+                      </span>
+                    </div>
+
+                    <div style={{ height: 1, background: L.ruleSoft, margin: "12px 0 12px", width: 32 }} />
+
+                    <p style={{
+                      color: L.inkSoft, fontSize: 13.5, lineHeight: 1.55,
+                    }}>
+                      {s.brief}
+                    </p>
+
+                    {/* footer ledger */}
+                    <div style={{
+                      marginTop: 18, paddingTop: 12,
+                      borderTop: `1px dashed ${L.ruleSoft}`,
+                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                    }}>
+                      <div className="flex items-center gap-4">
+                        <span style={{
+                          fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                          color: L.inkMuted, letterSpacing: "0.04em",
+                        }}>
+                          <span style={{ color: L.ink, fontWeight: 600 }}>{s.insights}</span> insights
+                        </span>
+                        <span style={{
+                          fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                          color: L.inkMuted, letterSpacing: "0.04em",
+                        }}>
+                          <span style={{ color: L.ink, fontWeight: 600 }}>{s.milestones}</span> milestones
+                        </span>
+                      </div>
+                      {!isAhead && (
+                        <span className={isActive ? "pulse-dot" : ""} style={{
+                          width: 6, height: 6, borderRadius: "50%",
+                          background: isActive ? L.amber : L.inkMuted,
+                          opacity: isActive ? 1 : 0.55,
+                        }} />
+                      )}
+                    </div>
+
+                    {/* tag */}
+                    <div style={{ marginTop: 12 }}>
+                      <span style={{
+                        fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+                        letterSpacing: "0.18em", textTransform: "uppercase",
+                        color: isActive ? L.amber : L.inkMuted,
+                      }}>
+                        — {s.tag}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* RIGHT — Strategic memory archive */}
+      <div className="col-span-12 lg:col-span-4">
+        <div className="lg:sticky lg:top-32">
+          <div style={{
+            background: "#FBF7EF",
+            border: `1px solid ${L.rule}`,
+            borderRadius: 4,
+            padding: "26px 26px 28px",
+            boxShadow: "0 14px 36px -24px rgba(13,27,42,0.2)",
+          }}>
+            <div className="flex items-center gap-2" style={{ marginBottom: 14 }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: "50%", background: L.amber,
+              }} className="pulse-dot" />
+              <span style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: 10.5,
+                letterSpacing: "0.22em", textTransform: "uppercase",
+                color: L.amber, fontWeight: 600,
+              }}>
+                The Archive
+              </span>
+            </div>
+
+            <h3 className="pf" style={{
+              color: L.ink, fontSize: 24, lineHeight: 1.15,
+              fontWeight: 500, letterSpacing: "-0.01em",
+            }}>
+              Everything you've thought, captured.
+            </h3>
+
+            <div style={{ height: 1, background: L.ruleSoft, margin: "18px 0 16px" }} />
+
+            {/* progressive ledger */}
+            <ul style={{ display: "grid", gap: 10 }}>
+              {[
+                { k: "Origin notes", v: "14" },
+                { k: "Audience signals", v: "22" },
+                { k: "Validated insights", v: "18" },
+                { k: "Brand fragments", v: "9" },
+                { k: "Milestones marked", v: "10" },
+              ].map((row) => (
+                <li key={row.k} style={{
+                  display: "flex", alignItems: "baseline", justifyContent: "space-between",
+                  borderBottom: `1px dashed ${L.ruleSoft}`,
+                  paddingBottom: 8,
+                }}>
+                  <span style={{
+                    fontFamily: "'DM Sans', sans-serif", fontSize: 13,
+                    color: L.inkSoft,
+                  }}>
+                    {row.k}
+                  </span>
+                  <span className="pf" style={{
+                    color: L.ink, fontSize: 16, fontWeight: 500,
+                    letterSpacing: "-0.005em",
+                  }}>
+                    {row.v}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {/* understanding meter */}
+            <div style={{ marginTop: 22 }}>
+              <div className="flex items-baseline justify-between" style={{ marginBottom: 8 }}>
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                  letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: L.inkMuted, fontWeight: 500,
+                }}>
+                  Brand understanding
+                </span>
+                <span className="pf" style={{
+                  color: L.ink, fontSize: 16, fontWeight: 500,
+                }}>
+                  62%
+                </span>
+              </div>
+              <div style={{
+                height: 2, background: L.ruleSoft, position: "relative",
+                borderRadius: 2, overflow: "hidden",
+              }}>
+                <div style={{
+                  position: "absolute", inset: 0, width: "62%",
+                  background: `linear-gradient(to right, ${L.amber}, rgba(184,134,11,0.55))`,
+                }} />
+              </div>
+              <p style={{
+                marginTop: 12, fontSize: 12, lineHeight: 1.55,
+                color: L.inkMuted, fontFamily: "'DM Sans', sans-serif",
+              }}>
+                Compounded across <span style={{ color: L.ink, fontWeight: 600 }}>47 sessions</span> · last entry 2 days ago
+              </p>
+            </div>
+          </div>
+
+          {/* tiny footnote */}
+          <p style={{
+            marginTop: 18, fontSize: 11,
+            letterSpacing: "0.2em", textTransform: "uppercase",
+            color: L.inkMuted, fontFamily: "'DM Sans', sans-serif", textAlign: "center",
+          }}>
+            Memory · not metrics
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IntelligenceLoop() {
   const stages = [
     {
