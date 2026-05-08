@@ -13,6 +13,18 @@ const C = {
   border: "#1A2A3A",
 };
 
+// Warm editorial palette (Section 1: Nav + Hero)
+const L = {
+  paper: "#F2EDE4",         // parchment
+  paperDeep: "#EAE3D6",     // slightly deeper ivory for depth
+  ink: "#0D1B2A",           // navy ink
+  inkSoft: "#3A4856",       // secondary ink
+  inkMuted: "#6B7480",      // tertiary ink
+  amber: "#B8860B",         // restrained amber for warm bg
+  rule: "rgba(13, 27, 42, 0.14)",
+  ruleSoft: "rgba(13, 27, 42, 0.08)",
+};
+
 const CYCLING = ["finally understood.", "finally heard.", "finally alive.", "finally yours."];
 
 const MODULES = [
