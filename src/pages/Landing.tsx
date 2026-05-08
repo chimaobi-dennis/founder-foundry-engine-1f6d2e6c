@@ -71,6 +71,132 @@ function useReveal<T extends HTMLElement>(): [React.RefObject<T>, boolean] {
   return [ref, v];
 }
 
+function LivingWorkspace() {
+  return (
+    <div className="relative" style={{ width: "100%", aspectRatio: "1 / 1.05", maxWidth: 560, marginLeft: "auto" }}>
+      {/* connecting lines */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 560 588" fill="none" style={{ zIndex: 1 }}>
+        <path className="draw-line" d="M 150 170 C 220 200, 280 240, 340 270" stroke={L.rule} strokeWidth="1" />
+        <path className="draw-line" d="M 380 320 C 360 380, 280 410, 200 440" stroke={L.rule} strokeWidth="1" />
+        <path className="draw-line" d="M 220 480 C 280 460, 340 470, 420 490" stroke={L.ruleSoft} strokeWidth="1" />
+      </svg>
+
+      {/* Card 1 — Mentor conversation fragment */}
+      <div
+        className="float-a absolute"
+        style={{
+          top: "4%", left: "0%", width: "58%", zIndex: 3,
+          background: "#FFFFFF", borderRadius: 6, padding: "18px 20px",
+          boxShadow: "0 12px 32px rgba(13,27,42,0.08), 0 2px 6px rgba(13,27,42,0.04)",
+          border: `1px solid ${L.ruleSoft}`,
+        }}
+      >
+        <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
+          <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: 99, background: L.amber }} />
+          <span style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600 }}>Mentor</span>
+        </div>
+        <p className="pf" style={{ fontSize: 15, lineHeight: 1.45, color: L.ink, fontStyle: "italic", marginBottom: 8 }}>
+          "Your audience isn't beginners. It's operators who've outgrown their tools."
+        </p>
+        <p style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.04em" }}>captured · 2m ago</p>
+      </div>
+
+      {/* Card 2 — Brand memory */}
+      <div
+        className="float-b absolute"
+        style={{
+          top: "30%", right: "0%", width: "52%", zIndex: 4,
+          background: "#FBF7EF", borderRadius: 6, padding: "16px 18px",
+          boxShadow: "0 16px 36px rgba(13,27,42,0.10), 0 2px 6px rgba(13,27,42,0.04)",
+          border: `1px solid ${L.rule}`,
+        }}
+      >
+        <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+          <span style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: L.amber, fontWeight: 600 }}>Brand Memory</span>
+          <span style={{ fontSize: 10, color: L.inkMuted }}>74%</span>
+        </div>
+        <div className="space-y-2.5">
+          {[
+            { k: "Voice", v: "Direct · Confident" },
+            { k: "Audience", v: "Senior operators" },
+            { k: "Promise", v: "Memory that compounds" },
+          ].map((row) => (
+            <div key={row.k} className="flex items-baseline justify-between" style={{ borderBottom: `1px dashed ${L.ruleSoft}`, paddingBottom: 6 }}>
+              <span style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.04em" }}>{row.k}</span>
+              <span style={{ fontSize: 12, color: L.ink, fontWeight: 500 }}>{row.v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 14, height: 3, background: L.ruleSoft, borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ width: "74%", height: "100%", background: L.amber }} />
+        </div>
+      </div>
+
+      {/* Card 3 — Journey stage */}
+      <div
+        className="float-c absolute"
+        style={{
+          top: "56%", left: "8%", width: "44%", zIndex: 3,
+          background: "#FFFFFF", borderRadius: 6, padding: "14px 16px",
+          boxShadow: "0 10px 28px rgba(13,27,42,0.08)",
+          border: `1px solid ${L.ruleSoft}`,
+        }}
+      >
+        <span style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600 }}>Stage</span>
+        <p className="pf" style={{ fontSize: 14, color: L.ink, marginTop: 6, fontWeight: 500 }}>Positioning</p>
+        <div className="flex items-center gap-1.5" style={{ marginTop: 10 }}>
+          {[1,2,3,4,5].map((i) => (
+            <span key={i} style={{
+              flex: 1, height: 2, borderRadius: 2,
+              background: i <= 3 ? L.ink : L.ruleSoft,
+            }} />
+          ))}
+        </div>
+        <p style={{ fontSize: 10, color: L.inkMuted, marginTop: 8, letterSpacing: "0.04em" }}>3 of 5 · in progress</p>
+      </div>
+
+      {/* Card 4 — Generated content tied to context */}
+      <div
+        className="float-a absolute"
+        style={{
+          bottom: "0%", right: "4%", width: "50%", zIndex: 4,
+          background: "#0D1B2A", borderRadius: 6, padding: "16px 18px",
+          boxShadow: "0 18px 40px rgba(13,27,42,0.18)",
+          color: L.paper,
+        }}
+      >
+        <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+          <span style={{ width: 5, height: 5, borderRadius: 99, background: L.amber }} />
+          <span style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(245,240,232,0.6)", fontWeight: 600 }}>
+            Generated · LinkedIn
+          </span>
+        </div>
+        <p className="pf" style={{ fontSize: 13, lineHeight: 1.5, fontStyle: "italic" }}>
+          "If you've outgrown the tools that got you here — read this."
+        </p>
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(245,240,232,0.12)" }}>
+          <span style={{ fontSize: 10, color: "rgba(245,240,232,0.55)", letterSpacing: "0.04em" }}>
+            shaped by: voice · audience · stage
+          </span>
+        </div>
+      </div>
+
+      {/* small floating tag */}
+      <div
+        className="float-b absolute"
+        style={{
+          top: "0%", right: "16%", zIndex: 2,
+          background: "transparent",
+          fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase",
+          color: L.inkMuted, fontWeight: 600,
+        }}
+      >
+        ◦ Living context
+      </div>
+    </div>
+  );
+}
+
 export default function Landing() {
   const scrolled = useScrolled();
   const [wordIdx, setWordIdx] = useState(0);
@@ -123,8 +249,19 @@ export default function Landing() {
         .reveal.in { opacity: 1; transform: translateY(0); }
         .module-card { transition: background .25s ease, transform .25s ease; }
         .module-card:hover { background: ${C.cardHover}; transform: translateY(-2px); }
+        @keyframes floatA { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes floatB { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes floatC { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes pulseDot { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+        @keyframes drawLine { from { stroke-dashoffset: 200; } to { stroke-dashoffset: 0; } }
+        .float-a { animation: floatA 7s ease-in-out infinite; }
+        .float-b { animation: floatB 9s ease-in-out infinite .8s; }
+        .float-c { animation: floatC 8s ease-in-out infinite .4s; }
+        .pulse-dot { animation: pulseDot 2.4s ease-in-out infinite; }
+        .draw-line { stroke-dasharray: 200; animation: drawLine 2s ease-out .6s forwards; }
         @media (prefers-reduced-motion: reduce) {
-          .diag-bg, .amber-line, .fade-up-1, .fade-up-2, .reveal { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; width: 40% !important; }
+          .diag-bg, .amber-line, .fade-up-1, .fade-up-2, .reveal,
+          .float-a, .float-b, .float-c, .pulse-dot, .draw-line { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; width: 40% !important; }
         }
       `}</style>
 
@@ -166,9 +303,9 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* ───────── HERO (asymmetric editorial spread) ───────── */}
+      {/* ───────── HERO (split editorial — living workspace) ───────── */}
       <section className="relative overflow-hidden" style={{ background: L.paper, minHeight: "100vh" }}>
-        {/* very subtle paper grain */}
+        {/* paper grain */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -178,6 +315,18 @@ export default function Landing() {
               "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05  0 0 0 0 0.07  0 0 0 0 0.1  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
           }}
         />
+        {/* warm radial wash */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: "-10%",
+            right: "-10%",
+            width: "70%",
+            height: "70%",
+            background: `radial-gradient(circle at 60% 40%, ${L.paperDeep} 0%, transparent 60%)`,
+            opacity: 0.6,
+          }}
+        />
 
         <div
           className="relative w-full mx-auto"
@@ -185,145 +334,108 @@ export default function Landing() {
             maxWidth: 1320,
             paddingLeft: "clamp(24px, 6vw, 96px)",
             paddingRight: "clamp(24px, 6vw, 96px)",
-            paddingTop: "clamp(140px, 18vh, 200px)",
+            paddingTop: "clamp(120px, 16vh, 180px)",
             paddingBottom: "clamp(80px, 12vh, 140px)",
           }}
         >
-          {/* Top kicker bar */}
-          <div className="fade-up-1 flex items-center gap-4" style={{ marginBottom: "clamp(48px, 7vh, 80px)" }}>
-            <span style={{ width: 28, height: 1, background: L.amber }} />
-            <span
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 11,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: L.inkSoft,
-                fontWeight: 500,
-              }}
-            >
-              Vol. 01 · A New Kind of Operating System for Founders
-            </span>
-          </div>
+          <div className="grid grid-cols-12 gap-x-8 lg:gap-x-16 gap-y-16 items-center">
+            {/* ─── LEFT: editorial copy ─── */}
+            <div className="col-span-12 lg:col-span-6">
+              {/* eyebrow */}
+              <div className="fade-up-1 flex items-center gap-3" style={{ marginBottom: 32 }}>
+                <span style={{ width: 24, height: 1, background: L.amber }} />
+                <span
+                  style={{
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: 11,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: L.inkSoft,
+                    fontWeight: 500,
+                  }}
+                >
+                  AI Brand Intelligence for Founders
+                </span>
+              </div>
 
-          {/* Editorial grid: 12-col, headline left (8), sidebar right (4) */}
-          <div className="grid grid-cols-12 gap-x-6 md:gap-x-10 gap-y-12">
-            {/* Headline + body — left column */}
-            <div className="col-span-12 lg:col-span-8">
               <h1
                 className="pf fade-up-1"
                 style={{
                   color: L.ink,
-                  fontSize: "clamp(44px, 7.4vw, 104px)",
-                  lineHeight: 0.98,
+                  fontSize: "clamp(40px, 5.6vw, 78px)",
+                  lineHeight: 1.02,
                   fontWeight: 500,
                   letterSpacing: "-0.025em",
-                  marginBottom: 0,
                 }}
               >
                 Your business
                 <br />
                 finally has{" "}
-                <span style={{ fontStyle: "italic", fontWeight: 500, color: L.ink }}>
-                  memory
-                </span>
+                <span style={{ fontStyle: "italic" }}>memory</span>
                 <span style={{ color: L.amber }}>.</span>
               </h1>
 
-              {/* hairline below headline */}
-              <div className="fade-up-2" style={{ height: 1, background: L.rule, marginTop: "clamp(40px, 6vh, 64px)", marginBottom: "clamp(28px, 4vh, 40px)", maxWidth: 540 }} />
+              <div className="fade-up-2" style={{ height: 1, background: L.rule, marginTop: 36, marginBottom: 28, maxWidth: 420 }} />
 
               <p
                 className="fade-up-2"
                 style={{
                   color: L.inkSoft,
-                  fontSize: "clamp(17px, 1.5vw, 20px)",
-                  lineHeight: 1.55,
-                  maxWidth: "44ch",
+                  fontSize: "clamp(16px, 1.3vw, 18px)",
+                  lineHeight: 1.6,
+                  maxWidth: "46ch",
                   fontWeight: 400,
                 }}
               >
-                Kinika learns the shape of your business — your voice, your customer, your direction — and uses that intelligence to author every piece of content, visual and document that follows.
+                Most AI tools forget everything the moment you close the tab. Kinika remembers your conversations, positioning, audience and brand direction — so every output is shaped by real business context.
               </p>
 
-              <div className="fade-up-2 flex items-center gap-8" style={{ marginTop: "clamp(36px, 5vh, 48px)" }}>
+              <div className="fade-up-2 flex flex-wrap items-center gap-4" style={{ marginTop: 40 }}>
                 <Link
                   to="/sign-up"
                   className="btn-primary inline-flex items-center gap-3 transition-all hover:-translate-y-px"
                   style={{
                     background: L.ink,
                     color: L.paper,
-                    height: 52,
-                    padding: "0 28px",
-                    fontSize: 15,
+                    height: 50,
+                    padding: "0 26px",
+                    fontSize: 14,
                     fontWeight: 500,
                     borderRadius: 2,
-                    letterSpacing: "0.01em",
+                    letterSpacing: "0.02em",
                   }}
                 >
-                  Begin your edition
+                  Start building with Kinika
                   <ArrowRight className="w-4 h-4 arrow-shift" />
                 </Link>
                 <a
                   href="#how"
-                  className="inline-flex items-center gap-2 text-sm transition-opacity hover:opacity-60"
+                  className="inline-flex items-center gap-2 transition-all hover:-translate-y-px"
                   style={{
                     color: L.ink,
-                    borderBottom: `1px solid ${L.ink}`,
-                    paddingBottom: 2,
+                    height: 50,
+                    padding: "0 22px",
+                    fontSize: 14,
                     fontWeight: 500,
+                    border: `1px solid ${L.ink}`,
+                    borderRadius: 2,
+                    background: "transparent",
+                    letterSpacing: "0.02em",
                   }}
                 >
-                  How it thinks
+                  Watch the system think
                 </a>
               </div>
             </div>
 
-            {/* Right sidebar — Editor's note */}
-            <aside
-              className="col-span-12 lg:col-span-4 fade-up-2 lg:pl-10"
-              style={{
-                borderLeft: `1px solid ${L.rule}`,
-              }}
-            >
-              <div className="lg:pl-0 pl-0 lg:border-0">
-                <div
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 10,
-                    letterSpacing: "0.24em",
-                    textTransform: "uppercase",
-                    color: L.amber,
-                    fontWeight: 600,
-                    marginBottom: 18,
-                  }}
-                >
-                  Editor's note
-                </div>
-                <p
-                  className="pf"
-                  style={{
-                    color: L.ink,
-                    fontSize: "clamp(17px, 1.4vw, 19px)",
-                    lineHeight: 1.5,
-                    fontStyle: "italic",
-                    fontWeight: 400,
-                    letterSpacing: "-0.005em",
-                    marginBottom: 20,
-                  }}
-                >
-                  Most tools forget you the moment you close the tab. Kinika is built to remember — quietly, accurately, indefinitely.
-                </p>
-                <div style={{ height: 1, background: L.ruleSoft, marginBottom: 16, width: 32 }} />
-                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: L.inkMuted, letterSpacing: "0.04em" }}>
-                  A founder intelligence system,<br />written one conversation at a time.
-                </p>
-              </div>
-            </aside>
+            {/* ─── RIGHT: living workspace composition ─── */}
+            <div className="col-span-12 lg:col-span-6 fade-up-2">
+              <LivingWorkspace />
+            </div>
           </div>
         </div>
 
-        {/* Bottom editorial footer rule */}
+        {/* footer rule */}
         <div
           className="absolute bottom-0 left-0 right-0"
           style={{
