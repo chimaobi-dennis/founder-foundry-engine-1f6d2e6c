@@ -71,6 +71,246 @@ function useReveal<T extends HTMLElement>(): [React.RefObject<T>, boolean] {
   return [ref, v];
 }
 
+function IntelligenceLoop() {
+  const stages = [
+    {
+      kicker: "01 · Input",
+      label: "Conversation",
+      body: "Founder talks. No forms. Just thinking out loud.",
+      pill: "live thread",
+    },
+    {
+      kicker: "02 · Captured",
+      label: "Memory",
+      body: "Signals saved as structured brand context.",
+      pill: "+ 12 signals this week",
+    },
+    {
+      kicker: "03 · Synthesis",
+      label: "Understanding",
+      body: "Voice, audience, promise, stage — all related.",
+      pill: "context · 74%",
+    },
+    {
+      kicker: "04 · Output",
+      label: "Aligned creation",
+      body: "Every artifact shaped by the same memory.",
+      pill: "shaped by memory",
+    },
+  ];
+
+  const outputs = [
+    { label: "Visuals", sub: "ProStudio" },
+    { label: "Content", sub: "ContentStudio" },
+    { label: "Campaigns", sub: "CampaignKit" },
+    { label: "Documents", sub: "DocStudio" },
+  ];
+
+  return (
+    <div className="relative">
+      {/* horizontal connecting rail (desktop only) */}
+      <div
+        className="hidden lg:block absolute pointer-events-none"
+        style={{
+          top: 96,
+          left: "8%",
+          right: "8%",
+          height: 1,
+          background: `linear-gradient(to right, transparent, ${L.amber} 20%, ${L.amber} 80%, transparent)`,
+          opacity: 0.55,
+        }}
+      />
+
+      {/* stages row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 relative">
+        {stages.map((s, i) => (
+          <div key={s.label} className="relative flex flex-col items-center text-center">
+            {/* node dot on the rail */}
+            <div
+              className="hidden lg:block absolute"
+              style={{
+                top: 90,
+                width: 13,
+                height: 13,
+                borderRadius: "50%",
+                background: L.paper,
+                border: `1.5px solid ${L.amber}`,
+                boxShadow: `0 0 0 4px ${L.paper}`,
+              }}
+            >
+              <span
+                className="pulse-dot block"
+                style={{
+                  position: "absolute",
+                  inset: 2,
+                  borderRadius: "50%",
+                  background: L.amber,
+                }}
+              />
+            </div>
+
+            {/* kicker */}
+            <div style={{ height: 96 }} className="hidden lg:flex items-start justify-center pt-1">
+              <span style={{
+                fontFamily: "'DM Sans', sans-serif", fontSize: 10.5,
+                letterSpacing: "0.22em", textTransform: "uppercase",
+                color: L.inkMuted, fontWeight: 500,
+              }}>
+                {s.kicker}
+              </span>
+            </div>
+
+            {/* layered card */}
+            <div className="relative w-full max-w-[280px]" style={{ marginTop: 24 }}>
+              {/* back layer */}
+              <div
+                aria-hidden
+                className="absolute inset-0"
+                style={{
+                  transform: "translate(6px, 6px)",
+                  background: L.paperDeep,
+                  border: `1px solid ${L.ruleSoft}`,
+                  borderRadius: 6,
+                }}
+              />
+              {/* front layer */}
+              <div
+                className={i % 2 === 0 ? "float-a" : "float-b"}
+                style={{
+                  position: "relative",
+                  background: "#FFFFFF",
+                  border: `1px solid ${L.rule}`,
+                  borderRadius: 6,
+                  padding: "20px 20px 22px",
+                  boxShadow: "0 1px 0 rgba(13,27,42,0.02), 0 12px 28px -18px rgba(13,27,42,0.18)",
+                }}
+              >
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+                  letterSpacing: "0.22em", textTransform: "uppercase",
+                  color: L.amber, fontWeight: 600,
+                }} className="lg:hidden block mb-2">
+                  {s.kicker}
+                </span>
+
+                <h3 className="pf" style={{
+                  color: L.ink, fontSize: 22, lineHeight: 1.15,
+                  fontWeight: 500, letterSpacing: "-0.01em",
+                }}>
+                  {s.label}
+                </h3>
+
+                <div style={{ height: 1, background: L.ruleSoft, margin: "12px 0 12px", width: 32 }} />
+
+                <p style={{
+                  color: L.inkSoft, fontSize: 13.5, lineHeight: 1.55,
+                }}>
+                  {s.body}
+                </p>
+
+                <div style={{
+                  marginTop: 16, paddingTop: 12,
+                  borderTop: `1px dashed ${L.ruleSoft}`,
+                  display: "flex", alignItems: "center", gap: 8,
+                }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: L.amber,
+                  }} className="pulse-dot" />
+                  <span style={{
+                    fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                    letterSpacing: "0.06em", color: L.inkMuted,
+                  }}>
+                    {s.pill}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* arrow between stages (mobile) */}
+            {i < stages.length - 1 && (
+              <div className="lg:hidden flex justify-center" style={{ marginTop: 14, color: L.inkMuted }}>
+                <svg width="14" height="22" viewBox="0 0 14 22" fill="none">
+                  <path d="M7 0 V20 M2 15 L7 20 L12 15" stroke={L.amber} strokeWidth="1" fill="none" />
+                </svg>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* feedback loop arc back to memory */}
+      <div className="hidden lg:flex justify-center" style={{ marginTop: 36 }}>
+        <svg width="100%" height="64" viewBox="0 0 1000 64" preserveAspectRatio="none" style={{ maxWidth: 900, opacity: 0.7 }}>
+          <path
+            d="M 940 6 Q 940 58 500 58 Q 60 58 60 6"
+            stroke={L.amber}
+            strokeWidth="1"
+            strokeDasharray="3 5"
+            fill="none"
+          />
+          <text x="500" y="52" textAnchor="middle" fontSize="10" fill={L.inkMuted}
+            style={{ fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.22em", textTransform: "uppercase" }}>
+            output deepens memory · the loop compounds
+          </text>
+        </svg>
+      </div>
+
+      {/* outputs row — branches from "Aligned creation" */}
+      <div style={{ marginTop: 56 }}>
+        <div className="flex items-center gap-3 justify-center" style={{ marginBottom: 24 }}>
+          <span style={{ width: 24, height: 1, background: L.rule }} />
+          <span style={{
+            fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+            letterSpacing: "0.22em", textTransform: "uppercase", color: L.inkMuted,
+          }}>
+            Outputs · shaped by the same memory
+          </span>
+          <span style={{ width: 24, height: 1, background: L.rule }} />
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-[880px] mx-auto">
+          {outputs.map((o, i) => (
+            <div
+              key={o.label}
+              className={i % 2 === 0 ? "float-c" : "float-b"}
+              style={{
+                background: "#FFFFFF",
+                border: `1px solid ${L.ruleSoft}`,
+                borderRadius: 4,
+                padding: "16px 18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div>
+                <p className="pf" style={{
+                  color: L.ink, fontSize: 16, fontWeight: 500,
+                  letterSpacing: "-0.005em", lineHeight: 1.1,
+                }}>
+                  {o.label}
+                </p>
+                <p style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 10.5,
+                  letterSpacing: "0.16em", textTransform: "uppercase",
+                  color: L.inkMuted, marginTop: 4,
+                }}>
+                  {o.sub}
+                </p>
+              </div>
+              <span style={{
+                width: 5, height: 5, borderRadius: "50%", background: L.amber,
+              }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FragmentedDiagram() {
   // Three isolated "prompt → output" pairs above; one continuous "memory thread" below
   const sessions = [
@@ -712,6 +952,109 @@ export default function Landing() {
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
               № 02 — On Forgetting
+            </span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
+              Continued ↓
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────── SECTION 03 — How Kinika Works (intelligence loop) ───────── */}
+      <section className="relative overflow-hidden" style={{ background: L.paper }}>
+        {/* paper grain */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            opacity: 0.35,
+            mixBlendMode: "multiply",
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05  0 0 0 0 0.07  0 0 0 0 0.1  0 0 0 0.04 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+        {/* warm vignette to add depth */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 0%, rgba(184,134,11,0.06), transparent 60%)",
+          }}
+        />
+
+        <div
+          className="relative w-full mx-auto"
+          style={{
+            maxWidth: 1320,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+            paddingTop: "clamp(96px, 14vh, 160px)",
+            paddingBottom: "clamp(96px, 14vh, 160px)",
+          }}
+        >
+          {/* chapter marker */}
+          <div className="flex items-center gap-3" style={{ marginBottom: 56 }}>
+            <span style={{ width: 24, height: 1, background: L.amber }} />
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+              letterSpacing: "0.22em", textTransform: "uppercase",
+              color: L.inkSoft, fontWeight: 500,
+            }}>
+              Chapter 03 · The Intelligence Loop
+            </span>
+          </div>
+
+          {/* header — editorial split */}
+          <div className="grid grid-cols-12 gap-x-8 lg:gap-x-20 gap-y-8 items-end" style={{ marginBottom: 80 }}>
+            <div className="col-span-12 lg:col-span-7">
+              <h2
+                className="pf"
+                style={{
+                  color: L.ink,
+                  fontSize: "clamp(34px, 4.4vw, 56px)",
+                  lineHeight: 1.05,
+                  fontWeight: 500,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                How Kinika{" "}
+                <span style={{ fontStyle: "italic" }}>compounds</span> understanding
+                <span style={{ color: L.amber }}>.</span>
+              </h2>
+            </div>
+            <div className="col-span-12 lg:col-span-5">
+              <p style={{
+                color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
+                lineHeight: 1.65, maxWidth: "44ch",
+              }}>
+                Each conversation thickens the next. Memory becomes understanding. Understanding becomes the surface every output is shaped on.
+              </p>
+            </div>
+          </div>
+
+          {/* ═══ Intelligence loop diagram ═══ */}
+          <IntelligenceLoop />
+
+          {/* closing line */}
+          <div style={{ marginTop: 96, textAlign: "center" }}>
+            <p className="pf" style={{
+              color: L.ink, fontSize: "clamp(20px, 2vw, 26px)",
+              lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
+              letterSpacing: "-0.01em", maxWidth: "32ch", margin: "0 auto",
+            }}>
+              The system gets quieter, sharper, and more like you — every week.
+            </p>
+          </div>
+        </div>
+
+        {/* footer rule */}
+        <div style={{
+          borderTop: `1px solid ${L.rule}`,
+          paddingLeft: "clamp(24px, 6vw, 96px)",
+          paddingRight: "clamp(24px, 6vw, 96px)",
+        }}>
+          <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
+              № 03 — On Compounding
             </span>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
               Continued ↓
