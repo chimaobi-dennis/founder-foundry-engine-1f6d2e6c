@@ -71,6 +71,132 @@ function useReveal<T extends HTMLElement>(): [React.RefObject<T>, boolean] {
   return [ref, v];
 }
 
+function LivingWorkspace() {
+  return (
+    <div className="relative" style={{ width: "100%", aspectRatio: "1 / 1.05", maxWidth: 560, marginLeft: "auto" }}>
+      {/* connecting lines */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 560 588" fill="none" style={{ zIndex: 1 }}>
+        <path className="draw-line" d="M 150 170 C 220 200, 280 240, 340 270" stroke={L.rule} strokeWidth="1" />
+        <path className="draw-line" d="M 380 320 C 360 380, 280 410, 200 440" stroke={L.rule} strokeWidth="1" />
+        <path className="draw-line" d="M 220 480 C 280 460, 340 470, 420 490" stroke={L.ruleSoft} strokeWidth="1" />
+      </svg>
+
+      {/* Card 1 — Mentor conversation fragment */}
+      <div
+        className="float-a absolute"
+        style={{
+          top: "4%", left: "0%", width: "58%", zIndex: 3,
+          background: "#FFFFFF", borderRadius: 6, padding: "18px 20px",
+          boxShadow: "0 12px 32px rgba(13,27,42,0.08), 0 2px 6px rgba(13,27,42,0.04)",
+          border: `1px solid ${L.ruleSoft}`,
+        }}
+      >
+        <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
+          <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: 99, background: L.amber }} />
+          <span style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600 }}>Mentor</span>
+        </div>
+        <p className="pf" style={{ fontSize: 15, lineHeight: 1.45, color: L.ink, fontStyle: "italic", marginBottom: 8 }}>
+          "Your audience isn't beginners. It's operators who've outgrown their tools."
+        </p>
+        <p style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.04em" }}>captured · 2m ago</p>
+      </div>
+
+      {/* Card 2 — Brand memory */}
+      <div
+        className="float-b absolute"
+        style={{
+          top: "30%", right: "0%", width: "52%", zIndex: 4,
+          background: "#FBF7EF", borderRadius: 6, padding: "16px 18px",
+          boxShadow: "0 16px 36px rgba(13,27,42,0.10), 0 2px 6px rgba(13,27,42,0.04)",
+          border: `1px solid ${L.rule}`,
+        }}
+      >
+        <div className="flex items-center justify-between" style={{ marginBottom: 14 }}>
+          <span style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: L.amber, fontWeight: 600 }}>Brand Memory</span>
+          <span style={{ fontSize: 10, color: L.inkMuted }}>74%</span>
+        </div>
+        <div className="space-y-2.5">
+          {[
+            { k: "Voice", v: "Direct · Confident" },
+            { k: "Audience", v: "Senior operators" },
+            { k: "Promise", v: "Memory that compounds" },
+          ].map((row) => (
+            <div key={row.k} className="flex items-baseline justify-between" style={{ borderBottom: `1px dashed ${L.ruleSoft}`, paddingBottom: 6 }}>
+              <span style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.04em" }}>{row.k}</span>
+              <span style={{ fontSize: 12, color: L.ink, fontWeight: 500 }}>{row.v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 14, height: 3, background: L.ruleSoft, borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ width: "74%", height: "100%", background: L.amber }} />
+        </div>
+      </div>
+
+      {/* Card 3 — Journey stage */}
+      <div
+        className="float-c absolute"
+        style={{
+          top: "56%", left: "8%", width: "44%", zIndex: 3,
+          background: "#FFFFFF", borderRadius: 6, padding: "14px 16px",
+          boxShadow: "0 10px 28px rgba(13,27,42,0.08)",
+          border: `1px solid ${L.ruleSoft}`,
+        }}
+      >
+        <span style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600 }}>Stage</span>
+        <p className="pf" style={{ fontSize: 14, color: L.ink, marginTop: 6, fontWeight: 500 }}>Positioning</p>
+        <div className="flex items-center gap-1.5" style={{ marginTop: 10 }}>
+          {[1,2,3,4,5].map((i) => (
+            <span key={i} style={{
+              flex: 1, height: 2, borderRadius: 2,
+              background: i <= 3 ? L.ink : L.ruleSoft,
+            }} />
+          ))}
+        </div>
+        <p style={{ fontSize: 10, color: L.inkMuted, marginTop: 8, letterSpacing: "0.04em" }}>3 of 5 · in progress</p>
+      </div>
+
+      {/* Card 4 — Generated content tied to context */}
+      <div
+        className="float-a absolute"
+        style={{
+          bottom: "0%", right: "4%", width: "50%", zIndex: 4,
+          background: "#0D1B2A", borderRadius: 6, padding: "16px 18px",
+          boxShadow: "0 18px 40px rgba(13,27,42,0.18)",
+          color: L.paper,
+        }}
+      >
+        <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+          <span style={{ width: 5, height: 5, borderRadius: 99, background: L.amber }} />
+          <span style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(245,240,232,0.6)", fontWeight: 600 }}>
+            Generated · LinkedIn
+          </span>
+        </div>
+        <p className="pf" style={{ fontSize: 13, lineHeight: 1.5, fontStyle: "italic" }}>
+          "If you've outgrown the tools that got you here — read this."
+        </p>
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(245,240,232,0.12)" }}>
+          <span style={{ fontSize: 10, color: "rgba(245,240,232,0.55)", letterSpacing: "0.04em" }}>
+            shaped by: voice · audience · stage
+          </span>
+        </div>
+      </div>
+
+      {/* small floating tag */}
+      <div
+        className="float-b absolute"
+        style={{
+          top: "0%", right: "16%", zIndex: 2,
+          background: "transparent",
+          fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase",
+          color: L.inkMuted, fontWeight: 600,
+        }}
+      >
+        ◦ Living context
+      </div>
+    </div>
+  );
+}
+
 export default function Landing() {
   const scrolled = useScrolled();
   const [wordIdx, setWordIdx] = useState(0);
