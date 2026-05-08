@@ -1976,21 +1976,16 @@ export default function Landing() {
               {/* small elegant nav groups */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
                 {[
-                  {
-                    title: "Product",
-                    links: ["Mentor", "ProStudio", "CampaignKit", "Calendar"],
-                  },
-                  {
-                    title: "Philosophy",
-                    links: ["Memory First", "Brand DNA", "The Loop", "Journey"],
-                  },
-                  {
-                    title: "Journal",
-                    links: ["Field Notes", "Founder Stories", "Release Notes"],
-                  },
+                  { title: "Philosophy", links: [{ label: "Read", to: "/philosophy" }] },
+                  { title: "System", links: [{ label: "Six rooms", to: "/system" }] },
+                  { title: "Journal", links: [{ label: "Field notes", to: "/journal" }] },
                   {
                     title: "Access",
-                    links: ["Sign In", "Get Started", "Contact"],
+                    links: [
+                      { label: "Pricing", to: "/pricing" },
+                      { label: "Sign in", to: "/sign-in" },
+                      { label: "Enter Kinika", to: "/sign-up" },
+                    ],
                   },
                 ].map((group) => (
                   <div key={group.title}>
@@ -2006,25 +2001,19 @@ export default function Landing() {
                     </span>
                     <ul style={{ marginTop: 14, display: "grid", gap: 9 }}>
                       {group.links.map((link) => (
-                        <li key={link}>
-                          <a
-                            href="#"
-                            className="inline-block transition-colors duration-200"
+                        <li key={link.label}>
+                          <Link
+                            to={link.to}
+                            className="inline-block transition-opacity duration-200 hover:opacity-70"
                             style={{
                               fontFamily: "'DM Sans', sans-serif",
                               fontSize: 13,
                               color: L.inkSoft,
                               letterSpacing: "0.01em",
                             }}
-                            onMouseEnter={(e) => {
-                              (e.target as HTMLElement).style.color = L.ink;
-                            }}
-                            onMouseLeave={(e) => {
-                              (e.target as HTMLElement).style.color = L.inkSoft;
-                            }}
                           >
-                            {link}
-                          </a>
+                            {link.label}
+                          </Link>
                         </li>
                       ))}
                     </ul>
