@@ -25,27 +25,27 @@ const L = {
   ruleSoft: "rgba(13, 27, 42, 0.08)",
 };
 
-const CYCLING = ["finally understood.", "finally heard.", "finally alive.", "finally yours."];
+const CYCLING = ["actually understood.", "finally connected.", "working as one.", "yours, end to end."];
 
 const MODULES = [
-  { emoji: "🧠", name: "Kinika", desc: "Your AI thinking partner. Remembers everything." },
+  { emoji: "🧠", name: "Kinika", desc: "Your AI thinking partner. Holds the full picture of your business." },
   { emoji: "📸", name: "ProStudio", desc: "Product visuals without a studio." },
   { emoji: "📢", name: "ContentStudio", desc: "One brief. Eight platforms. Ready to post." },
   { emoji: "📅", name: "ContentCalendar", desc: "Plan your content month visually." },
-  { emoji: "📄", name: "DocStudio", desc: "Professional documents from your brand memory." },
+  { emoji: "📄", name: "DocStudio", desc: "Professional documents drawn from your business context." },
   { emoji: "🎬", name: "ReelBuilder", desc: "Brief to script to teleprompter." },
 ];
 
 const PROBLEMS = [
-  { n: "01", title: "Generic content", body: "AI tools that don't know your business give you content that sounds like everyone else's." },
-  { n: "02", title: "No memory between tools", body: "You explain your brand from scratch every single time. Nothing carries over. Nothing compounds." },
-  { n: "03", title: "Built ≠ marketed", body: "You built something real. But telling the world about it feels like a completely different job." },
+  { n: "01", title: "Tools that don't talk", body: "Canva, ChatGPT, Notion, Buffer — each one capable, none of them aware of the others. Your business lives in fragments." },
+  { n: "02", title: "Re-explaining everything", body: "You paste positioning, audience and tone into every new tab. The context resets the moment you switch surfaces." },
+  { n: "03", title: "Generic, off-brand outputs", body: "Without shared understanding, every tool defaults to a template built for someone else. You spend the day correcting it back to you." },
 ];
 
 const STEPS = [
-  { n: "1", title: "Talk to Kinika", body: "Start a conversation about your business. No forms. No setup. Just talk." },
-  { n: "2", title: "Build your Brand DNA", body: "Every insight is captured automatically. Your brand knowledge compounds over time." },
-  { n: "3", title: "Create from context", body: "Every module uses what Kinika learned. Content, visuals, docs — all on-brand, always." },
+  { n: "1", title: "Talk to Kinika", body: "Have a real conversation about your business. No forms. No setup. The context starts forming from the first message." },
+  { n: "2", title: "Build shared understanding", body: "Positioning, audience, voice and direction accumulate into one connected business context — not a profile, a working model." },
+  { n: "3", title: "Create from one source", body: "Every module reads from the same context. Visuals, copy, docs and campaigns arrive aligned, without re-explaining anything." },
 ];
 
 function useScrolled() {
