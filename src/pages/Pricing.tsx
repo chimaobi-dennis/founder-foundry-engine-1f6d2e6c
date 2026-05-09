@@ -302,7 +302,7 @@ export default function Pricing() {
       {/* ── Cover spread ────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="Access" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="Pricing" date="Plans & access" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -316,7 +316,7 @@ export default function Pricing() {
                   letterSpacing: "0.01em",
                 }}
               >
-                On the matter of access.
+                Three plans. One workspace.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
@@ -329,7 +329,7 @@ export default function Pricing() {
                   maxWidth: "16ch",
                 }}
               >
-                Three editions of a quieter studio.
+                Access to an intelligent founder workspace.
               </h1>
             </div>
             <aside className="col-span-12 lg:col-span-4 lg:pt-24">
@@ -350,8 +350,8 @@ export default function Pricing() {
                   A note before you choose
                 </p>
                 <p className="pf" style={{ fontSize: 17, lineHeight: 1.6, color: L.inkSoft, fontStyle: "italic" }}>
-                  Pricing should be the smallest, calmest decision in your day. We have tried to
-                  make ours exactly that.
+                  Pricing should be the smallest, calmest decision in your day.
+                  We've tried to make ours exactly that.
                 </p>
               </div>
             </aside>
