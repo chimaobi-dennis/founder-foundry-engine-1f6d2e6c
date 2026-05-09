@@ -116,7 +116,7 @@ export function EditorialFooter({ issueLabel = "One business context, connected 
                 maxWidth: "32ch",
               }}
             >
-              A system that remembers.
+              A system that connects your business.
             </p>
             <div style={{ height: 1, background: L.ruleSoft, margin: "32px 0 36px", width: 48 }} />
             <div className="flex flex-wrap gap-x-10 gap-y-3">
