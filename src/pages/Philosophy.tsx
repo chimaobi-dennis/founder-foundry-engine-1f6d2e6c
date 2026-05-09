@@ -682,7 +682,7 @@ export default function Philosophy() {
                   marginBottom: 32,
                 }}
               >
-                The next conversation begins inside.
+                Start building with Kinika.
               </p>
               <Link
                 to="/system"
@@ -697,7 +697,7 @@ export default function Philosophy() {
                   paddingBottom: 4,
                 }}
               >
-                Continue to the System
+                See how the system works
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
@@ -712,11 +712,12 @@ export default function Philosophy() {
                   marginBottom: 14,
                 }}
               >
-                Colophon
+                About this page
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                An essay from <em>Kinika Studio</em>, Vol. 01 — The Memory Issue. Set in
-                Playfair Display and DM Sans. Written for founders who think long-term.
+                A short statement of what Kinika is for and why it works the way
+                it does. Written for founders who think long-term about the
+                business they're building.
               </p>
             </aside>
           </div>
