@@ -380,7 +380,7 @@ export default function Journey() {
               color: L.inkMuted,
             }}
           >
-            — Marginalia, Vol. 01
+            — A working principle inside Kinika
           </div>
         </section>
 
