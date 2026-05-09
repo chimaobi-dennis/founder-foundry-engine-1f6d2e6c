@@ -4,7 +4,7 @@ import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/E
 
 /* ── Data ───────────────────────────────────────────────────────────────── */
 
-type Edition = {
+type Plan = {
   no: string;
   name: string;
   intent: string;
@@ -16,45 +16,45 @@ type Edition = {
   to: string;
 };
 
-const EDITIONS: Edition[] = [
+const PLANS: Plan[] = [
   {
-    no: "Edition I",
-    name: "The Notebook",
-    intent: "For founders sketching their first chapter.",
+    no: "Plan 01",
+    name: "Starter",
+    intent: "For founders setting up their first brand memory.",
     price: "Free",
     cadence: "always",
     description:
-      "An open desk to keep one brand, one ongoing conversation, and a Brand DNA that begins quietly to take shape.",
+      "One brand memory, one ongoing Mentor conversation, and a Brand DNA that begins to take shape as you work.",
     includes: [
       "One brand memory",
       "Mentor — the continuous conversation",
       "Modest monthly generations",
       "Brand DNA, in progress",
     ],
-    cta: "Open the notebook",
+    cta: "Start for free",
     to: "/sign-up",
   },
   {
-    no: "Edition II",
-    name: "The Studio",
-    intent: "For founders building in earnest.",
+    no: "Plan 02",
+    name: "Studio",
+    intent: "For founders building in earnest across multiple brands.",
     price: "$28",
     cadence: "per month",
     description:
-      "Full access to every room of the system. Memory deepens. Outputs sharpen. The work begins to compound.",
+      "Full access to every module. Memory deepens. Outputs sharpen. The work begins to compound.",
     includes: [
       "Three brand memories",
       "Every module — Mentor, ProStudio, Calendar, DocStudio, ReelBuilder",
       "Generous monthly generations",
-      "Priority responses from Mentor",
+      "Priority Mentor responses",
       "Library, exports, and version history",
     ],
-    cta: "Step inside the studio",
+    cta: "Start building with Kinika",
     to: "/sign-up",
   },
   {
-    no: "Edition III",
-    name: "The Atelier",
+    no: "Plan 03",
+    name: "Atelier",
     intent: "For studios, agencies, and small teams.",
     price: "By arrangement",
     cadence: "annual",
@@ -64,25 +64,25 @@ const EDITIONS: Edition[] = [
       "Unlimited brand memories",
       "Shared memory across the team",
       "White-label DocStudio exports",
-      "Dedicated correspondence",
+      "Dedicated support",
       "Bespoke integrations",
     ],
-    cta: "Begin a correspondence",
+    cta: "Get in touch",
     to: "mailto:hello@kinika.studio",
   },
 ];
 
-/* What's the same for everyone — feels like a quiet, principled footer */
+/* What's the same for everyone */
 const ALWAYS_INCLUDED = [
   "Your memory remains yours — exportable, portable.",
   "No usage tracking sold to third parties.",
-  "Cancel any month. The archive is downloadable.",
-  "A single, considered email when an edition changes.",
+  "Cancel any month. Your archive is downloadable.",
+  "A single, considered email when something material changes.",
 ];
 
 const FAQ = [
   {
-    q: "Why three editions and not five?",
+    q: "Why three plans and not five?",
     a: "Because three is the smallest number of decisions a founder should have to make about a tool that lives quietly in the background. We made the choice simple on purpose.",
   },
   {
@@ -90,12 +90,12 @@ const FAQ = [
     a: "It comes with you. Brand DNA, conversations, generated assets — all exportable in plain formats. We do not believe in held-hostage memory.",
   },
   {
-    q: "Can I move between editions?",
+    q: "Can I move between plans?",
     a: "At any time, in either direction. The system does not penalise downsizing, and it does not gate work you have already done.",
   },
   {
     q: "Do you offer a discount for annual billing?",
-    a: "The Studio is fifteen percent quieter when paid annually. The Atelier is annual by default.",
+    a: "Studio is fifteen percent less when paid annually. Atelier is annual by default.",
   },
 ];
 
