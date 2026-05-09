@@ -308,7 +308,7 @@ export default function Philosophy() {
                     marginBottom: 14,
                   }}
                 >
-                  Editor's note
+                  In short
                 </p>
                 <p
                   className="pf"
@@ -319,8 +319,9 @@ export default function Philosophy() {
                     fontStyle: "italic",
                   }}
                 >
-                  An essay on context, memory, and the kind of intelligence
-                  that grows beside you instead of beneath you.
+                  Kinika is a founder workspace built around persistent
+                  business memory — so the AI you work with actually
+                  understands your business, and gets sharper over time.
                 </p>
               </div>
             </aside>
