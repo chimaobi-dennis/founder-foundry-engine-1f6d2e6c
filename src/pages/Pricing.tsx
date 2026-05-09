@@ -431,7 +431,7 @@ export default function Pricing() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16" style={{ marginBottom: 80 }}>
             <div className="col-span-12 lg:col-span-9">
-              <CategoryTag>The Editions</CategoryTag>
+              <CategoryTag>The Plans</CategoryTag>
               <h2
                 className="pf"
                 style={{
@@ -444,13 +444,13 @@ export default function Pricing() {
                   maxWidth: "22ch",
                 }}
               >
-                Choose the level of access. Move between them at any time.
+                Choose the level of access. Move between plans at any time.
               </h2>
             </div>
             <aside className="col-span-12 lg:col-span-3 lg:pt-6">
               <p className="pf" style={{ fontSize: 15, color: L.inkSoft, lineHeight: 1.65, fontStyle: "italic" }}>
-                Each edition shares the same memory and the same principles. Only the room sizes
-                change.
+                Every plan shares the same memory and the same principles.
+                Only the scope changes.
               </p>
             </aside>
           </div>
