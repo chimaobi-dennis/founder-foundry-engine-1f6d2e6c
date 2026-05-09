@@ -175,7 +175,7 @@ export function EditorialFooter({ issueLabel = "One business context, connected 
                 lineHeight: 1.5,
               }}
             >
-              An intelligent founder workspace that remembers your business and grows alongside it.
+              An intelligent founder workspace that holds your business context across every workflow.
             </p>
           </div>
         </div>
