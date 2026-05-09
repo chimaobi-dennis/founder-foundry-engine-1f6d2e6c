@@ -615,8 +615,7 @@ export default function Journal() {
                   marginBottom: 32,
                 }}
               >
-                The next edition arrives in summer. Until then, the conversation continues
-                inside.
+                More writing soon. In the meantime, the work continues inside Kinika.
               </p>
               <Link
                 to="/system"
@@ -631,17 +630,17 @@ export default function Journal() {
                   paddingBottom: 4,
                 }}
               >
-                Return to the System
+                See how the system works
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
             <aside className="col-span-12 lg:col-span-5 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               <p style={{ fontSize: 10, letterSpacing: "0.26em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600, marginBottom: 14 }}>
-                Colophon
+                About this section
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                <em>The Journal</em> is published quarterly by Kinika Studio. Set in Playfair
-                Display and DM Sans. Printed in pixels for founders who think long-term.
+                Notes from the team building Kinika — short pieces on memory,
+                brand, and AI that understands a business over time.
               </p>
             </aside>
           </div>
