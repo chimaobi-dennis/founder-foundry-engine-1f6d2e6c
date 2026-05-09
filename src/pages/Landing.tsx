@@ -25,27 +25,27 @@ const L = {
   ruleSoft: "rgba(13, 27, 42, 0.08)",
 };
 
-const CYCLING = ["finally understood.", "finally heard.", "finally alive.", "finally yours."];
+const CYCLING = ["actually understood.", "finally connected.", "working as one.", "yours, end to end."];
 
 const MODULES = [
-  { emoji: "🧠", name: "Kinika", desc: "Your AI thinking partner. Remembers everything." },
+  { emoji: "🧠", name: "Kinika", desc: "Your AI thinking partner. Holds the full picture of your business." },
   { emoji: "📸", name: "ProStudio", desc: "Product visuals without a studio." },
   { emoji: "📢", name: "ContentStudio", desc: "One brief. Eight platforms. Ready to post." },
   { emoji: "📅", name: "ContentCalendar", desc: "Plan your content month visually." },
-  { emoji: "📄", name: "DocStudio", desc: "Professional documents from your brand memory." },
+  { emoji: "📄", name: "DocStudio", desc: "Professional documents drawn from your business context." },
   { emoji: "🎬", name: "ReelBuilder", desc: "Brief to script to teleprompter." },
 ];
 
 const PROBLEMS = [
-  { n: "01", title: "Generic content", body: "AI tools that don't know your business give you content that sounds like everyone else's." },
-  { n: "02", title: "No memory between tools", body: "You explain your brand from scratch every single time. Nothing carries over. Nothing compounds." },
-  { n: "03", title: "Built ≠ marketed", body: "You built something real. But telling the world about it feels like a completely different job." },
+  { n: "01", title: "Tools that don't talk", body: "Canva, ChatGPT, Notion, Buffer — each one capable, none of them aware of the others. Your business lives in fragments." },
+  { n: "02", title: "Re-explaining everything", body: "You paste positioning, audience and tone into every new tab. The context resets the moment you switch surfaces." },
+  { n: "03", title: "Generic, off-brand outputs", body: "Without shared understanding, every tool defaults to a template built for someone else. You spend the day correcting it back to you." },
 ];
 
 const STEPS = [
-  { n: "1", title: "Talk to Kinika", body: "Start a conversation about your business. No forms. No setup. Just talk." },
-  { n: "2", title: "Build your Brand DNA", body: "Every insight is captured automatically. Your brand knowledge compounds over time." },
-  { n: "3", title: "Create from context", body: "Every module uses what Kinika learned. Content, visuals, docs — all on-brand, always." },
+  { n: "1", title: "Talk to Kinika", body: "Have a real conversation about your business. No forms. No setup. The context starts forming from the first message." },
+  { n: "2", title: "Build shared understanding", body: "Positioning, audience, voice and direction accumulate into one connected business context — not a profile, a working model." },
+  { n: "3", title: "Create from one source", body: "Every module reads from the same context. Visuals, copy, docs and campaigns arrive aligned, without re-explaining anything." },
 ];
 
 function useScrolled() {
@@ -1437,7 +1437,7 @@ export default function Landing() {
                     fontWeight: 500,
                   }}
                 >
-                  AI Brand Intelligence for Founders
+                  The Founder Workspace
                 </span>
               </div>
 
@@ -1451,10 +1451,10 @@ export default function Landing() {
                   letterSpacing: "-0.025em",
                 }}
               >
-                Your business
+                One place where
                 <br />
-                finally has{" "}
-                <span style={{ fontStyle: "italic" }}>memory</span>
+                your business is{" "}
+                <span style={{ fontStyle: "italic" }}>understood</span>
                 <span style={{ color: L.amber }}>.</span>
               </h1>
 
@@ -1470,7 +1470,7 @@ export default function Landing() {
                   fontWeight: 400,
                 }}
               >
-                Most AI tools forget everything the moment you close the tab. Kinika remembers your conversations, positioning, audience and brand direction — so every output is shaped by real business context.
+                Founders run their business across a dozen disconnected tools — Canva, ChatGPT, Notion, Buffer — each one smart on its own, none of them aware of the others. Kinika is the shared business context layer that connects every workflow, so your positioning, audience and voice carry through everything you create.
               </p>
 
               <div className="fade-up-2 flex flex-wrap items-center gap-4" style={{ marginTop: 40 }}>
@@ -1529,7 +1529,7 @@ export default function Landing() {
         >
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
-              Persistent business memory for founders
+              One business context, across every workflow
             </span>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
               Scroll to read ↓
@@ -1569,7 +1569,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 02 · The Memory Problem
+              Chapter 02 · The Fragmentation Problem
             </span>
           </div>
 
@@ -1591,8 +1591,8 @@ export default function Landing() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                AI without memory creates{" "}
-                <span style={{ fontStyle: "italic" }}>generic</span> brands
+                Every tool is smart.{" "}
+                <span style={{ fontStyle: "italic" }}>None</span> of them work together
                 <span style={{ color: L.amber }}>.</span>
               </h2>
 
@@ -1602,14 +1602,14 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch",
               }}>
-                Every conversation resets. Every prompt starts from zero. Every output lacks continuity. You explain your audience, your voice and your direction over and over — and the work still arrives in someone else's accent.
+                Canva for graphics. ChatGPT for copy. Notion for docs. Buffer for scheduling. Separate tools for scripts, contracts, planning and campaigns. Each one capable on its own — none of them aware of your business as a whole.
               </p>
 
               <p style={{
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch", marginTop: 20,
               }}>
-                It isn't a prompting problem. It's a memory problem.
+                So you re-explain your positioning, paste your audience description, fight templates built for someone else, and edit every output back into your voice. The problem isn't AI capability. It's fragmented business context.
               </p>
 
               {/* pull quote */}
@@ -1619,7 +1619,7 @@ export default function Landing() {
                   lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
                   letterSpacing: "-0.005em",
                 }}>
-                  Business context isn't a prompt. It's something that compounds — quietly, conversation by conversation.
+                  Your business doesn't live in any single tool. It lives in the gaps between them — and that's where the work gets generic.
                 </p>
                 <p style={{
                   fontFamily: "'DM Sans', sans-serif", fontSize: 11,
@@ -1641,7 +1641,7 @@ export default function Landing() {
         }}>
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
-              № 02 — On Forgetting
+              № 02 — On Fragmentation
             </span>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
               Continued ↓
@@ -1689,7 +1689,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 03 · The Intelligence Loop
+              Chapter 03 · The Connected Layer
             </span>
           </div>
 
@@ -1707,7 +1707,7 @@ export default function Landing() {
                 }}
               >
                 How Kinika{" "}
-                <span style={{ fontStyle: "italic" }}>compounds</span> understanding
+                <span style={{ fontStyle: "italic" }}>connects</span> your business
                 <span style={{ color: L.amber }}>.</span>
               </h2>
             </div>
@@ -1716,7 +1716,7 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
                 lineHeight: 1.65, maxWidth: "44ch",
               }}>
-                Each conversation thickens the next. Memory becomes understanding. Understanding becomes the surface every output is shaped on.
+                One conversation builds the context. Every workflow draws from it. Visuals, copy, documents, campaigns and strategy all source from the same shared understanding — not separate, disconnected prompts.
               </p>
             </div>
           </div>
@@ -1731,7 +1731,7 @@ export default function Landing() {
               lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
               letterSpacing: "-0.01em", maxWidth: "32ch", margin: "0 auto",
             }}>
-              The system gets quieter, sharper, and more like you — every week.
+              Other tools work separately. Kinika works from shared understanding.
             </p>
           </div>
         </div>
@@ -1744,7 +1744,7 @@ export default function Landing() {
         }}>
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
-              № 03 — On Compounding
+              № 03 — On Connection
             </span>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
               Continued ↓
@@ -1897,8 +1897,8 @@ export default function Landing() {
                 fontWeight: 500,
                 letterSpacing: "-0.02em",
               }}>
-                One intelligence.{" "}
-                <span style={{ fontStyle: "italic" }}>Many surfaces</span>
+                One context.{" "}
+                <span style={{ fontStyle: "italic" }}>Every workflow</span>
                 <span style={{ color: L.amber }}>.</span>
               </h2>
             </div>
@@ -1907,7 +1907,7 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
                 lineHeight: 1.65, maxWidth: "44ch",
               }}>
-                Every module pulls from the same brand memory. The voice in your captions, the tone of your decks and the rhythm of your visuals — all sourced from the same understanding.
+                Visuals, copy, documents, calendars and reels all read from the same business context. Switch between modules and your positioning, audience and voice come with you — without copy-pasting briefs or rewriting prompts.
               </p>
             </div>
           </div>
@@ -2053,7 +2053,7 @@ export default function Landing() {
                     fontWeight: 500,
                     letterSpacing: "-0.01em",
                   }}>
-                    A workspace that remembers.
+                    A workspace that connects your business.
                   </span>
                 </div>
 
@@ -2076,7 +2076,7 @@ export default function Landing() {
                   marginTop: 20,
                   lineHeight: 1.5,
                 }}>
-                  An intelligent founder workspace with persistent business memory.
+                  One business context, connected across every creative workflow a founder runs.
                 </p>
 
                 <div style={{ marginTop: 32 }}>
@@ -2102,7 +2102,7 @@ export default function Landing() {
               color: L.inkMuted,
               letterSpacing: "0.06em",
             }}>
-              A system that remembers.
+              The missing layer between your business and your tools.
             </span>
             <div className="flex items-center gap-4">
               <a
