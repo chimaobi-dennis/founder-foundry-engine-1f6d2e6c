@@ -588,7 +588,7 @@ export default function Philosophy() {
                     marginBottom: 14,
                   }}
                 >
-                  Marginalia
+                  In practice
                 </p>
                 <p
                   className="pf"
