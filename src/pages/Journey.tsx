@@ -409,14 +409,14 @@ export default function Journey() {
                 className="pf hover:opacity-70 transition-opacity"
                 style={{ color: L.inkSoft, fontStyle: "italic", fontSize: 16 }}
               >
-                Read: how memory accumulates →
+                How memory accumulates →
               </Link>
               <Link
                 to="/system"
                 className="pf hover:opacity-70 transition-opacity"
                 style={{ color: L.inkSoft, fontStyle: "italic", fontSize: 16 }}
               >
-                Read: how the rooms connect →
+                How the system works →
               </Link>
             </div>
           </div>
@@ -433,7 +433,7 @@ export default function Journey() {
                 letterSpacing: "0.02em",
               }}
             >
-              Begin the first chapter
+              Start building with Kinika
             </Link>
           </div>
         </section>
