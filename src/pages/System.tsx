@@ -538,7 +538,7 @@ export default function System() {
       {/* Opening spread ----------------------------------------------------- */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="The System" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="The System" date="How it works" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
