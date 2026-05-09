@@ -1569,7 +1569,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 02 · The Memory Problem
+              Chapter 02 · The Fragmentation Problem
             </span>
           </div>
 
