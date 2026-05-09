@@ -354,12 +354,12 @@ export default function Journal() {
                   maxWidth: "20ch",
                 }}
               >
-                Four sections, twelve essays.
+                Four sections. Read in any order.
               </h2>
             </div>
             <aside className="col-span-12 lg:col-span-3 lg:pt-6">
               <p style={{ fontSize: 15, color: L.inkSoft, lineHeight: 1.7, fontStyle: "italic" }} className="pf">
-                Each issue is organised by theme, not by date. Read in any order.
+                Organised by theme rather than date.
               </p>
             </aside>
           </div>
