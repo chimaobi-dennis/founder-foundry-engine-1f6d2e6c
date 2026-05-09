@@ -2053,7 +2053,7 @@ export default function Landing() {
                     fontWeight: 500,
                     letterSpacing: "-0.01em",
                   }}>
-                    A workspace that remembers.
+                    A workspace that connects your business.
                   </span>
                 </div>
 
