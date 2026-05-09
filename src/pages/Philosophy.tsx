@@ -260,7 +260,7 @@ export default function Philosophy() {
       {/* Opening spread ----------------------------------------------------- */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="Philosophy" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="Philosophy" date="Why we built it" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -274,7 +274,7 @@ export default function Philosophy() {
                   letterSpacing: "0.01em",
                 }}
               >
-                A manifesto, in five movements.
+                Why Kinika exists.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
