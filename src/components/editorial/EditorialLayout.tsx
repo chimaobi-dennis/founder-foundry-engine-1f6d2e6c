@@ -160,7 +160,7 @@ export function EditorialFooter({ issueLabel = "Persistent business memory for f
                 fontWeight: 500,
               }}
             >
-              Kinika Studio
+              Kinika
             </span>
             <p className="pf" style={{ marginTop: 16, fontSize: 18, color: L.ink, fontWeight: 500 }}>
               {issueLabel}
@@ -175,7 +175,7 @@ export function EditorialFooter({ issueLabel = "Persistent business memory for f
                 lineHeight: 1.5,
               }}
             >
-              "The next conversation begins inside."
+              An intelligent founder workspace that remembers your business and grows alongside it.
             </p>
           </div>
         </div>
