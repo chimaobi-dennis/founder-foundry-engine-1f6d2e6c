@@ -606,13 +606,13 @@ export default function Memory() {
                   fontWeight: 600,
                 }}
               >
-                Companion reading
+                Related
               </span>
               <ul style={{ listStyle: "none", padding: 0, marginTop: 18 }}>
                 {[
-                  { to: "/philosophy", label: "The philosophy beneath the system" },
-                  { to: "/system", label: "How the rooms connect" },
-                  { to: "/journal", label: "Essays from the studio" },
+                  { to: "/philosophy", label: "Why Kinika exists" },
+                  { to: "/system", label: "How the system works" },
+                  { to: "/journal", label: "Notes from the team" },
                 ].map((l, i) => (
                   <li
                     key={i}
