@@ -2076,7 +2076,7 @@ export default function Landing() {
                   marginTop: 20,
                   lineHeight: 1.5,
                 }}>
-                  An intelligent founder workspace with persistent business memory.
+                  One business context, connected across every creative workflow a founder runs.
                 </p>
 
                 <div style={{ marginTop: 32 }}>
