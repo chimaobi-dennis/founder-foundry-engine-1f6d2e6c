@@ -98,7 +98,7 @@ export function EditorialNav() {
   );
 }
 
-export function EditorialFooter({ issueLabel = "Persistent business memory for founders." }: { issueLabel?: string }) {
+export function EditorialFooter({ issueLabel = "One business context, connected across every workflow." }: { issueLabel?: string }) {
   return (
     <footer className="relative" style={{ background: L.paper, color: L.ink }}>
       <div className="max-w-[1320px] mx-auto px-6 md:px-12" style={{ padding: "80px 24px 48px" }}>
