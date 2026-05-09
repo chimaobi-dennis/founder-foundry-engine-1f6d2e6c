@@ -666,7 +666,7 @@ export default function Pricing() {
                   marginBottom: 32,
                 }}
               >
-                Begin with the Notebook. Move when you are ready.
+                Start with the free plan. Move up when you're ready.
               </p>
               <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
                 <Link
@@ -681,7 +681,7 @@ export default function Pricing() {
                     letterSpacing: "0.02em",
                   }}
                 >
-                  Enter Kinika
+                  Start building with Kinika
                 </Link>
                 <Link
                   to="/system"
@@ -696,18 +696,18 @@ export default function Pricing() {
                     paddingBottom: 4,
                   }}
                 >
-                  See the system first
+                  See how the system works
                   <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
             </div>
             <aside className="col-span-12 lg:col-span-5 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               <p style={{ fontSize: 10, letterSpacing: "0.26em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600, marginBottom: 14 }}>
-                Colophon
+                About pricing
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                Pricing notes from <em>Kinika Studio</em>, Vol. 01 — The Memory Issue. Set
-                deliberately small, in the hope it stays out of the way.
+                Kept deliberately simple, so the decision stays out of the way of
+                the work. Every plan is cancellable, exportable, and portable.
               </p>
             </aside>
           </div>
