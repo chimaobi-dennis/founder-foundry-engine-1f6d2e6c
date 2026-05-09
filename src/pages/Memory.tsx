@@ -405,7 +405,7 @@ export default function Memory() {
                 fontWeight: 600,
               }}
             >
-              In this essay
+              On this page
             </span>
             <ol style={{ marginTop: 16, listStyle: "none", padding: 0 }}>
               {[
@@ -413,7 +413,7 @@ export default function Memory() {
                 "II. Fragments into structure",
                 "III. The relationships between things",
                 "IV. The compounding output",
-                "V. A studio that grows with you",
+                "V. A workspace that grows with you",
               ].map((t, i) => (
                 <li
                   key={i}
