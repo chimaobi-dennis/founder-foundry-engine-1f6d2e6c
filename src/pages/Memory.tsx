@@ -572,7 +572,7 @@ export default function Memory() {
         {/* V. The promise */}
         <Section
           number="V"
-          title="A studio that grows with you"
+          title="A workspace that grows with you"
           lead="Not software you use. Software that changes with the work."
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
