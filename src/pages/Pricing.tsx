@@ -117,8 +117,8 @@ function CategoryTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-function EditionCard({ edition, index }: { edition: Edition; index: number }) {
-  const isMail = edition.to.startsWith("mailto:");
+function PlanCard({ edition, index }: { plan: Plan; index: number }) {
+  const isMail = plan.to.startsWith("mailto:");
   const CtaInner = (
     <span
       className="inline-flex items-center gap-2 group"
@@ -132,7 +132,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
         paddingBottom: 4,
       }}
     >
-      {edition.cta}
+      {plan.cta}
       <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
     </span>
   );
@@ -158,7 +158,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             marginBottom: 12,
           }}
         >
-          {edition.no}
+          {plan.no}
         </p>
         <h3
           className="pf"
@@ -171,7 +171,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             marginBottom: 16,
           }}
         >
-          {edition.name}
+          {plan.name}
         </h3>
         <p
           className="pf"
@@ -183,7 +183,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             maxWidth: "26ch",
           }}
         >
-          {edition.intent}
+          {plan.intent}
         </p>
       </div>
 
@@ -198,7 +198,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             maxWidth: "52ch",
           }}
         >
-          {edition.description}
+          {plan.description}
         </p>
 
         <p
@@ -214,7 +214,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
           Included
         </p>
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 14 }}>
-          {edition.includes.map((line) => (
+          {plan.includes.map((line) => (
             <li
               key={line}
               style={{
@@ -268,7 +268,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
               marginBottom: 6,
             }}
           >
-            {edition.price}
+            {plan.price}
           </p>
           <p
             style={{
@@ -280,13 +280,13 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             }}
             className="pf"
           >
-            {edition.cadence}
+            {plan.cadence}
           </p>
 
           {isMail ? (
-            <a href={edition.to}>{CtaInner}</a>
+            <a href={plan.to}>{CtaInner}</a>
           ) : (
-            <Link to={edition.to}>{CtaInner}</Link>
+            <Link to={plan.to}>{CtaInner}</Link>
           )}
         </div>
       </div>
@@ -455,8 +455,8 @@ export default function Pricing() {
             </aside>
           </div>
 
-          {EDITIONS.map((edition, i) => (
-            <EditionCard key={edition.no} edition={edition} index={i} />
+          {PLANS.map((edition, i) => (
+            <PlanCard key={plan.no} plan={plan} index={i} />
           ))}
         </div>
       </section>
@@ -490,7 +490,7 @@ export default function Pricing() {
                   maxWidth: "18ch",
                 }}
               >
-                The same in every edition. Always.
+                The same in every plan. Always.
               </h3>
             </div>
             <ul
