@@ -457,24 +457,20 @@ export default function Journal() {
               ))}
             </div>
 
-            {/* Sidebar — publication metadata */}
+            {/* Sidebar — small contextual nav */}
             <aside className="col-span-12 lg:col-span-3">
               <div className="lg:sticky lg:top-24 space-y-12">
-                {/* Issue metadata */}
+                {/* About */}
                 <div style={{ borderTop: `1px solid ${L.amber}`, paddingTop: 18 }}>
-                  <CategoryTag>Issue</CategoryTag>
-                  <p className="pf" style={{ fontSize: 24, color: L.ink, marginTop: 12, fontWeight: 500, letterSpacing: "-0.01em" }}>
-                    Vol. 01
-                  </p>
-                  <p className="pf" style={{ fontSize: 14, color: L.inkSoft, fontStyle: "italic", marginTop: 4 }}>
-                    The Memory Issue
+                  <CategoryTag>About</CategoryTag>
+                  <p className="pf" style={{ fontSize: 18, color: L.ink, marginTop: 12, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.4 }}>
+                    Writing from the team behind Kinika.
                   </p>
                   <ul style={{ listStyle: "none", padding: 0, margin: "20px 0 0", display: "grid", gap: 6 }}>
                     {[
-                      ["Published", "March 2026"],
-                      ["Pages", "12 essays"],
-                      ["Edition", "Spring"],
-                      ["Edited by", "The Studio"],
+                      ["Last updated", "March 2026"],
+                      ["Pieces", "12"],
+                      ["Cadence", "Monthly-ish"],
                     ].map(([k, v]) => (
                       <li key={k} className="flex items-baseline justify-between" style={{ fontSize: 12, color: L.inkMuted }}>
                         <span style={{ letterSpacing: "0.14em", textTransform: "uppercase" }}>{k}</span>
@@ -486,7 +482,7 @@ export default function Journal() {
 
                 {/* Reading list */}
                 <div style={{ borderTop: `1px solid ${L.rule}`, paddingTop: 18 }}>
-                  <CategoryTag>Editors' picks</CategoryTag>
+                  <CategoryTag>Where to start</CategoryTag>
                   <ol style={{ listStyle: "none", padding: 0, margin: "16px 0 0", display: "grid", gap: 14 }}>
                     {READING_LIST.map((t, i) => (
                       <li key={t} className="flex gap-3" style={{ fontSize: 14, color: L.inkSoft, lineHeight: 1.4 }}>
@@ -501,12 +497,12 @@ export default function Journal() {
 
                 {/* Subscribe */}
                 <div style={{ borderTop: `1px solid ${L.rule}`, paddingTop: 18 }}>
-                  <CategoryTag>Correspondence</CategoryTag>
+                  <CategoryTag>Stay updated</CategoryTag>
                   <p className="pf" style={{ fontSize: 17, color: L.ink, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>
-                    Receive the next edition by post.
+                    Get new pieces by email.
                   </p>
                   <p style={{ fontSize: 13, color: L.inkSoft, marginTop: 12, lineHeight: 1.65 }}>
-                    A single, considered email when each issue is published. No marketing.
+                    A short note when something new is published. No marketing.
                   </p>
                   <form
                     onSubmit={(e) => e.preventDefault()}
