@@ -455,7 +455,7 @@ export default function Pricing() {
             </aside>
           </div>
 
-          {PLANS.map((edition, i) => (
+          {PLANS.map((plan, i) => (
             <PlanCard key={plan.no} plan={plan} index={i} />
           ))}
         </div>
