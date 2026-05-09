@@ -1897,8 +1897,8 @@ export default function Landing() {
                 fontWeight: 500,
                 letterSpacing: "-0.02em",
               }}>
-                One intelligence.{" "}
-                <span style={{ fontStyle: "italic" }}>Many surfaces</span>
+                One context.{" "}
+                <span style={{ fontStyle: "italic" }}>Every workflow</span>
                 <span style={{ color: L.amber }}>.</span>
               </h2>
             </div>
@@ -1907,7 +1907,7 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
                 lineHeight: 1.65, maxWidth: "44ch",
               }}>
-                Every module pulls from the same brand memory. The voice in your captions, the tone of your decks and the rhythm of your visuals — all sourced from the same understanding.
+                Visuals, copy, documents, calendars and reels all read from the same business context. Switch between modules and your positioning, audience and voice come with you — without copy-pasting briefs or rewriting prompts.
               </p>
             </div>
           </div>
