@@ -276,8 +276,8 @@ export default function Journey() {
   return (
     <EditorialShell>
       <Container>
-        <PageMeta issue="Vol. 01 — The Memory Issue" section="Founder Evolution" date="May 2026" />
-        <PageTitle kicker="Six chapters in the life of an idea">
+        <PageMeta issue="Kinika" section="Founder Journey" date="Six stages" />
+        <PageTitle kicker="How understanding accumulates over time">
           A map of how a founder becomes legible to themselves.
         </PageTitle>
 
