@@ -2102,7 +2102,7 @@ export default function Landing() {
               color: L.inkMuted,
               letterSpacing: "0.06em",
             }}>
-              A system that remembers.
+              The missing layer between your business and your tools.
             </span>
             <div className="flex items-center gap-4">
               <a
