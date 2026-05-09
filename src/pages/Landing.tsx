@@ -1437,7 +1437,7 @@ export default function Landing() {
                     fontWeight: 500,
                   }}
                 >
-                  AI Brand Intelligence for Founders
+                  The Founder Workspace
                 </span>
               </div>
 
@@ -1451,10 +1451,10 @@ export default function Landing() {
                   letterSpacing: "-0.025em",
                 }}
               >
-                Your business
+                One place where
                 <br />
-                finally has{" "}
-                <span style={{ fontStyle: "italic" }}>memory</span>
+                your business is{" "}
+                <span style={{ fontStyle: "italic" }}>understood</span>
                 <span style={{ color: L.amber }}>.</span>
               </h1>
 
@@ -1470,7 +1470,7 @@ export default function Landing() {
                   fontWeight: 400,
                 }}
               >
-                Most AI tools forget everything the moment you close the tab. Kinika remembers your conversations, positioning, audience and brand direction — so every output is shaped by real business context.
+                Founders run their business across a dozen disconnected tools — Canva, ChatGPT, Notion, Buffer — each one smart on its own, none of them aware of the others. Kinika is the shared business context layer that connects every workflow, so your positioning, audience and voice carry through everything you create.
               </p>
 
               <div className="fade-up-2 flex flex-wrap items-center gap-4" style={{ marginTop: 40 }}>
