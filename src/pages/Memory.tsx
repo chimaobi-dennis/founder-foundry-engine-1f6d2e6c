@@ -540,7 +540,7 @@ export default function Memory() {
               color: L.inkMuted,
             }}
           >
-            — From the editor's notebook, no. 12
+            — A working principle inside Kinika
           </div>
         </section>
 
