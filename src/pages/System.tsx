@@ -552,7 +552,7 @@ export default function System() {
                   letterSpacing: "0.01em",
                 }}
               >
-                A diagram of how Kinika thinks.
+                How Kinika thinks.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
