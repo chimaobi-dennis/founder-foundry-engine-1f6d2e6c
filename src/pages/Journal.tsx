@@ -110,7 +110,7 @@ export default function Journal() {
       {/* ── Cover spread ────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="The Journal" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="Notes" date="Writing from the team" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -124,7 +124,7 @@ export default function Journal() {
                   letterSpacing: "0.01em",
                 }}
               >
-                A quarterly publication from Kinika Studio.
+                Writing from the Kinika team.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
@@ -137,7 +137,7 @@ export default function Journal() {
                   maxWidth: "14ch",
                 }}
               >
-                Slow writing for builders.
+                Notes on memory, brand, and building.
               </h1>
             </div>
 
@@ -156,11 +156,12 @@ export default function Journal() {
                     marginBottom: 14,
                   }}
                 >
-                  In this edition
+                  About this section
                 </p>
                 <p className="pf" style={{ fontSize: 17, lineHeight: 1.6, color: L.inkSoft, fontStyle: "italic" }}>
-                  Twelve essays on memory, brand, and the discipline of building something that
-                  outlasts the news cycle.
+                  Pieces on the problems Kinika is built around — founder
+                  context, persistent memory, and AI that understands a
+                  business over time.
                 </p>
               </div>
             </aside>
