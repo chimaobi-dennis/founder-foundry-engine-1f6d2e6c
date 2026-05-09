@@ -9,17 +9,17 @@ const FEATURED = {
   no: "No. 12",
   title: "On the patience of memory.",
   dek: "We spent eighteen months removing every onboarding form from Kinika. What replaced them was a quieter assumption: the conversation itself was the brief, and we just had to learn how to listen.",
-  author: "The Editors",
+  author: "Kinika Team",
   date: "March 2026",
   read: "9 min",
 };
 
-const EDITORS_LETTER = {
-  title: "On the slow craft of paying attention.",
+const OPENING_NOTE = {
+  title: "Why we write here.",
   body: [
-    "The Memory Issue began as a private quarrel with the industry around us. Every week, a new tool promised to make founders ten times faster — and every week, the founders we knew described the same exhaustion in nearly identical language.",
-    "We wanted to publish something that took the long view instead. A journal for builders who measure their work in years, not sprints. A place to write carefully about brand, intelligence, memory, and the kinds of decisions that compound.",
-    "What follows is the first edition. Read it slowly. We will, too.",
+    "Most product blogs are growth marketing in disguise. We didn't want one of those. We wanted a place to think out loud about the problems Kinika is trying to solve — founder context, persistent memory, AI that actually understands a business.",
+    "The pieces here are written for the kind of founder we build for: someone who measures their work in years, not sprints.",
+    "Read in any order. We update when we have something worth saying.",
   ],
 };
 
@@ -27,11 +27,11 @@ const SECTIONS = [
   {
     code: "I.",
     name: "Field Notes",
-    intent: "Observations from the desk. Short essays on craft, context, and the discipline of paying attention.",
+    intent: "Short pieces on craft, context, and the discipline of paying attention.",
     items: [
-      { no: "No. 11", title: "The blank page is a bug.", date: "Feb 2026", read: "5 min", author: "The Editors" },
-      { no: "No. 09", title: "Against the prompt.", date: "Feb 2026", read: "6 min", author: "Editorial" },
-      { no: "No. 06", title: "Why we stopped saying 'AI'.", date: "Jan 2026", read: "4 min", author: "The Editors" },
+      { no: "No. 11", title: "The blank page is a bug.", date: "Feb 2026", read: "5 min", author: "Kinika Team" },
+      { no: "No. 09", title: "Against the prompt.", date: "Feb 2026", read: "6 min", author: "Kinika Team" },
+      { no: "No. 06", title: "Why we stopped saying 'AI'.", date: "Jan 2026", read: "4 min", author: "Kinika Team" },
     ],
   },
   {
@@ -46,21 +46,21 @@ const SECTIONS = [
   {
     code: "III.",
     name: "On Brand",
-    intent: "Essays on positioning, voice, and the strange, slow work of becoming recognisable.",
+    intent: "Pieces on positioning, voice, and the slow work of becoming recognisable.",
     items: [
-      { no: "No. 07", title: "Voice is not a tone slider.", date: "Jan 2026", read: "6 min", author: "Editorial" },
-      { no: "No. 05", title: "What a logo cannot say.", date: "Jan 2026", read: "5 min", author: "The Editors" },
-      { no: "No. 03", title: "On taste, and where it lives.", date: "Dec 2025", read: "7 min", author: "Editorial" },
+      { no: "No. 07", title: "Voice is not a tone slider.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
+      { no: "No. 05", title: "What a logo cannot say.", date: "Jan 2026", read: "5 min", author: "Kinika Team" },
+      { no: "No. 03", title: "On taste, and where it lives.", date: "Dec 2025", read: "7 min", author: "Kinika Team" },
     ],
   },
   {
     code: "IV.",
-    name: "Studio Notes",
-    intent: "Notes from our own workbench. What we shipped, what we removed, what we learned.",
+    name: "Product Notes",
+    intent: "What we've shipped, what we've removed, what we've learned building Kinika.",
     items: [
-      { no: "No. 04", title: "Brand DNA, year one.", date: "Jan 2026", read: "6 min", author: "Studio" },
-      { no: "No. 02", title: "Twelve forms we removed this season.", date: "Dec 2025", read: "4 min", author: "Studio" },
-      { no: "No. 01", title: "A workspace that remembers.", date: "Dec 2025", read: "4 min", author: "The Editors" },
+      { no: "No. 04", title: "Brand DNA, year one.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
+      { no: "No. 02", title: "Twelve forms we removed this season.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
+      { no: "No. 01", title: "A workspace that remembers.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
     ],
   },
 ];
