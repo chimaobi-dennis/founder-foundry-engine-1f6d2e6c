@@ -98,7 +98,7 @@ export function EditorialNav() {
   );
 }
 
-export function EditorialFooter({ issueLabel = "Vol. 01 — The Memory Issue" }: { issueLabel?: string }) {
+export function EditorialFooter({ issueLabel = "Persistent business memory for founders." }: { issueLabel?: string }) {
   return (
     <footer className="relative" style={{ background: L.paper, color: L.ink }}>
       <div className="max-w-[1320px] mx-auto px-6 md:px-12" style={{ padding: "80px 24px 48px" }}>
@@ -160,7 +160,7 @@ export function EditorialFooter({ issueLabel = "Vol. 01 — The Memory Issue" }:
                 fontWeight: 500,
               }}
             >
-              Kinika Studio
+              Kinika
             </span>
             <p className="pf" style={{ marginTop: 16, fontSize: 18, color: L.ink, fontWeight: 500 }}>
               {issueLabel}
@@ -175,7 +175,7 @@ export function EditorialFooter({ issueLabel = "Vol. 01 — The Memory Issue" }:
                 lineHeight: 1.5,
               }}
             >
-              "The next conversation begins inside."
+              An intelligent founder workspace that remembers your business and grows alongside it.
             </p>
           </div>
         </div>

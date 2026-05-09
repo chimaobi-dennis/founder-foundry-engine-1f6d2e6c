@@ -260,7 +260,7 @@ export default function Philosophy() {
       {/* Opening spread ----------------------------------------------------- */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="Philosophy" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="Philosophy" date="Why we built it" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -274,7 +274,7 @@ export default function Philosophy() {
                   letterSpacing: "0.01em",
                 }}
               >
-                A manifesto, in five movements.
+                Why Kinika exists.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
@@ -308,7 +308,7 @@ export default function Philosophy() {
                     marginBottom: 14,
                   }}
                 >
-                  Editor's note
+                  In short
                 </p>
                 <p
                   className="pf"
@@ -319,8 +319,9 @@ export default function Philosophy() {
                     fontStyle: "italic",
                   }}
                 >
-                  An essay on context, memory, and the kind of intelligence
-                  that grows beside you instead of beneath you.
+                  Kinika is a founder workspace built around persistent
+                  business memory — so the AI you work with actually
+                  understands your business, and gets sharper over time.
                 </p>
               </div>
             </aside>
@@ -587,7 +588,7 @@ export default function Philosophy() {
                     marginBottom: 14,
                   }}
                 >
-                  Marginalia
+                  In practice
                 </p>
                 <p
                   className="pf"
@@ -681,7 +682,7 @@ export default function Philosophy() {
                   marginBottom: 32,
                 }}
               >
-                The next conversation begins inside.
+                Start building with Kinika.
               </p>
               <Link
                 to="/system"
@@ -696,7 +697,7 @@ export default function Philosophy() {
                   paddingBottom: 4,
                 }}
               >
-                Continue to the System
+                See how the system works
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
@@ -711,11 +712,12 @@ export default function Philosophy() {
                   marginBottom: 14,
                 }}
               >
-                Colophon
+                About this page
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                An essay from <em>Kinika Studio</em>, Vol. 01 — The Memory Issue. Set in
-                Playfair Display and DM Sans. Written for founders who think long-term.
+                A short statement of what Kinika is for and why it works the way
+                it does. Written for founders who think long-term about the
+                business they're building.
               </p>
             </aside>
           </div>

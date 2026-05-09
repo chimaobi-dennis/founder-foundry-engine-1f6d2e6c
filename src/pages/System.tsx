@@ -538,7 +538,7 @@ export default function System() {
       {/* Opening spread ----------------------------------------------------- */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="The System" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="The System" date="How it works" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -552,7 +552,7 @@ export default function System() {
                   letterSpacing: "0.01em",
                 }}
               >
-                A diagram of how Kinika thinks.
+                How Kinika thinks.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
@@ -950,11 +950,12 @@ export default function System() {
             </div>
             <aside className="col-span-12 lg:col-span-5 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               <p style={{ fontSize: 10, letterSpacing: "0.26em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600, marginBottom: 14 }}>
-                Colophon
+                About this page
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                Diagrams from <em>Kinika Studio</em>, Vol. 01 — The Memory Issue. Drawn for
-                founders who want to see how the room is wired.
+                A short walk-through of the architecture beneath Kinika —
+                the conversation, the memory, the modules — for founders
+                who want to see how the workspace is wired before they sign in.
               </p>
             </aside>
           </div>

@@ -9,17 +9,17 @@ const FEATURED = {
   no: "No. 12",
   title: "On the patience of memory.",
   dek: "We spent eighteen months removing every onboarding form from Kinika. What replaced them was a quieter assumption: the conversation itself was the brief, and we just had to learn how to listen.",
-  author: "The Editors",
+  author: "Kinika Team",
   date: "March 2026",
   read: "9 min",
 };
 
-const EDITORS_LETTER = {
-  title: "On the slow craft of paying attention.",
+const OPENING_NOTE = {
+  title: "Why we write here.",
   body: [
-    "The Memory Issue began as a private quarrel with the industry around us. Every week, a new tool promised to make founders ten times faster — and every week, the founders we knew described the same exhaustion in nearly identical language.",
-    "We wanted to publish something that took the long view instead. A journal for builders who measure their work in years, not sprints. A place to write carefully about brand, intelligence, memory, and the kinds of decisions that compound.",
-    "What follows is the first edition. Read it slowly. We will, too.",
+    "Most product blogs are growth marketing in disguise. We didn't want one of those. We wanted a place to think out loud about the problems Kinika is trying to solve — founder context, persistent memory, AI that actually understands a business.",
+    "The pieces here are written for the kind of founder we build for: someone who measures their work in years, not sprints.",
+    "Read in any order. We update when we have something worth saying.",
   ],
 };
 
@@ -27,11 +27,11 @@ const SECTIONS = [
   {
     code: "I.",
     name: "Field Notes",
-    intent: "Observations from the desk. Short essays on craft, context, and the discipline of paying attention.",
+    intent: "Short pieces on craft, context, and the discipline of paying attention.",
     items: [
-      { no: "No. 11", title: "The blank page is a bug.", date: "Feb 2026", read: "5 min", author: "The Editors" },
-      { no: "No. 09", title: "Against the prompt.", date: "Feb 2026", read: "6 min", author: "Editorial" },
-      { no: "No. 06", title: "Why we stopped saying 'AI'.", date: "Jan 2026", read: "4 min", author: "The Editors" },
+      { no: "No. 11", title: "The blank page is a bug.", date: "Feb 2026", read: "5 min", author: "Kinika Team" },
+      { no: "No. 09", title: "Against the prompt.", date: "Feb 2026", read: "6 min", author: "Kinika Team" },
+      { no: "No. 06", title: "Why we stopped saying 'AI'.", date: "Jan 2026", read: "4 min", author: "Kinika Team" },
     ],
   },
   {
@@ -46,21 +46,21 @@ const SECTIONS = [
   {
     code: "III.",
     name: "On Brand",
-    intent: "Essays on positioning, voice, and the strange, slow work of becoming recognisable.",
+    intent: "Pieces on positioning, voice, and the slow work of becoming recognisable.",
     items: [
-      { no: "No. 07", title: "Voice is not a tone slider.", date: "Jan 2026", read: "6 min", author: "Editorial" },
-      { no: "No. 05", title: "What a logo cannot say.", date: "Jan 2026", read: "5 min", author: "The Editors" },
-      { no: "No. 03", title: "On taste, and where it lives.", date: "Dec 2025", read: "7 min", author: "Editorial" },
+      { no: "No. 07", title: "Voice is not a tone slider.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
+      { no: "No. 05", title: "What a logo cannot say.", date: "Jan 2026", read: "5 min", author: "Kinika Team" },
+      { no: "No. 03", title: "On taste, and where it lives.", date: "Dec 2025", read: "7 min", author: "Kinika Team" },
     ],
   },
   {
     code: "IV.",
-    name: "Studio Notes",
-    intent: "Notes from our own workbench. What we shipped, what we removed, what we learned.",
+    name: "Product Notes",
+    intent: "What we've shipped, what we've removed, what we've learned building Kinika.",
     items: [
-      { no: "No. 04", title: "Brand DNA, year one.", date: "Jan 2026", read: "6 min", author: "Studio" },
-      { no: "No. 02", title: "Twelve forms we removed this season.", date: "Dec 2025", read: "4 min", author: "Studio" },
-      { no: "No. 01", title: "A workspace that remembers.", date: "Dec 2025", read: "4 min", author: "The Editors" },
+      { no: "No. 04", title: "Brand DNA, year one.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
+      { no: "No. 02", title: "Twelve forms we removed this season.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
+      { no: "No. 01", title: "A workspace that remembers.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
     ],
   },
 ];
@@ -110,7 +110,7 @@ export default function Journal() {
       {/* ── Cover spread ────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="The Journal" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="Notes" date="Writing from the team" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -124,7 +124,7 @@ export default function Journal() {
                   letterSpacing: "0.01em",
                 }}
               >
-                A quarterly publication from Kinika Studio.
+                Writing from the Kinika team.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
@@ -137,7 +137,7 @@ export default function Journal() {
                   maxWidth: "14ch",
                 }}
               >
-                Slow writing for builders.
+                Notes on memory, brand, and building.
               </h1>
             </div>
 
@@ -156,11 +156,12 @@ export default function Journal() {
                     marginBottom: 14,
                   }}
                 >
-                  In this edition
+                  About this section
                 </p>
                 <p className="pf" style={{ fontSize: 17, lineHeight: 1.6, color: L.inkSoft, fontStyle: "italic" }}>
-                  Twelve essays on memory, brand, and the discipline of building something that
-                  outlasts the news cycle.
+                  Pieces on the problems Kinika is built around — founder
+                  context, persistent memory, and AI that understands a
+                  business over time.
                 </p>
               </div>
             </aside>
@@ -251,7 +252,7 @@ export default function Journal() {
         </div>
       </section>
 
-      {/* ── Editor's letter ─────────────────────────────────────────────── */}
+      {/* ── Opening note ────────────────────────────────────────────────── */}
       <section style={{ background: L.paperDeep, borderTop: `1px solid ${L.rule}`, borderBottom: `1px solid ${L.rule}` }}>
         <div
           className="mx-auto"
@@ -265,7 +266,7 @@ export default function Journal() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <CategoryTag>Editor's Letter</CategoryTag>
+              <CategoryTag>About this section</CategoryTag>
               <p
                 className="pf"
                 style={{
@@ -275,7 +276,7 @@ export default function Journal() {
                   fontStyle: "italic",
                 }}
               >
-                Spring 2026 — Vol. 01
+                A short note from the team
               </p>
             </div>
 
@@ -292,9 +293,9 @@ export default function Journal() {
                   maxWidth: "22ch",
                 }}
               >
-                {EDITORS_LETTER.title}
+                {OPENING_NOTE.title}
               </h3>
-              {EDITORS_LETTER.body.map((p, i) => (
+              {OPENING_NOTE.body.map((p, i) => (
                 <p
                   key={i}
                   style={{
@@ -318,7 +319,7 @@ export default function Journal() {
                   letterSpacing: "0.01em",
                 }}
               >
-                — The Editors
+                — The Kinika team
               </p>
             </div>
           </div>
@@ -353,12 +354,12 @@ export default function Journal() {
                   maxWidth: "20ch",
                 }}
               >
-                Four sections, twelve essays.
+                Four sections. Read in any order.
               </h2>
             </div>
             <aside className="col-span-12 lg:col-span-3 lg:pt-6">
               <p style={{ fontSize: 15, color: L.inkSoft, lineHeight: 1.7, fontStyle: "italic" }} className="pf">
-                Each issue is organised by theme, not by date. Read in any order.
+                Organised by theme rather than date.
               </p>
             </aside>
           </div>
@@ -456,24 +457,20 @@ export default function Journal() {
               ))}
             </div>
 
-            {/* Sidebar — publication metadata */}
+            {/* Sidebar — small contextual nav */}
             <aside className="col-span-12 lg:col-span-3">
               <div className="lg:sticky lg:top-24 space-y-12">
-                {/* Issue metadata */}
+                {/* About */}
                 <div style={{ borderTop: `1px solid ${L.amber}`, paddingTop: 18 }}>
-                  <CategoryTag>Issue</CategoryTag>
-                  <p className="pf" style={{ fontSize: 24, color: L.ink, marginTop: 12, fontWeight: 500, letterSpacing: "-0.01em" }}>
-                    Vol. 01
-                  </p>
-                  <p className="pf" style={{ fontSize: 14, color: L.inkSoft, fontStyle: "italic", marginTop: 4 }}>
-                    The Memory Issue
+                  <CategoryTag>About</CategoryTag>
+                  <p className="pf" style={{ fontSize: 18, color: L.ink, marginTop: 12, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.4 }}>
+                    Writing from the team behind Kinika.
                   </p>
                   <ul style={{ listStyle: "none", padding: 0, margin: "20px 0 0", display: "grid", gap: 6 }}>
                     {[
-                      ["Published", "March 2026"],
-                      ["Pages", "12 essays"],
-                      ["Edition", "Spring"],
-                      ["Edited by", "The Studio"],
+                      ["Last updated", "March 2026"],
+                      ["Pieces", "12"],
+                      ["Cadence", "Monthly-ish"],
                     ].map(([k, v]) => (
                       <li key={k} className="flex items-baseline justify-between" style={{ fontSize: 12, color: L.inkMuted }}>
                         <span style={{ letterSpacing: "0.14em", textTransform: "uppercase" }}>{k}</span>
@@ -485,7 +482,7 @@ export default function Journal() {
 
                 {/* Reading list */}
                 <div style={{ borderTop: `1px solid ${L.rule}`, paddingTop: 18 }}>
-                  <CategoryTag>Editors' picks</CategoryTag>
+                  <CategoryTag>Where to start</CategoryTag>
                   <ol style={{ listStyle: "none", padding: 0, margin: "16px 0 0", display: "grid", gap: 14 }}>
                     {READING_LIST.map((t, i) => (
                       <li key={t} className="flex gap-3" style={{ fontSize: 14, color: L.inkSoft, lineHeight: 1.4 }}>
@@ -500,12 +497,12 @@ export default function Journal() {
 
                 {/* Subscribe */}
                 <div style={{ borderTop: `1px solid ${L.rule}`, paddingTop: 18 }}>
-                  <CategoryTag>Correspondence</CategoryTag>
+                  <CategoryTag>Stay updated</CategoryTag>
                   <p className="pf" style={{ fontSize: 17, color: L.ink, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>
-                    Receive the next edition by post.
+                    Get new pieces by email.
                   </p>
                   <p style={{ fontSize: 13, color: L.inkSoft, marginTop: 12, lineHeight: 1.65 }}>
-                    A single, considered email when each issue is published. No marketing.
+                    A short note when something new is published. No marketing.
                   </p>
                   <form
                     onSubmit={(e) => e.preventDefault()}
@@ -618,8 +615,7 @@ export default function Journal() {
                   marginBottom: 32,
                 }}
               >
-                The next edition arrives in summer. Until then, the conversation continues
-                inside.
+                More writing soon. In the meantime, the work continues inside Kinika.
               </p>
               <Link
                 to="/system"
@@ -634,17 +630,17 @@ export default function Journal() {
                   paddingBottom: 4,
                 }}
               >
-                Return to the System
+                See how the system works
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
               </Link>
             </div>
             <aside className="col-span-12 lg:col-span-5 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               <p style={{ fontSize: 10, letterSpacing: "0.26em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600, marginBottom: 14 }}>
-                Colophon
+                About this section
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                <em>The Journal</em> is published quarterly by Kinika Studio. Set in Playfair
-                Display and DM Sans. Printed in pixels for founders who think long-term.
+                Notes from the team building Kinika — short pieces on memory,
+                brand, and AI that understands a business over time.
               </p>
             </aside>
           </div>

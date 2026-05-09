@@ -276,8 +276,8 @@ export default function Journey() {
   return (
     <EditorialShell>
       <Container>
-        <PageMeta issue="Vol. 01 — The Memory Issue" section="Founder Evolution" date="May 2026" />
-        <PageTitle kicker="Six chapters in the life of an idea">
+        <PageMeta issue="Kinika" section="Founder Journey" date="Six stages" />
+        <PageTitle kicker="How understanding accumulates over time">
           A map of how a founder becomes legible to themselves.
         </PageTitle>
 
@@ -380,7 +380,7 @@ export default function Journey() {
               color: L.inkMuted,
             }}
           >
-            — Marginalia, Vol. 01
+            — A working principle inside Kinika
           </div>
         </section>
 
@@ -409,14 +409,14 @@ export default function Journey() {
                 className="pf hover:opacity-70 transition-opacity"
                 style={{ color: L.inkSoft, fontStyle: "italic", fontSize: 16 }}
               >
-                Read: how memory accumulates →
+                How memory accumulates →
               </Link>
               <Link
                 to="/system"
                 className="pf hover:opacity-70 transition-opacity"
                 style={{ color: L.inkSoft, fontStyle: "italic", fontSize: 16 }}
               >
-                Read: how the rooms connect →
+                How the system works →
               </Link>
             </div>
           </div>
@@ -433,7 +433,7 @@ export default function Journey() {
                 letterSpacing: "0.02em",
               }}
             >
-              Begin the first chapter
+              Start building with Kinika
             </Link>
           </div>
         </section>

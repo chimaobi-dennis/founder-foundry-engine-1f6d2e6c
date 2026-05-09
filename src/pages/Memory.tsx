@@ -367,9 +367,9 @@ export default function Memory() {
   return (
     <EditorialShell>
       <Container>
-        <PageMeta issue="Vol. 01 — The Memory Issue" section="On Continuity" date="May 2026" />
-        <PageTitle kicker="On the quiet architecture of remembering">
-          A system that grows alongside the founder.
+        <PageMeta issue="Kinika" section="Memory" date="The core of the product" />
+        <PageTitle kicker="Persistent business memory for founders">
+          A workspace that remembers your business.
         </PageTitle>
 
         {/* Lede */}
@@ -405,7 +405,7 @@ export default function Memory() {
                 fontWeight: 600,
               }}
             >
-              In this essay
+              On this page
             </span>
             <ol style={{ marginTop: 16, listStyle: "none", padding: 0 }}>
               {[
@@ -413,7 +413,7 @@ export default function Memory() {
                 "II. Fragments into structure",
                 "III. The relationships between things",
                 "IV. The compounding output",
-                "V. A studio that grows with you",
+                "V. A workspace that grows with you",
               ].map((t, i) => (
                 <li
                   key={i}
@@ -540,7 +540,7 @@ export default function Memory() {
               color: L.inkMuted,
             }}
           >
-            — From the editor's notebook, no. 12
+            — A working principle inside Kinika
           </div>
         </section>
 
@@ -572,7 +572,7 @@ export default function Memory() {
         {/* V. The promise */}
         <Section
           number="V"
-          title="A studio that grows with you"
+          title="A workspace that grows with you"
           lead="Not software you use. Software that changes with the work."
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
@@ -606,13 +606,13 @@ export default function Memory() {
                   fontWeight: 600,
                 }}
               >
-                Companion reading
+                Related
               </span>
               <ul style={{ listStyle: "none", padding: 0, marginTop: 18 }}>
                 {[
-                  { to: "/philosophy", label: "The philosophy beneath the system" },
-                  { to: "/system", label: "How the rooms connect" },
-                  { to: "/journal", label: "Essays from the studio" },
+                  { to: "/philosophy", label: "Why Kinika exists" },
+                  { to: "/system", label: "How the system works" },
+                  { to: "/journal", label: "Notes from the team" },
                 ].map((l, i) => (
                   <li
                     key={i}
@@ -659,7 +659,7 @@ export default function Memory() {
                 maxWidth: "26ch",
               }}
             >
-              Begin a conversation today. Read it back, in your own voice,
+              Start a brand memory today. Read it back, in your own voice,
               a year from now.
             </p>
           </div>
@@ -676,7 +676,7 @@ export default function Memory() {
                 letterSpacing: "0.02em",
               }}
             >
-              Enter Kinika
+              Start building with Kinika
             </Link>
           </div>
         </section>

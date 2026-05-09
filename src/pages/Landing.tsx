@@ -1529,7 +1529,7 @@ export default function Landing() {
         >
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
-              № 01 — The Memory Issue
+              Persistent business memory for founders
             </span>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
               Scroll to read ↓
@@ -2042,7 +2042,7 @@ export default function Landing() {
                     color: L.inkMuted,
                     fontWeight: 500,
                   }}>
-                    Kinika Studio
+                    Kinika
                   </span>
                 </div>
 
@@ -2053,15 +2053,7 @@ export default function Landing() {
                     fontWeight: 500,
                     letterSpacing: "-0.01em",
                   }}>
-                    Vol. 01
-                  </span>
-                  <span style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: L.inkSoft,
-                    marginLeft: 8,
-                  }}>
-                    — The Memory Issue
+                    A workspace that remembers.
                   </span>
                 </div>
 
@@ -2074,7 +2066,7 @@ export default function Landing() {
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
                 }}>
-                  End of Edition
+                  Built for founders
                 </p>
 
                 <p className="pf" style={{
@@ -2084,7 +2076,7 @@ export default function Landing() {
                   marginTop: 20,
                   lineHeight: 1.5,
                 }}>
-                  "The next conversation begins inside."
+                  An intelligent founder workspace with persistent business memory.
                 </p>
 
                 <div style={{ marginTop: 32 }}>

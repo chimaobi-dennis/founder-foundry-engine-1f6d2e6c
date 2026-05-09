@@ -4,7 +4,7 @@ import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/E
 
 /* ── Data ───────────────────────────────────────────────────────────────── */
 
-type Edition = {
+type Plan = {
   no: string;
   name: string;
   intent: string;
@@ -16,45 +16,45 @@ type Edition = {
   to: string;
 };
 
-const EDITIONS: Edition[] = [
+const PLANS: Plan[] = [
   {
-    no: "Edition I",
-    name: "The Notebook",
-    intent: "For founders sketching their first chapter.",
+    no: "Plan 01",
+    name: "Starter",
+    intent: "For founders setting up their first brand memory.",
     price: "Free",
     cadence: "always",
     description:
-      "An open desk to keep one brand, one ongoing conversation, and a Brand DNA that begins quietly to take shape.",
+      "One brand memory, one ongoing Mentor conversation, and a Brand DNA that begins to take shape as you work.",
     includes: [
       "One brand memory",
       "Mentor — the continuous conversation",
       "Modest monthly generations",
       "Brand DNA, in progress",
     ],
-    cta: "Open the notebook",
+    cta: "Start for free",
     to: "/sign-up",
   },
   {
-    no: "Edition II",
-    name: "The Studio",
-    intent: "For founders building in earnest.",
+    no: "Plan 02",
+    name: "Studio",
+    intent: "For founders building in earnest across multiple brands.",
     price: "$28",
     cadence: "per month",
     description:
-      "Full access to every room of the system. Memory deepens. Outputs sharpen. The work begins to compound.",
+      "Full access to every module. Memory deepens. Outputs sharpen. The work begins to compound.",
     includes: [
       "Three brand memories",
       "Every module — Mentor, ProStudio, Calendar, DocStudio, ReelBuilder",
       "Generous monthly generations",
-      "Priority responses from Mentor",
+      "Priority Mentor responses",
       "Library, exports, and version history",
     ],
-    cta: "Step inside the studio",
+    cta: "Start building with Kinika",
     to: "/sign-up",
   },
   {
-    no: "Edition III",
-    name: "The Atelier",
+    no: "Plan 03",
+    name: "Atelier",
     intent: "For studios, agencies, and small teams.",
     price: "By arrangement",
     cadence: "annual",
@@ -64,25 +64,25 @@ const EDITIONS: Edition[] = [
       "Unlimited brand memories",
       "Shared memory across the team",
       "White-label DocStudio exports",
-      "Dedicated correspondence",
+      "Dedicated support",
       "Bespoke integrations",
     ],
-    cta: "Begin a correspondence",
+    cta: "Get in touch",
     to: "mailto:hello@kinika.studio",
   },
 ];
 
-/* What's the same for everyone — feels like a quiet, principled footer */
+/* What's the same for everyone */
 const ALWAYS_INCLUDED = [
   "Your memory remains yours — exportable, portable.",
   "No usage tracking sold to third parties.",
-  "Cancel any month. The archive is downloadable.",
-  "A single, considered email when an edition changes.",
+  "Cancel any month. Your archive is downloadable.",
+  "A single, considered email when something material changes.",
 ];
 
 const FAQ = [
   {
-    q: "Why three editions and not five?",
+    q: "Why three plans and not five?",
     a: "Because three is the smallest number of decisions a founder should have to make about a tool that lives quietly in the background. We made the choice simple on purpose.",
   },
   {
@@ -90,12 +90,12 @@ const FAQ = [
     a: "It comes with you. Brand DNA, conversations, generated assets — all exportable in plain formats. We do not believe in held-hostage memory.",
   },
   {
-    q: "Can I move between editions?",
+    q: "Can I move between plans?",
     a: "At any time, in either direction. The system does not penalise downsizing, and it does not gate work you have already done.",
   },
   {
     q: "Do you offer a discount for annual billing?",
-    a: "The Studio is fifteen percent quieter when paid annually. The Atelier is annual by default.",
+    a: "Studio is fifteen percent less when paid annually. Atelier is annual by default.",
   },
 ];
 
@@ -117,8 +117,8 @@ function CategoryTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-function EditionCard({ edition, index }: { edition: Edition; index: number }) {
-  const isMail = edition.to.startsWith("mailto:");
+function PlanCard({ plan, index }: { plan: Plan; index: number }) {
+  const isMail = plan.to.startsWith("mailto:");
   const CtaInner = (
     <span
       className="inline-flex items-center gap-2 group"
@@ -132,7 +132,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
         paddingBottom: 4,
       }}
     >
-      {edition.cta}
+      {plan.cta}
       <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
     </span>
   );
@@ -158,7 +158,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             marginBottom: 12,
           }}
         >
-          {edition.no}
+          {plan.no}
         </p>
         <h3
           className="pf"
@@ -171,7 +171,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             marginBottom: 16,
           }}
         >
-          {edition.name}
+          {plan.name}
         </h3>
         <p
           className="pf"
@@ -183,7 +183,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             maxWidth: "26ch",
           }}
         >
-          {edition.intent}
+          {plan.intent}
         </p>
       </div>
 
@@ -198,7 +198,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             maxWidth: "52ch",
           }}
         >
-          {edition.description}
+          {plan.description}
         </p>
 
         <p
@@ -214,7 +214,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
           Included
         </p>
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 14 }}>
-          {edition.includes.map((line) => (
+          {plan.includes.map((line) => (
             <li
               key={line}
               style={{
@@ -268,7 +268,7 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
               marginBottom: 6,
             }}
           >
-            {edition.price}
+            {plan.price}
           </p>
           <p
             style={{
@@ -280,13 +280,13 @@ function EditionCard({ edition, index }: { edition: Edition; index: number }) {
             }}
             className="pf"
           >
-            {edition.cadence}
+            {plan.cadence}
           </p>
 
           {isMail ? (
-            <a href={edition.to}>{CtaInner}</a>
+            <a href={plan.to}>{CtaInner}</a>
           ) : (
-            <Link to={edition.to}>{CtaInner}</Link>
+            <Link to={plan.to}>{CtaInner}</Link>
           )}
         </div>
       </div>
@@ -302,7 +302,7 @@ export default function Pricing() {
       {/* ── Cover spread ────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Vol. 01" section="Access" date="Spring 2026" />
+          <PageMeta issue="Kinika" section="Pricing" date="Plans & access" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -316,7 +316,7 @@ export default function Pricing() {
                   letterSpacing: "0.01em",
                 }}
               >
-                On the matter of access.
+                Three plans. One workspace.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
@@ -329,7 +329,7 @@ export default function Pricing() {
                   maxWidth: "16ch",
                 }}
               >
-                Three editions of a quieter studio.
+                Access to an intelligent founder workspace.
               </h1>
             </div>
             <aside className="col-span-12 lg:col-span-4 lg:pt-24">
@@ -350,8 +350,8 @@ export default function Pricing() {
                   A note before you choose
                 </p>
                 <p className="pf" style={{ fontSize: 17, lineHeight: 1.6, color: L.inkSoft, fontStyle: "italic" }}>
-                  Pricing should be the smallest, calmest decision in your day. We have tried to
-                  make ours exactly that.
+                  Pricing should be the smallest, calmest decision in your day.
+                  We've tried to make ours exactly that.
                 </p>
               </div>
             </aside>
@@ -431,7 +431,7 @@ export default function Pricing() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16" style={{ marginBottom: 80 }}>
             <div className="col-span-12 lg:col-span-9">
-              <CategoryTag>The Editions</CategoryTag>
+              <CategoryTag>The Plans</CategoryTag>
               <h2
                 className="pf"
                 style={{
@@ -444,19 +444,19 @@ export default function Pricing() {
                   maxWidth: "22ch",
                 }}
               >
-                Choose the level of access. Move between them at any time.
+                Choose the level of access. Move between plans at any time.
               </h2>
             </div>
             <aside className="col-span-12 lg:col-span-3 lg:pt-6">
               <p className="pf" style={{ fontSize: 15, color: L.inkSoft, lineHeight: 1.65, fontStyle: "italic" }}>
-                Each edition shares the same memory and the same principles. Only the room sizes
-                change.
+                Every plan shares the same memory and the same principles.
+                Only the scope changes.
               </p>
             </aside>
           </div>
 
-          {EDITIONS.map((edition, i) => (
-            <EditionCard key={edition.no} edition={edition} index={i} />
+          {PLANS.map((plan, i) => (
+            <PlanCard key={plan.no} plan={plan} index={i} />
           ))}
         </div>
       </section>
@@ -490,7 +490,7 @@ export default function Pricing() {
                   maxWidth: "18ch",
                 }}
               >
-                The same in every edition. Always.
+                The same in every plan. Always.
               </h3>
             </div>
             <ul
@@ -548,7 +548,7 @@ export default function Pricing() {
                 maxWidth: "28ch",
               }}
             >
-              "We do not sell seats. We make a workspace, and we let founders walk in."
+              "We do not sell seats. We make a workspace founders can grow inside of."
             </p>
             <p
               style={{
@@ -560,7 +560,7 @@ export default function Pricing() {
                 fontWeight: 600,
               }}
             >
-              — On Pricing, Vol. 01
+              — A working principle
             </p>
           </aside>
         </div>
@@ -580,7 +580,7 @@ export default function Pricing() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16" style={{ marginBottom: 64 }}>
             <div className="col-span-12 lg:col-span-4">
-              <CategoryTag>Quiet Questions</CategoryTag>
+              <CategoryTag>Common Questions</CategoryTag>
               <h3
                 className="pf"
                 style={{
@@ -593,7 +593,7 @@ export default function Pricing() {
                   maxWidth: "16ch",
                 }}
               >
-                The things founders tend to ask, before they begin.
+                The things founders ask, before they sign up.
               </h3>
             </div>
             <div className="col-span-12 lg:col-span-8">
@@ -666,7 +666,7 @@ export default function Pricing() {
                   marginBottom: 32,
                 }}
               >
-                Begin with the Notebook. Move when you are ready.
+                Start with the free plan. Move up when you're ready.
               </p>
               <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
                 <Link
@@ -681,7 +681,7 @@ export default function Pricing() {
                     letterSpacing: "0.02em",
                   }}
                 >
-                  Enter Kinika
+                  Start building with Kinika
                 </Link>
                 <Link
                   to="/system"
@@ -696,18 +696,18 @@ export default function Pricing() {
                     paddingBottom: 4,
                   }}
                 >
-                  See the system first
+                  See how the system works
                   <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
             </div>
             <aside className="col-span-12 lg:col-span-5 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               <p style={{ fontSize: 10, letterSpacing: "0.26em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600, marginBottom: 14 }}>
-                Colophon
+                About pricing
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                Pricing notes from <em>Kinika Studio</em>, Vol. 01 — The Memory Issue. Set
-                deliberately small, in the hope it stays out of the way.
+                Kept deliberately simple, so the decision stays out of the way of
+                the work. Every plan is cancellable, exportable, and portable.
               </p>
             </aside>
           </div>
