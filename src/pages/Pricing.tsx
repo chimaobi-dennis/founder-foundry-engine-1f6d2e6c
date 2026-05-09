@@ -117,7 +117,7 @@ function CategoryTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-function PlanCard({ edition, index }: { plan: Plan; index: number }) {
+function PlanCard({ plan, index }: { plan: Plan; index: number }) {
   const isMail = plan.to.startsWith("mailto:");
   const CtaInner = (
     <span
