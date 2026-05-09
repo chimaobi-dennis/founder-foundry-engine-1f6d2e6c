@@ -1707,7 +1707,7 @@ export default function Landing() {
                 }}
               >
                 How Kinika{" "}
-                <span style={{ fontStyle: "italic" }}>compounds</span> understanding
+                <span style={{ fontStyle: "italic" }}>connects</span> your business
                 <span style={{ color: L.amber }}>.</span>
               </h2>
             </div>
@@ -1716,7 +1716,7 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
                 lineHeight: 1.65, maxWidth: "44ch",
               }}>
-                Each conversation thickens the next. Memory becomes understanding. Understanding becomes the surface every output is shaped on.
+                One conversation builds the context. Every workflow draws from it. Visuals, copy, documents, campaigns and strategy all source from the same shared understanding — not separate, disconnected prompts.
               </p>
             </div>
           </div>
