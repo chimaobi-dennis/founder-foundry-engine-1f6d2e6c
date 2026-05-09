@@ -659,7 +659,7 @@ export default function Memory() {
                 maxWidth: "26ch",
               }}
             >
-              Begin a conversation today. Read it back, in your own voice,
+              Start a brand memory today. Read it back, in your own voice,
               a year from now.
             </p>
           </div>
@@ -676,7 +676,7 @@ export default function Memory() {
                 letterSpacing: "0.02em",
               }}
             >
-              Enter Kinika
+              Start building with Kinika
             </Link>
           </div>
         </section>
