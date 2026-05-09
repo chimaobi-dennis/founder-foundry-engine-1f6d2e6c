@@ -252,7 +252,7 @@ export default function Journal() {
         </div>
       </section>
 
-      {/* ── Editor's letter ─────────────────────────────────────────────── */}
+      {/* ── Opening note ────────────────────────────────────────────────── */}
       <section style={{ background: L.paperDeep, borderTop: `1px solid ${L.rule}`, borderBottom: `1px solid ${L.rule}` }}>
         <div
           className="mx-auto"
@@ -266,7 +266,7 @@ export default function Journal() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <CategoryTag>Editor's Letter</CategoryTag>
+              <CategoryTag>About this section</CategoryTag>
               <p
                 className="pf"
                 style={{
@@ -276,7 +276,7 @@ export default function Journal() {
                   fontStyle: "italic",
                 }}
               >
-                Spring 2026 — Vol. 01
+                A short note from the team
               </p>
             </div>
 
@@ -293,9 +293,9 @@ export default function Journal() {
                   maxWidth: "22ch",
                 }}
               >
-                {EDITORS_LETTER.title}
+                {OPENING_NOTE.title}
               </h3>
-              {EDITORS_LETTER.body.map((p, i) => (
+              {OPENING_NOTE.body.map((p, i) => (
                 <p
                   key={i}
                   style={{
@@ -319,7 +319,7 @@ export default function Journal() {
                   letterSpacing: "0.01em",
                 }}
               >
-                — The Editors
+                — The Kinika team
               </p>
             </div>
           </div>
