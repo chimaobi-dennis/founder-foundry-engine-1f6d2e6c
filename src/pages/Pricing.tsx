@@ -580,7 +580,7 @@ export default function Pricing() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16" style={{ marginBottom: 64 }}>
             <div className="col-span-12 lg:col-span-4">
-              <CategoryTag>Quiet Questions</CategoryTag>
+              <CategoryTag>Common Questions</CategoryTag>
               <h3
                 className="pf"
                 style={{
@@ -593,7 +593,7 @@ export default function Pricing() {
                   maxWidth: "16ch",
                 }}
               >
-                The things founders tend to ask, before they begin.
+                The things founders ask, before they sign up.
               </h3>
             </div>
             <div className="col-span-12 lg:col-span-8">
