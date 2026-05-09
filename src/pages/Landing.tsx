@@ -1731,7 +1731,7 @@ export default function Landing() {
               lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
               letterSpacing: "-0.01em", maxWidth: "32ch", margin: "0 auto",
             }}>
-              The system gets quieter, sharper, and more like you — every week.
+              Other tools work separately. Kinika works from shared understanding.
             </p>
           </div>
         </div>
