@@ -367,9 +367,9 @@ export default function Memory() {
   return (
     <EditorialShell>
       <Container>
-        <PageMeta issue="Vol. 01 — The Memory Issue" section="On Continuity" date="May 2026" />
-        <PageTitle kicker="On the quiet architecture of remembering">
-          A system that grows alongside the founder.
+        <PageMeta issue="Kinika" section="Memory" date="The core of the product" />
+        <PageTitle kicker="Persistent business memory for founders">
+          A workspace that remembers your business.
         </PageTitle>
 
         {/* Lede */}
