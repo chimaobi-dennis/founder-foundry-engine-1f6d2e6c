@@ -1689,7 +1689,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 03 · The Intelligence Loop
+              Chapter 03 · The Connected Layer
             </span>
           </div>
 
