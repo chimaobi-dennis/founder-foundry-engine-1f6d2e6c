@@ -548,7 +548,7 @@ export default function Pricing() {
                 maxWidth: "28ch",
               }}
             >
-              "We do not sell seats. We make a workspace, and we let founders walk in."
+              "We do not sell seats. We make a workspace founders can grow inside of."
             </p>
             <p
               style={{
@@ -560,7 +560,7 @@ export default function Pricing() {
                 fontWeight: 600,
               }}
             >
-              — On Pricing, Vol. 01
+              — A working principle
             </p>
           </aside>
         </div>
