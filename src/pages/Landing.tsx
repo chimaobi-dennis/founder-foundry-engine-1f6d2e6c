@@ -1591,8 +1591,8 @@ export default function Landing() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                AI without memory creates{" "}
-                <span style={{ fontStyle: "italic" }}>generic</span> brands
+                Every tool is smart.{" "}
+                <span style={{ fontStyle: "italic" }}>None</span> of them work together
                 <span style={{ color: L.amber }}>.</span>
               </h2>
 
@@ -1602,14 +1602,14 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch",
               }}>
-                Every conversation resets. Every prompt starts from zero. Every output lacks continuity. You explain your audience, your voice and your direction over and over — and the work still arrives in someone else's accent.
+                Canva for graphics. ChatGPT for copy. Notion for docs. Buffer for scheduling. Separate tools for scripts, contracts, planning and campaigns. Each one capable on its own — none of them aware of your business as a whole.
               </p>
 
               <p style={{
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch", marginTop: 20,
               }}>
-                It isn't a prompting problem. It's a memory problem.
+                So you re-explain your positioning, paste your audience description, fight templates built for someone else, and edit every output back into your voice. The problem isn't AI capability. It's fragmented business context.
               </p>
 
               {/* pull quote */}
@@ -1619,7 +1619,7 @@ export default function Landing() {
                   lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
                   letterSpacing: "-0.005em",
                 }}>
-                  Business context isn't a prompt. It's something that compounds — quietly, conversation by conversation.
+                  Your business doesn't live in any single tool. It lives in the gaps between them — and that's where the work gets generic.
                 </p>
                 <p style={{
                   fontFamily: "'DM Sans', sans-serif", fontSize: 11,
