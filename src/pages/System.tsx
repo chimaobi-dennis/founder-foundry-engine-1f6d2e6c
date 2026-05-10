@@ -643,10 +643,10 @@ export default function System() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-5">
-              <SectionMark n="II." label="Mentor — The Mouth" />
+              <SectionMark n="II." label="Kinika — The Mouth" />
               <SectionTitle>Conversation is the input.</SectionTitle>
               <Body>
-                Mentor is one continuous conversation per brand — not a thread you have to
+                Kinika is one continuous conversation per brand — not a thread you have to
                 manage, but a thinking partner that picks up where you left off. There are no
                 onboarding forms, because the conversation <em>is</em> the onboarding. There is no
                 separate "settings" screen for your brand, because the brand is being assembled
@@ -661,14 +661,14 @@ export default function System() {
             <aside className="col-span-12 lg:col-span-7 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               {/* Editorial transcript fragment */}
               <p style={{ fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", color: L.amber, fontWeight: 600, marginBottom: 18 }}>
-                Excerpt — Mentor session, day 47
+                Excerpt — Kinika session, day 47
               </p>
               <div style={{ borderTop: `1px solid ${L.rule}` }}>
                 {[
                   { who: "Founder", line: "I keep saying \"approachable\" but I think I mean \"unintimidating\"." },
-                  { who: "Mentor", line: "You've used the word three times this month. Each time about pricing pages. Worth noting." },
+                  { who: "Kinika", line: "You've used the word three times this month. Each time about pricing pages. Worth noting." },
                   { who: "Founder", line: "Maybe that's the positioning." },
-                  { who: "Mentor", line: "I'll add it to your Brand DNA as a working hypothesis. We can sharpen it later." },
+                  { who: "Kinika", line: "I'll add it to your Brand DNA as a working hypothesis. We can sharpen it later." },
                 ].map((row, i) => (
                   <div
                     key={i}
@@ -682,7 +682,7 @@ export default function System() {
                         fontSize: 10,
                         letterSpacing: "0.2em",
                         textTransform: "uppercase",
-                        color: row.who === "Mentor" ? L.amber : L.inkMuted,
+                        color: row.who === "Kinika" ? L.amber : L.inkMuted,
                         fontWeight: 600,
                         marginRight: 14,
                       }}
@@ -694,7 +694,7 @@ export default function System() {
                       style={{
                         fontSize: 18,
                         color: L.ink,
-                        fontStyle: row.who === "Mentor" ? "italic" : "normal",
+                        fontStyle: row.who === "Kinika" ? "italic" : "normal",
                         lineHeight: 1.5,
                       }}
                     >
@@ -834,7 +834,7 @@ export default function System() {
         >
           <div style={{ borderTop: `1px solid ${L.rule}` }}>
             {[
-              ["Mentor", "Conversation", "Notices, reflects, sharpens."],
+              ["Kinika", "Conversation", "Notices, reflects, sharpens."],
               ["ProStudio", "Visuals", "Product imagery in your own light."],
               ["ContentStudio", "Channels", "One brief, eight platforms, one voice."],
               ["Calendar", "Cadence", "Plans, not algorithms."],
