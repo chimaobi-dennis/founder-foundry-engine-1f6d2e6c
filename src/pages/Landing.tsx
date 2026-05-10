@@ -1925,9 +1925,6 @@ export default function Landing() {
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
               № 05 — On Continuity
             </span>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
-              Continued ↓
-            </span>
           </div>
         </div>
       </section>
@@ -2023,48 +2020,44 @@ export default function Landing() {
             </div>
 
             {/* RIGHT — publication metadata */}
-            <div className="lg:col-span-5 lg:pl-12">
-              <div
-                style={{
-                  borderLeft: `1px solid ${L.ruleSoft}`,
-                  paddingLeft: 32,
-                  height: "100%",
-                }}
-                className="hidden lg:block"
-              />
-              <div className="lg:pl-8 -mt-0 lg:-mt-[100%]">
-                <div style={{ marginBottom: 28 }}>
+            <div
+              className="lg:col-span-5 lg:pl-12"
+              style={{ borderLeft: `1px solid ${L.ruleSoft}` }}
+            >
+              <div className="pl-0 lg:pl-0">
+                <div style={{ marginBottom: 20 }}>
                   <span style={{
                     fontFamily: "'DM Sans', sans-serif",
                     fontSize: 10,
                     letterSpacing: "0.22em",
                     textTransform: "uppercase",
-                    color: L.inkMuted,
-                    fontWeight: 500,
+                    color: L.amber,
+                    fontWeight: 600,
                   }}>
                     Kinika
                   </span>
                 </div>
 
-                <div style={{ marginBottom: 24 }}>
-                  <span className="pf" style={{
-                    color: L.ink,
-                    fontSize: 20,
-                    fontWeight: 500,
-                    letterSpacing: "-0.01em",
-                  }}>
-                    A workspace that connects your business.
-                  </span>
-                </div>
+                <p className="pf" style={{
+                  color: L.ink,
+                  fontSize: "clamp(20px, 1.9vw, 24px)",
+                  lineHeight: 1.35,
+                  fontWeight: 500,
+                  letterSpacing: "-0.015em",
+                  maxWidth: "26ch",
+                }}>
+                  A workspace that connects your business.
+                </p>
 
-                <div style={{ height: 1, background: L.ruleSoft, margin: "24px 0", width: 32 }} />
+                <div style={{ height: 1, background: L.ruleSoft, margin: "28px 0", width: 32 }} />
 
                 <p style={{
                   fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 12,
+                  fontSize: 11,
                   color: L.inkMuted,
-                  letterSpacing: "0.14em",
+                  letterSpacing: "0.18em",
                   textTransform: "uppercase",
+                  fontWeight: 500,
                 }}>
                   Built for founders
                 </p>
@@ -2073,22 +2066,12 @@ export default function Landing() {
                   color: L.inkMuted,
                   fontSize: 14,
                   fontStyle: "italic",
-                  marginTop: 20,
-                  lineHeight: 1.5,
+                  marginTop: 14,
+                  lineHeight: 1.55,
+                  maxWidth: "38ch",
                 }}>
                   One business context, connected across every creative workflow a founder runs.
                 </p>
-
-                <div style={{ marginTop: 32 }}>
-                  <span style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 11,
-                    color: L.inkMuted,
-                    letterSpacing: "0.06em",
-                  }}>
-                    © 2026 Kinika
-                  </span>
-                </div>
               </div>
             </div>
           </div>
