@@ -1569,7 +1569,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 02 · The Fragmentation Problem
+              The Fragmentation Problem
             </span>
           </div>
 
@@ -1689,7 +1689,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 03 · The Connected Layer
+              The Connected Layer
             </span>
           </div>
 
@@ -1784,7 +1784,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 04 · The Journey Record
+              The Journey Record
             </span>
           </div>
 
@@ -1883,7 +1883,7 @@ export default function Landing() {
               letterSpacing: "0.22em", textTransform: "uppercase",
               color: L.inkSoft, fontWeight: 500,
             }}>
-              Chapter 05 · The Ecosystem
+              The Ecosystem
             </span>
           </div>
 
