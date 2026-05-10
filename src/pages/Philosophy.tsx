@@ -319,9 +319,9 @@ export default function Philosophy() {
                     fontStyle: "italic",
                   }}
                 >
-                  Kinika is a founder workspace built around persistent
-                  business memory — so the AI you work with actually
-                  understands your business, and gets sharper over time.
+                  Kinika is a unified business context layer for the modern
+                  founder — one place where positioning, audience and creative
+                  work stay connected across every workflow.
                 </p>
               </div>
             </aside>
