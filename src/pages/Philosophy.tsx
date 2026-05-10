@@ -628,28 +628,26 @@ export default function Philosophy() {
                 the only thing in the room holding everything together.
               </Lede>
               <Body>
-                The first version of Kinika was not a product. It was a private notebook kept by a
-                founder who had grown tired of explaining her business to machines that immediately
-                forgot it. She built a small system to do the remembering for her — a place where
-                her positioning, her customer interviews, her half-finished campaigns, and her
-                stubborn opinions could finally live in the same room.
+                The first version of Kinika was not a product. It was a private operating layer
+                built by a founder who had grown tired of being the connective tissue between her
+                own tools — re-explaining the business in every brief, reconciling outputs that
+                quietly contradicted each other, carrying positioning by hand from one workflow to
+                the next.
               </Body>
               <Body>
-                Within a few weeks the notebook had become indispensable. Within a few months it
-                had become opinionated. It noticed when her tone drifted. It surfaced an old
-                customer quote at exactly the moment a new landing page needed it. It was not
-                magical. It was simply paying attention — which, for software, turned out to be
-                rare enough to feel like a discovery.
+                The fix turned out to be structural, not creative. One shared business context.
+                Positioning, audience, voice, prior decisions and creative work, all sitting in the
+                same room. The individual workflows did not need to be more powerful. They needed
+                to stop working alone.
               </Body>
               <Body>
-                Kinika is the version of that notebook we wanted other founders to have. A
-                workspace built on the suspicion that the real intelligence in a business has
-                always been the founder's own — and the only reasonable job of the software is to
-                keep it, sharpen it, and hand it back at the right moment.
+                Kinika is the version of that layer we wanted other founders to have. A unified
+                business context across every creative workflow — so the brand stays coherent by
+                default, not by discipline.
               </Body>
               <Body>
-                We are not building another tool. We are building a place where understanding
-                accumulates. A studio that grows alongside the founder, instead of underneath them.
+                We are not building another tool. We are building the connective layer the modern
+                founder has been quietly providing for free.
               </Body>
             </div>
           </div>
