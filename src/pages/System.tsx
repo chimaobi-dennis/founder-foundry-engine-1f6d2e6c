@@ -694,7 +694,7 @@ export default function System() {
                       style={{
                         fontSize: 18,
                         color: L.ink,
-                        fontStyle: row.who === "Mentor" ? "italic" : "normal",
+                        fontStyle: row.who === "Kinika" ? "italic" : "normal",
                         lineHeight: 1.5,
                       }}
                     >
