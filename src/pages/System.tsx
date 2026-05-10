@@ -834,7 +834,7 @@ export default function System() {
         >
           <div style={{ borderTop: `1px solid ${L.rule}` }}>
             {[
-              ["Mentor", "Conversation", "Notices, reflects, sharpens."],
+              ["Kinika", "Conversation", "Notices, reflects, sharpens."],
               ["ProStudio", "Visuals", "Product imagery in your own light."],
               ["ContentStudio", "Channels", "One brief, eight platforms, one voice."],
               ["Calendar", "Cadence", "Plans, not algorithms."],
