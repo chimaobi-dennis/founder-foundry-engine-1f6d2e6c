@@ -37,7 +37,7 @@ const MODULES = [
 ];
 
 const PROBLEMS = [
-  { n: "01", title: "Tools that don't talk", body: "Canva, ChatGPT, Notion, Buffer — each one capable, none of them aware of the others. Your business lives in fragments." },
+  { n: "01", title: "Tools that don't talk", body: "A different surface for design, content, planning and documents — each one capable on its own, none of them aware of the others. Your business lives in fragments." },
   { n: "02", title: "Re-explaining everything", body: "You paste positioning, audience and tone into every new tab. The context resets the moment you switch surfaces." },
   { n: "03", title: "Generic, off-brand outputs", body: "Without shared understanding, every tool defaults to a template built for someone else. You spend the day correcting it back to you." },
 ];
@@ -1470,7 +1470,7 @@ export default function Landing() {
                   fontWeight: 400,
                 }}
               >
-                Founders run their business across a dozen disconnected tools — Canva, ChatGPT, Notion, Buffer — each one smart on its own, none of them aware of the others. Kinika is the shared business context layer that connects every workflow, so your positioning, audience and voice carry through everything you create.
+                Founders run their business across a dozen disconnected tools — each one powerful on its own, none of them aware of the others. Kinika is the shared business context layer that connects every workflow, so your positioning, audience and voice carry through everything you create.
               </p>
 
               <div className="fade-up-2 flex flex-wrap items-center gap-4" style={{ marginTop: 40 }}>
@@ -1602,7 +1602,7 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch",
               }}>
-                Canva for graphics. ChatGPT for copy. Notion for docs. Buffer for scheduling. Separate tools for scripts, contracts, planning and campaigns. Each one capable on its own — none of them aware of your business as a whole.
+                A different tool for design. Another for content. Another for planning. Another for documents. Separate surfaces for scripts, contracts and campaigns. Each one capable on its own — none of them aware of your business as a whole.
               </p>
 
               <p style={{
