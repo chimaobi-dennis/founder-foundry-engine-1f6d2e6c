@@ -1925,9 +1925,6 @@ export default function Landing() {
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
               № 05 — On Continuity
             </span>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
-              Continued ↓
-            </span>
           </div>
         </div>
       </section>
