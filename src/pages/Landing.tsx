@@ -1337,7 +1337,7 @@ export default function Landing() {
         <div className="max-w-[1320px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between gap-6">
           <Link to="/" className="pf flex items-baseline gap-2 min-w-0" style={{ color: L.ink }}>
             <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.01em" }}>Kinika</span>
-            <span className="hidden md:inline" style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
+            <span className="truncate" style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
               — Brand Intelligence
             </span>
           </Link>
