@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import {
   MessageCircle, Camera, Megaphone, Calendar, FileText, Film,
-  ArrowRight, Folder, Sparkles, AlertCircle
+  ArrowRight, ArrowUpRight, Folder, AlertCircle, Layers, Shield,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
@@ -12,42 +12,6 @@ import { FadeIn } from "@/components/FadeIn";
 import { getOrCreateConversation, getMessages } from "@/services/mentorService";
 import { getLibraryAssets, type Asset } from "@/services/assetService";
 import { getCalendarPostsForRange, type CalendarPost } from "@/services/calendarService";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-// ── Module catalog ─────────────────────────────────────────
-type ModuleKey = "mentor" | "prostudio" | "contentstudio" | "contentcalendar" | "docstudio" | "reelbuilder";
-
-interface ModuleDef {
-  key: ModuleKey;
-  name: string;
-  icon: typeof MessageCircle;
-  path: string;
-  tagline: string;
-  desc: string;
-  requiresBrand: boolean;
-  requiresDNA?: boolean;
-}
-
-const MODULES: ModuleDef[] = [
-  { key: "mentor", name: "Kinika", icon: MessageCircle, path: "/mentor", tagline: "Your AI thinking partner",
-    desc: "Remembers everything. Helps you think through your brand, strategy, and decisions — one conversation at a time.",
-    requiresBrand: false },
-  { key: "prostudio", name: "ProStudio", icon: Camera, path: "/pro-studio", tagline: "Product visuals without a studio",
-    desc: "Turn your product into scroll-stopping images using professional templates — no design skills needed.",
-    requiresBrand: false },
-  { key: "contentstudio", name: "ContentStudio", icon: Megaphone, path: "/content-studio", tagline: "One brief. Eight platforms. Ready to post.",
-    desc: "Write your campaign once and get platform-specific content for Instagram, LinkedIn, TikTok, and more — with visuals.",
-    requiresBrand: true, requiresDNA: true },
-  { key: "contentcalendar", name: "ContentCalendar", icon: Calendar, path: "/content-calendar", tagline: "Plan your content month",
-    desc: "See everything scheduled in one place. Never miss a posting day or lose track of what's going out when.",
-    requiresBrand: true },
-  { key: "docstudio", name: "DocStudio", icon: FileText, path: "/doc-studio", tagline: "Professional documents, instantly",
-    desc: "Proposals, briefs, pitch decks — generated from your brand memory so you never start from a blank page.",
-    requiresBrand: true },
-  { key: "reelbuilder", name: "ReelBuilder", icon: Film, path: "/reel-builder", tagline: "Brief to script to teleprompter",
-    desc: "Turn a content idea into a structured video script with scenes, talking points, and a built-in teleprompter.",
-    requiresBrand: true },
-];
 
 // ── Helpers ────────────────────────────────────────────────
 function getGreeting() {
@@ -61,13 +25,13 @@ function relativeDays(iso: string | null | undefined): string {
   if (!iso) return "";
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
   if (days <= 0) return "today";
-  if (days === 1) return "1 day ago";
+  if (days === 1) return "yesterday";
   if (days < 7) return `${days} days ago`;
   const weeks = Math.floor(days / 7);
-  if (weeks === 1) return "1 week ago";
+  if (weeks === 1) return "a week ago";
   if (weeks < 5) return `${weeks} weeks ago`;
   const months = Math.floor(days / 30);
-  return months === 1 ? "1 month ago" : `${months} months ago`;
+  return months === 1 ? "a month ago" : `${months} months ago`;
 }
 
 function truncate(s: string, n: number) {
@@ -85,81 +49,30 @@ const PLATFORM_DOT: Record<string, string> = {
   youtube: "bg-red-500",
   pinterest: "bg-red-600",
 };
+const platformDot = (p?: string) => PLATFORM_DOT[(p || "").toLowerCase()] || "bg-muted-foreground";
 
-function platformDot(p?: string) {
-  return PLATFORM_DOT[(p || "").toLowerCase()] || "bg-muted-foreground";
-}
+// ── Small editorial primitives ─────────────────────────────
+const SectionEyebrow = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex items-center gap-3 mb-5">
+    <span className="h-px w-6 bg-primary/50" />
+    <h2 className="font-ui text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+      {children}
+    </h2>
+  </div>
+);
 
-// ── Module Card ────────────────────────────────────────────
-function ModuleCard({
-  mod, hasBrand, hasDNA, activity, onNavigate,
-}: {
-  mod: ModuleDef;
-  hasBrand: boolean;
-  hasDNA: boolean;
-  activity?: string;
-  onNavigate: (path: string) => void;
-}) {
-  const Icon = mod.icon;
-  const blockedNoDNA = mod.requiresDNA && hasBrand && !hasDNA;
-  const blockedNoBrand = mod.requiresBrand && !hasBrand;
-  const blocked = blockedNoBrand || blockedNoDNA;
-
-  let actionLabel = "Open →";
-  if (mod.key === "mentor") actionLabel = hasBrand ? "Continue conversation →" : "Start your first session →";
-  else if (mod.key === "prostudio") actionLabel = "Browse templates →";
-  else if (mod.key === "contentstudio") actionLabel = blockedNoDNA ? "Available after your first session with Kinika" : "Create content →";
-  else if (mod.key === "contentcalendar") actionLabel = activity ?? "View calendar →";
-  else if (mod.key === "docstudio") actionLabel = "Create a document →";
-  else if (mod.key === "reelbuilder") actionLabel = "Write a script →";
-
-  const handleClick = () => {
-    if (blocked) {
-      onNavigate("/mentor");
-    } else {
-      onNavigate(mod.path);
-    }
-  };
-
-  const card = (
-    <button
-      onClick={handleClick}
-      className="text-left group rounded-xl border-[0.5px] border-card-border bg-card hover:border-card-border-hover transition-all duration-200 overflow-hidden hover:-translate-y-0.5 dark:shadow-none shadow-[var(--card-shadow)] w-full"
-    >
-      <div className="h-[2px] bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
-      <div className="p-5 flex flex-col gap-3 min-h-[180px]">
-        <div className="flex items-center gap-2.5">
-          <Icon size={26} className="text-primary/80 group-hover:text-primary transition-colors" />
-          <span className="font-display text-lg text-foreground">{mod.name}</span>
-        </div>
-        <p className="font-ui text-[13px] text-foreground/90 font-medium">{mod.tagline}</p>
-        <p className="font-ui text-[12px] text-muted-foreground leading-relaxed">{mod.desc}</p>
-        <div className="mt-auto pt-2 flex items-center justify-between">
-          <span className={`font-ui text-[12px] ${blocked ? "text-muted-foreground" : "text-primary"}`}>
-            {actionLabel}
-          </span>
-          {activity && mod.key !== "contentcalendar" && (
-            <span className="font-ui text-[11px] text-muted-foreground">{activity}</span>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-
-  if (blocked) {
-    return (
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>{card}</TooltipTrigger>
-          <TooltipContent side="top">
-            <p className="font-ui text-xs">Start with Kinika first to unlock this</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-  return card;
-}
+const ContextLine = ({
+  label, value, muted,
+}: { label: string; value: string; muted?: boolean }) => (
+  <div className="py-3.5 border-b border-border/50 last:border-b-0 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-6">
+    <p className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:w-48 flex-shrink-0">
+      {label}
+    </p>
+    <p className={`font-display text-[15px] leading-snug ${muted ? "text-muted-foreground italic" : "text-foreground"}`}>
+      {value}
+    </p>
+  </div>
+);
 
 // ── Main Component ────────────────────────────────────────
 const Home = () => {
@@ -172,7 +85,6 @@ const Home = () => {
   const [lastMentorMsg, setLastMentorMsg] = useState<{ content: string; created_at: string } | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [upcomingPosts, setUpcomingPosts] = useState<CalendarPost[]>([]);
-  const [dataLoading, setDataLoading] = useState(false);
 
   const firstName = profile?.full_name?.trim().split(/\s+/)[0] || "";
   const greeting = firstName ? `${getGreeting()}, ${firstName}` : getGreeting();
@@ -182,7 +94,6 @@ const Home = () => {
   const hasBrand = !!activeBrand;
   const hasDNA = !!(activeBrandDNA && (activeBrandDNA.brand_voice || activeBrandDNA.positioning_statement || activeBrandDNA.core_promise));
 
-  // Fetch dynamic data when active brand changes
   useEffect(() => {
     if (!activeBrand?.id) {
       setLastMentorMsg(null);
@@ -192,260 +103,157 @@ const Home = () => {
     }
     let cancelled = false;
     (async () => {
-      setDataLoading(true);
-      try {
-        const today = new Date();
-        const in14 = new Date();
-        in14.setDate(today.getDate() + 14);
-        const startDate = today.toISOString().split("T")[0];
-        const endDate = in14.toISOString().split("T")[0];
+      const today = new Date();
+      const in14 = new Date();
+      in14.setDate(today.getDate() + 14);
+      const startDate = today.toISOString().split("T")[0];
+      const endDate = in14.toISOString().split("T")[0];
 
-        const [conv, assetList, posts] = await Promise.all([
-          getOrCreateConversation(activeBrand.id),
-          getLibraryAssets(activeBrand.id, "all"),
-          getCalendarPostsForRange(activeBrand.id, startDate, endDate),
-        ]);
-
+      const [conv, assetList, posts] = await Promise.all([
+        getOrCreateConversation(activeBrand.id),
+        getLibraryAssets(activeBrand.id, "all"),
+        getCalendarPostsForRange(activeBrand.id, startDate, endDate),
+      ]);
+      if (cancelled) return;
+      setAssets(assetList ?? []);
+      setUpcomingPosts(posts ?? []);
+      if (conv?.id) {
+        const msgs = await getMessages(conv.id);
         if (cancelled) return;
-        setAssets(assetList ?? []);
-        setUpcomingPosts(posts ?? []);
-
-        if (conv?.id) {
-          const msgs = await getMessages(conv.id);
-          if (cancelled) return;
-          const lastAssistant = [...(msgs ?? [])].reverse().find((m) => m.role === "assistant");
-          setLastMentorMsg(lastAssistant ? { content: lastAssistant.content, created_at: lastAssistant.created_at } : null);
-        }
-      } finally {
-        if (!cancelled) setDataLoading(false);
+        const lastAssistant = [...(msgs ?? [])].reverse().find((m) => m.role === "assistant");
+        setLastMentorMsg(lastAssistant ? { content: lastAssistant.content, created_at: lastAssistant.created_at } : null);
       }
     })();
     return () => { cancelled = true; };
   }, [activeBrand?.id]);
 
-  const upcomingCalendarActivity = useMemo(() => {
-    if (upcomingPosts.length === 0) return undefined;
-    return `${upcomingPosts.length} ${upcomingPosts.length === 1 ? "post" : "posts"} scheduled`;
-  }, [upcomingPosts.length]);
-
-  const moduleActivity = (key: ModuleKey): string | undefined => {
-    if (key === "contentcalendar") return upcomingCalendarActivity;
-    if (key === "prostudio" || key === "contentstudio") {
-      const count = assets.filter((a) => a.source_module === key.replace("contentstudio", "contentstudio").replace("prostudio", "prostudio")).length;
-      if (count > 0) return `${count} ${count === 1 ? "asset" : "assets"}`;
-    }
-    if (key === "docstudio") {
-      const count = assets.filter((a) => a.type === "document").length;
-      if (count > 0) return `${count} ${count === 1 ? "doc" : "docs"}`;
-    }
-    if (key === "reelbuilder") {
-      const count = assets.filter((a) => a.type === "script").length;
-      if (count > 0) return `${count} ${count === 1 ? "script" : "scripts"}`;
-    }
-    return undefined;
-  };
-
   if (profileLoading || brandLoading) return <HomeSkeleton />;
 
-  // Determine state
+  // Stage classification
   type State = "incomplete" | "in_progress" | "early" | "multiple" | "default";
   let viewState: State = "default";
   if (!onboarded) viewState = "incomplete";
+  else if (status === "multiple_projects" && brandCount > 1) viewState = "multiple";
   else if (status === "in_progress" && hasBrand) viewState = "in_progress";
-  else if (status === "multiple_projects" && brandCount > 0) viewState = "multiple";
   else if ((status === "have_idea" || status === "exploring") && brandCount <= 1) viewState = "early";
 
-  // ── Subtitle ──
-  let subtitle = "Tell me about your idea or your brand and we will figure out the rest together.";
-  if (viewState === "incomplete") subtitle = "Tell me about yourself to get started.";
-  else if (viewState === "in_progress" && activeBrand) subtitle = `Here's where things stand with ${activeBrand.name}.`;
-  else if (viewState === "early") subtitle = "Let's figure out the rest together.";
-  else if (viewState === "multiple") subtitle = `You have ${brandCount} projects. Pick up where you left off.`;
+  // ── Derived business context ──
+  const completeness = activeBrand?.completeness_score ?? 0;
+  const positioning = activeBrandDNA?.positioning_statement?.trim();
+  const voice = activeBrandDNA?.brand_voice?.trim();
+  const audience = (activeBrandDNA as any)?.target_audience?.trim?.();
+  const promise = activeBrandDNA?.core_promise?.trim();
+
+  const latestAsset = assets[0];
+  const nextPost = upcomingPosts[0];
+  const docCount = assets.filter((a) => a.type === "document").length;
+  const scriptCount = assets.filter((a) => a.type === "script").length;
+  const visualCount = assets.filter((a) => a.type === "template_output" || a.type === "generated_visual").length;
+
+  const hasMomentum = !!(lastMentorMsg || latestAsset || nextPost);
+
+  // ── Subtitle (calm, environmental) ──
+  let subtitle = "";
+  if (viewState === "incomplete") subtitle = "A few details first, so the workspace can adapt to how you work.";
+  else if (viewState === "early") subtitle = "Begin a conversation. The rest of the workspace will form around it.";
+  else if (viewState === "multiple") subtitle = `${brandCount} businesses in your workspace. Continue with one.`;
+  else if (viewState === "in_progress" && activeBrand) subtitle = `The current state of ${activeBrand.name}.`;
+  else subtitle = "Your operating environment.";
 
   return (
     <FadeIn>
-      <div
-        className="relative min-h-screen pb-16 overflow-x-hidden bg-background"
-        style={{ maxWidth: "100vw", boxSizing: "border-box" }}
-      >
-        <div className="pointer-events-none absolute top-0 right-0 w-[500px] max-w-full h-[400px] bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.06),transparent_70%)]" />
+      <div className="relative min-h-screen pb-20 overflow-x-hidden bg-background">
+        <div className="pointer-events-none absolute top-0 right-0 w-[520px] max-w-full h-[420px] bg-[radial-gradient(ellipse_at_top_right,hsl(var(--primary)/0.05),transparent_72%)]" />
+        <div className="pointer-events-none absolute top-[120px] left-0 w-[300px] h-[300px] bg-[radial-gradient(ellipse_at_left,hsl(var(--primary)/0.025),transparent_70%)]" />
 
         {/* ── Incomplete onboarding banner ── */}
         {viewState === "incomplete" && (
-          <div className="px-4 md:px-6 pt-6 max-w-[1200px] mx-auto" style={{ maxWidth: "min(1200px, 100vw)", boxSizing: "border-box" }}>
-            <div className="flex items-center gap-3 rounded-xl bg-primary/10 border border-primary/20 px-4 py-3">
-              <AlertCircle size={18} className="text-primary flex-shrink-0" />
-              <p className="font-ui text-sm text-foreground flex-1">
-                Finish setting up your profile so your mentor can speak your language.
+          <div className="px-4 md:px-8 pt-6 max-w-[1180px] mx-auto">
+            <div className="flex items-center gap-3 rounded-lg bg-primary/[0.06] border border-primary/20 px-4 py-3">
+              <AlertCircle size={16} className="text-primary flex-shrink-0" />
+              <p className="font-ui text-[13px] text-foreground flex-1">
+                Finish your profile so Kinika can shape itself around you.
               </p>
-              <Button
-                onClick={() => navigate("/onboarding")}
-                size="sm"
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                Complete setup →
+              <Button onClick={() => navigate("/onboarding")} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                Continue setup
               </Button>
             </div>
           </div>
         )}
 
-        {/* ── Hero ── */}
-        <section className="relative px-4 md:px-6 pt-8 md:pt-10 pb-8 max-w-[1200px] mx-auto" style={{ maxWidth: "min(1200px, 100vw)", boxSizing: "border-box" }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse flex-shrink-0" />
-            <h1 className="font-display leading-tight text-foreground" style={{ fontSize: "clamp(28px, 8vw, 48px)" }}>
-              {greeting}
-            </h1>
+        {/* ── Quiet hero ── */}
+        <section className="relative px-4 md:px-8 pt-10 md:pt-14 pb-10 max-w-[1180px] mx-auto">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-amber-pulse" />
+            <p className="font-ui text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+              {activeBrand ? activeBrand.name : "Workspace"}
+            </p>
           </div>
-          <p className="font-ui text-base md:text-lg text-muted-foreground max-w-2xl leading-relaxed">
+          <h1 className="font-display leading-[1.05] text-foreground" style={{ fontSize: "clamp(30px, 5.5vw, 52px)" }}>
+            {greeting}.
+          </h1>
+          <p className="font-ui text-[15px] md:text-base text-muted-foreground mt-3 max-w-xl leading-relaxed">
             {subtitle}
           </p>
-
-          {/* CTAs only for incomplete onboarding */}
-          {viewState === "incomplete" && (
-            <div className="flex flex-col xs:flex-row gap-2.5 mt-5">
-              <Button onClick={() => navigate("/mentor")} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                I have an idea to explore
-              </Button>
-              <Button onClick={() => navigate("/mentor")} variant="outline" className="border-primary text-primary hover:bg-primary/10">
-                I already have a brand
-              </Button>
-            </div>
-          )}
         </section>
 
-        {/* ── STATE 2: In progress — Continue card + stats ── */}
-        {viewState === "in_progress" && activeBrand && (
-          <section className="px-4 md:px-6 pb-8 max-w-[1200px] mx-auto space-y-5">
-            {/* Continue card */}
-            <div className="rounded-xl border-[0.5px] border-card-border bg-card overflow-hidden flex">
-              <div className="w-1 bg-primary" />
-              <div className="flex-1 p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.1em] text-muted-foreground mb-2 font-ui">
-                    <span>Continue where you left off</span>
-                  </div>
-                  <h3 className="font-display text-2xl text-foreground mb-1">{activeBrand.name}</h3>
-                  {currentStageData && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground font-ui mb-3">
-                      <span>{currentStageData.emoji}</span>
-                      <span>{currentStageData.name}</span>
-                    </div>
-                  )}
-                  {/* Journey progress bar */}
-                  {journeyStages.length > 0 && (
-                    <div className="flex gap-1 mb-3 max-w-md">
-                      {journeyStages.map((s) => {
-                        const currentIdx = journeyStages.findIndex(js => js.stage_key === activeBrand.journey_stage);
-                        const myIdx = journeyStages.findIndex(js => js.stage_key === s.stage_key);
-                        const isCurrent = s.stage_key === activeBrand.journey_stage;
-                        const isPast = myIdx >= 0 && currentIdx >= 0 && myIdx < currentIdx;
-                        return (
-                          <div
-                            key={s.stage_key}
-                            className={`h-1.5 flex-1 rounded-full transition-colors ${
-                              isCurrent ? "bg-primary" : isPast ? "bg-primary/60" : "bg-muted"
-                            }`}
-                            title={s.name}
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-                  {lastMentorMsg && (
-                    <p className="font-ui text-[13px] text-muted-foreground italic">
-                      "{truncate(lastMentorMsg.content, 100)}"
-                      <span className="not-italic ml-2 text-[11px]">· Last session · {relativeDays(lastMentorMsg.created_at)}</span>
-                    </p>
-                  )}
-                </div>
-                <Button onClick={() => navigate("/mentor")} className="bg-primary text-primary-foreground hover:bg-primary/90 flex-shrink-0">
-                  Continue with Kinika →
+        {/* ─────────────────────────────────────────────────────
+            EARLY STATE — calm conversational invitation
+        ───────────────────────────────────────────────────── */}
+        {viewState === "early" && (
+          <section className="px-4 md:px-8 pb-16 max-w-[1180px] mx-auto">
+            <div className="rounded-2xl border border-card-border bg-card/60 backdrop-blur-sm p-8 md:p-12">
+              <div className="max-w-2xl">
+                <SectionEyebrow>Begin</SectionEyebrow>
+                <h2 className="font-display text-[28px] md:text-[34px] leading-tight text-foreground mb-4">
+                  Every workflow here starts as a conversation.
+                </h2>
+                <p className="font-ui text-[14px] text-muted-foreground leading-relaxed mb-8 max-w-lg">
+                  Tell Kinika what you're building. As your thinking takes shape,
+                  the rest of your workspace — campaigns, visuals, documents — will form around it.
+                </p>
+                <Button
+                  onClick={() => navigate("/mentor")}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-6"
+                >
+                  Open Kinika
+                  <ArrowRight size={16} className="ml-2" />
                 </Button>
               </div>
             </div>
-
-            {/* Quick stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-xl border-[0.5px] border-card-border bg-card p-4">
-                <p className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground mb-2">Journey stage</p>
-                <p className="font-display text-base text-foreground">
-                  {currentStageData ? `${currentStageData.emoji} ${currentStageData.name}` : "—"}
-                </p>
-              </div>
-              <div className="rounded-xl border-[0.5px] border-card-border bg-card p-4">
-                <p className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground mb-2">Assets created</p>
-                <p className="font-display text-base text-foreground">{assets.length}</p>
-              </div>
-              <div className="rounded-xl border-[0.5px] border-card-border bg-card p-4">
-                <p className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground mb-2">Posts scheduled</p>
-                <p className="font-display text-base text-foreground">{upcomingPosts.length}</p>
-              </div>
-            </div>
           </section>
         )}
 
-        {/* ── STATE 3: Early user — Welcome block ── */}
-        {viewState === "early" && (
-          <section className="px-4 md:px-6 pb-8 max-w-[1200px] mx-auto">
-            <div className="rounded-2xl border-[0.5px] border-card-border bg-card p-8 md:p-12 text-center flex flex-col items-center gap-4">
-              <Sparkles size={32} className="text-primary" />
-              <h2 className="font-display text-2xl md:text-3xl text-foreground">
-                Your mentor is ready when you are.
-              </h2>
-              <p className="font-ui text-base text-muted-foreground max-w-xl">
-                {status === "have_idea"
-                  ? "You have an idea — that's enough to start. Your mentor will help you shape it into something real."
-                  : "Not sure where to start? That's exactly where the right conversation begins."}
-              </p>
-              <Button
-                onClick={() => navigate("/mentor")}
-                size="lg"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 px-8 h-12"
-              >
-                Start a conversation →
-              </Button>
-            </div>
-          </section>
-        )}
-
-        {/* ── STATE 4: Multiple projects ── */}
+        {/* ─────────────────────────────────────────────────────
+            MULTIPLE PROJECTS — ecosystem switcher
+        ───────────────────────────────────────────────────── */}
         {viewState === "multiple" && brands.length > 0 && (
-          <section className="px-4 md:px-6 pb-8 max-w-[1200px] mx-auto">
-            <h2 className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground mb-4">Your projects</h2>
-            <div className="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-chat">
+          <section className="px-4 md:px-8 pb-16 max-w-[1180px] mx-auto">
+            <SectionEyebrow>Your businesses</SectionEyebrow>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {brands.map((b) => {
                 const stage = journeyStages.find(s => s.stage_key === b.journey_stage);
-                const initial = (b.name || "?").charAt(0).toUpperCase();
+                const isActive = b.id === activeBrand?.id;
                 return (
                   <button
                     key={b.id}
                     onClick={() => navigate("/mentor")}
-                    className="flex-shrink-0 w-[260px] text-left rounded-xl border-[0.5px] border-card-border bg-card hover:border-card-border-hover hover:-translate-y-0.5 transition-all p-4 group"
+                    className={`text-left rounded-xl border bg-card hover:border-primary/40 transition-all p-5 group ${
+                      isActive ? "border-primary/60" : "border-card-border"
+                    }`}
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center font-display text-base text-white flex-shrink-0"
-                        style={{ backgroundColor: b.primary_color || "#1A2A3A" }}
-                      >
-                        {initial}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-display text-base text-foreground truncate">{b.name}</p>
-                        {stage && (
-                          <p className="font-ui text-[11px] text-muted-foreground truncate">
-                            {stage.emoji} {stage.name}
-                          </p>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: b.primary_color || "hsl(var(--primary))" }} />
+                      <p className="font-display text-lg text-foreground truncate flex-1">{b.name}</p>
+                      {isActive && <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-primary">Active</span>}
                     </div>
+                    <p className="font-ui text-[11px] text-muted-foreground mb-3">
+                      {stage ? stage.name : "Beginning"}
+                    </p>
+                    <div className="h-px bg-border/60 mb-3" />
                     <div className="flex items-center justify-between">
-                      <span className="font-ui text-[11px] text-muted-foreground">
-                        {b.completeness_score}% complete
-                      </span>
-                      <span className="font-ui text-[12px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                        Open →
-                      </span>
+                      <span className="font-ui text-[11px] text-muted-foreground">{b.completeness_score}% formed</span>
+                      <ArrowUpRight size={14} className="text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
                   </button>
                 );
@@ -454,81 +262,246 @@ const Home = () => {
           </section>
         )}
 
-        {/* ── Module Grid (always shown) ── */}
-        <section className="px-4 md:px-6 pb-8 pt-4 max-w-[1200px] mx-auto">
-          <h2 className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground mb-5">
-            Everything you need to build your brand
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {MODULES.map((mod) => (
-              <ModuleCard
-                key={mod.key}
-                mod={mod}
-                hasBrand={hasBrand}
-                hasDNA={hasDNA}
-                activity={moduleActivity(mod.key)}
-                onNavigate={navigate}
-              />
-            ))}
-          </div>
-        </section>
+        {/* ─────────────────────────────────────────────────────
+            CONTEXT LAYER — the brain of the homepage
+            (only when there's an active brand)
+        ───────────────────────────────────────────────────── */}
+        {hasBrand && viewState !== "early" && (
+          <section className="px-4 md:px-8 pb-14 max-w-[1180px] mx-auto">
+            <SectionEyebrow>Business context</SectionEyebrow>
 
-        {/* ── Upcoming posts (only if data) ── */}
-        {hasBrand && upcomingPosts.length > 0 && (
-          <section className="px-4 md:px-6 pb-8 max-w-[1200px] mx-auto">
-            <h2 className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground mb-4">Coming up</h2>
-            <div className="rounded-xl border-[0.5px] border-card-border bg-card divide-y divide-border">
-              {upcomingPosts.slice(0, 3).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => navigate("/content-calendar")}
-                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/30 transition-colors"
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 lg:gap-10">
+              {/* Context lines */}
+              <div className="rounded-xl border border-card-border bg-card/40 px-5 md:px-7 py-2 md:py-3">
+                <ContextLine
+                  label="Current positioning"
+                  value={positioning ? truncate(positioning, 160) : "Still forming. Shape this in conversation with Kinika."}
+                  muted={!positioning}
+                />
+                <ContextLine
+                  label="Voice direction"
+                  value={voice ? truncate(voice, 140) : "No voice direction set yet."}
+                  muted={!voice}
+                />
+                <ContextLine
+                  label="Audience understanding"
+                  value={audience ? truncate(audience, 140) : "Audience not yet defined."}
+                  muted={!audience}
+                />
+                <ContextLine
+                  label="Core promise"
+                  value={promise ? truncate(promise, 140) : "No promise articulated."}
+                  muted={!promise}
+                />
+                <ContextLine
+                  label="Stage"
+                  value={currentStageData ? currentStageData.name : "—"}
+                />
+              </div>
+
+              {/* Brand alignment panel */}
+              <aside className="rounded-xl border border-card-border bg-card/40 p-5 flex flex-col">
+                <p className="font-ui text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  Brand alignment
+                </p>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="font-display text-[42px] leading-none text-foreground">{completeness}</span>
+                  <span className="font-ui text-[12px] text-muted-foreground">/ 100</span>
+                </div>
+                <div className="mt-4 h-1 rounded-full bg-muted/60 overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-500"
+                    style={{ width: `${Math.max(2, completeness)}%` }}
+                  />
+                </div>
+                <p className="font-ui text-[12px] text-muted-foreground leading-relaxed mt-4">
+                  {completeness < 30
+                    ? "Your foundations are still forming."
+                    : completeness < 70
+                    ? "Your direction is becoming clearer."
+                    : "Your brand reads with consistency across surfaces."}
+                </p>
+                <Link
+                  to="/brand-dna"
+                  className="mt-auto pt-4 font-ui text-[12px] text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${platformDot(p.platform)}`} />
-                  <span className="font-ui text-[12px] text-foreground capitalize w-24 flex-shrink-0">{p.platform}</span>
-                  <span className="font-ui text-[12px] text-muted-foreground w-28 flex-shrink-0">
-                    {new Date(p.scheduled_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </span>
-                  <span className="font-ui text-[13px] text-foreground/90 truncate flex-1">
-                    {p.creative_headline || p.creative_copy_text || p.copy_text || "Scheduled post"}
-                  </span>
-                  <ArrowRight size={14} className="text-muted-foreground flex-shrink-0" />
-                </button>
-              ))}
+                  Open Brand DNA <ArrowUpRight size={12} />
+                </Link>
+              </aside>
             </div>
           </section>
         )}
 
-        {/* ── Recent assets (only if data) ── */}
-        {hasBrand && assets.length > 0 && (
-          <section className="px-4 md:px-6 pb-16 max-w-[1200px] mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-ui text-[11px] uppercase tracking-[0.1em] text-muted-foreground">Recent assets</h2>
-              <Link to="/library" className="font-ui text-[12px] text-primary hover:underline">View library →</Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {assets.slice(0, 3).map((a) => (
-                <Link
-                  key={a.id}
-                  to="/library"
-                  className="rounded-xl border-[0.5px] border-card-border bg-card overflow-hidden hover:border-card-border-hover hover:-translate-y-0.5 transition-all"
+        {/* ─────────────────────────────────────────────────────
+            ACTIVE MOMENTUM — what's currently moving
+        ───────────────────────────────────────────────────── */}
+        {hasBrand && hasMomentum && (
+          <section className="px-4 md:px-8 pb-14 max-w-[1180px] mx-auto">
+            <SectionEyebrow>In motion</SectionEyebrow>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              {/* Last conversation */}
+              {lastMentorMsg && (
+                <button
+                  onClick={() => navigate("/mentor")}
+                  className="text-left rounded-xl border border-card-border bg-card/50 hover:border-primary/40 transition-all p-5 flex flex-col group"
                 >
-                  <div className="aspect-[4/3] bg-muted/30 flex items-center justify-center overflow-hidden">
-                    {a.file_url && (a.mime_type?.startsWith("image/") || a.type === "template_output" || a.type === "generated_visual" || a.type === "product_image") ? (
-                      <img src={a.file_url} alt={a.name} className="w-full h-full object-cover" loading="lazy" />
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Last thread</span>
+                    <span className="font-ui text-[10px] text-muted-foreground">{relativeDays(lastMentorMsg.created_at)}</span>
+                  </div>
+                  <p className="font-display text-[15px] leading-snug text-foreground/90 italic flex-1">
+                    "{truncate(lastMentorMsg.content, 130)}"
+                  </p>
+                  <div className="mt-4 flex items-center gap-2 font-ui text-[12px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                    Continue <ArrowRight size={12} />
+                  </div>
+                </button>
+              )}
+
+              {/* Latest visual */}
+              {latestAsset && (
+                <button
+                  onClick={() => navigate("/library")}
+                  className="text-left rounded-xl border border-card-border bg-card/50 hover:border-primary/40 transition-all overflow-hidden flex flex-col group"
+                >
+                  <div className="aspect-[16/10] bg-muted/30 overflow-hidden">
+                    {latestAsset.file_url && (latestAsset.mime_type?.startsWith("image/") || latestAsset.type === "template_output" || latestAsset.type === "generated_visual" || latestAsset.type === "product_image") ? (
+                      <img src={latestAsset.file_url} alt={latestAsset.name} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
-                      <Folder size={28} className="text-muted-foreground/50" />
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Folder size={26} className="text-muted-foreground/40" />
+                      </div>
                     )}
                   </div>
-                  <div className="p-3">
-                    <p className="font-ui text-[13px] text-foreground truncate">{a.name}</p>
-                    <p className="font-ui text-[11px] text-muted-foreground capitalize">{a.source_module}</p>
+                  <div className="p-4 flex-1 flex flex-col">
+                    <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1">Latest output</span>
+                    <p className="font-display text-[14px] text-foreground truncate">{latestAsset.name}</p>
+                    <p className="font-ui text-[11px] text-muted-foreground capitalize mt-0.5">
+                      {latestAsset.source_module?.replace("contentstudio", "ContentStudio").replace("prostudio", "ProStudio") || latestAsset.type}
+                    </p>
                   </div>
-                </Link>
-              ))}
+                </button>
+              )}
+
+              {/* Next scheduled */}
+              {nextPost ? (
+                <button
+                  onClick={() => navigate("/content-calendar")}
+                  className="text-left rounded-xl border border-card-border bg-card/50 hover:border-primary/40 transition-all p-5 flex flex-col group"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Next scheduled</span>
+                    <span className="font-ui text-[10px] text-muted-foreground">
+                      {new Date(nextPost.scheduled_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`w-1.5 h-1.5 rounded-full ${platformDot(nextPost.platform)}`} />
+                    <span className="font-ui text-[11px] text-muted-foreground capitalize">{nextPost.platform}</span>
+                  </div>
+                  <p className="font-display text-[14px] leading-snug text-foreground flex-1">
+                    {truncate(nextPost.creative_headline || nextPost.creative_copy_text || nextPost.copy_text || "Scheduled post", 110)}
+                  </p>
+                  {upcomingPosts.length > 1 && (
+                    <p className="font-ui text-[11px] text-muted-foreground mt-3">
+                      + {upcomingPosts.length - 1} more in the next 14 days
+                    </p>
+                  )}
+                </button>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border/60 bg-transparent p-5 flex flex-col justify-center">
+                  <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">Next scheduled</span>
+                  <p className="font-display text-[14px] text-muted-foreground italic leading-snug">
+                    Nothing planned yet. Open the calendar when you're ready to sequence.
+                  </p>
+                </div>
+              )}
             </div>
           </section>
         )}
+
+        {/* ─────────────────────────────────────────────────────
+            WORKFLOW ACCESS — Kinika primary, others quiet
+        ───────────────────────────────────────────────────── */}
+        <section className="px-4 md:px-8 pb-12 max-w-[1180px] mx-auto">
+          <SectionEyebrow>Workflows</SectionEyebrow>
+
+          {/* Kinika — primary */}
+          <button
+            onClick={() => navigate("/mentor")}
+            className="w-full text-left rounded-xl border border-card-border bg-card/60 hover:border-primary/50 transition-all p-6 md:p-7 group flex items-start gap-5 mb-3"
+          >
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <MessageCircle size={20} className="text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <h3 className="font-display text-xl text-foreground">Kinika</h3>
+                <span className="font-ui text-[11px] text-muted-foreground">The thinking layer</span>
+              </div>
+              <p className="font-ui text-[13px] text-muted-foreground leading-relaxed mt-2 max-w-2xl">
+                Every workflow here is shaped by what you've built in conversation.
+                {hasBrand ? " Continue where you left off." : " Begin here."}
+              </p>
+            </div>
+            <ArrowUpRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-1" />
+          </button>
+
+          {/* Secondary workflows — compact list */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[
+              { name: "Studio", icon: Camera, path: "/pro-studio", desc: "Visual generation shaped by your brand context.", count: visualCount, unit: "outputs" },
+              { name: "Campaigns", icon: Megaphone, path: "/content-studio", desc: "One brief, sequenced across platforms.", locked: !hasDNA, lockedHint: "Available once your brand DNA forms." },
+              { name: "Calendar", icon: Calendar, path: "/content-calendar", desc: "Continuity across what you publish.", count: upcomingPosts.length, unit: "scheduled" },
+              { name: "Documents", icon: FileText, path: "/doc-studio", desc: "Proposals and decks, pre-aligned to your voice.", count: docCount, unit: "drafted" },
+              { name: "Scripts", icon: Film, path: "/reel-builder", desc: "Reels and video, structured from your message.", count: scriptCount, unit: "written" },
+              { name: "Library", icon: Layers, path: "/library", desc: "Everything generated, in one place.", count: assets.length, unit: "assets" },
+            ].map((m) => {
+              const Icon = m.icon;
+              const handleClick = () => {
+                if (m.locked) navigate("/mentor");
+                else navigate(m.path);
+              };
+              return (
+                <button
+                  key={m.name}
+                  onClick={handleClick}
+                  className="text-left rounded-lg border border-card-border bg-card/30 hover:bg-card/60 hover:border-primary/30 transition-all px-5 py-4 flex items-center gap-4 group"
+                >
+                  <Icon size={16} className="text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="font-display text-[15px] text-foreground">{m.name}</span>
+                      {m.locked ? (
+                        <span className="font-ui text-[10px] text-muted-foreground italic">{m.lockedHint}</span>
+                      ) : m.count && m.count > 0 ? (
+                        <span className="font-ui text-[11px] text-muted-foreground">· {m.count} {m.unit}</span>
+                      ) : null}
+                    </div>
+                    <p className="font-ui text-[12px] text-muted-foreground leading-snug mt-0.5 truncate">
+                      {m.desc}
+                    </p>
+                  </div>
+                  <ArrowUpRight size={14} className="text-muted-foreground/50 group-hover:text-primary transition-colors flex-shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Brand DNA quiet link */}
+          <div className="mt-6 flex items-center justify-between border-t border-border/40 pt-5">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
+              <Shield size={13} />
+              <span className="font-ui text-[12px]">
+                The shared layer beneath every workflow.
+              </span>
+            </div>
+            <Link to="/brand-dna" className="font-ui text-[12px] text-primary hover:underline inline-flex items-center gap-1">
+              Brand DNA <ArrowUpRight size={12} />
+            </Link>
+          </div>
+        </section>
       </div>
     </FadeIn>
   );
