@@ -37,9 +37,9 @@ const MODULES = [
 ];
 
 const PROBLEMS = [
-  { n: "01", title: "Tools that don't talk", body: "A different surface for design, content, planning and documents — each one capable on its own, none of them aware of the others. Your business lives in fragments." },
-  { n: "02", title: "Re-explaining everything", body: "You paste positioning, audience and tone into every new tab. The context resets the moment you switch surfaces." },
-  { n: "03", title: "Generic, off-brand outputs", body: "Without shared understanding, every tool defaults to a template built for someone else. You spend the day correcting it back to you." },
+  { n: "01", title: "15–30 tools, zero shared context", body: "A small business now runs across separate software for design, content, planning, scheduling, documents, campaigns and creative production. Each tool is competent. None of them carry your business understanding from one workflow to the next." },
+  { n: "02", title: "The founder is the bridge", body: "Positioning, audience, tone and product detail get re-typed into every new surface. The business process is spread across software boundaries that humans have to stitch together by hand." },
+  { n: "03", title: "Outputs drift from the brand", body: "Templates default to someone else's company. Copy resets to a generic voice. Visuals lose continuity. Without shared context, every output is correct in isolation and inconsistent as a system." },
 ];
 
 const STEPS = [
@@ -1591,25 +1591,39 @@ export default function Landing() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                Every tool is smart.{" "}
-                <span style={{ fontStyle: "italic" }}>None</span> of them work together
+                15–30 tools.{" "}
+                <span style={{ fontStyle: "italic" }}>One</span> founder holding it all together
                 <span style={{ color: L.amber }}>.</span>
               </h2>
 
-              <div style={{ height: 1, background: L.rule, margin: "32px 0 28px", width: 80 }} />
+              {/* data marker */}
+              <div style={{ marginTop: 28, display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
+                <span className="pf" style={{ color: L.amber, fontSize: "clamp(36px, 4vw, 52px)", lineHeight: 1, fontWeight: 600, letterSpacing: "-0.02em" }}>
+                  15–30
+                </span>
+                <span style={{
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+                  letterSpacing: "0.2em", textTransform: "uppercase",
+                  color: L.inkMuted, fontWeight: 600, maxWidth: "22ch",
+                }}>
+                  Software tools the average small business now operates across
+                </span>
+              </div>
+
+              <div style={{ height: 1, background: L.rule, margin: "28px 0 24px", width: 80 }} />
 
               <p style={{
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch",
               }}>
-                A different tool for design. Another for content. Another for planning. Another for documents. Separate surfaces for scripts, contracts and campaigns. Each one capable on its own — none of them aware of your business as a whole.
+                A different tool for design. Another for content, planning, scheduling, documents, campaigns and creative production. Each one handles a separate part of the workflow — and each one is unaware of the others.
               </p>
 
               <p style={{
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch", marginTop: 20,
               }}>
-                So you re-explain your positioning, paste your audience description, fight templates built for someone else, and edit every output back into your voice. The problem isn't AI capability. It's fragmented business context.
+                The business context rarely moves with you. So you re-explain your positioning, re-describe your audience, fight templates built for someone else, and edit every output back into your voice. Continuity becomes manual labour.
               </p>
 
               {/* pull quote */}
@@ -1619,7 +1633,7 @@ export default function Landing() {
                   lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
                   letterSpacing: "-0.005em",
                 }}>
-                  Your business doesn't live in any single tool. It lives in the gaps between them — and that's where the work gets generic.
+                  The business process becomes spread across software boundaries that humans have to bridge manually.
                 </p>
                 <p style={{
                   fontFamily: "'DM Sans', sans-serif", fontSize: 11,
