@@ -90,7 +90,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <AuthProvider>
         <ProfileProvider>
