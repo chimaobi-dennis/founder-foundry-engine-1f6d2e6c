@@ -338,7 +338,7 @@ function ModuleWebDiagram() {
   const R = 200;
 
   const modules = [
-    { name: "Mentor", role: "Conversation", a: -90 },
+    { name: "Kinika", role: "Conversation", a: -90 },
     { name: "ProStudio", role: "Visuals", a: -30 },
     { name: "ContentStudio", role: "Channels", a: 30 },
     { name: "Calendar", role: "Cadence", a: 90 },
