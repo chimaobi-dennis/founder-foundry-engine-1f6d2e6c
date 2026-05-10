@@ -3,6 +3,7 @@ import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
 import { NavigationProgress } from "./NavigationProgress";
+import { Analytics } from "@vercel/analytics/react";
 
 const modulePaths = ["/mentor", "/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
@@ -52,6 +53,7 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      <Analytics />
     </div>
   );
 }
