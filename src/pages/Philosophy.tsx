@@ -189,7 +189,7 @@ function MemoryDiagram() {
             letterSpacing="2"
             fill={L.inkMuted}
           >
-            FRAGMENTS
+            DISCONNECTED TOOLS
           </text>
         </g>
 
@@ -200,7 +200,7 @@ function MemoryDiagram() {
           <path d="M 250,200 Q 340,200 420,160" />
         </g>
 
-        {/* Center node — crystallized memory */}
+        {/* Center node — unified context */}
         <g>
           <circle cx="430" cy="160" r="36" fill="none" stroke={L.amber} strokeWidth="1" />
           <circle cx="430" cy="160" r="22" fill="none" stroke={L.amber} strokeWidth="0.6" opacity="0.6" />
@@ -214,11 +214,11 @@ function MemoryDiagram() {
             letterSpacing="2"
             fill={L.inkMuted}
           >
-            MEMORY
+            BUSINESS CONTEXT
           </text>
         </g>
 
-        {/* Right side — emerging pattern as a quiet line */}
+        {/* Right side — coherent output as a quiet line */}
         <g stroke={L.ink} strokeWidth="1" fill="none">
           <path d="M 472,160 C 540,140 600,200 660,150 S 760,170 780,150" />
         </g>
@@ -232,7 +232,7 @@ function MemoryDiagram() {
             letterSpacing="2"
             fill={L.inkMuted}
           >
-            PATTERN
+            COHERENT OUTPUT
           </text>
         </g>
       </svg>
@@ -246,7 +246,7 @@ function MemoryDiagram() {
           letterSpacing: "0.04em",
         }}
       >
-        Fig. 01 — Conversations gather into memory. Memory becomes pattern.
+        Fig. 01 — Disconnected tools resolve into a single business context. Context produces coherent output.
       </figcaption>
     </figure>
   );
@@ -286,7 +286,7 @@ export default function Philosophy() {
                   letterSpacing: "-0.035em",
                 }}
               >
-                AI forgot the founder.
+                The tools work. The system doesn't.
               </h1>
             </div>
             <aside className="col-span-12 lg:col-span-4 lg:pt-24">
@@ -319,9 +319,9 @@ export default function Philosophy() {
                     fontStyle: "italic",
                   }}
                 >
-                  Kinika is a founder workspace built around persistent
-                  business memory — so the AI you work with actually
-                  understands your business, and gets sharper over time.
+                  Kinika is a unified business context layer for the modern
+                  founder — one place where positioning, audience and creative
+                  work stay connected across every workflow.
                 </p>
               </div>
             </aside>
@@ -345,30 +345,30 @@ export default function Philosophy() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <SectionMark n="I." label="The Forgetting" />
+              <SectionMark n="I." label="The Fragmentation" />
             </div>
             <div className="col-span-12 lg:col-span-9">
-              <SectionTitle>The most powerful tools we've ever built can't remember us.</SectionTitle>
+              <SectionTitle>Modern creative work is fragmented at the level of understanding.</SectionTitle>
               <Lede>
-                A founder opens twelve tabs. Each one is a stranger. Each one asks the same question.
+                A founder runs a single business across a dozen disconnected systems. None of them know that.
               </Lede>
-              <FirstLetter letter="W">
-                e have, in the last three years, granted millions of small businesses access to
-                machines that can write, design, plan, and persuade at a near-professional level.
-                And yet the people using them describe the same fatigue, in nearly identical
-                language: <em>I feel like I'm starting from zero, every single day.</em>
+              <FirstLetter letter="T">
+                he modern founder operates a different tool for design, content, planning,
+                documents, campaigns, scheduling and creative production. Each one is competent
+                inside its own surface. None of them understand the business they are working on.
+                Strategy lives in one window, voice in another, audience somewhere else entirely —
+                and the only thing connecting them is the founder, holding the thread by hand.
               </FirstLetter>
               <Body>
-                The intelligence is real. The amnesia is the problem. A founder spends her morning
-                explaining her audience to a chatbot, her positioning to an image generator, her
-                tone of voice to a copy tool, and her product story to a deck builder. By lunch, she
-                has briefed four different machines on the same business — and not one of them will
-                remember her tomorrow.
+                The result is a quiet operational tax. Positioning gets re-explained at the start
+                of every task. Audience gets re-described in every brief. Tone gets approximated
+                from memory. The same context is rebuilt, manually, every time the founder switches
+                surfaces — and a small amount of the brand is lost in the handoff each time.
               </Body>
               <Body>
-                What looks like productivity is, on closer inspection, a slow leak. The most
-                strategically valuable thing a founder owns — her understanding of her own business
-                — is being poured, over and over again, into systems built to discard it.
+                What looks like a productivity stack is, in practice, a set of isolated workflows
+                with the founder acting as the integration layer. The tools are not weak. They are
+                simply working alone — on a business none of them have ever met.
               </Body>
             </div>
           </div>
@@ -387,9 +387,8 @@ export default function Philosophy() {
             paddingBottom: "clamp(72px, 9vh, 112px)",
           }}
         >
-          <PullQuote attribution="On the cost of starting over">
-            We mistook fluency for understanding. The machine spoke beautifully and remembered
-            nothing.
+          <PullQuote attribution="On disconnected workflows">
+            The problem was never that the tools were weak. It was that they were working alone.
           </PullQuote>
         </div>
       </section>
@@ -409,23 +408,24 @@ export default function Philosophy() {
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-9 lg:col-start-4">
               <SectionMark n="II." label="On Context" />
-              <SectionTitle>A prompt is a sentence. Context is a worldview.</SectionTitle>
+              <SectionTitle>A brief is a sentence. Context is a worldview.</SectionTitle>
               <Body>
-                The industry has spent two years teaching founders to write better prompts. It is
-                the wrong lesson. A prompt is the smallest possible unit of intent — a postcard
-                shouted into a stadium. Better postcards do not solve the problem. The stadium does
-                not know who you are.
+                Most creative tools begin from zero. A blank brief, a fresh prompt, a new project
+                — and an implicit assumption that the founder will, once again, supply everything
+                the tool needs to know about the business. Better briefs do not solve this. The
+                problem is structural: the tool has no idea who you are, and no way to find out
+                that survives the session.
               </Body>
               <Body>
-                Generic prompts produce generic brands because generic intelligence has no choice.
-                Without your audience, your competitors, your taste, your prior decisions, your
-                objections, your story — the model is forced to average. And what is averaged is, by
+                Generic input produces generic output because isolated tools have no choice. Without
+                your audience, your competitors, your taste, your prior decisions, your objections,
+                your story — any system is forced to average. And what is averaged is, by
                 definition, not yours.
               </Body>
               <Body>
-                Context is the difference between an assistant who hands you a template and a
-                colleague who hands you the version they know you wanted. We are not interested in
-                the first. We are building toward the second.
+                Context is the difference between a workflow that asks you to start over and a
+                workspace that already knows what the brand is for. We are not interested in the
+                first. We are building toward the second.
               </Body>
 
               {/* Inline asymmetric framing */}
@@ -444,7 +444,7 @@ export default function Philosophy() {
                       marginBottom: 10,
                     }}
                   >
-                    Prompting
+                    Disconnected
                   </p>
                   <p className="pf" style={{ fontSize: 22, lineHeight: 1.4, color: L.ink, fontStyle: "italic", fontWeight: 400 }}>
                     Re-explaining the business at the start of every task.
@@ -464,7 +464,7 @@ export default function Philosophy() {
                       marginBottom: 10,
                     }}
                   >
-                    Context
+                    Connected
                   </p>
                   <p className="pf" style={{ fontSize: 22, lineHeight: 1.4, color: L.ink, fontStyle: "italic", fontWeight: 400 }}>
                     The business already in the room when the work begins.
@@ -491,24 +491,25 @@ export default function Philosophy() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <SectionMark n="III." label="On Patterns" />
+              <SectionMark n="III." label="On Coherence" />
             </div>
             <div className="col-span-12 lg:col-span-9">
-              <SectionTitle>Every business leaves patterns behind.</SectionTitle>
+              <SectionTitle>A brand is a system, not a stack of outputs.</SectionTitle>
               <Lede>
-                The way you describe your customer at 11pm on a Tuesday. The phrase you keep
-                returning to. The category you keep refusing.
+                When every workflow runs in isolation, the brand drifts — quietly, in every
+                handoff, in every channel.
               </Lede>
               <Body>
-                Founders do not realize how much of their strategy is hidden inside the way they
-                talk. The repeated objections. The unconscious vocabulary. The sentence that ends
-                three different conversations the same way. These are not asides. They are the raw
-                material of brand.
+                Founders rarely lose their brand in a single decision. They lose it in the spaces
+                between tools. The deck contradicts the landing page. The campaign forgets the
+                positioning. The new template feels generic because the system that produced it
+                never met the audience. Each output, on its own, looks reasonable. Together, they
+                describe a slightly different business each time.
               </Body>
               <Body>
-                A thinking partner that pays attention will notice them. A system worth keeping will
-                hold onto them. Over weeks, the picture sharpens — not because anyone was forced to
-                fill in a form, but because the conversation itself was finally treated as evidence.
+                Coherence is not a content problem. It is an architecture problem. A workspace that
+                holds one shared business context across every workflow makes consistency a
+                property of the system, not a discipline imposed by the founder after the fact.
               </Body>
 
               <MemoryDiagram />
@@ -529,9 +530,8 @@ export default function Philosophy() {
             paddingBottom: "clamp(72px, 9vh, 112px)",
           }}
         >
-          <PullQuote attribution="On founder conversations">
-            The strategy was already there. It had been hiding inside the way she described her
-            own customers.
+          <PullQuote attribution="On the integration layer">
+            Founders should not have to rebuild business context every time they switch tools.
           </PullQuote>
         </div>
       </section>
@@ -551,23 +551,24 @@ export default function Philosophy() {
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-9">
               <SectionMark n="IV." label="On Compounding" />
-              <SectionTitle>Understanding, like capital, compounds.</SectionTitle>
+              <SectionTitle>Connected context compounds. Disconnected work resets.</SectionTitle>
               <Body>
-                Most software flatlines. Day one feels identical to day three hundred. You learn the
-                shortcuts; the system learns nothing. Whatever insight you brought into the tool
-                walks out with you when you close the tab.
+                Most software flatlines. Day one feels identical to day three hundred, because
+                each session begins on an empty canvas. Whatever the founder taught the tool walks
+                out with them when the tab closes.
               </Body>
               <Body>
-                We wanted a different curve. The longer a founder spends inside Kinika, the more it
-                should feel like the workspace is keeping pace with the business — not from
-                cleverness, but from accumulation. A second campaign should be sharper than the
-                first because the first one happened. A pitch deck written in March should benefit
-                from a conversation that happened in January. Nothing is one-off.
+                A connected workspace behaves differently. The longer a founder works inside one
+                shared business context, the more every new workflow inherits — positioning,
+                audience, voice, prior decisions, the things that worked and the things that
+                didn't. A second campaign is sharper than the first because the first one happened.
+                A document written in March benefits from a brief written in January. Nothing is
+                one-off, because nothing is isolated.
               </Body>
               <Body>
                 The result is a quiet kind of alignment. Voice does not drift between channels.
                 Audience does not contradict itself between decks. The brand stops being a thing
-                you defend and starts being a thing the system protects on your behalf.
+                the founder defends manually and starts being a property of the system itself.
               </Body>
             </div>
 
@@ -594,7 +595,8 @@ export default function Philosophy() {
                   className="pf"
                   style={{ fontSize: 18, lineHeight: 1.55, color: L.inkSoft, fontStyle: "italic" }}
                 >
-                  Memory is the only feature that gets cheaper to maintain the longer you keep it.
+                  A connected business context is the only layer in the stack that gets more
+                  valuable the longer it runs.
                 </p>
               </div>
             </aside>
@@ -626,28 +628,26 @@ export default function Philosophy() {
                 the only thing in the room holding everything together.
               </Lede>
               <Body>
-                The first version of Kinika was not a product. It was a private notebook kept by a
-                founder who had grown tired of explaining her business to machines that immediately
-                forgot it. She built a small system to do the remembering for her — a place where
-                her positioning, her customer interviews, her half-finished campaigns, and her
-                stubborn opinions could finally live in the same room.
+                The first version of Kinika was not a product. It was a private operating layer
+                built by a founder who had grown tired of being the connective tissue between her
+                own tools — re-explaining the business in every brief, reconciling outputs that
+                quietly contradicted each other, carrying positioning by hand from one workflow to
+                the next.
               </Body>
               <Body>
-                Within a few weeks the notebook had become indispensable. Within a few months it
-                had become opinionated. It noticed when her tone drifted. It surfaced an old
-                customer quote at exactly the moment a new landing page needed it. It was not
-                magical. It was simply paying attention — which, for software, turned out to be
-                rare enough to feel like a discovery.
+                The fix turned out to be structural, not creative. One shared business context.
+                Positioning, audience, voice, prior decisions and creative work, all sitting in the
+                same room. The individual workflows did not need to be more powerful. They needed
+                to stop working alone.
               </Body>
               <Body>
-                Kinika is the version of that notebook we wanted other founders to have. A
-                workspace built on the suspicion that the real intelligence in a business has
-                always been the founder's own — and the only reasonable job of the software is to
-                keep it, sharpen it, and hand it back at the right moment.
+                Kinika is the version of that layer we wanted other founders to have. A unified
+                business context across every creative workflow — so the brand stays coherent by
+                default, not by discipline.
               </Body>
               <Body>
-                We are not building another tool. We are building a place where understanding
-                accumulates. A studio that grows alongside the founder, instead of underneath them.
+                We are not building another tool. We are building the connective layer the modern
+                founder has been quietly providing for free.
               </Body>
             </div>
           </div>
