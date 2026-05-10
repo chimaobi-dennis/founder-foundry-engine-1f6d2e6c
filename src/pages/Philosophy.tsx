@@ -345,30 +345,30 @@ export default function Philosophy() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <SectionMark n="I." label="The Forgetting" />
+              <SectionMark n="I." label="The Fragmentation" />
             </div>
             <div className="col-span-12 lg:col-span-9">
-              <SectionTitle>The most powerful tools we've ever built can't remember us.</SectionTitle>
+              <SectionTitle>Modern creative work is fragmented at the level of understanding.</SectionTitle>
               <Lede>
-                A founder opens twelve tabs. Each one is a stranger. Each one asks the same question.
+                A founder runs a single business across a dozen disconnected systems. None of them know that.
               </Lede>
-              <FirstLetter letter="W">
-                e have, in the last three years, granted millions of small businesses access to
-                machines that can write, design, plan, and persuade at a near-professional level.
-                And yet the people using them describe the same fatigue, in nearly identical
-                language: <em>I feel like I'm starting from zero, every single day.</em>
+              <FirstLetter letter="T">
+                he modern founder operates a different tool for design, content, planning,
+                documents, campaigns, scheduling and creative production. Each one is competent
+                inside its own surface. None of them understand the business they are working on.
+                Strategy lives in one window, voice in another, audience somewhere else entirely —
+                and the only thing connecting them is the founder, holding the thread by hand.
               </FirstLetter>
               <Body>
-                The intelligence is real. The amnesia is the problem. A founder spends her morning
-                explaining her audience to a chatbot, her positioning to an image generator, her
-                tone of voice to a copy tool, and her product story to a deck builder. By lunch, she
-                has briefed four different machines on the same business — and not one of them will
-                remember her tomorrow.
+                The result is a quiet operational tax. Positioning gets re-explained at the start
+                of every task. Audience gets re-described in every brief. Tone gets approximated
+                from memory. The same context is rebuilt, manually, every time the founder switches
+                surfaces — and a small amount of the brand is lost in the handoff each time.
               </Body>
               <Body>
-                What looks like productivity is, on closer inspection, a slow leak. The most
-                strategically valuable thing a founder owns — her understanding of her own business
-                — is being poured, over and over again, into systems built to discard it.
+                What looks like a productivity stack is, in practice, a set of isolated workflows
+                with the founder acting as the integration layer. The tools are not weak. They are
+                simply working alone — on a business none of them have ever met.
               </Body>
             </div>
           </div>
