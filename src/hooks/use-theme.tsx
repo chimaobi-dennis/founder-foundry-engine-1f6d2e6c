@@ -7,12 +7,16 @@ interface ThemeContextType {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ theme: "dark", toggleTheme: () => {} });
+const ThemeContext = createContext<ThemeContextType>({ theme: "light", toggleTheme: () => {} });
+
+const THEME_KEY = "theme-v2";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem("theme");
-    return (stored === "light" || stored === "dark") ? stored : "dark";
+    // Clean up legacy key so existing users get the new light default
+    if (typeof localStorage !== "undefined") localStorage.removeItem("theme");
+    const stored = localStorage.getItem(THEME_KEY);
+    return (stored === "light" || stored === "dark") ? stored : "light";
   });
 
   useEffect(() => {
@@ -22,7 +26,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       root.classList.remove("dark");
     }
-    localStorage.setItem("theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
