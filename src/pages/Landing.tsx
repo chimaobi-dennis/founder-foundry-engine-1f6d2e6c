@@ -1380,7 +1380,7 @@ export default function Landing() {
                 letterSpacing: "0.01em",
               }}
             >
-              Enter Kinika
+              Start
             </Link>
           </div>
         </div>
