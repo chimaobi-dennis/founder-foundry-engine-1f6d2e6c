@@ -81,7 +81,7 @@ export default function SignUp() {
         ) : (
           <>
             <div className="text-center mb-6">
-              <h1 className="font-display text-[28px] text-primary">FounderForge</h1>
+              <h1 className="font-display text-[28px] text-primary">Kinika</h1>
               <p className="font-ui text-[13px] text-muted-foreground mt-1">Your AI brand partner</p>
             </div>
             <h2 className="font-display text-[22px] text-foreground mb-5">Create your account</h2>
