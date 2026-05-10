@@ -643,10 +643,10 @@ export default function System() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-5">
-              <SectionMark n="II." label="Mentor — The Mouth" />
+              <SectionMark n="II." label="Kinika — The Mouth" />
               <SectionTitle>Conversation is the input.</SectionTitle>
               <Body>
-                Mentor is one continuous conversation per brand — not a thread you have to
+                Kinika is one continuous conversation per brand — not a thread you have to
                 manage, but a thinking partner that picks up where you left off. There are no
                 onboarding forms, because the conversation <em>is</em> the onboarding. There is no
                 separate "settings" screen for your brand, because the brand is being assembled
