@@ -37,7 +37,7 @@ const MODULES = [
 ];
 
 const PROBLEMS = [
-  { n: "01", title: "Tools that don't talk", body: "Canva, ChatGPT, Notion, Buffer — each one capable, none of them aware of the others. Your business lives in fragments." },
+  { n: "01", title: "Tools that don't talk", body: "A different surface for design, content, planning and documents — each one capable on its own, none of them aware of the others. Your business lives in fragments." },
   { n: "02", title: "Re-explaining everything", body: "You paste positioning, audience and tone into every new tab. The context resets the moment you switch surfaces." },
   { n: "03", title: "Generic, off-brand outputs", body: "Without shared understanding, every tool defaults to a template built for someone else. You spend the day correcting it back to you." },
 ];
