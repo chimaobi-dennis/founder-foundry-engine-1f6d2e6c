@@ -491,24 +491,25 @@ export default function Philosophy() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <SectionMark n="III." label="On Patterns" />
+              <SectionMark n="III." label="On Coherence" />
             </div>
             <div className="col-span-12 lg:col-span-9">
-              <SectionTitle>Every business leaves patterns behind.</SectionTitle>
+              <SectionTitle>A brand is a system, not a stack of outputs.</SectionTitle>
               <Lede>
-                The way you describe your customer at 11pm on a Tuesday. The phrase you keep
-                returning to. The category you keep refusing.
+                When every workflow runs in isolation, the brand drifts — quietly, in every
+                handoff, in every channel.
               </Lede>
               <Body>
-                Founders do not realize how much of their strategy is hidden inside the way they
-                talk. The repeated objections. The unconscious vocabulary. The sentence that ends
-                three different conversations the same way. These are not asides. They are the raw
-                material of brand.
+                Founders rarely lose their brand in a single decision. They lose it in the spaces
+                between tools. The deck contradicts the landing page. The campaign forgets the
+                positioning. The new template feels generic because the system that produced it
+                never met the audience. Each output, on its own, looks reasonable. Together, they
+                describe a slightly different business each time.
               </Body>
               <Body>
-                A thinking partner that pays attention will notice them. A system worth keeping will
-                hold onto them. Over weeks, the picture sharpens — not because anyone was forced to
-                fill in a form, but because the conversation itself was finally treated as evidence.
+                Coherence is not a content problem. It is an architecture problem. A workspace that
+                holds one shared business context across every workflow makes consistency a
+                property of the system, not a discipline imposed by the founder after the fact.
               </Body>
 
               <MemoryDiagram />
