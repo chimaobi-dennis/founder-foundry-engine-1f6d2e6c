@@ -408,23 +408,24 @@ export default function Philosophy() {
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-9 lg:col-start-4">
               <SectionMark n="II." label="On Context" />
-              <SectionTitle>A prompt is a sentence. Context is a worldview.</SectionTitle>
+              <SectionTitle>A brief is a sentence. Context is a worldview.</SectionTitle>
               <Body>
-                The industry has spent two years teaching founders to write better prompts. It is
-                the wrong lesson. A prompt is the smallest possible unit of intent — a postcard
-                shouted into a stadium. Better postcards do not solve the problem. The stadium does
-                not know who you are.
+                Most creative tools begin from zero. A blank brief, a fresh prompt, a new project
+                — and an implicit assumption that the founder will, once again, supply everything
+                the tool needs to know about the business. Better briefs do not solve this. The
+                problem is structural: the tool has no idea who you are, and no way to find out
+                that survives the session.
               </Body>
               <Body>
-                Generic prompts produce generic brands because generic intelligence has no choice.
-                Without your audience, your competitors, your taste, your prior decisions, your
-                objections, your story — the model is forced to average. And what is averaged is, by
+                Generic input produces generic output because isolated tools have no choice. Without
+                your audience, your competitors, your taste, your prior decisions, your objections,
+                your story — any system is forced to average. And what is averaged is, by
                 definition, not yours.
               </Body>
               <Body>
-                Context is the difference between an assistant who hands you a template and a
-                colleague who hands you the version they know you wanted. We are not interested in
-                the first. We are building toward the second.
+                Context is the difference between a workflow that asks you to start over and a
+                workspace that already knows what the brand is for. We are not interested in the
+                first. We are building toward the second.
               </Body>
 
               {/* Inline asymmetric framing */}
@@ -443,7 +444,7 @@ export default function Philosophy() {
                       marginBottom: 10,
                     }}
                   >
-                    Prompting
+                    Disconnected
                   </p>
                   <p className="pf" style={{ fontSize: 22, lineHeight: 1.4, color: L.ink, fontStyle: "italic", fontWeight: 400 }}>
                     Re-explaining the business at the start of every task.
@@ -463,7 +464,7 @@ export default function Philosophy() {
                       marginBottom: 10,
                     }}
                   >
-                    Context
+                    Connected
                   </p>
                   <p className="pf" style={{ fontSize: 22, lineHeight: 1.4, color: L.ink, fontStyle: "italic", fontWeight: 400 }}>
                     The business already in the room when the work begins.
