@@ -1602,7 +1602,7 @@ export default function Landing() {
                 color: L.inkSoft, fontSize: "clamp(15px, 1.2vw, 17px)",
                 lineHeight: 1.65, maxWidth: "42ch",
               }}>
-                Canva for graphics. ChatGPT for copy. Notion for docs. Buffer for scheduling. Separate tools for scripts, contracts, planning and campaigns. Each one capable on its own — none of them aware of your business as a whole.
+                A different tool for design. Another for content. Another for planning. Another for documents. Separate surfaces for scripts, contracts and campaigns. Each one capable on its own — none of them aware of your business as a whole.
               </p>
 
               <p style={{
