@@ -551,23 +551,24 @@ export default function Philosophy() {
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-9">
               <SectionMark n="IV." label="On Compounding" />
-              <SectionTitle>Understanding, like capital, compounds.</SectionTitle>
+              <SectionTitle>Connected context compounds. Disconnected work resets.</SectionTitle>
               <Body>
-                Most software flatlines. Day one feels identical to day three hundred. You learn the
-                shortcuts; the system learns nothing. Whatever insight you brought into the tool
-                walks out with you when you close the tab.
+                Most software flatlines. Day one feels identical to day three hundred, because
+                each session begins on an empty canvas. Whatever the founder taught the tool walks
+                out with them when the tab closes.
               </Body>
               <Body>
-                We wanted a different curve. The longer a founder spends inside Kinika, the more it
-                should feel like the workspace is keeping pace with the business — not from
-                cleverness, but from accumulation. A second campaign should be sharper than the
-                first because the first one happened. A pitch deck written in March should benefit
-                from a conversation that happened in January. Nothing is one-off.
+                A connected workspace behaves differently. The longer a founder works inside one
+                shared business context, the more every new workflow inherits — positioning,
+                audience, voice, prior decisions, the things that worked and the things that
+                didn't. A second campaign is sharper than the first because the first one happened.
+                A document written in March benefits from a brief written in January. Nothing is
+                one-off, because nothing is isolated.
               </Body>
               <Body>
                 The result is a quiet kind of alignment. Voice does not drift between channels.
                 Audience does not contradict itself between decks. The brand stops being a thing
-                you defend and starts being a thing the system protects on your behalf.
+                the founder defends manually and starts being a property of the system itself.
               </Body>
             </div>
 
@@ -594,7 +595,8 @@ export default function Philosophy() {
                   className="pf"
                   style={{ fontSize: 18, lineHeight: 1.55, color: L.inkSoft, fontStyle: "italic" }}
                 >
-                  Memory is the only feature that gets cheaper to maintain the longer you keep it.
+                  A connected business context is the only layer in the stack that gets more
+                  valuable the longer it runs.
                 </p>
               </div>
             </aside>
