@@ -86,14 +86,15 @@ function CoreFlowDiagram() {
       <svg
         viewBox="0 0 1200 280"
         width="100%"
-        style={{ display: "block", maxWidth: 1200 }}
+        style={{ display: "block", maxWidth: 1200, overflow: "visible" }}
+        preserveAspectRatio="xMidYMid meet"
         aria-hidden
       >
         {/* horizontal editorial spine */}
-        <line x1="80" y1="140" x2="1120" y2="140" stroke={L.rule} strokeWidth="1" />
+        <line x1="160" y1="140" x2="1040" y2="140" stroke={L.rule} strokeWidth="1" />
 
         {stops.map((s, i) => {
-          const x = 80 + i * (1040 / 3);
+          const x = 160 + i * (880 / 3);
           const isLast = i === stops.length - 1;
           return (
             <g key={s.label}>
@@ -144,7 +145,7 @@ function CoreFlowDiagram() {
 
         {/* feedback loop — thin returning line, "every output strengthens memory" */}
         <path
-          d="M 1120,140 C 1180,140 1180,40 1100,40 L 100,40 C 60,40 60,140 80,140"
+          d="M 1040,140 C 1100,140 1100,40 1020,40 L 180,40 C 100,40 100,140 160,140"
           fill="none"
           stroke={L.amber}
           strokeWidth="0.8"
