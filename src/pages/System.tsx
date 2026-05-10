@@ -666,9 +666,9 @@ export default function System() {
               <div style={{ borderTop: `1px solid ${L.rule}` }}>
                 {[
                   { who: "Founder", line: "I keep saying \"approachable\" but I think I mean \"unintimidating\"." },
-                  { who: "Mentor", line: "You've used the word three times this month. Each time about pricing pages. Worth noting." },
+                  { who: "Kinika", line: "You've used the word three times this month. Each time about pricing pages. Worth noting." },
                   { who: "Founder", line: "Maybe that's the positioning." },
-                  { who: "Mentor", line: "I'll add it to your Brand DNA as a working hypothesis. We can sharpen it later." },
+                  { who: "Kinika", line: "I'll add it to your Brand DNA as a working hypothesis. We can sharpen it later." },
                 ].map((row, i) => (
                   <div
                     key={i}
