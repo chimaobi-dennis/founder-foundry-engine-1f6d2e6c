@@ -201,9 +201,10 @@ function LayeredContextDiagram() {
       }}
     >
       <svg
-        viewBox="0 0 900 360"
+        viewBox="0 0 1040 360"
         width="100%"
-        style={{ display: "block", maxWidth: 900, margin: "0 auto" }}
+        style={{ display: "block", maxWidth: 1040, margin: "0 auto", overflow: "visible" }}
+        preserveAspectRatio="xMidYMid meet"
         aria-hidden
       >
         {/* Stacked translucent strata — like geological layers of memory */}
