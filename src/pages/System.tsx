@@ -145,7 +145,7 @@ function CoreFlowDiagram() {
 
         {/* feedback loop — thin returning line, "every output strengthens memory" */}
         <path
-          d="M 1120,140 C 1180,140 1180,40 1100,40 L 100,40 C 60,40 60,140 80,140"
+          d="M 1040,140 C 1100,140 1100,40 1020,40 L 180,40 C 100,40 100,140 160,140"
           fill="none"
           stroke={L.amber}
           strokeWidth="0.8"
