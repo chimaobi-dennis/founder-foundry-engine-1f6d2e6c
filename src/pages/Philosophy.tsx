@@ -387,9 +387,8 @@ export default function Philosophy() {
             paddingBottom: "clamp(72px, 9vh, 112px)",
           }}
         >
-          <PullQuote attribution="On the cost of starting over">
-            We mistook fluency for understanding. The machine spoke beautifully and remembered
-            nothing.
+          <PullQuote attribution="On disconnected workflows">
+            The problem was never that the tools were weak. It was that they were working alone.
           </PullQuote>
         </div>
       </section>
