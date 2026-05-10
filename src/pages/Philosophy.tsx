@@ -530,9 +530,8 @@ export default function Philosophy() {
             paddingBottom: "clamp(72px, 9vh, 112px)",
           }}
         >
-          <PullQuote attribution="On founder conversations">
-            The strategy was already there. It had been hiding inside the way she described her
-            own customers.
+          <PullQuote attribution="On the integration layer">
+            Founders should not have to rebuild business context every time they switch tools.
           </PullQuote>
         </div>
       </section>
