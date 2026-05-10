@@ -43,7 +43,7 @@ export default function SignIn() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-[90%] max-w-[420px] rounded-2xl border-[0.5px] border-[#2A3A4A] dark:bg-[#1A2A3A] bg-white p-10">
         <div className="text-center mb-6">
-          <h1 className="font-display text-[28px] text-primary">FounderForge</h1>
+          <h1 className="font-display text-[28px] text-primary">Kinika</h1>
           <p className="font-ui text-[13px] text-muted-foreground mt-1">Your AI brand partner</p>
         </div>
         <h2 className="font-display text-[22px] text-foreground mb-5">Welcome back</h2>

@@ -76,7 +76,7 @@ export function AdminLayout() {
             ADMIN MODE
           </span>
           <span className="text-sm font-ui font-medium" style={{ color: "#8A96A3" }}>
-            FounderForge Admin
+            Kinika Admin
           </span>
         </div>
         <div className="flex items-center gap-3">
