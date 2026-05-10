@@ -45,6 +45,7 @@ export function EditorialNav() {
         <Link to="/" className="pf flex items-baseline gap-2 min-w-0" style={{ color: L.ink }}>
           <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.01em" }}>Kinika</span>
           <span
+            className="truncate"
             style={{
               fontSize: 11,
               color: L.inkMuted,
@@ -52,7 +53,6 @@ export function EditorialNav() {
               textTransform: "uppercase",
               fontFamily: "'DM Sans', sans-serif",
             }}
-            className="hidden md:inline"
           >
             — Brand Intelligence
           </span>
