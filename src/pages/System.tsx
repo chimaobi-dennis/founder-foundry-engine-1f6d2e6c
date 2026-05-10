@@ -470,9 +470,10 @@ function CompoundingDiagram() {
   return (
     <figure style={{ padding: "clamp(24px, 4vw, 48px) 0" }}>
       <svg
-        viewBox="0 0 900 280"
+        viewBox="0 0 1060 280"
         width="100%"
-        style={{ display: "block", maxWidth: 900, margin: "0 auto" }}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ display: "block", maxWidth: 1060, margin: "0 auto", overflow: "visible" }}
         aria-hidden
       >
         {/* axes */}
