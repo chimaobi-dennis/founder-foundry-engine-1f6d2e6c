@@ -286,7 +286,7 @@ export default function Philosophy() {
                   letterSpacing: "-0.035em",
                 }}
               >
-                AI forgot the founder.
+                The tools work. The system doesn't.
               </h1>
             </div>
             <aside className="col-span-12 lg:col-span-4 lg:pt-24">
