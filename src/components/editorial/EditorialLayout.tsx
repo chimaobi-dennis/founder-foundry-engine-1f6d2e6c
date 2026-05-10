@@ -41,8 +41,8 @@ export function EditorialNav() {
         borderBottom: scrolled ? `1px solid ${L.rule}` : "1px solid transparent",
       }}
     >
-      <div className="max-w-[1320px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between">
-        <Link to="/" className="pf flex items-baseline gap-2" style={{ color: L.ink }}>
+      <div className="max-w-[1320px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between gap-6">
+        <Link to="/" className="pf flex items-baseline gap-2 min-w-0" style={{ color: L.ink }}>
           <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.01em" }}>Kinika</span>
           <span
             style={{
@@ -58,7 +58,7 @@ export function EditorialNav() {
           </span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-8 flex-shrink-0">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
@@ -81,7 +81,7 @@ export function EditorialNav() {
 
         <Link
           to="/sign-up"
-          className="inline-flex items-center text-sm font-medium transition-all hover:-translate-y-px"
+          className="inline-flex items-center text-sm font-medium transition-all hover:-translate-y-px flex-shrink-0 whitespace-nowrap"
           style={{
             background: L.ink,
             color: L.paper,
