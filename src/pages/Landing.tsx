@@ -1470,7 +1470,7 @@ export default function Landing() {
                   fontWeight: 400,
                 }}
               >
-                Founders run their business across a dozen disconnected tools — Canva, ChatGPT, Notion, Buffer — each one smart on its own, none of them aware of the others. Kinika is the shared business context layer that connects every workflow, so your positioning, audience and voice carry through everything you create.
+                Founders run their business across a dozen disconnected tools — each one powerful on its own, none of them aware of the others. Kinika is the shared business context layer that connects every workflow, so your positioning, audience and voice carry through everything you create.
               </p>
 
               <div className="fade-up-2 flex flex-wrap items-center gap-4" style={{ marginTop: 40 }}>
