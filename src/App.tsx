@@ -36,6 +36,7 @@ import SettingsAIModels from "./pages/SettingsAIModels";
 import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
+import ForgotPassword from "./pages/ForgotPassword";
 import Onboarding from "./pages/Onboarding";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
@@ -55,7 +56,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
   const location = useLocation();
-  const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up";
+  const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up" || location.pathname === "/forgot-password";
   const isOnboarding = location.pathname === "/onboarding";
   const editorialPaths = ["/", "/philosophy", "/system", "/journal", "/pricing", "/memory", "/journey"];
   const isLanding = editorialPaths.includes(location.pathname);
@@ -110,6 +111,7 @@ const App = () => (
                       <Route path="/journey" element={<Journey />} />
                       <Route path="/sign-up" element={<SignUp />} />
                       <Route path="/sign-in" element={<SignIn />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
                       <Route path="/onboarding" element={<Onboarding />} />
                       {/* Admin shell — separate layout */}
                       <Route path="/admin" element={<AdminLayout />}>
