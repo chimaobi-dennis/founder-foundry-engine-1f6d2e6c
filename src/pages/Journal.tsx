@@ -5,71 +5,70 @@ import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/E
 /* ── Data ───────────────────────────────────────────────────────────────── */
 
 const FEATURED = {
-  category: "Field Notes",
-  no: "No. 12",
-  title: "On the patience of memory.",
-  dek: "We spent eighteen months removing every onboarding form from Kinika. What replaced them was a quieter assumption: the conversation itself was the brief, and we just had to learn how to listen.",
+  category: "Workflow",
+  title: "Why founders keep re-explaining their business to every new tool.",
+  dek: "Most creative AI tools start from zero every session. The founder becomes the connective tissue — copying brand details, pasting positioning, restating audience. This is the operational tax of fragmented systems, and it compounds quietly.",
   author: "Kinika Team",
   date: "March 2026",
   read: "9 min",
 };
 
 const OPENING_NOTE = {
-  title: "Why we write here.",
+  title: "What we write about, and why.",
   body: [
-    "Most product blogs are growth marketing in disguise. We didn't want one of those. We wanted a place to think out loud about the problems Kinika is trying to solve — founder context, persistent memory, AI that actually understands a business.",
-    "The pieces here are written for the kind of founder we build for: someone who measures their work in years, not sprints.",
-    "Read in any order. We update when we have something worth saying.",
+    "Modern founders don't have a tool problem. They have a coordination problem. Copy lives in one app, visuals in another, planning in a third, and the connective logic — what the brand actually is — lives only in the founder's head.",
+    "We write about that gap: how fragmented creative systems produce fragmented brands, how context outperforms prompting, and what changes when business knowledge becomes a layer rather than a memory exercise.",
+    "Pieces are short, practical, and meant for founders who run their own creative operations.",
   ],
 };
 
 const SECTIONS = [
   {
     code: "I.",
-    name: "Field Notes",
-    intent: "Short pieces on craft, context, and the discipline of paying attention.",
+    name: "Founder Workflows",
+    intent: "How small teams actually run creative operations — and where the day quietly leaks away.",
     items: [
-      { no: "No. 11", title: "The blank page is a bug.", date: "Feb 2026", read: "5 min", author: "Kinika Team" },
-      { no: "No. 09", title: "Against the prompt.", date: "Feb 2026", read: "6 min", author: "Kinika Team" },
-      { no: "No. 06", title: "Why we stopped saying 'AI'.", date: "Jan 2026", read: "4 min", author: "Kinika Team" },
+      { title: "The hidden cost of copy-pasting your brand.", date: "Feb 2026", read: "5 min", author: "Kinika Team" },
+      { title: "One founder, seven tools, no shared memory.", date: "Feb 2026", read: "6 min", author: "Kinika Team" },
+      { title: "Why creative work breaks at the handoffs.", date: "Jan 2026", read: "4 min", author: "Kinika Team" },
     ],
   },
   {
     code: "II.",
-    name: "Founder Stories",
-    intent: "Long-form portraits of the founders we build alongside. Decisions, doubts, second drafts.",
+    name: "Business Context",
+    intent: "Treating what your business is — voice, audience, positioning — as infrastructure, not a brief.",
     items: [
-      { no: "No. 10", title: "How Nordform stopped re-explaining itself.", date: "Feb 2026", read: "7 min", author: "Interview — Anna L." },
-      { no: "No. 08", title: "Sthlm Studio, six months in.", date: "Jan 2026", read: "8 min", author: "Interview — Erik R." },
+      { title: "Context beats prompting.", date: "Feb 2026", read: "7 min", author: "Kinika Team" },
+      { title: "What a business context layer actually contains.", date: "Jan 2026", read: "8 min", author: "Kinika Team" },
     ],
   },
   {
     code: "III.",
-    name: "On Brand",
-    intent: "Pieces on positioning, voice, and the slow work of becoming recognisable.",
+    name: "Brand Consistency",
+    intent: "Why outputs drift across channels, and what it takes to make a brand recognisable at scale.",
     items: [
-      { no: "No. 07", title: "Voice is not a tone slider.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
-      { no: "No. 05", title: "What a logo cannot say.", date: "Jan 2026", read: "5 min", author: "Kinika Team" },
-      { no: "No. 03", title: "On taste, and where it lives.", date: "Dec 2025", read: "7 min", author: "Kinika Team" },
+      { title: "Brand drift is a systems problem.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
+      { title: "Voice isn't a tone slider — it's a constraint set.", date: "Jan 2026", read: "5 min", author: "Kinika Team" },
+      { title: "Consistency is what compounds.", date: "Dec 2025", read: "7 min", author: "Kinika Team" },
     ],
   },
   {
     code: "IV.",
-    name: "Product Notes",
-    intent: "What we've shipped, what we've removed, what we've learned building Kinika.",
+    name: "AI Workflow Design",
+    intent: "What changes when AI tools share a single source of truth about the business.",
     items: [
-      { no: "No. 04", title: "Brand DNA, year one.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
-      { no: "No. 02", title: "Twelve forms we removed this season.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
-      { no: "No. 01", title: "A workspace that remembers.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
+      { title: "Designing AI around context, not chat.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
+      { title: "Removing the brief: what we replaced it with.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
+      { title: "A connected workspace for solo founders.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
     ],
   },
 ];
 
 const READING_LIST = [
-  "On the patience of memory",
-  "Against the prompt",
-  "Voice is not a tone slider",
-  "How Nordform stopped re-explaining itself",
+  "Why founders keep re-explaining their business",
+  "Context beats prompting",
+  "Brand drift is a systems problem",
+  "Designing AI around context, not chat",
 ];
 
 /* ── Small primitives ───────────────────────────────────────────────────── */
@@ -97,7 +96,7 @@ function ArticleMeta({ date, read, author }: { date: string; read: string; autho
       <span style={{ width: 4, height: 1, background: L.rule }} />
       <span style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.14em", textTransform: "uppercase" }}>{read}</span>
       <span style={{ width: 4, height: 1, background: L.rule }} />
-      <span className="pf" style={{ fontSize: 12, color: L.inkMuted, fontStyle: "italic" }}>by {author}</span>
+      <span className="pf" style={{ fontSize: 12, color: L.inkMuted, fontStyle: "italic" }}>{author}</span>
     </div>
   );
 }
@@ -110,7 +109,7 @@ export default function Journal() {
       {/* ── Cover spread ────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
         <Container>
-          <PageMeta issue="Kinika" section="Notes" date="Writing from the team" />
+          <PageMeta issue="Kinika" section="Writing" date="From the team" />
 
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-8">
@@ -134,10 +133,10 @@ export default function Journal() {
                   lineHeight: 0.94,
                   fontWeight: 500,
                   letterSpacing: "-0.035em",
-                  maxWidth: "14ch",
+                  maxWidth: "16ch",
                 }}
               >
-                Notes on memory, brand, and building.
+                Notes on founder workflows and connected systems.
               </h1>
             </div>
 
@@ -156,12 +155,12 @@ export default function Journal() {
                     marginBottom: 14,
                   }}
                 >
-                  About this section
+                  About this writing
                 </p>
                 <p className="pf" style={{ fontSize: 17, lineHeight: 1.6, color: L.inkSoft, fontStyle: "italic" }}>
-                  Pieces on the problems Kinika is built around — founder
-                  context, persistent memory, and AI that understands a
-                  business over time.
+                  Pieces on the operational reality of running creative
+                  work as a founder — fragmented tools, scattered context,
+                  and what changes when the system holds it together.
                 </p>
               </div>
             </aside>
@@ -191,12 +190,13 @@ export default function Journal() {
                 style={{
                   marginTop: 20,
                   fontStyle: "italic",
-                  fontSize: 28,
+                  fontSize: 22,
                   color: L.amber,
                   letterSpacing: "0.01em",
+                  lineHeight: 1.3,
                 }}
               >
-                {FEATURED.no}
+                The operational tax of fragmented tools.
               </p>
               <div style={{ height: 1, background: L.rule, margin: "32px 0", width: 56 }} />
               <ArticleMeta date={FEATURED.date} read={FEATURED.read} author={FEATURED.author} />
@@ -212,7 +212,7 @@ export default function Journal() {
                   fontWeight: 500,
                   letterSpacing: "-0.03em",
                   marginBottom: 32,
-                  maxWidth: "16ch",
+                  maxWidth: "18ch",
                 }}
               >
                 {FEATURED.title}
@@ -225,7 +225,7 @@ export default function Journal() {
                   color: L.inkSoft,
                   fontStyle: "italic",
                   fontWeight: 400,
-                  maxWidth: "44ch",
+                  maxWidth: "48ch",
                   marginBottom: 40,
                 }}
               >
@@ -244,7 +244,7 @@ export default function Journal() {
                   paddingBottom: 4,
                 }}
               >
-                Read the essay
+                Read the piece
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
               </a>
             </div>
@@ -266,7 +266,7 @@ export default function Journal() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <CategoryTag>About this section</CategoryTag>
+              <CategoryTag>Orientation</CategoryTag>
               <p
                 className="pf"
                 style={{
@@ -290,7 +290,7 @@ export default function Journal() {
                   fontWeight: 500,
                   letterSpacing: "-0.02em",
                   marginBottom: 36,
-                  maxWidth: "22ch",
+                  maxWidth: "24ch",
                 }}
               >
                 {OPENING_NOTE.title}
@@ -326,7 +326,7 @@ export default function Journal() {
         </div>
       </section>
 
-      {/* ── Sectioned archive (publication grid) ────────────────────────── */}
+      {/* ── Sectioned archive ───────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
         <div
           className="mx-auto"
@@ -341,7 +341,7 @@ export default function Journal() {
           {/* Section masthead */}
           <div className="grid grid-cols-12 gap-8 lg:gap-16" style={{ marginBottom: 80 }}>
             <div className="col-span-12 lg:col-span-9">
-              <CategoryTag>The Index</CategoryTag>
+              <CategoryTag>All writing</CategoryTag>
               <h2
                 className="pf"
                 style={{
@@ -351,20 +351,19 @@ export default function Journal() {
                   fontWeight: 500,
                   letterSpacing: "-0.025em",
                   marginTop: 20,
-                  maxWidth: "20ch",
+                  maxWidth: "22ch",
                 }}
               >
-                Four sections. Read in any order.
+                Four threads. Workflows, context, consistency, and AI design.
               </h2>
             </div>
             <aside className="col-span-12 lg:col-span-3 lg:pt-6">
               <p style={{ fontSize: 15, color: L.inkSoft, lineHeight: 1.7, fontStyle: "italic" }} className="pf">
-                Organised by theme rather than date.
+                Grouped by topic. Read in any order.
               </p>
             </aside>
           </div>
 
-          {/* Two-column publication layout */}
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             {/* Main column — sections */}
             <div className="col-span-12 lg:col-span-9">
@@ -377,7 +376,6 @@ export default function Journal() {
                     borderTop: sIdx === 0 ? "none" : `1px solid ${L.rule}`,
                   }}
                 >
-                  {/* Section header */}
                   <div className="grid grid-cols-12 gap-6" style={{ marginBottom: 48 }}>
                     <div className="col-span-12 sm:col-span-3">
                       <p
@@ -406,26 +404,20 @@ export default function Journal() {
                       </h3>
                     </div>
                     <div className="col-span-12 sm:col-span-9 sm:pt-2">
-                      <p className="pf" style={{ fontSize: 18, color: L.inkSoft, fontStyle: "italic", lineHeight: 1.55, maxWidth: "48ch" }}>
+                      <p className="pf" style={{ fontSize: 18, color: L.inkSoft, fontStyle: "italic", lineHeight: 1.55, maxWidth: "52ch" }}>
                         {section.intent}
                       </p>
                     </div>
                   </div>
 
-                  {/* Article rows */}
                   <ol style={{ listStyle: "none", padding: 0, margin: 0, borderTop: `1px solid ${L.rule}` }}>
                     {section.items.map((a) => (
                       <li
-                        key={a.no}
+                        key={a.title}
                         className="grid grid-cols-12 gap-4 lg:gap-8 py-8 group cursor-pointer"
                         style={{ borderBottom: `1px solid ${L.rule}` }}
                       >
-                        <div className="col-span-3 sm:col-span-2">
-                          <span className="pf" style={{ fontSize: 18, color: L.amber, fontStyle: "italic" }}>
-                            {a.no}
-                          </span>
-                        </div>
-                        <div className="col-span-9 sm:col-span-7">
+                        <div className="col-span-12 sm:col-span-9">
                           <h4
                             className="pf"
                             style={{
@@ -441,7 +433,7 @@ export default function Journal() {
                             {a.title}
                           </h4>
                           <span className="pf" style={{ fontSize: 13, color: L.inkMuted, fontStyle: "italic" }}>
-                            by {a.author}
+                            {a.author}
                           </span>
                         </div>
                         <div className="col-span-12 sm:col-span-3 sm:text-right flex sm:flex-col gap-3 sm:gap-1">
@@ -457,10 +449,9 @@ export default function Journal() {
               ))}
             </div>
 
-            {/* Sidebar — small contextual nav */}
+            {/* Sidebar */}
             <aside className="col-span-12 lg:col-span-3">
               <div className="lg:sticky lg:top-24 space-y-12">
-                {/* About */}
                 <div style={{ borderTop: `1px solid ${L.amber}`, paddingTop: 18 }}>
                   <CategoryTag>About</CategoryTag>
                   <p className="pf" style={{ fontSize: 18, color: L.ink, marginTop: 12, fontWeight: 500, letterSpacing: "-0.01em", lineHeight: 1.4 }}>
@@ -469,8 +460,8 @@ export default function Journal() {
                   <ul style={{ listStyle: "none", padding: 0, margin: "20px 0 0", display: "grid", gap: 6 }}>
                     {[
                       ["Last updated", "March 2026"],
-                      ["Pieces", "12"],
-                      ["Cadence", "Monthly-ish"],
+                      ["Pieces", "11"],
+                      ["Cadence", "Roughly monthly"],
                     ].map(([k, v]) => (
                       <li key={k} className="flex items-baseline justify-between" style={{ fontSize: 12, color: L.inkMuted }}>
                         <span style={{ letterSpacing: "0.14em", textTransform: "uppercase" }}>{k}</span>
@@ -480,9 +471,8 @@ export default function Journal() {
                   </ul>
                 </div>
 
-                {/* Reading list */}
                 <div style={{ borderTop: `1px solid ${L.rule}`, paddingTop: 18 }}>
-                  <CategoryTag>Where to start</CategoryTag>
+                  <CategoryTag>Start here</CategoryTag>
                   <ol style={{ listStyle: "none", padding: 0, margin: "16px 0 0", display: "grid", gap: 14 }}>
                     {READING_LIST.map((t, i) => (
                       <li key={t} className="flex gap-3" style={{ fontSize: 14, color: L.inkSoft, lineHeight: 1.4 }}>
@@ -495,14 +485,13 @@ export default function Journal() {
                   </ol>
                 </div>
 
-                {/* Subscribe */}
                 <div style={{ borderTop: `1px solid ${L.rule}`, paddingTop: 18 }}>
-                  <CategoryTag>Stay updated</CategoryTag>
+                  <CategoryTag>Get new pieces</CategoryTag>
                   <p className="pf" style={{ fontSize: 17, color: L.ink, fontStyle: "italic", marginTop: 12, lineHeight: 1.55 }}>
-                    Get new pieces by email.
+                    A short email when something new is published.
                   </p>
                   <p style={{ fontSize: 13, color: L.inkSoft, marginTop: 12, lineHeight: 1.65 }}>
-                    A short note when something new is published. No marketing.
+                    No marketing. No drip sequences. Just the writing.
                   </p>
                   <form
                     onSubmit={(e) => e.preventDefault()}
@@ -543,7 +532,7 @@ export default function Journal() {
         </div>
       </section>
 
-      {/* ── Inter-section quote spread ──────────────────────────────────── */}
+      {/* ── Pull quote ──────────────────────────────────────────────────── */}
       <section style={{ background: L.paperDeep, borderTop: `1px solid ${L.rule}`, borderBottom: `1px solid ${L.rule}` }}>
         <div
           className="mx-auto"
@@ -565,11 +554,12 @@ export default function Journal() {
                 fontStyle: "italic",
                 fontWeight: 400,
                 letterSpacing: "-0.02em",
-                maxWidth: "26ch",
+                maxWidth: "28ch",
               }}
             >
-              "The work of a brand is the work of being remembered correctly. Everything else is
-              decoration."
+              "A brand isn't inconsistent because the founder lacks taste.
+              It's inconsistent because the tools don't share what the
+              business is."
             </p>
             <p
               style={{
@@ -581,13 +571,13 @@ export default function Journal() {
                 fontWeight: 600,
               }}
             >
-              — From No. 07, "Voice is not a tone slider"
+              — From "Brand drift is a systems problem"
             </p>
           </aside>
         </div>
       </section>
 
-      {/* ── Closing colophon ────────────────────────────────────────────── */}
+      {/* ── Closing ─────────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
         <div
           className="mx-auto"
@@ -611,11 +601,11 @@ export default function Journal() {
                   fontStyle: "italic",
                   fontWeight: 400,
                   letterSpacing: "-0.015em",
-                  maxWidth: "28ch",
+                  maxWidth: "32ch",
                   marginBottom: 32,
                 }}
               >
-                More writing soon. In the meantime, the work continues inside Kinika.
+                More writing soon. The rest of the thinking shows up inside the product.
               </p>
               <Link
                 to="/system"
@@ -636,11 +626,12 @@ export default function Journal() {
             </div>
             <aside className="col-span-12 lg:col-span-5 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               <p style={{ fontSize: 10, letterSpacing: "0.26em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600, marginBottom: 14 }}>
-                About this section
+                About this writing
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                Notes from the team building Kinika — short pieces on memory,
-                brand, and AI that understands a business over time.
+                Notes from the team building Kinika — short pieces on
+                founder workflows, business context, and the systems
+                behind consistent creative output.
               </p>
             </aside>
           </div>
