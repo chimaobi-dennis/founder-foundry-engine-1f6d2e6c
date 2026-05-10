@@ -1437,7 +1437,7 @@ export default function Landing() {
                     fontWeight: 500,
                   }}
                 >
-                  The Founder Workspace
+                  The Founders' Workspace
                 </span>
               </div>
 
