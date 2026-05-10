@@ -6,8 +6,8 @@ import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/E
 
 const FEATURED = {
   category: "Workflow",
-  title: "Why founders keep re-explaining their business to every new tool.",
-  dek: "Most creative AI tools start from zero every session. The founder becomes the connective tissue — copying brand details, pasting positioning, restating audience. This is the operational tax of fragmented systems, and it compounds quietly.",
+  title: "The hidden cost of fragmented creative workflows.",
+  dek: "A small business now operates across 15–30 separate software tools — design in one, content in another, planning, scheduling, documents and campaigns each in their own surface. The cost isn't licensing. It's the founder, manually carrying business context across every boundary the software refuses to cross.",
   author: "Kinika Team",
   date: "March 2026",
   read: "9 min",
@@ -16,9 +16,9 @@ const FEATURED = {
 const OPENING_NOTE = {
   title: "What we write about, and why.",
   body: [
-    "Modern founders don't have a tool problem. They have a coordination problem. Copy lives in one app, visuals in another, planning in a third, and the connective logic — what the brand actually is — lives only in the founder's head.",
-    "We write about that gap: how fragmented creative systems produce fragmented brands, how context outperforms prompting, and what changes when business knowledge becomes a layer rather than a memory exercise.",
-    "Pieces are short, practical, and meant for founders who run their own creative operations.",
+    "Modern founders don't have a tool problem. They have a continuity problem. Every tool starts the conversation from zero — no idea who the business is, who it's for, or what it sounds like — so the founder spends the day re-explaining the same things in different windows.",
+    "We write about that gap: where the operational tax shows up, why outputs drift across surfaces, and what changes when business context becomes a layer the workflows share rather than a brief the founder keeps re-typing.",
+    "Pieces are short, practical, and written for founders who run their own creative operations.",
   ],
 };
 
@@ -26,36 +26,38 @@ const SECTIONS = [
   {
     code: "I.",
     name: "Founder Workflows",
-    intent: "How small teams actually run creative operations — and where the day quietly leaks away.",
+    intent: "How small teams actually run creative operations across a dozen disconnected tools — and where the day quietly leaks away.",
     items: [
-      { title: "The hidden cost of copy-pasting your brand.", date: "Feb 2026", read: "5 min", author: "Kinika Team" },
-      { title: "One founder, seven tools, no shared memory.", date: "Feb 2026", read: "6 min", author: "Kinika Team" },
-      { title: "Why creative work breaks at the handoffs.", date: "Jan 2026", read: "4 min", author: "Kinika Team" },
+      { title: "The hidden cost of fragmented creative workflows.", date: "Mar 2026", read: "9 min", author: "Kinika Team" },
+      { title: "Why every creative workflow starts from zero again.", date: "Feb 2026", read: "6 min", author: "Kinika Team" },
+      { title: "The founder becomes the integration layer.", date: "Feb 2026", read: "7 min", author: "Kinika Team" },
+      { title: "Context switching is the real cost of running lean.", date: "Jan 2026", read: "5 min", author: "Kinika Team" },
     ],
   },
   {
     code: "II.",
     name: "Business Context",
-    intent: "Treating what your business is — voice, audience, positioning — as infrastructure, not a brief.",
+    intent: "Treating what your business is — voice, audience, positioning, product — as infrastructure that workflows can read from, not a brief you keep re-typing.",
     items: [
-      { title: "Context beats prompting.", date: "Feb 2026", read: "7 min", author: "Kinika Team" },
-      { title: "What a business context layer actually contains.", date: "Jan 2026", read: "8 min", author: "Kinika Team" },
+      { title: "Why context matters more than prompts.", date: "Feb 2026", read: "7 min", author: "Kinika Team" },
+      { title: "What a shared business context layer actually contains.", date: "Jan 2026", read: "8 min", author: "Kinika Team" },
+      { title: "The difference between memory and understanding.", date: "Jan 2026", read: "5 min", author: "Kinika Team" },
     ],
   },
   {
     code: "III.",
     name: "Brand Consistency",
-    intent: "Why outputs drift across channels, and what it takes to make a brand recognisable at scale.",
+    intent: "Why outputs drift across channels when each tool defaults to its own template, and what it takes to keep a brand recognisable at scale.",
     items: [
-      { title: "Brand drift is a systems problem.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
-      { title: "Voice isn't a tone slider — it's a constraint set.", date: "Jan 2026", read: "5 min", author: "Kinika Team" },
-      { title: "Consistency is what compounds.", date: "Dec 2025", read: "7 min", author: "Kinika Team" },
+      { title: "Templates don't understand your business.", date: "Feb 2026", read: "6 min", author: "Kinika Team" },
+      { title: "Brand drift is a systems problem, not a taste problem.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
+      { title: "Voice isn't a tone slider — it's a constraint set.", date: "Dec 2025", read: "5 min", author: "Kinika Team" },
     ],
   },
   {
     code: "IV.",
     name: "AI Workflow Design",
-    intent: "What changes when AI tools share a single source of truth about the business.",
+    intent: "What changes when AI tools share a single source of truth about the business instead of starting fresh every session.",
     items: [
       { title: "Designing AI around context, not chat.", date: "Jan 2026", read: "6 min", author: "Kinika Team" },
       { title: "Removing the brief: what we replaced it with.", date: "Dec 2025", read: "4 min", author: "Kinika Team" },
@@ -65,10 +67,10 @@ const SECTIONS = [
 ];
 
 const READING_LIST = [
-  "Why founders keep re-explaining their business",
-  "Context beats prompting",
-  "Brand drift is a systems problem",
-  "Designing AI around context, not chat",
+  "The hidden cost of fragmented creative workflows",
+  "The founder becomes the integration layer",
+  "Templates don't understand your business",
+  "Why context matters more than prompts",
 ];
 
 /* ── Small primitives ───────────────────────────────────────────────────── */
@@ -196,7 +198,7 @@ export default function Journal() {
                   lineHeight: 1.3,
                 }}
               >
-                The operational tax of fragmented tools.
+                15–30 tools. One founder holding it all together.
               </p>
               <div style={{ height: 1, background: L.rule, margin: "32px 0", width: 56 }} />
               <ArticleMeta date={FEATURED.date} read={FEATURED.read} author={FEATURED.author} />
@@ -460,7 +462,7 @@ export default function Journal() {
                   <ul style={{ listStyle: "none", padding: 0, margin: "20px 0 0", display: "grid", gap: 6 }}>
                     {[
                       ["Last updated", "March 2026"],
-                      ["Pieces", "11"],
+                      ["Pieces", "13"],
                       ["Cadence", "Roughly monthly"],
                     ].map(([k, v]) => (
                       <li key={k} className="flex items-baseline justify-between" style={{ fontSize: 12, color: L.inkMuted }}>
@@ -558,8 +560,9 @@ export default function Journal() {
               }}
             >
               "A brand isn't inconsistent because the founder lacks taste.
-              It's inconsistent because the tools don't share what the
-              business is."
+              It's inconsistent because the business process is spread
+              across software boundaries that humans have to bridge by
+              hand."
             </p>
             <p
               style={{
@@ -571,7 +574,7 @@ export default function Journal() {
                 fontWeight: 600,
               }}
             >
-              — From "Brand drift is a systems problem"
+              — From "Brand drift is a systems problem, not a taste problem"
             </p>
           </aside>
         </div>
