@@ -1334,14 +1334,14 @@ export default function Landing() {
           borderBottom: scrolled ? `1px solid ${L.rule}` : "1px solid transparent",
         }}
       >
-        <div className="max-w-[1320px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between">
-          <Link to="/" className="pf flex items-baseline gap-2" style={{ color: L.ink }}>
+        <div className="max-w-[1320px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between gap-6">
+          <Link to="/" className="pf flex items-baseline gap-2 min-w-0" style={{ color: L.ink }}>
             <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.01em" }}>Kinika</span>
-            <span style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
+            <span className="hidden md:inline" style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
               — Brand Intelligence
             </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-7">
+          <nav className="hidden md:flex items-center gap-7 flex-shrink-0">
             {[
               { to: "/philosophy", label: "Philosophy" },
               { to: "/system", label: "System" },
@@ -1364,13 +1364,13 @@ export default function Landing() {
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-7">
-            <Link to="/sign-in" style={{ color: L.inkSoft, fontSize: 14, letterSpacing: "0.01em" }} className="hover:opacity-70 transition-opacity hidden sm:inline">
+          <div className="flex items-center gap-7 flex-shrink-0">
+            <Link to="/sign-in" style={{ color: L.inkSoft, fontSize: 14, letterSpacing: "0.01em" }} className="hover:opacity-70 transition-opacity hidden sm:inline whitespace-nowrap">
               Sign in
             </Link>
             <Link
               to="/sign-up"
-              className="inline-flex items-center text-sm font-medium transition-all hover:-translate-y-px"
+              className="inline-flex items-center text-sm font-medium transition-all hover:-translate-y-px whitespace-nowrap"
               style={{
                 background: L.ink,
                 color: L.paper,
