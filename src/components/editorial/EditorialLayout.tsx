@@ -91,7 +91,7 @@ export function EditorialNav() {
             letterSpacing: "0.01em",
           }}
         >
-          Start
+          Enter Kinika
         </Link>
       </div>
     </header>
