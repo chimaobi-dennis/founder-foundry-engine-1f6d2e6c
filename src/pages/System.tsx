@@ -682,7 +682,7 @@ export default function System() {
                         fontSize: 10,
                         letterSpacing: "0.2em",
                         textTransform: "uppercase",
-                        color: row.who === "Mentor" ? L.amber : L.inkMuted,
+                        color: row.who === "Kinika" ? L.amber : L.inkMuted,
                         fontWeight: 600,
                         marginRight: 14,
                       }}
