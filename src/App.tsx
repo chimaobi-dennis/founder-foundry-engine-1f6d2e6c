@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BrandProvider } from "@/hooks/use-brand";
 import { ProductImagesProvider } from "@/hooks/use-product-images";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
