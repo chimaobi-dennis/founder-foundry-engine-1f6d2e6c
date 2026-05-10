@@ -189,7 +189,7 @@ function MemoryDiagram() {
             letterSpacing="2"
             fill={L.inkMuted}
           >
-            FRAGMENTS
+            DISCONNECTED TOOLS
           </text>
         </g>
 
@@ -200,7 +200,7 @@ function MemoryDiagram() {
           <path d="M 250,200 Q 340,200 420,160" />
         </g>
 
-        {/* Center node — crystallized memory */}
+        {/* Center node — unified context */}
         <g>
           <circle cx="430" cy="160" r="36" fill="none" stroke={L.amber} strokeWidth="1" />
           <circle cx="430" cy="160" r="22" fill="none" stroke={L.amber} strokeWidth="0.6" opacity="0.6" />
@@ -214,11 +214,11 @@ function MemoryDiagram() {
             letterSpacing="2"
             fill={L.inkMuted}
           >
-            MEMORY
+            BUSINESS CONTEXT
           </text>
         </g>
 
-        {/* Right side — emerging pattern as a quiet line */}
+        {/* Right side — coherent output as a quiet line */}
         <g stroke={L.ink} strokeWidth="1" fill="none">
           <path d="M 472,160 C 540,140 600,200 660,150 S 760,170 780,150" />
         </g>
@@ -232,7 +232,7 @@ function MemoryDiagram() {
             letterSpacing="2"
             fill={L.inkMuted}
           >
-            PATTERN
+            COHERENT OUTPUT
           </text>
         </g>
       </svg>
@@ -246,7 +246,7 @@ function MemoryDiagram() {
           letterSpacing: "0.04em",
         }}
       >
-        Fig. 01 — Conversations gather into memory. Memory becomes pattern.
+        Fig. 01 — Disconnected tools resolve into a single business context. Context produces coherent output.
       </figcaption>
     </figure>
   );
