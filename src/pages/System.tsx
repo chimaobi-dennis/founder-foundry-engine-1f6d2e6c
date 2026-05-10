@@ -661,7 +661,7 @@ export default function System() {
             <aside className="col-span-12 lg:col-span-7 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
               {/* Editorial transcript fragment */}
               <p style={{ fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", color: L.amber, fontWeight: 600, marginBottom: 18 }}>
-                Excerpt — Mentor session, day 47
+                Excerpt — Kinika session, day 47
               </p>
               <div style={{ borderTop: `1px solid ${L.rule}` }}>
                 {[
