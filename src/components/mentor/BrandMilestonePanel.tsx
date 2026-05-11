@@ -75,6 +75,7 @@ export function BrandMilestonePanel({
   realActiveBrand,
   activeBrandDNA,
   dataRefreshTrigger = 0,
+  onUpdateContext,
 }: BrandMilestonePanelProps) {
   const { brands: realBrands, journeyStages, currentStageData, switchBrand, refreshBrands } = useBrand();
   const { user } = useAuth();
