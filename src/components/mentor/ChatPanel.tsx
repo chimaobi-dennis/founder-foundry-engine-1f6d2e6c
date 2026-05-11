@@ -555,24 +555,24 @@ export function ChatPanel({
                   <p className="text-[11px] font-ui text-muted-foreground text-center py-4">Today at 14:47</p>
                 )}
 
-                {/* Message bubble */}
+                {/* Message — editorial blocks for AI, subtle margin-note for founder */}
                 <div 
                   ref={(el) => { if (messageRefsMap) messageRefsMap.current[msg.id] = el; }}
-                  className={cn("w-full flex flex-col overflow-hidden mb-3", msg.role === "founder" ? "items-end" : "items-start")} 
+                  className={cn("w-full flex flex-col overflow-hidden mb-5", msg.role === "founder" ? "items-end" : "items-start")} 
                   style={{ minWidth: 0, boxSizing: "border-box" }}
                 >
                   <div
                     className={cn(
-                      "group/msg flex items-start gap-1.5 max-w-[75%] min-w-0",
-                      msg.role === "founder" ? "flex-row-reverse" : "flex-row"
+                      "group/msg flex items-start gap-2 min-w-0",
+                      msg.role === "founder" ? "flex-row-reverse max-w-[78%]" : "flex-row w-full"
                     )}
                   >
                     <div
                       className={cn(
-                        "rounded-xl px-4 py-3 min-w-0 break-words",
+                        "min-w-0 break-words",
                         msg.role === "founder"
-                          ? "bg-primary/10"
-                          : "bg-card border border-border"
+                          ? "rounded-2xl px-4 py-2.5 bg-white/[0.04]"
+                          : "py-1 pl-4 border-l border-white/[0.06] w-full"
                       )}
                       style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                     >
@@ -631,8 +631,13 @@ export function ChatPanel({
                         </div>
                       ) : (
                         <p
-                          className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
-                          style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                          className={cn(
+                            "whitespace-pre-line break-words",
+                            msg.role === "ai"
+                              ? "text-[14px] font-ui text-foreground/90"
+                              : "text-[13.5px] font-ui text-foreground"
+                          )}
+                          style={{ lineHeight: msg.role === "ai" ? "1.75" : "1.6" }}
                         >
                           {parsed.cleanText}
                         </p>
