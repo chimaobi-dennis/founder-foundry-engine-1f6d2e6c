@@ -588,82 +588,53 @@ export function BrandDNAPanel({
 
               return (
                 <div key={stage.stage_key} style={{
-                  margin: '0 0 2px',
-                  background: 'linear-gradient(135deg, rgba(212,160,23,0.06) 0%, rgba(212,160,23,0.02) 100%)',
-                  borderLeft: '2px solid #D4A017'
+                  margin: '0 0 4px',
+                  background: 'transparent',
+                  borderLeft: '1px solid rgba(212,160,23,0.4)'
                 }}>
-                  {/* Stage header — clickable to toggle. Only the header row
-                      (not the expanded body) carries the toggle handler so
-                      clicks inside the expanded content do not collapse the
-                      stage. */}
-                  <div style={{ padding: '14px 16px 10px' }}>
+                  {/* Stage header — clickable to toggle. */}
+                  <div style={{ padding: '18px 24px 14px' }}>
                     <div
                       onClick={() => toggleStageExpand(stage.stage_key)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        marginBottom: '6px',
+                        marginBottom: '8px',
                         cursor: 'pointer',
                         userSelect: 'none'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{ fontSize: '18px' }}>{stage.emoji}</span>
                         <div>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
+                          <div className="font-display tracking-tight" style={{
+                            fontSize: '15px',
+                            color: 'var(--color-text-primary)',
+                            lineHeight: 1.2
                           }}>
-                            <span style={{
-                              fontSize: '14px',
-                              fontWeight: 600,
-                              color: 'var(--color-text-primary)'
-                            }}>
-                              {stage.name}
-                            </span>
-                            <span style={{
-                              fontSize: '9px',
-                              background: '#D4A017',
-                              color: '#0D1B2A',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              fontWeight: 700,
-                              letterSpacing: '0.06em'
-                            }}>
-                              ACTIVE
-                            </span>
+                            {stage.name}
                           </div>
                           <div style={{
-                            fontSize: '11px',
+                            fontSize: '10px',
                             color: 'var(--color-text-tertiary)',
-                            marginTop: '1px'
+                            marginTop: '3px',
+                            letterSpacing: '0.05em'
                           }}>
-                            Stage {stageIndexLocal + 1} of {journeyStages.length}
+                            Active stage
                           </div>
                         </div>
                       </div>
                       {/* Completion ring */}
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{
-                          fontSize: '18px',
-                          fontWeight: 700,
-                          color: completion === 100 ? '#4CAF50' : 'var(--completion-amber)',
+                        <div className="font-display" style={{
+                          fontSize: '20px',
+                          color: completion === 100 ? '#4CAF50' : '#D4A017',
                           lineHeight: 1
                         }}>
                           {completion}%
                         </div>
-                        <div style={{
-                          fontSize: '10px',
-                          color: 'var(--color-text-tertiary)'
-                        }}>
-                          complete
-                        </div>
                       </div>
-                      {/* Toggle arrow — also a real button so the explicit
-                          target always works even if some ancestor swallows
-                          the event. */}
                       <button
                         type="button"
                         aria-label={isExpanded ? 'Collapse stage' : 'Expand stage'}
@@ -675,9 +646,9 @@ export function BrandDNAPanel({
                           background: 'none',
                           border: 'none',
                           padding: '4px',
-                          marginLeft: '4px',
+                          marginLeft: '6px',
                           cursor: 'pointer',
-                          fontSize: '10px',
+                          fontSize: '9px',
                           color: 'var(--color-text-tertiary)',
                           transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                           transition: 'transform 200ms ease',
