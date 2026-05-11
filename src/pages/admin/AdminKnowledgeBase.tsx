@@ -30,31 +30,31 @@ const TASK_CONFIG: Record<TaskType, {
   variables: string[];
 }> = {
   mentor_chat: {
-    name: 'Mentor Chat',
+    name: 'Kinika (Mentor Chat)',
     description: 'System prompt for brand mentorship conversations',
     color: '#D4A017',
     variables: ['brand_name', 'industry', 'brand_voice', 'positioning_statement', 'target_audience', 'core_promise', 'brand_references', 'campaign_strategy', 'customer_insight']
   },
   template_generation: {
-    name: 'Template Generation',
+    name: 'ProStudio (Template Generation)',
     description: 'System prompt for ProStudio template generation',
     color: '#14B8A6',
     variables: ['brand_name', 'primary_color', 'brand_voice', 'product_name']
   },
   document_generation: {
-    name: 'Document Generation',
+    name: 'DocStudio (Document Generation)',
     description: 'System prompt for DocStudio document generation',
     color: '#3B82F6',
     variables: ['brand_name', 'industry', 'brand_voice', 'positioning_statement', 'target_audience', 'core_promise']
   },
   campaign_copy: {
-    name: 'Campaign Copy',
+    name: 'ContentStudio (Campaign Copy)',
     description: 'System prompt for CampaignKit copy generation',
     color: '#22C55E',
     variables: ['brand_name', 'brand_voice', 'target_audience', 'core_promise', 'key_benefit', 'call_to_action']
   },
   reel_script: {
-    name: 'Reel Script',
+    name: 'ReelBuilder (Reel Script)',
     description: 'System prompt for ReelBuilder script generation',
     color: '#A855F7',
     variables: ['brand_name', 'brand_voice', 'target_audience', 'core_promise']
@@ -64,6 +64,12 @@ const TASK_CONFIG: Record<TaskType, {
     description: 'System prompt for image generation across all modules',
     color: '#F59E0B',
     variables: ['brand_name', 'primary_color', 'brand_voice', 'product_name']
+  },
+  context_extraction: {
+    name: 'Project Onboarding (Context Extraction)',
+    description: 'Used during project onboarding to extract structured brand data from pasted text, URLs, or uploaded documents.',
+    color: '#EC4899',
+    variables: ['field_guide']
   }
 };
 
@@ -343,6 +349,22 @@ export default function AdminKnowledgeBase() {
                       color: '#F5F0E8'
                     }}
                   />
+
+                  {prompt.task_type === 'context_extraction' && (
+                    <div
+                      className="rounded-md px-3 py-2.5"
+                      style={{
+                        borderLeft: '2px solid #D4A017',
+                        background: 'rgba(212, 160, 23, 0.08)',
+                        fontFamily: 'DM Sans',
+                        fontSize: '13px',
+                        color: '#F5F0E8',
+                        lineHeight: 1.5
+                      }}
+                    >
+                      This prompt uses <code style={{ color: '#D4A017', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> as a variable. At runtime, this is automatically replaced with all active journey stage fields from the database. Do not remove <code style={{ color: '#D4A017', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> from the prompt.
+                    </div>
+                  )}
                   
                   {/* Variables reference panel */}
                   <div>
