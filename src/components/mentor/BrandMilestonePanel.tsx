@@ -771,13 +771,10 @@ export function BrandMilestonePanel({
         </div>
 
         <div className="px-4">
-          <div className="border-t border-border" />
-          <div className="flex items-center gap-1.5 mt-3 mb-2">
-            <Flag size={11} className="text-muted-foreground" />
-            <p className="text-[11px] font-ui uppercase tracking-[0.1em] text-muted-foreground">
-              Milestones
-            </p>
-          </div>
+          <div className="h-px bg-white/[0.04] mb-4" />
+          <p className="text-[10px] font-ui uppercase tracking-[0.16em] text-muted-foreground/80 mb-3" style={{ fontWeight: 500 }}>
+            Captured Moments
+          </p>
         </div>
 
         {/* Milestones */}
