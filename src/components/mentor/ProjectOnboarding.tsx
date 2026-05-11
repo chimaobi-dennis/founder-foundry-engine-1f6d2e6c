@@ -825,6 +825,7 @@ function ResultsStep({
   onEdit,
   onSkip,
   saving,
+  isUpdateMode,
 }: {
   extracted: ExtractedProjectData;
   stages: any[];
@@ -833,6 +834,7 @@ function ResultsStep({
   onEdit: () => void;
   onSkip: () => void;
   saving: boolean;
+  isUpdateMode?: boolean;
 }) {
   const fieldsCount = Object.values(extracted.fields).reduce(
     (sum, fields) => sum + Object.keys(fields).length,
