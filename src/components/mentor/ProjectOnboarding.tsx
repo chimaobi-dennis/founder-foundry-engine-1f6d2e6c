@@ -23,7 +23,7 @@ interface ProjectOnboardingProps {
   isUpdateMode?: boolean;
 }
 
-type Step = "stage" | "context" | "processing" | "results";
+type Step = "stage" | "context" | "processing" | "results" | "editor";
 type Tab = "paste" | "upload" | "url";
 
 const PROCESSING_MESSAGES = [
@@ -45,10 +45,12 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
 
   const [pastedText, setPastedText] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [fileErrors, setFileErrors] = useState<Record<number, string>>({});
 
   const [processingStep, setProcessingStep] = useState(0);
   const [extracted, setExtracted] = useState<ExtractedProjectData | null>(null);
+  const [editedExtracted, setEditedExtracted] = useState<ExtractedProjectData | null>(null);
   const [stageFieldsMap, setStageFieldsMap] = useState<Record<string, StageField[]>>({});
   const [saving, setSaving] = useState(false);
   const [fetchedUrlContent, setFetchedUrlContent] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
 
   const handleAnalyse = async () => {
     if (!user || !selectedStage) return;
-    const hasContent = pastedText.trim() || websiteUrl.trim() || uploadedFile;
+    const hasContent = pastedText.trim() || websiteUrl.trim() || uploadedFiles.length > 0;
     if (!hasContent) {
       toast.error("Add some content first or skip to start fresh");
       return;
@@ -110,10 +112,28 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
       setFetchedUrlContent(urlContent);
     }
 
+    // Concatenate file contents if multiple files
+    let fileContent = "";
+    if (uploadedFiles.length > 0) {
+      const fileReadPromises = uploadedFiles.map(async (file) => {
+        try {
+          const text = await file.text();
+          return `--- Document: ${file.name} ---\n${text}`;
+        } catch (e) {
+          console.error(`Failed to read file ${file.name}:`, e);
+          return `--- Document: ${file.name} ---\n[Could not read this file]`;
+        }
+      });
+      
+      const fileContents = await Promise.all(fileReadPromises);
+      fileContent = fileContents.join('\n\n');
+    }
+
     const ctx: OnboardingContext = {
       text: pastedText.trim() || undefined,
       websiteUrl: websiteUrl.trim() || undefined,
-      file: uploadedFile ?? undefined,
+      file: uploadedFiles[0] ?? undefined,
+      fileContent: fileContent || undefined,
       declaredStage: selectedStage,
     };
 
@@ -132,8 +152,8 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
   const saveOnboardingAssets = async (stageKey: string | undefined) => {
     if (!user) return;
 
-    // 1. File upload → storage + asset row
-    if (uploadedFile) {
+    // 1. File upload → storage + asset row (for each file)
+    for (const uploadedFile of uploadedFiles) {
       try {
         const result = await uploadProjectFile(
           brandId,
@@ -232,11 +252,12 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
   const handleConfirmSave = async () => {
     if (!user || !extracted) return;
     setSaving(true);
+    const dataToSave = editedExtracted || extracted;
     const { fieldsCount } = await saveExtractedContext(
       user.id,
       brandId,
-      extracted,
-      uploadedFile ?? undefined
+      dataToSave,
+      uploadedFiles[0] ?? undefined
     );
 
     // Save onboarding source(s) as project assets — never block the user
@@ -252,18 +273,80 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
   };
 
   const handleEditBeforeSave = () => {
-    setStep("context");
+    setStep("editor");
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) setUploadedFile(f);
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const newFiles = Array.from(files);
+    if (uploadedFiles.length + newFiles.length > 5) {
+      toast.error("Maximum 5 documents at once");
+      return;
+    }
+    
+    // Validate each file by attempting to read it
+    const validFiles: File[] = [];
+    const newErrors: Record<number, string> = {};
+    
+    for (const file of newFiles) {
+      try {
+        await file.text(); // Try to read the file
+        validFiles.push(file);
+      } catch (e) {
+        const index = uploadedFiles.length + validFiles.length;
+        newErrors[index] = "Could not read this file";
+      }
+    }
+    
+    if (validFiles.length > 0) {
+      setUploadedFiles(prev => [...prev, ...validFiles]);
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setFileErrors(prev => ({ ...prev, ...newErrors }));
+      if (validFiles.length === 0) {
+        toast.error("Could not read the file(s). Please try a different format.");
+      }
+    }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
-    const f = e.dataTransfer.files?.[0];
-    if (f) setUploadedFile(f);
+    const files = e.dataTransfer.files;
+    if (!files) return;
+    
+    const newFiles = Array.from(files);
+    if (uploadedFiles.length + newFiles.length > 5) {
+      toast.error("Maximum 5 documents at once");
+      return;
+    }
+    
+    // Validate each file by attempting to read it
+    const validFiles: File[] = [];
+    const newErrors: Record<number, string> = {};
+    
+    for (const file of newFiles) {
+      try {
+        await file.text(); // Try to read the file
+        validFiles.push(file);
+      } catch (e) {
+        const index = uploadedFiles.length + validFiles.length;
+        newErrors[index] = "Could not read this file";
+      }
+    }
+    
+    if (validFiles.length > 0) {
+      setUploadedFiles(prev => [...prev, ...validFiles]);
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setFileErrors(prev => ({ ...prev, ...newErrors }));
+      if (validFiles.length === 0) {
+        toast.error("Could not read the file(s). Please try a different format.");
+      }
+    }
   };
 
   const formatBytes = (n: number) => {
@@ -348,8 +431,10 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
             setPastedText={setPastedText}
             websiteUrl={websiteUrl}
             setWebsiteUrl={setWebsiteUrl}
-            uploadedFile={uploadedFile}
-            setUploadedFile={setUploadedFile}
+            uploadedFiles={uploadedFiles}
+            setUploadedFiles={setUploadedFiles}
+            fileErrors={fileErrors}
+            setFileErrors={setFileErrors}
             onAnalyse={handleAnalyse}
             onSkip={handleSkipFresh}
             onBack={isUpdateMode ? onComplete : () => setStep("stage")}
@@ -371,6 +456,18 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
             onConfirm={handleConfirmSave}
             onEdit={handleEditBeforeSave}
             onSkip={handleSkipFresh}
+            saving={saving}
+            isUpdateMode={isUpdateMode}
+          />
+        )}
+        {step === "editor" && extracted && (
+          <EditorStep
+            extracted={extracted}
+            stages={journeyStages}
+            getFieldLabel={getFieldLabel}
+            onEdit={setEditedExtracted}
+            onSave={handleConfirmSave}
+            onBack={() => setStep("results")}
             saving={saving}
             isUpdateMode={isUpdateMode}
           />
@@ -506,8 +603,10 @@ function ContextStep({
   setPastedText,
   websiteUrl,
   setWebsiteUrl,
-  uploadedFile,
-  setUploadedFile,
+  uploadedFiles,
+  setUploadedFiles,
+  fileErrors,
+  setFileErrors,
   onAnalyse,
   onSkip,
   onBack,
@@ -588,8 +687,10 @@ function ContextStep({
 
       {activeTab === "upload" && (
         <UploadZone
-          uploadedFile={uploadedFile}
-          setUploadedFile={setUploadedFile}
+          uploadedFiles={uploadedFiles}
+          setUploadedFiles={setUploadedFiles}
+          fileErrors={fileErrors}
+          setFileErrors={setFileErrors}
           fileInputRef={fileInputRef}
           onFileChange={onFileChange}
           onDrop={onDrop}
@@ -620,8 +721,10 @@ function ContextStep({
         setPastedText={setPastedText}
         websiteUrl={websiteUrl}
         setWebsiteUrl={setWebsiteUrl}
-        uploadedFile={uploadedFile}
-        setUploadedFile={setUploadedFile}
+        uploadedFiles={uploadedFiles}
+        setUploadedFiles={setUploadedFiles}
+        fileErrors={fileErrors}
+        setFileErrors={setFileErrors}
         fileInputRef={fileInputRef}
         onFileChange={onFileChange}
         onDrop={onDrop}
@@ -631,10 +734,18 @@ function ContextStep({
       {/* Continue button */}
       <button
         onClick={onAnalyse}
-        className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-ui font-medium hover:bg-primary/90 transition-colors mt-6"
+        disabled={uploadedFiles.length === 0 && !pastedText.trim() && !websiteUrl.trim()}
+        className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-ui font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
         style={{ fontSize: 14 }}
       >
-        {isUpdateMode ? "Add to project context →" : "Analyse and continue →"}
+        {isUpdateMode
+          ? uploadedFiles.length > 1
+            ? `Add ${uploadedFiles.length} documents to context →`
+            : "Add to project context →"
+          : uploadedFiles.length > 1
+          ? `Analyse ${uploadedFiles.length} documents →`
+          : "Analyse and continue →"
+        }
       </button>
 
       {!isUpdateMode && (
@@ -652,28 +763,65 @@ function ContextStep({
 }
 
 function UploadZone({
-  uploadedFile,
-  setUploadedFile,
+  uploadedFiles,
+  setUploadedFiles,
+  fileErrors,
+  setFileErrors,
   fileInputRef,
   onFileChange,
   onDrop,
   formatBytes,
 }: any) {
-  if (uploadedFile) {
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setFileErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[index];
+      return newErrors;
+    });
+  };
+
+  if (uploadedFiles.length > 0) {
     return (
-      <div className="rounded-lg border-[0.5px] border-border bg-background p-3 flex items-center gap-3">
-        <FileText size={18} className="text-muted-foreground flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="font-ui text-[13px] text-foreground truncate">{uploadedFile.name}</div>
-          <div className="font-ui text-[11px] text-muted-foreground">{formatBytes(uploadedFile.size)}</div>
-        </div>
-        <button
-          onClick={() => setUploadedFile(null)}
-          className="text-muted-foreground hover:text-foreground transition-colors p-1"
-          aria-label="Remove file"
-        >
-          <X size={16} />
-        </button>
+      <div className="space-y-2">
+        {uploadedFiles.map((file: File, index: number) => (
+          <div key={index} className="border-l-4 border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 rounded-r-lg p-3 flex items-center gap-3">
+            <FileText size={18} className="text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="font-ui text-[13px] text-foreground truncate">{file.name}</div>
+              <div className="font-ui text-[11px] text-muted-foreground">{formatBytes(file.size)}</div>
+              {fileErrors[index] && (
+                <div className="text-[10px] text-red-500 mt-1">{fileErrors[index]}</div>
+              )}
+            </div>
+            <button
+              onClick={() => removeFile(index)}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              aria-label="Remove file"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+        
+        {/* Add another document button */}
+        {uploadedFiles.length < 5 && (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="text-[11px] text-primary hover:text-primary/80 transition-colors"
+          >
+            + Add another document
+          </button>
+        )}
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".md,.txt,.pdf,.doc,.docx"
+          onChange={onFileChange}
+          className="hidden"
+        />
       </div>
     );
   }
@@ -688,14 +836,15 @@ function UploadZone({
     >
       <Upload size={20} className="text-muted-foreground mx-auto mb-2" />
       <p className="text-foreground" style={{ fontSize: 13 }}>
-        Drop your document here or click to browse
+        Drop your documents here or click to browse
       </p>
       <p className="text-muted-foreground mt-1" style={{ fontSize: 11 }}>
-        Supports Markdown, text files, PDFs, and Word documents
+        Supports Markdown, text files, PDFs, and Word documents (max 5)
       </p>
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         accept=".md,.txt,.pdf,.doc,.docx"
         onChange={onFileChange}
         className="hidden"
@@ -708,8 +857,10 @@ function CombinedSources({
   activeTab,
   websiteUrl,
   setWebsiteUrl,
-  uploadedFile,
-  setUploadedFile,
+  uploadedFiles,
+  setUploadedFiles,
+  fileErrors,
+  setFileErrors,
   fileInputRef,
   onFileChange,
   onDrop,
@@ -718,29 +869,54 @@ function CombinedSources({
   // On paste tab, show secondary file + URL inputs
   if (activeTab !== "paste") return null;
 
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setFileErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[index];
+      return newErrors;
+    });
+  };
+
   return (
     <div className="mt-4 pt-4 border-t border-border">
       <p className="font-ui text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
         Also add (optional):
       </p>
 
-      {/* Compact upload zone */}
-      {uploadedFile ? (
-        <div className="rounded-lg border-[0.5px] border-border bg-background p-2 flex items-center gap-2 mb-2">
+      {/* File list */}
+      {uploadedFiles.map((file: File, index: number) => (
+        <div key={index} className="border-l-4 border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 rounded-r-lg p-2 flex items-center gap-2 mb-2">
           <FileText size={14} className="text-muted-foreground flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="font-ui text-[12px] text-foreground truncate">{uploadedFile.name}</div>
-            <div className="font-ui text-[10px] text-muted-foreground">{formatBytes(uploadedFile.size)}</div>
+            <div className="font-ui text-[12px] text-foreground truncate">{file.name}</div>
+            <div className="font-ui text-[10px] text-muted-foreground">{formatBytes(file.size)}</div>
+            {fileErrors[index] && (
+              <div className="text-[10px] text-red-500 mt-1">{fileErrors[index]}</div>
+            )}
           </div>
           <button
-            onClick={() => setUploadedFile(null)}
+            onClick={() => removeFile(index)}
             className="text-muted-foreground hover:text-foreground transition-colors p-1"
             aria-label="Remove file"
           >
             <X size={14} />
           </button>
         </div>
-      ) : (
+      ))}
+
+      {/* Add another document button */}
+      {uploadedFiles.length > 0 && uploadedFiles.length < 5 && (
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="text-[11px] text-primary hover:text-primary/80 mb-2 transition-colors"
+        >
+          + Add another document
+        </button>
+      )}
+
+      {/* Compact upload zone (shown when no files or under limit) */}
+      {uploadedFiles.length === 0 && (
         <div
           onClick={() => fileInputRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
@@ -755,6 +931,7 @@ function CombinedSources({
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept=".md,.txt,.pdf,.doc,.docx"
             onChange={onFileChange}
             className="hidden"
@@ -951,6 +1128,411 @@ function DataPointCard({ label, value }: { label: string; value: string }) {
           {expanded ? "See less" : "See more"}
         </button>
       )}
+    </div>
+  );
+}
+
+function EditorStep({
+  extracted,
+  stages,
+  getFieldLabel,
+  onEdit,
+  onSave,
+  onBack,
+  saving,
+  isUpdateMode,
+}: {
+  extracted: ExtractedProjectData;
+  stages: any[];
+  getFieldLabel: (stageKey: string, fieldKey: string) => string;
+  onEdit: (data: ExtractedProjectData) => void;
+  onSave: () => void;
+  onBack: () => void;
+  saving: boolean;
+  isUpdateMode?: boolean;
+}) {
+  const [editedFields, setEditedFields] = useState<Record<string, Record<string, { value: string; is_ai_discovered: boolean }>>>(
+    () => {
+      const result: Record<string, Record<string, { value: string; is_ai_discovered: boolean }>> = {};
+      Object.entries(extracted.fields).forEach(([stageKey, fields]) => {
+        result[stageKey] = {};
+        Object.entries(fields).forEach(([fieldKey, value]) => {
+          const extractedField = extracted.extractedFields?.find(
+            f => f.stage_key === stageKey && f.field_key === fieldKey
+          );
+          result[stageKey][fieldKey] = {
+            value: value as string,
+            is_ai_discovered: extractedField?.is_ai_discovered ?? false
+          };
+        });
+      });
+      return result;
+    }
+  );
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+  const [addingFieldStage, setAddingFieldStage] = useState<string | null>(null);
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldValue, setNewFieldValue] = useState("");
+
+  const formatFieldKey = (key: string) => {
+    return key.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const handleFieldChange = (stageKey: string, fieldKey: string, newValue: string) => {
+    setEditedFields(prev => ({
+      ...prev,
+      [stageKey]: {
+        ...prev[stageKey],
+        [fieldKey]: {
+          ...prev[stageKey][fieldKey],
+          value: newValue
+        }
+      }
+    }));
+  };
+
+  const handleRemoveField = (stageKey: string, fieldKey: string) => {
+    setEditedFields(prev => {
+      const newStage = { ...prev[stageKey] };
+      delete newStage[fieldKey];
+      return {
+        ...prev,
+        [stageKey]: newStage
+      };
+    });
+  };
+
+  const handleAddField = (stageKey: string) => {
+    if (!newFieldName.trim() || !newFieldValue.trim()) return;
+    
+    const fieldKey = newFieldName.toLowerCase().replace(/\s+/g, "_");
+    setEditedFields(prev => ({
+      ...prev,
+      [stageKey]: {
+        ...prev[stageKey],
+        [fieldKey]: {
+          value: newFieldValue.trim(),
+          is_ai_discovered: false
+        }
+      }
+    }));
+    
+    setNewFieldName("");
+    setNewFieldValue("");
+    setAddingFieldStage(null);
+  };
+
+  const handleSave = () => {
+    // Update the extracted object with edited fields
+    const updatedExtracted: ExtractedProjectData = {
+      ...extracted,
+      fields: {},
+      extractedFields: []
+    };
+
+    Object.entries(editedFields).forEach(([stageKey, fields]) => {
+      updatedExtracted.fields[stageKey] = {};
+      Object.entries(fields).forEach(([fieldKey, data]) => {
+        updatedExtracted.fields[stageKey][fieldKey] = data.value;
+        updatedExtracted.extractedFields?.push({
+          stage_key: stageKey,
+          field_key: fieldKey,
+          value: data.value,
+          is_ai_discovered: data.is_ai_discovered
+        });
+      });
+    });
+
+    // Update the parent's extracted state
+    onEdit(updatedExtracted);
+    onSave();
+  };
+
+  // Calculate stats
+  let coreFields = 0;
+  let aiDiscoveredFields = 0;
+  const stageFieldCounts: Record<string, number> = {};
+
+  Object.entries(editedFields).forEach(([stageKey, fields]) => {
+    stageFieldCounts[stageKey] = Object.keys(fields).length;
+    Object.values(fields).forEach(field => {
+      if (field.is_ai_discovered) {
+        aiDiscoveredFields++;
+      } else {
+        coreFields++;
+      }
+    });
+  });
+
+  const stagesCovered = Object.keys(editedFields).length;
+
+  return (
+    <div
+      className="fixed inset-0"
+      style={{
+        background: "hsl(var(--background))",
+        zIndex: 60,
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-6 py-4 border-b"
+        style={{ background: "hsl(var(--card))" }}
+      >
+        <div>
+          <h1 className="font-display text-foreground" style={{ fontSize: 20 }}>
+            Review extracted context
+          </h1>
+          <p className="text-muted-foreground" style={{ fontSize: 13 }}>
+            Edit any field before saving to your project
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            style={{ fontSize: 13 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 h-10 rounded-lg bg-amber-500 text-white font-ui font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
+            style={{ fontSize: 14 }}
+          >
+            {saving ? "Saving..." : "Save all changes →"}
+          </button>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden" style={{ maxHeight: "calc(100vh - 140px)" }}>
+        {/* Left section - Editable fields */}
+        <div className="flex-1 overflow-y-auto p-6" style={{ width: "60%" }}>
+          {Object.entries(editedFields).map(([stageKey, fields]) => {
+            const stageInfo = stages.find(s => s.stage_key === stageKey);
+            const isCollapsed = collapsedStages.has(stageKey);
+            const fieldCount = Object.keys(fields).length;
+
+            if (fieldCount === 0) return null;
+
+            return (
+              <div key={stageKey} className="mb-6">
+                {/* Stage header */}
+                <div
+                  className="border-l-4 border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 rounded-r-lg p-3 mb-3 cursor-pointer"
+                  onClick={() => setCollapsedStages(prev => {
+                    const next = new Set(prev);
+                    if (next.has(stageKey)) next.delete(stageKey);
+                    else next.add(stageKey);
+                    return next;
+                  })}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[18px]">{stageInfo?.emoji ?? "•"}</span>
+                      <span className="font-ui font-medium text-foreground" style={{ fontSize: 14 }}>
+                        {stageInfo?.name ?? stageKey}
+                      </span>
+                      <span className="text-muted-foreground" style={{ fontSize: 12 }}>
+                        — {fieldCount} field{fieldCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground">
+                      {isCollapsed ? "▶" : "▼"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Fields */}
+                {!isCollapsed && (
+                  <div className="space-y-4">
+                    {Object.entries(fields).map(([fieldKey, data]) => (
+                      <div key={fieldKey} className="pl-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-ui text-foreground" style={{ fontSize: 13 }}>
+                              {formatFieldKey(fieldKey)}
+                            </span>
+                            {data.is_ai_discovered ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                                AI discovered
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-600 dark:text-green-400">
+                                Core field
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleRemoveField(stageKey, fieldKey)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            style={{ fontSize: 11 }}
+                          >
+                            × Remove this field
+                          </button>
+                        </div>
+                        <textarea
+                          value={data.value}
+                          onChange={(e) => handleFieldChange(stageKey, fieldKey, e.target.value)}
+                          className="w-full rounded-lg border-[0.5px] border-border bg-background p-3 text-foreground outline-none focus:ring-1 focus:ring-primary/40 resize-y"
+                          style={{ fontSize: 13, lineHeight: 1.6, minHeight: 60 }}
+                        />
+                      </div>
+                    ))}
+
+                    {/* Add field button */}
+                    {addingFieldStage === stageKey ? (
+                      <div className="pl-4 space-y-2">
+                        <input
+                          type="text"
+                          value={newFieldName}
+                          onChange={(e) => setNewFieldName(e.target.value)}
+                          placeholder="Field name"
+                          className="w-full rounded-lg border-[0.5px] border-border bg-background px-3 py-2 text-foreground outline-none focus:ring-1 focus:ring-primary/40"
+                          style={{ fontSize: 13 }}
+                        />
+                        <textarea
+                          value={newFieldValue}
+                          onChange={(e) => setNewFieldValue(e.target.value)}
+                          placeholder="Value"
+                          className="w-full rounded-lg border-[0.5px] border-border bg-background p-3 text-foreground outline-none focus:ring-1 focus:ring-primary/40 resize-y"
+                          style={{ fontSize: 13, lineHeight: 1.6, minHeight: 60 }}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAddField(stageKey)}
+                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm"
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAddingFieldStage(null);
+                              setNewFieldName("");
+                              setNewFieldValue("");
+                            }}
+                            className="px-3 py-1.5 rounded-lg border border-border text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setAddingFieldStage(stageKey)}
+                        className="pl-4 text-primary hover:text-primary/80 transition-colors"
+                        style={{ fontSize: 11 }}
+                      >
+                        + Add a field to {stageInfo?.name ?? stageKey}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right section - Summary panel */}
+        <div
+          className="border-l p-6 overflow-y-auto"
+          style={{ width: "40%", background: "hsl(var(--card))" }}
+        >
+          <h2 className="font-ui font-medium text-foreground mb-4" style={{ fontSize: 14 }}>
+            What will be saved
+          </h2>
+
+          {/* Count cards */}
+          <div className="space-y-2 mb-6">
+            <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+              <span className="text-foreground" style={{ fontSize: 13 }}>
+                Core fields matched
+              </span>
+              <span className="font-ui font-medium text-green-600 dark:text-green-400" style={{ fontSize: 16 }}>
+                {coreFields}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <span className="text-foreground" style={{ fontSize: 13 }}>
+                AI discovered fields
+              </span>
+              <span className="font-ui font-medium text-amber-600 dark:text-amber-400" style={{ fontSize: 16 }}>
+                {aiDiscoveredFields}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20">
+              <span className="text-foreground" style={{ fontSize: 13 }}>
+                Stages covered
+              </span>
+              <span className="font-ui font-medium text-primary" style={{ fontSize: 16 }}>
+                {stagesCovered}
+              </span>
+            </div>
+          </div>
+
+          {/* Stage breakdown */}
+          <h3 className="font-ui font-medium text-foreground mb-3" style={{ fontSize: 13 }}>
+            Stage breakdown
+          </h3>
+          <div className="space-y-2 mb-6">
+            {Object.entries(stageFieldCounts).map(([stageKey, count]) => {
+              const stageInfo = stages.find(s => s.stage_key === stageKey);
+              return (
+                <div key={stageKey} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span>{stageInfo?.emoji ?? "•"}</span>
+                    <span className="text-foreground" style={{ fontSize: 13 }}>
+                      {stageInfo?.name ?? stageKey}
+                    </span>
+                  </div>
+                  <span className="text-muted-foreground" style={{ fontSize: 13 }}>
+                    {count} field{count === 1 ? "" : "s"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Info box */}
+          <div
+            className="p-3 rounded-lg border-l-4 border-amber-500"
+            style={{ background: "rgba(212, 160, 23, 0.08)", fontSize: 12, lineHeight: 1.5 }}
+          >
+            <p className="text-foreground">
+              <strong>Core fields</strong> update your Journey Record completion.
+            </p>
+            <p className="text-foreground mt-1">
+              <strong>AI discovered fields</strong> add extra context your mentor will use.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div
+        className="flex items-center justify-between px-6 py-4 border-t"
+        style={{ background: "hsl(var(--card))" }}
+      >
+        <button
+          onClick={onBack}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          style={{ fontSize: 13 }}
+        >
+          ← Back to results
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-6 h-10 rounded-lg bg-amber-500 text-white font-ui font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
+          style={{ fontSize: 14 }}
+        >
+          {saving ? "Saving..." : "Save all changes →"}
+        </button>
+      </div>
     </div>
   );
 }

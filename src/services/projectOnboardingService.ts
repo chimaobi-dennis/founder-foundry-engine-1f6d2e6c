@@ -11,6 +11,7 @@ export interface OnboardingContext {
   text?: string;
   websiteUrl?: string;
   file?: File;
+  fileContent?: string; // Concatenated content from multiple files
   declaredStage: string;
 }
 
@@ -80,7 +81,10 @@ export const extractProjectContext = async (
       }
     }
 
-    if (context.file) {
+    // Use concatenated file content if provided (multiple files), otherwise read single file
+    if (context.fileContent) {
+      contentToProcess += `\n\nUPLOADED DOCUMENTS:\n${context.fileContent}`;
+    } else if (context.file) {
       const fileContent = await readFileContent(context.file);
       if (fileContent) {
         contentToProcess += `\n\nUPLOADED DOCUMENT (${context.file.name}):\n${fileContent}`;
