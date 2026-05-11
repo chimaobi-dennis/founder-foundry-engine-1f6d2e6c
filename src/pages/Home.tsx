@@ -12,6 +12,7 @@ import { FadeIn } from "@/components/FadeIn";
 import { getOrCreateConversation, getMessages } from "@/services/mentorService";
 import { getLibraryAssets, type Asset } from "@/services/assetService";
 import { getCalendarPostsForRange, type CalendarPost } from "@/services/calendarService";
+import { getBrandStageData, getAllStageFields, type StageField } from "@/services/journeyDataService";
 
 // ── Helpers ────────────────────────────────────────────────
 function getGreeting() {
@@ -85,6 +86,8 @@ const Home = () => {
   const [lastMentorMsg, setLastMentorMsg] = useState<{ content: string; created_at: string } | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [upcomingPosts, setUpcomingPosts] = useState<CalendarPost[]>([]);
+  const [brandStageData, setBrandStageData] = useState<Record<string, Record<string, string>>>({});
+  const [stageFields, setStageFields] = useState<Record<string, StageField[]>>({});
 
   const firstName = profile?.full_name?.trim().split(/\s+/)[0] || "";
   const greeting = firstName ? `${getGreeting()}, ${firstName}` : getGreeting();
@@ -99,6 +102,7 @@ const Home = () => {
       setLastMentorMsg(null);
       setAssets([]);
       setUpcomingPosts([]);
+      setBrandStageData({});
       return;
     }
     let cancelled = false;
@@ -109,14 +113,18 @@ const Home = () => {
       const startDate = today.toISOString().split("T")[0];
       const endDate = in14.toISOString().split("T")[0];
 
-      const [conv, assetList, posts] = await Promise.all([
+      const [conv, assetList, posts, stageData, fields] = await Promise.all([
         getOrCreateConversation(activeBrand.id),
         getLibraryAssets(activeBrand.id, "all"),
         getCalendarPostsForRange(activeBrand.id, startDate, endDate),
+        getBrandStageData(activeBrand.id),
+        getAllStageFields(),
       ]);
       if (cancelled) return;
       setAssets(assetList ?? []);
       setUpcomingPosts(posts ?? []);
+      setBrandStageData(stageData ?? {});
+      setStageFields(fields ?? {});
       if (conv?.id) {
         const msgs = await getMessages(conv.id);
         if (cancelled) return;
@@ -139,10 +147,6 @@ const Home = () => {
 
   // ── Derived business context ──
   const completeness = activeBrand?.completeness_score ?? 0;
-  const positioning = activeBrandDNA?.positioning_statement?.trim();
-  const voice = activeBrandDNA?.brand_voice?.trim();
-  const audience = (activeBrandDNA as any)?.target_audience?.trim?.();
-  const promise = activeBrandDNA?.core_promise?.trim();
 
   const latestAsset = assets[0];
   const nextPost = upcomingPosts[0];
@@ -151,6 +155,23 @@ const Home = () => {
   const visualCount = assets.filter((a) => a.type === "template_output" || a.type === "generated_visual").length;
 
   const hasMomentum = !!(lastMentorMsg || latestAsset || nextPost);
+
+  // Get current stage data for Business Context panel
+  const currentStageKey = activeBrand?.journey_stage ?? currentStageData?.stage_key ?? journeyStages[0]?.stage_key;
+  const currentStageFields = stageFields[currentStageKey] ?? [];
+  const currentStageValues = brandStageData[currentStageKey] ?? {};
+  
+  // Build list of fields with values, ordered by sort_order
+  const contextFields = currentStageFields
+    .filter(field => currentStageValues[field.field_key]?.trim())
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .slice(0, 5)
+    .map(field => ({
+      label: field.field_label,
+      value: currentStageValues[field.field_key]?.trim() ?? ""
+    }));
+
+  const hasContextFields = contextFields.length > 0;
 
   // ── Subtitle (calm, environmental) ──
   let subtitle = "";
@@ -268,35 +289,40 @@ const Home = () => {
         ───────────────────────────────────────────────────── */}
         {hasBrand && viewState !== "early" && (
           <section className="px-4 md:px-8 pb-14 max-w-[1180px] mx-auto">
-            <SectionEyebrow>Business context</SectionEyebrow>
+            <SectionEyebrow>
+              Business context{currentStageData ? ` — ${currentStageData.name}` : ""}
+            </SectionEyebrow>
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 lg:gap-10">
               {/* Context lines */}
               <div className="rounded-xl border border-card-border bg-card/40 px-5 md:px-7 py-2 md:py-3">
-                <ContextLine
-                  label="Current positioning"
-                  value={positioning ? truncate(positioning, 160) : "Still forming. Shape this in conversation with Kinika."}
-                  muted={!positioning}
-                />
-                <ContextLine
-                  label="Voice direction"
-                  value={voice ? truncate(voice, 140) : "No voice direction set yet."}
-                  muted={!voice}
-                />
-                <ContextLine
-                  label="Audience understanding"
-                  value={audience ? truncate(audience, 140) : "Audience not yet defined."}
-                  muted={!audience}
-                />
-                <ContextLine
-                  label="Core promise"
-                  value={promise ? truncate(promise, 140) : "No promise articulated."}
-                  muted={!promise}
-                />
-                <ContextLine
-                  label="Stage"
-                  value={currentStageData ? currentStageData.name : "—"}
-                />
+                {hasContextFields ? (
+                  <>
+                    {contextFields.map((field, idx) => (
+                      <ContextLine
+                        key={idx}
+                        label={field.label}
+                        value={truncate(field.value, 160)}
+                      />
+                    ))}
+                    {/* Stage row at the bottom */}
+                    <ContextLine
+                      label="Stage"
+                      value={currentStageData ? `${currentStageData.emoji} ${currentStageData.name}` : "—"}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <ContextLine
+                      label="Stage"
+                      value={currentStageData ? `${currentStageData.emoji} ${currentStageData.name}` : "—"}
+                      muted={true}
+                    />
+                    <p className="text-muted-foreground italic text-sm mt-1 ml-48 sm:ml-0">
+                      Shape this in conversation with Kinika.
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Brand alignment panel */}
