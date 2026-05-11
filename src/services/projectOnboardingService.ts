@@ -1,9 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
-import { callAI } from './aiService';
+import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { saveMultipleStageFields } from './journeyDataService';
 import { updateProjectName, updateJourneyStage, getAllJourneyStages } from './brandService';
 import { uploadProjectFile } from './projectAssetsService';
 import { logError } from './errorService';
+
+const db = supabase as any;
 
 export interface OnboardingContext {
   text?: string;
@@ -19,6 +21,7 @@ export interface ExtractedProjectData {
   // { stage_key: { field_key: value } }
   confidence: 'high' | 'medium' | 'low';
   summary: string;
+  extractedFields?: Array<{ stage_key: string; field_key: string; value: string; is_ai_discovered: boolean }>;
 }
 
 // Fetch website content for extraction
@@ -60,111 +63,201 @@ export const extractProjectContext = async (
   userId: string,
   context: OnboardingContext
 ): Promise<ExtractedProjectData | null> => {
-  let contentToProcess = '';
+  try {
+    let contentToProcess = '';
 
-  // Gather content from all sources
-  if (context.text) {
-    contentToProcess += `\n\nFOUNDER PROVIDED TEXT:\n${context.text}`;
-  }
-
-  if (context.websiteUrl) {
-    const webContent = await fetchWebsiteContent(context.websiteUrl);
-    if (webContent) {
-      contentToProcess += `\n\nWEBSITE CONTENT (${context.websiteUrl}):\n${webContent}`;
+    // Gather content from all sources
+    if (context.text) {
+      contentToProcess += `\n\nFOUNDER PROVIDED TEXT:\n${context.text}`;
     }
-  }
 
-  if (context.file) {
-    const fileContent = await readFileContent(context.file);
-    if (fileContent) {
-      contentToProcess += `\n\nUPLOADED DOCUMENT (${context.file.name}):\n${fileContent}`;
+    if (context.websiteUrl) {
+      const webContent = await fetchWebsiteContent(context.websiteUrl);
+      if (webContent) {
+        contentToProcess += `\n\nWEBSITE CONTENT (${context.websiteUrl}):\n${webContent}`;
+      }
     }
-  }
 
-  if (!contentToProcess.trim()) return null;
+    if (context.file) {
+      const fileContent = await readFileContent(context.file);
+      if (fileContent) {
+        contentToProcess += `\n\nUPLOADED DOCUMENT (${context.file.name}):\n${fileContent}`;
+      }
+    }
 
-  // Fetch stages dynamically from database
-  const stages = await getAllJourneyStages();
-  const stageKeys = stages.map(s => s.stage_key).join('|');
-  
-  // Build dynamic prompt structure based on actual stages
-  const fieldsStructure = stages.map(stage => 
-    `    "${stage.stage_key}": {
-      // Field keys for ${stage.name} stage
-      // Include any extracted values as "field_key": "value or null"
-    }`
-  ).join(',\n');
+    if (!contentToProcess.trim()) return null;
 
-  const extractionPrompt = `You are extracting structured product and brand data from a founder's existing work. 
+    // Fetch the system prompt for context_extraction
+    const systemPrompt = await getSystemPrompt('context_extraction') || `
+You are extracting structured product and brand data from a founder's existing work.
 
-The founder says they are in the "${context.declaredStage}" stage of their journey.
+The founder says they are in the "{{declared_stage}}" stage of their journey.
 
 Analyze the content provided and extract as much structured data as possible. Return ONLY a valid JSON object with this exact structure:
 
 {
   "suggested_name": "3 word project title or null",
-  "detected_stage": "${stageKeys}",
+  "detected_stage": "stage_key",
   "confidence": "high|medium|low",
   "summary": "2 sentence summary of what this founder is building",
-  "fields": {
-${fieldsStructure}
-  }
+  "fields": [
+    {
+      "stage_key": "spark",
+      "field_key": "problem_statement",
+      "value": "extracted value or null",
+      "is_ai_discovered": true
+    }
+  ]
 }
 
-Only include fields where you found clear, specific information. Use null for anything not mentioned or unclear. Do not invent or assume information that is not in the content. Return only the JSON object, no explanation.`;
+{{field_guide}}
 
-  const result = await callAI({
-    taskType: 'mentor_chat',
-    userId,
-    systemPrompt: extractionPrompt,
-    messages: [
-      {
-        role: 'user',
-        content: contentToProcess
-      }
-    ],
-    maxTokens: 2000
-  });
+Only include fields where you found clear, specific information. Use null for anything not mentioned or unclear. Do not invent or assume information that is not in the content. Return only the JSON object, no explanation.
+`;
 
-  if (!result.success || !result.text) return null;
+    // Fetch all active journey stage fields from DB
+    const { data: stageFields } = await db
+      .from('journey_stage_fields')
+      .select('stage_key, field_key, field_label, field_description')
+      .order('stage_key, sort_order', { ascending: true });
 
-  try {
-    const clean = result.text
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
+    if (!stageFields || stageFields.length === 0) {
+      await logError({
+        userId,
+        errorType: 'database',
+        module: 'mentor',
+        errorMessage: 'No journey stage fields found in database',
+        context: { function: 'extractProjectContext' }
+      });
+      return null;
+    }
+
+    // Build the field guide string dynamically grouped by stage_key
+    const fieldGuideMap = new Map<string, Array<{ key: string; label: string }>>();
     
-    const parsed = JSON.parse(clean);
-    
-    // Filter out null values from fields
-    const cleanedFields: Record<string, Record<string, string>> = {};
-    Object.entries(parsed.fields ?? {}).forEach(([stageKey, stageFields]) => {
-      const nonNull: Record<string, string> = {};
-      Object.entries(stageFields as Record<string, string | null>).forEach(
-        ([fieldKey, value]) => {
-          if (value && value.trim()) nonNull[fieldKey] = value;
-        }
-      );
-      if (Object.keys(nonNull).length > 0) {
-        cleanedFields[stageKey] = nonNull;
+    for (const field of stageFields) {
+      if (!fieldGuideMap.has(field.stage_key)) {
+        fieldGuideMap.set(field.stage_key, []);
       }
+      fieldGuideMap.get(field.stage_key)!.push({
+        key: field.field_key,
+        label: field.field_label || field.field_description || field.field_key
+      });
+    }
+
+    // Format field guide string
+    const fieldGuideParts: string[] = [];
+    for (const [stageKey, fields] of fieldGuideMap.entries()) {
+      const fieldsText = fields
+        .map(f => `- ${f.key}: ${f.label}`)
+        .join('\n      ');
+      fieldGuideParts.push(`[${stageKey.toUpperCase()}] STAGE (stage_key: ${stageKey}):\n      ${fieldsText}`);
+    }
+    
+    const fieldGuideString = `FIELD GUIDE:\n${fieldGuideParts.join('\n\n')}`;
+
+    // Inject field guide and other variables into the prompt
+    const finalPrompt = injectPromptVariables(systemPrompt, {
+      field_guide: fieldGuideString,
+      declared_stage: context.declaredStage
     });
 
-    return {
-      suggestedName: parsed.suggested_name ?? null,
-      detectedStage: parsed.detected_stage ?? context.declaredStage,
-      fields: cleanedFields,
-      confidence: parsed.confidence ?? 'medium',
-      summary: parsed.summary ?? ''
-    };
-  } catch (e) {
-    console.error('Failed to parse extraction response:', e);
+    const result = await callAI({
+      taskType: 'context_extraction',
+      userId,
+      systemPrompt: finalPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: contentToProcess
+        }
+      ],
+      maxTokens: 4000
+    });
+
+    if (!result.success || !result.text) {
+      await logError({
+        userId,
+        errorType: 'ai_call',
+        module: 'mentor',
+        errorMessage: 'AI extraction call failed',
+        context: { error: result.error }
+      });
+      return null;
+    }
+
+    try {
+      const clean = result.text
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+      
+      const parsed = JSON.parse(clean);
+      
+      // Validate and extract fields array
+      const fieldsArray = parsed.fields || [];
+      const cleanedFields: Record<string, Record<string, string>> = {};
+      const extractedFields: Array<{ stage_key: string; field_key: string; value: string; is_ai_discovered: boolean }> = [];
+      
+      for (const item of fieldsArray) {
+        if (!item.stage_key || !item.field_key) continue;
+        
+        if (!cleanedFields[item.stage_key]) {
+          cleanedFields[item.stage_key] = {};
+        }
+        
+        if (item.value && item.value.trim()) {
+          cleanedFields[item.stage_key][item.field_key] = item.value;
+          extractedFields.push({
+            stage_key: item.stage_key,
+            field_key: item.field_key,
+            value: item.value,
+            is_ai_discovered: item.is_ai_discovered ?? true
+          });
+        }
+      }
+
+      // Determine the most common stage from extracted fields
+      const stageCounts = new Map<string, number>();
+      for (const field of extractedFields) {
+        stageCounts.set(field.stage_key, (stageCounts.get(field.stage_key) || 0) + 1);
+      }
+      
+      let mostCommonStage = context.declaredStage;
+      let maxCount = 0;
+      for (const [stage, count] of stageCounts.entries()) {
+        if (count > maxCount) {
+          maxCount = count;
+          mostCommonStage = stage;
+        }
+      }
+
+      return {
+        suggestedName: parsed.suggested_name ?? null,
+        detectedStage: parsed.detected_stage ?? mostCommonStage,
+        fields: cleanedFields,
+        confidence: parsed.confidence ?? 'medium',
+        summary: parsed.summary ?? '',
+        extractedFields // Include for saveExtractedContext
+      };
+    } catch (e) {
+      console.error('Failed to parse extraction response:', e);
+      await logError({
+        userId,
+        errorType: 'ai_call',
+        module: 'mentor',
+        errorMessage: 'Failed to parse project context extraction',
+        context: { rawResponse: result.text?.slice(0, 200) }
+      });
+      return null;
+    }
+  } catch (error: any) {
     await logError({
       userId,
-      errorType: 'ai_call',
+      errorType: 'unknown',
       module: 'mentor',
-      errorMessage: 'Failed to parse project context extraction',
-      context: { rawResponse: result.text?.slice(0, 200) }
+      errorMessage: error.message || 'Unexpected error in extractProjectContext',
+      context: { context }
     });
     return null;
   }
@@ -177,66 +270,69 @@ export const saveExtractedContext = async (
   extracted: ExtractedProjectData,
   file?: File
 ): Promise<{ fieldsCount: number; error?: string }> => {
-  // Fetch stages dynamically for brand DNA mapping
-  const stages = await getAllJourneyStages();
-  let totalSaved = 0;
-
-  // Save name if extracted
-  if (extracted.suggestedName) {
-    await updateProjectName(brandId, extracted.suggestedName);
-  }
-
-  // Update stage if detected
-  if (extracted.detectedStage) {
-    await updateJourneyStage(brandId, extracted.detectedStage, 'auto_detected');
-  }
-
-  // Save all extracted fields
-  for (const [stageKey, fields] of Object.entries(extracted.fields)) {
-    if (Object.keys(fields).length === 0) continue;
-
-    const { success } = await saveMultipleStageFields(
-      brandId,
-      stageKey,
-      fields
-    );
-
-    if (success) {
-      totalSaved += Object.keys(fields).length;
+  try {
+    // Save name if extracted
+    if (extracted.suggestedName) {
+      await updateProjectName(brandId, extracted.suggestedName);
     }
-  }
 
-  // Save brand DNA fields that map from stage data
-  // Find a stage that has brand-related fields (typically has brand in the name or key)
-  const brandStageKey = stages.find(s => 
-    s.stage_key.toLowerCase().includes('brand') || 
-    s.name.toLowerCase().includes('brand')
-  )?.stage_key;
-  
-  if (brandStageKey) {
-    const brandFields = extracted.fields[brandStageKey] ?? {};
-    if (brandFields.brand_name) {
-      await (supabase as any)
-        .from('brand_dna')
-        .upsert({ brand_id: brandId, brand_voice: brandFields.brand_voice }, { onConflict: 'brand_id' });
+    // Update stage if detected
+    if (extracted.detectedStage) {
+      await updateJourneyStage(brandId, extracted.detectedStage, 'auto_detected');
     }
+
+    // Save extracted fields directly to brand_stage_data with is_ai_discovered
+    if (extracted.extractedFields && extracted.extractedFields.length > 0) {
+      const upsertPromises = extracted.extractedFields.map(field =>
+        db
+          .from('brand_stage_data')
+          .upsert({
+            brand_id: brandId,
+            stage_key: field.stage_key,
+            field_key: field.field_key,
+            value: field.value,
+            is_ai_discovered: field.is_ai_discovered ?? false,
+            status: 'captured',
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'brand_id,stage_key,field_key',
+            ignoreDuplicates: false
+          })
+      );
+      
+      await Promise.all(upsertPromises);
+    }
+
+    // Determine context source
+    let contextSource: 'url' | 'text' | 'document' | 'fresh_start' = 'text';
+    if (extracted.extractedFields && extracted.extractedFields.length > 0) {
+      contextSource = file ? 'document' : 'text';
+    } else {
+      contextSource = 'fresh_start';
+    }
+
+    // Mark onboarding as complete and update brands table
+    await db
+      .from('brands')
+      .update({
+        onboarding_completed: true,
+        context_source: contextSource,
+        journey_stage: extracted.detectedStage || 'spark',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', brandId);
+
+    return { fieldsCount: extracted.extractedFields?.length || 0 };
+  } catch (error: any) {
+    await logError({
+      userId,
+      errorType: 'database',
+      module: 'mentor',
+      errorMessage: error.message || 'Failed to save extracted context',
+      context: { brandId, error }
+    });
+    return { fieldsCount: 0, error: error.message };
   }
-
-  // Note: project asset saving (file/URL/text) is handled by the caller
-  // in ProjectOnboarding.handleConfirmSave so the per-source metadata
-  // (source="upload", content_text, file_url) can be applied correctly.
-
-  // Mark onboarding as complete
-  await (supabase as any)
-    .from('brands')
-    .update({
-      onboarding_completed: true,
-      context_source: file ? 'document_upload' : 'text_paste',
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', brandId);
-
-  return { fieldsCount: totalSaved };
 };
 
 // Mark fresh start (no prior context)
