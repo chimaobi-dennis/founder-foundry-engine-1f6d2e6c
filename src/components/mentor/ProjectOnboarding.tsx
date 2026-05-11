@@ -352,11 +352,12 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
             setUploadedFile={setUploadedFile}
             onAnalyse={handleAnalyse}
             onSkip={handleSkipFresh}
-            onBack={() => setStep("stage")}
+            onBack={isUpdateMode ? onComplete : () => setStep("stage")}
             fileInputRef={fileInputRef}
             onFileChange={handleFileChange}
             onDrop={handleDrop}
             formatBytes={formatBytes}
+            isUpdateMode={isUpdateMode}
           />
         )}
         {step === "processing" && (
@@ -371,6 +372,7 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
             onEdit={handleEditBeforeSave}
             onSkip={handleSkipFresh}
             saving={saving}
+            isUpdateMode={isUpdateMode}
           />
         )}
       </>
