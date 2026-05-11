@@ -22,6 +22,8 @@ export interface ExtractedProjectData {
   confidence: 'high' | 'medium' | 'low';
   summary: string;
   extractedFields?: Array<{ stage_key: string; field_key: string; value: string; is_ai_discovered: boolean }>;
+  stageCount?: number;
+  fieldCount?: number;
 }
 
 // Fetch website content for extraction
@@ -187,21 +189,60 @@ Only include fields where you found clear, specific information. Use null for an
     }
 
     try {
-      const clean = result.text
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
+      console.log('[extractProjectContext] Raw AI text:', result.text);
       
-      const parsed = JSON.parse(clean);
+      // Strip any markdown fences if present
+      let cleanText = result.text.trim();
+      if (cleanText.startsWith('```json')) {
+        cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '').trim();
+      } else if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/^```/, '').replace(/```$/, '').trim();
+      }
       
-      // Validate and extract fields array
-      const fieldsArray = parsed.fields || [];
+      console.log('[extractProjectContext] Cleaned text:', cleanText);
+      
+      // Parse the JSON
+      const parsed = JSON.parse(cleanText);
+      console.log('[extractProjectContext] Parsed result:', parsed);
+      
+      // Handle both array response and object with fields property
+      let fieldsArray = [];
+      let suggestedName = null;
+      let detectedStage = null;
+      let confidence = 'medium';
+      let summary = '';
+      
+      if (Array.isArray(parsed)) {
+        // AI returned array directly
+        fieldsArray = parsed;
+      } else if (parsed && typeof parsed === 'object') {
+        // AI returned object with fields property
+        fieldsArray = parsed.fields || [];
+        suggestedName = parsed.suggested_name || null;
+        detectedStage = parsed.detected_stage || null;
+        confidence = parsed.confidence || 'medium';
+        summary = parsed.summary || '';
+      }
+      
+      console.log('[extractProjectContext] Fields array length:', fieldsArray.length);
+      
+      // Validate it is an array
+      if (!Array.isArray(fieldsArray)) {
+        throw new Error('AI extraction result is not an array');
+      }
+      
+      // Filter out any items missing required fields
+      const filteredFields = fieldsArray.filter(
+        item => item.stage_key && item.field_key && item.value
+      );
+      
+      console.log('[extractProjectContext] Filtered fields length:', filteredFields.length);
+      
+      // Build the cleaned fields object and extracted fields array
       const cleanedFields: Record<string, Record<string, string>> = {};
       const extractedFields: Array<{ stage_key: string; field_key: string; value: string; is_ai_discovered: boolean }> = [];
       
-      for (const item of fieldsArray) {
-        if (!item.stage_key || !item.field_key) continue;
-        
+      for (const item of filteredFields) {
         if (!cleanedFields[item.stage_key]) {
           cleanedFields[item.stage_key] = {};
         }
@@ -217,6 +258,8 @@ Only include fields where you found clear, specific information. Use null for an
         }
       }
 
+      console.log('[extractProjectContext] Extracted fields count:', extractedFields.length);
+      
       // Determine the most common stage from extracted fields
       const stageCounts = new Map<string, number>();
       for (const field of extractedFields) {
@@ -232,22 +275,27 @@ Only include fields where you found clear, specific information. Use null for an
         }
       }
 
+      const stageCount = new Set(extractedFields.map(f => f.stage_key)).size;
+      console.log('[extractProjectContext] Stage count:', stageCount, 'Field count:', extractedFields.length);
+
       return {
-        suggestedName: parsed.suggested_name ?? null,
-        detectedStage: parsed.detected_stage ?? mostCommonStage,
+        suggestedName: suggestedName,
+        detectedStage: detectedStage ?? mostCommonStage,
         fields: cleanedFields,
-        confidence: parsed.confidence ?? 'medium',
-        summary: parsed.summary ?? '',
-        extractedFields // Include for saveExtractedContext
+        confidence: confidence as 'high' | 'medium' | 'low',
+        summary: summary,
+        extractedFields,
+        stageCount,
+        fieldCount: extractedFields.length
       };
     } catch (e) {
-      console.error('Failed to parse extraction response:', e);
+      console.error('[extractProjectContext] Failed to parse extraction response:', e);
       await logError({
         userId,
         errorType: 'ai_call',
         module: 'mentor',
         errorMessage: 'Failed to parse project context extraction',
-        context: { rawResponse: result.text?.slice(0, 200) }
+        context: { rawResponse: result.text?.slice(0, 200), error: e }
       });
       return null;
     }

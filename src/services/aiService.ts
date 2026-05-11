@@ -238,6 +238,58 @@ export const resolveModelForTask = async (
 
   // Null check — model or provider missing
   if (!defaultTask?.ai_models) {
+    // For system task types, fall back to system_ai
+    const systemTaskTypes: TaskType[] = ['context_extraction', 'system_ai'];
+    if (systemTaskTypes.includes(taskType) && taskType !== 'system_ai') {
+      console.log(`No model found for task type ${taskType}, falling back to system_ai`);
+      
+      const { data: systemDefault } = await (supabase as any)
+        .from('ai_task_defaults')
+        .select(`
+          model_id,
+          ai_models (
+            *,
+            ai_providers (*)
+          )
+        `)
+        .eq('task_type', 'system_ai')
+        .single();
+
+      if (!systemDefault?.ai_models) {
+        const error = 'No model configured. Please set a System AI model in Admin → AI Models → Task Defaults.';
+        console.error(error);
+        return null;
+      }
+
+      const systemModel = systemDefault.ai_models as any;
+      if (!systemModel.ai_providers) {
+        console.error(
+          `System AI model found but provider is null. ` +
+          `Model: ${systemModel.name} (${systemModel.model_id}). ` +
+          `Check that the provider exists and is enabled.` 
+        );
+        return null;
+      }
+
+      if (!systemModel.ai_providers.is_enabled) {
+        console.error(
+          `System AI provider ${systemModel.ai_providers.slug} is disabled. ` +
+          `Enable it in admin dashboard or update task defaults.` 
+        );
+        return null;
+      }
+
+      console.log('resolveModelForTask fallback result:', { 
+        originalTask: taskType, 
+        fallbackTask: 'system_ai', 
+        modelId: systemModel.model_id, 
+        providerId: systemModel.ai_providers.id,
+        providerSlug: systemModel.ai_providers.slug
+      });
+
+      return { model: systemModel, provider: systemModel.ai_providers };
+    }
+
     console.error(`No model found for task type: ${taskType}`);
     return null;
   }
