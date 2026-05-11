@@ -978,6 +978,25 @@ export function BrandMilestonePanel({
               </span>
             )}
           </div>
+          {onUpdateContext && (
+            <button
+              onClick={onUpdateContext}
+              className="font-ui inline-flex items-center gap-1.5 mt-3 transition-colors"
+              style={{
+                fontSize: '13px',
+                color: '#D4A017',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+            >
+              <Upload size={13} />
+              + Add context from document/URL
+            </button>
+          )}
         </div>
       </div>
 
