@@ -161,7 +161,7 @@ Only include fields where you found clear, specific information. Use null for an
       field_guide: fieldGuideString,
       declared_stage: context.declaredStage
     });
-
+    console.log('Final prompt:', finalPrompt);
     const result = await callAI({
       taskType: 'system_ai',
       userId,
@@ -174,7 +174,7 @@ Only include fields where you found clear, specific information. Use null for an
       ],
       maxTokens: 4000
     });
-
+    console.log('AI result:', result);
     if (!result.success || !result.text) {
       await logError({
         userId,
