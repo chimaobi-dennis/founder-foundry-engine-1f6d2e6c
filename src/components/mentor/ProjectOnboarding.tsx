@@ -357,6 +357,24 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
 
   // ─── Render ───────────────────────────────────────────────────────────
 
+  // The editor step is a true fullscreen overlay — render it outside the modal
+  // wrappers because the desktop wrapper uses `transform`, which traps any
+  // `position: fixed` descendant inside its box.
+  if (step === "editor" && extracted) {
+    return (
+      <EditorStep
+        extracted={extracted}
+        stages={journeyStages}
+        getFieldLabel={getFieldLabel}
+        onEdit={setEditedExtracted}
+        onSave={handleConfirmSave}
+        onBack={() => setStep("results")}
+        saving={saving}
+        isUpdateMode={isUpdateMode}
+      />
+    );
+  }
+
   return (
     <>
       {/* Backdrop */}
