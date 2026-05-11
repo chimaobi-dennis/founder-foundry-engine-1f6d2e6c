@@ -467,6 +467,12 @@ const Mentor = () => {
     });
     setForceRefresh(prev => prev + 1);
 
+    // In update mode, just refresh — don't restart the conversation.
+    if (onboardingMode === 'update') {
+      setOnboardingMode('initial');
+      return;
+    }
+
     // Clear the empty-state greeting for this brand — we are about to populate
     // the conversation with the first AI message instead.
     setEmptyBrands(prev => {
@@ -484,7 +490,12 @@ const Mentor = () => {
     setTimeout(() => {
       triggerFirstAIMessageRef.current?.(activeBrandId);
     }, 300);
-  }, [activeBrandId, refreshBrands, refreshBrandDNA]);
+  }, [activeBrandId, refreshBrands, refreshBrandDNA, onboardingMode]);
+
+  const handleOpenUpdateContext = useCallback(() => {
+    setOnboardingMode('update');
+    setShowOnboarding(true);
+  }, []);
 
   // ─── First-launch auto-init based on profile.brand_status ────────────────
   // When the user has zero projects, branch the first Mentor experience based
