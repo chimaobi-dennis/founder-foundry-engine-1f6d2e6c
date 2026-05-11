@@ -349,6 +349,22 @@ export default function AdminKnowledgeBase() {
                       color: '#F5F0E8'
                     }}
                   />
+
+                  {prompt.task_type === 'context_extraction' && (
+                    <div
+                      className="rounded-md px-3 py-2.5"
+                      style={{
+                        borderLeft: '2px solid #D4A017',
+                        background: 'rgba(212, 160, 23, 0.08)',
+                        fontFamily: 'DM Sans',
+                        fontSize: '13px',
+                        color: '#F5F0E8',
+                        lineHeight: 1.5
+                      }}
+                    >
+                      This prompt uses <code style={{ color: '#D4A017', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> as a variable. At runtime, this is automatically replaced with all active journey stage fields from the database. Do not remove <code style={{ color: '#D4A017', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> from the prompt.
+                    </div>
+                  )}
                   
                   {/* Variables reference panel */}
                   <div>
