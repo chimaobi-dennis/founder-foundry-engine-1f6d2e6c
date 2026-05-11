@@ -283,16 +283,43 @@ export function BrandDNAPanel({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="p-4 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <h2 className="font-display text-base text-foreground">Journey Record</h2>
-          <span className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">
-            Active
-          </span>
-        </div>
-        <p className="text-[12px] font-ui text-muted-foreground mt-0.5">
-          Your founder journey, captured as you go.
+      <div className="px-6 pt-6 pb-5 flex-shrink-0">
+        <p className="text-[10px] font-ui uppercase tracking-[0.18em] text-muted-foreground/70 mb-2" style={{ fontWeight: 500 }}>
+          Journey Record
         </p>
+        <h2 className="font-display text-[20px] leading-tight text-foreground tracking-tight">
+          Your accumulating intelligence
+        </h2>
+        <p className="font-display italic text-[13px] text-muted-foreground/80 mt-2 leading-relaxed">
+          Understanding compounds over time.
+        </p>
+      </div>
+
+      {/* Stage progression dot rail */}
+      <div className="px-6 pb-4 flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          {journeyStages.map((s, i) => {
+            const isCurrent = s.stage_key === activeBrand?.journey_stage;
+            const isPast = i < stageIndex;
+            return (
+              <div key={s.stage_key} className="flex items-center gap-1.5 flex-1">
+                <div
+                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+                  style={{
+                    background: isCurrent ? '#D4A017' : isPast ? 'transparent' : 'rgba(255,255,255,0.1)',
+                    border: isPast ? '1px solid rgba(212,160,23,0.5)' : 'none',
+                  }}
+                />
+                {i < journeyStages.length - 1 && (
+                  <div
+                    className="flex-1 h-px"
+                    style={{ background: isPast ? 'rgba(212,160,23,0.25)' : 'rgba(255,255,255,0.05)' }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Stage switcher row */}
@@ -300,18 +327,18 @@ export function BrandDNAPanel({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '8px 16px',
-        borderBottom: '0.5px solid var(--color-border-tertiary)',
+        padding: '10px 24px 14px',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
         marginBottom: '4px',
         flexShrink: 0
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
           <span style={{ fontSize: '14px' }}>{currentStageData?.emoji}</span>
-          <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+          <span className="font-display tracking-tight" style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
             {currentStageData?.name}
           </span>
-          <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
-            Stage {stageIndex + 1} of {journeyStages.length}
+          <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', letterSpacing: '0.05em' }}>
+            · {stageIndex + 1} of {journeyStages.length}
           </span>
         </div>
         <button
@@ -319,10 +346,9 @@ export function BrandDNAPanel({
           style={{
             fontSize: '11px',
             color: '#D4A017',
-            background: 'rgba(212,160,23,0.08)',
-            border: '0.5px solid rgba(212,160,23,0.25)',
-            borderRadius: '5px',
-            padding: '3px 8px',
+            background: 'transparent',
+            border: 'none',
+            padding: '3px 0',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
