@@ -135,7 +135,8 @@ export type TaskType =
   | 'document_generation'
   | 'reel_script'
   | 'campaign_copy'
-  | 'context_extraction';
+  | 'context_extraction'
+  | 'system_ai';
 
 export interface AIProvider {
   id: string;

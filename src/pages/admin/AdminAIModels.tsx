@@ -52,6 +52,12 @@ const TASK_TYPES: { type: TaskType; name: string; description: string }[] = [
   { type: 'image_generation', name: 'Image generation', description: 'Used across all modules' },
 ];
 
+const SYSTEM_AI_TASK: { type: TaskType; name: string; description: string } = {
+  type: 'system_ai' as TaskType,
+  name: 'System AI',
+  description: 'Powers internal platform tasks — context extraction, auto-naming, and other background processes'
+};
+
 export default function AdminAIModels() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("providers");
@@ -478,6 +484,55 @@ export default function AdminAIModels() {
             </p>
           </div>
 
+          {/* System AI Section */}
+          <div className="border-l-4 border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 p-4 rounded-r-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm font-ui font-semibold text-foreground">{SYSTEM_AI_TASK.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">{SYSTEM_AI_TASK.description}</p>
+              </div>
+              <div className="w-64">
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={taskDefaults[SYSTEM_AI_TASK.type] ?? undefined}
+                    onValueChange={(value) => handleTaskDefaultChange(SYSTEM_AI_TASK.type, value)}
+                    disabled={isActionLoading(`save-default-${SYSTEM_AI_TASK.type}`)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select system AI model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {enabledModels.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name} ({model.provider?.name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isActionLoading(`save-default-${SYSTEM_AI_TASK.type}`) && (
+                    <span style={{
+                      width: '10px',
+                      height: '10px',
+                      border: '2px solid #D4A017',
+                      borderTopColor: 'transparent',
+                      borderRadius: '50%',
+                      display: 'inline-block',
+                      animation: 'spin 0.6s linear infinite'
+                    }} />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Module AI Divider */}
+          <div className="flex items-center gap-4 py-2">
+            <div className="flex-1 h-px bg-border"></div>
+            <span className="text-xs font-ui uppercase tracking-wider text-muted-foreground">Module AI</span>
+            <div className="flex-1 h-px bg-border"></div>
+          </div>
+
+          {/* Module AI Task Defaults */}
           <div className="space-y-3">
             {TASK_TYPES.map((task) => (
               <div key={task.type} className="flex items-center justify-between p-4 border border-border rounded-lg">

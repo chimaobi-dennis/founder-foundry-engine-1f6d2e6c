@@ -163,7 +163,7 @@ Only include fields where you found clear, specific information. Use null for an
     });
 
     const result = await callAI({
-      taskType: 'context_extraction',
+      taskType: 'system_ai',
       userId,
       systemPrompt: finalPrompt,
       messages: [

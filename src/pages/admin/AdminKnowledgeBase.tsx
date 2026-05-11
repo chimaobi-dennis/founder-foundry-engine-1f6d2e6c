@@ -65,8 +65,14 @@ const TASK_CONFIG: Record<TaskType, {
     color: '#F59E0B',
     variables: ['brand_name', 'primary_color', 'brand_voice', 'product_name']
   },
+  system_ai: {
+    name: 'System AI',
+    description: 'Powers internal platform tasks — context extraction, auto-naming, brand suggestions, and other background processes',
+    color: '#F59E0B',
+    variables: []
+  },
   context_extraction: {
-    name: 'Project Onboarding (Context Extraction)',
+    name: 'System AI (Context Extraction)',
     description: 'Used during project onboarding to extract structured brand data from pasted text, URLs, or uploaded documents.',
     color: '#EC4899',
     variables: ['field_guide']
