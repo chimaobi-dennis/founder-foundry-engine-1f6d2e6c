@@ -644,8 +644,9 @@ function ContextStep({
             className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
           >
             Skip — start fresh
-        </button>
-      </div>
+          </button>
+        </div>
+      )}
     </>
   );
 }
