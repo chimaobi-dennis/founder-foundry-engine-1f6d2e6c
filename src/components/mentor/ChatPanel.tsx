@@ -482,24 +482,33 @@ export function ChatPanel({
 
   return (
     <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden max-w-full" style={{ boxSizing: "border-box" }}>
-      {/* Brand context bar */}
-      <div className="h-10 flex items-center gap-3 px-4 bg-muted/20 border-b border-border flex-shrink-0 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", brand.colorClass)} />
-          <span className="text-[12px] font-ui font-medium text-foreground truncate">{brand.name}</span>
+      {/* Working session header — quiet, editorial */}
+      <div className="h-12 flex items-center gap-3 px-6 border-b border-white/[0.04] flex-shrink-0 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span
+            className="font-display text-[14px] text-foreground truncate tracking-tight"
+            style={{ fontStyle: 'italic' }}
+          >
+            Working session
+          </span>
+          <span className="text-[11px] font-ui text-muted-foreground/70 truncate">
+            · {brand.name}
+          </span>
         </div>
-        <span className="text-[10px] font-ui font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary flex-shrink-0 whitespace-nowrap">
-          {stageName ?? 'Stage'} · Active
-        </span>
+        {stageName && (
+          <span className="text-[10px] font-ui uppercase tracking-[0.12em] text-muted-foreground flex-shrink-0">
+            {stageName}
+          </span>
+        )}
       </div>
 
       {/* Chat messages — only scrollable region */}
       <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
         <div className={cn(
-          "px-4 py-6 space-y-1 w-full",
-          isMobile && "pb-16"
-        )} style={{ maxWidth: "100%", overflowX: "hidden", boxSizing: "border-box" }}>
-          <p className="text-[11px] font-ui text-muted-foreground text-center py-3">Today at 14:23</p>
+          "px-6 md:px-10 py-8 space-y-1 w-full max-w-[760px] mx-auto",
+          isMobile && "pb-16 px-4"
+        )} style={{ overflowX: "hidden", boxSizing: "border-box" }}>
+          <p className="text-[10px] font-ui uppercase tracking-[0.15em] text-muted-foreground/60 text-center py-3">Today · 14:23</p>
 
           {dedupedMessages.map((msg, i) => {
             const marker = markersByMessage[msg.id];
@@ -518,27 +527,29 @@ export function ChatPanel({
 
             return (
               <div key={msg.id} className="min-w-0 w-full max-w-full overflow-hidden" style={{ boxSizing: "border-box" }}>
-                {/* Milestone marker */}
+                {/* Milestone marker — chapter break */}
                 {milestone && (
                   <div
                     ref={(el) => { milestoneRefs.current[marker!.milestoneId] = el; }}
                     className={cn(
-                      "flex items-center gap-2 md:gap-3 my-5 transition-all duration-500 min-w-0",
-                      highlightedMilestone === marker!.milestoneId && "bg-primary/10 -mx-4 px-4 py-2 rounded-lg"
+                      "flex flex-col items-center gap-2 my-10 transition-all duration-500 min-w-0",
+                      highlightedMilestone === marker!.milestoneId && "bg-primary/[0.06] -mx-4 px-4 py-3 rounded-lg"
                     )}
                   >
-                    <div className="flex-1 h-px bg-border min-w-0" />
-                    <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-center">
-                      <Flag size={11} className="text-primary" />
-                      <span className={cn("text-[11px] md:text-[12px] font-ui font-medium", categoryTextColors[milestone.category] || "text-muted-foreground")}>
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="flex-1 h-px bg-white/[0.06] min-w-0" />
+                      <div className="w-1 h-1 rounded-full bg-primary/70 flex-shrink-0" />
+                      <div className="flex-1 h-px bg-white/[0.06] min-w-0" />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                      <span className={cn("text-[10px] font-ui uppercase tracking-[0.18em]", categoryTextColors[milestone.category] || "text-muted-foreground")}>
                         {milestone.category}
                       </span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground">·</span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground">{milestone.name}</span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground hidden sm:inline">·</span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground hidden sm:inline">{milestone.timeAgo}</span>
+                      <span className="text-[10px] font-ui text-muted-foreground/40">·</span>
+                      <span className="font-display italic text-[13px] text-foreground/80">{milestone.name}</span>
+                      <span className="text-[10px] font-ui text-muted-foreground/40 hidden sm:inline">·</span>
+                      <span className="text-[10px] font-ui text-muted-foreground/60 hidden sm:inline">{milestone.timeAgo}</span>
                     </div>
-                    <div className="flex-1 h-px bg-border min-w-0" />
                   </div>
                 )}
 
@@ -546,24 +557,24 @@ export function ChatPanel({
                   <p className="text-[11px] font-ui text-muted-foreground text-center py-4">Today at 14:47</p>
                 )}
 
-                {/* Message bubble */}
+                {/* Message — editorial blocks for AI, subtle margin-note for founder */}
                 <div 
                   ref={(el) => { if (messageRefsMap) messageRefsMap.current[msg.id] = el; }}
-                  className={cn("w-full flex flex-col overflow-hidden mb-3", msg.role === "founder" ? "items-end" : "items-start")} 
+                  className={cn("w-full flex flex-col overflow-hidden mb-5", msg.role === "founder" ? "items-end" : "items-start")} 
                   style={{ minWidth: 0, boxSizing: "border-box" }}
                 >
                   <div
                     className={cn(
-                      "group/msg flex items-start gap-1.5 max-w-[75%] min-w-0",
-                      msg.role === "founder" ? "flex-row-reverse" : "flex-row"
+                      "group/msg flex items-start gap-2 min-w-0",
+                      msg.role === "founder" ? "flex-row-reverse max-w-[78%]" : "flex-row w-full"
                     )}
                   >
                     <div
                       className={cn(
-                        "rounded-xl px-4 py-3 min-w-0 break-words",
+                        "min-w-0 break-words",
                         msg.role === "founder"
-                          ? "bg-primary/10"
-                          : "bg-card border border-border"
+                          ? "rounded-2xl px-4 py-2.5 bg-white/[0.04]"
+                          : "py-1 pl-4 border-l border-white/[0.06] w-full"
                       )}
                       style={{ overflowWrap: "break-word", wordWrap: "break-word", wordBreak: "break-word", minWidth: 0, flexShrink: 1, boxSizing: "border-box" }}
                     >
@@ -622,8 +633,13 @@ export function ChatPanel({
                         </div>
                       ) : (
                         <p
-                          className="text-[13.5px] font-ui text-foreground whitespace-pre-line break-words"
-                          style={{ lineHeight: msg.role === "ai" ? "1.7" : "1.6" }}
+                          className={cn(
+                            "whitespace-pre-line break-words",
+                            msg.role === "ai"
+                              ? "text-[14px] font-ui text-foreground/90"
+                              : "text-[13.5px] font-ui text-foreground"
+                          )}
+                          style={{ lineHeight: msg.role === "ai" ? "1.75" : "1.6" }}
                         >
                           {parsed.cleanText}
                         </p>

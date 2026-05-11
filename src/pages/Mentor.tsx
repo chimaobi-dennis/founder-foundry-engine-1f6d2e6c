@@ -1949,7 +1949,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
   return (
     <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full h-full" style={{ minWidth: 0 }}>
       {showLeftInline ? (
-        <aside className="w-60 flex-shrink-0 min-w-0 border-r border-border bg-card/50 overflow-y-auto h-full">
+        <aside className="w-[260px] flex-shrink-0 min-w-0 border-r border-white/[0.04] bg-background/40 overflow-y-auto h-full">
           <BrandMilestonePanel
             brands={brands}
             activeBrand={currentActiveBrand}
@@ -2068,7 +2068,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
       </div>
 
       {showRightInline ? (
-        <aside className="w-[280px] flex-shrink-0 min-w-0 border-l border-border bg-card/50 overflow-y-auto h-full">
+        <aside className="w-[360px] flex-shrink-0 min-w-0 border-l border-white/[0.04] bg-background/40 overflow-y-auto h-full">
           <BrandDNAPanel
             fields={activeBrandData?.dnaFields || emptyDNAFields}
             highlightField={highlightDNAField}

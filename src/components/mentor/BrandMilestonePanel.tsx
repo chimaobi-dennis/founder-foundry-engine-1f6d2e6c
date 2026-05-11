@@ -349,11 +349,11 @@ export function BrandMilestonePanel({
       <div className="p-4 space-y-3 flex-shrink-0">
         <div className="relative">
           <div
-            className="group w-full h-11 rounded-lg border border-border bg-card px-3 flex items-center gap-2.5 hover:border-card-border-hover transition-colors cursor-pointer"
+            className="group w-full h-11 rounded-lg px-2.5 flex items-center gap-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer"
             onClick={() => { if (!isEditingName) setDropdownOpen(!dropdownOpen); }}
           >
             <div
-              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              className="w-2 h-2 rounded-full flex-shrink-0"
               style={{ backgroundColor: getBrandColor(activeBrand.id) }}
             />
             <div className="flex-1 text-left min-w-0">
@@ -374,7 +374,7 @@ export function BrandMilestonePanel({
                       cancelEditName();
                     }
                   }}
-                  className="w-full bg-transparent border-b border-primary outline-none text-[13px] font-ui font-medium text-foreground"
+                  className="w-full bg-transparent border-b border-primary outline-none text-[14px] font-display text-foreground"
                   aria-label="Edit project name"
                 />
               ) : (
@@ -383,7 +383,7 @@ export function BrandMilestonePanel({
                     key={displayBrandName}
                     onDoubleClick={(e) => { e.stopPropagation(); startEditName(); }}
                     title="Double-click to rename"
-                    className="text-[13px] font-ui font-medium text-foreground truncate animate-name-fade"
+                    className="text-[14px] font-display text-foreground truncate animate-name-fade tracking-tight"
                   >
                     {displayBrandName}
                   </p>
@@ -393,27 +393,27 @@ export function BrandMilestonePanel({
                   />
                 </div>
               )}
-              <p className="text-[10px] font-ui text-muted-foreground">Started {activeBrand.startedDate}</p>
+              <p className="text-[10px] font-ui text-muted-foreground/70">Started {activeBrand.startedDate}</p>
             </div>
             {!isEditingName && (
-              <ChevronDown size={14} className="text-muted-foreground flex-shrink-0" />
+              <ChevronDown size={13} className="text-muted-foreground/60 flex-shrink-0" />
             )}
           </div>
           {dropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 rounded-lg bg-card border border-border shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute top-full left-0 right-0 mt-1 rounded-lg bg-card border border-white/[0.05] shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
               {brands.map((brand) => (
                 <button
                   key={brand.id}
                   onClick={() => { onSelectBrand(brand); setDropdownOpen(false); }}
-                  className="w-full h-11 px-3 flex items-center gap-2.5 hover:bg-muted/50 transition-colors"
+                  className="w-full h-11 px-3 flex items-center gap-2.5 hover:bg-white/[0.03] transition-colors"
                 >
                   <div
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ backgroundColor: getBrandColor(brand.id) }}
                   />
                   <div className="min-w-0">
-                    <p className={cn("text-[13px] font-ui truncate", brand.id === activeBrand.id ? "text-primary font-medium" : "text-foreground")}>{capitaliseBrandName(brand.name)}</p>
-                    <p className="text-[10px] font-ui text-muted-foreground">Started {brand.startedDate}</p>
+                    <p className={cn("text-[13px] font-display truncate tracking-tight", brand.id === activeBrand.id ? "text-primary" : "text-foreground")}>{capitaliseBrandName(brand.name)}</p>
+                    <p className="text-[10px] font-ui text-muted-foreground/70">Started {brand.startedDate}</p>
                   </div>
                 </button>
               ))}
@@ -433,9 +433,9 @@ export function BrandMilestonePanel({
             }
             onAddBrand();
           }}
-          className="w-full h-9 rounded-lg border border-primary text-primary font-ui text-[13px] font-semibold flex items-center justify-center gap-2 hover:bg-primary/10 transition-colors"
+          className="w-full h-8 px-2.5 text-left text-primary/90 font-ui text-[12px] flex items-center gap-2 hover:text-primary transition-colors"
         >
-          <Plus size={15} />
+          <Plus size={13} />
           New project
         </button>
 
@@ -519,19 +519,20 @@ export function BrandMilestonePanel({
           paddingBottom: '80px'
         }}
       >
-        {/* Project Assets — first section */}
-        <div className="px-4" style={{ marginTop: '12px' }}>
+        {/* Context Sources — first section */}
+        <div className="px-4" style={{ marginTop: '16px' }}>
           <p style={{
             fontSize: '10px',
             textTransform: 'uppercase',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.16em',
             color: 'var(--color-text-secondary)',
-            marginBottom: '8px'
+            marginBottom: '12px',
+            fontWeight: 500
           }}>
-            PROJECT ASSETS
+            Context Sources
           </p>
 
-          {/* Upload zone */}
+          {/* Add reference material — quiet text-link style */}
           <input
             ref={fileInputRef}
             type="file"
@@ -543,33 +544,27 @@ export function BrandMilestonePanel({
               if (fileInputRef.current) fileInputRef.current.value = '';
             }}
           />
-          <div
+          <button
             onClick={() => !uploading && fileInputRef.current?.click()}
+            disabled={uploading}
             style={{
-              border: '1.5px dashed rgba(212,160,23,0.3)',
-              borderRadius: '8px',
-              padding: '12px',
-              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 0',
+              background: 'transparent',
+              border: 'none',
+              color: '#D4A017',
+              fontSize: '12px',
+              fontFamily: 'inherit',
               cursor: uploading ? 'wait' : 'pointer',
               marginBottom: '10px',
-              transition: 'border-color 150ms',
-              opacity: uploading ? 0.7 : 1
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.5)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.3)';
+              opacity: uploading ? 0.6 : 1
             }}
           >
-            <Upload size={18} style={{ color: '#D4A017', margin: '0 auto 4px' }} />
-            <div style={{ fontSize: '12px', color: '#D4A017', fontWeight: 500 }}>
-              {uploading ? 'Uploading...' : 'Upload files'}
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>
-              Docs, images, PDFs
-            </div>
-          </div>
+            <Upload size={12} />
+            {uploading ? 'Uploading…' : '+ Add reference material'}
+          </button>
 
           {/* Assets list */}
           {projectAssets.length === 0 ? (
@@ -776,13 +771,10 @@ export function BrandMilestonePanel({
         </div>
 
         <div className="px-4">
-          <div className="border-t border-border" />
-          <div className="flex items-center gap-1.5 mt-3 mb-2">
-            <Flag size={11} className="text-muted-foreground" />
-            <p className="text-[11px] font-ui uppercase tracking-[0.1em] text-muted-foreground">
-              Milestones
-            </p>
-          </div>
+          <div className="h-px bg-white/[0.04] mb-4" />
+          <p className="text-[10px] font-ui uppercase tracking-[0.16em] text-muted-foreground/80 mb-3" style={{ fontWeight: 500 }}>
+            Captured Moments
+          </p>
         </div>
 
         {/* Milestones */}
