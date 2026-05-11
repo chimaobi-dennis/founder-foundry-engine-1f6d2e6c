@@ -901,7 +901,7 @@ function ResultsStep({
           className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-ui font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
           style={{ fontSize: 14 }}
         >
-          {saving ? "Saving..." : "Looks good — start mentoring →"}
+          {saving ? "Saving..." : isUpdateMode ? "Add to project context →" : "Looks good — start mentoring →"}
         </button>
         <button
           onClick={onEdit}
@@ -913,15 +913,17 @@ function ResultsStep({
         </button>
       </div>
 
-      <div className="flex justify-center mt-4">
-        <button
-          onClick={onSkip}
-          disabled={saving}
-          className="text-[12px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
-        >
-          Skip — start fresh
-        </button>
-      </div>
+      {!isUpdateMode && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={onSkip}
+            disabled={saving}
+            className="text-[12px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+          >
+            Skip — start fresh
+          </button>
+        </div>
+      )}
     </>
   );
 }
