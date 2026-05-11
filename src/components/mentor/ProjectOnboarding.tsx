@@ -242,7 +242,11 @@ export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }:
     // Save onboarding source(s) as project assets — never block the user
     await saveOnboardingAssets(extracted.detectedStage);
 
-    toast.success(`Loaded ${fieldsCount} data points — your mentor is ready`);
+    if (isUpdateMode) {
+      toast.success("Context added — Kinika is up to date");
+    } else {
+      toast.success(`Loaded ${fieldsCount} data points — your mentor is ready`);
+    }
     setSaving(false);
     onComplete();
   };
