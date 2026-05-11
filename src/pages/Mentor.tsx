@@ -1964,6 +1964,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             onEditMilestoneCategory={handleEditMilestoneCategory}
             conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
             dataRefreshTrigger={forceRefresh}
+            onUpdateContext={handleOpenUpdateContext}
           />
         </aside>
       ) : (
