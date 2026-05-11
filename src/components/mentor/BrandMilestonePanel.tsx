@@ -49,6 +49,8 @@ interface BrandMilestonePanelProps {
   conversation?: { id: string } | null;
   /** Bumped by the parent after any save so the substage progress re-fetches */
   dataRefreshTrigger?: number;
+  /** Open the project context modal in update mode */
+  onUpdateContext?: () => void;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
@@ -73,6 +75,7 @@ export function BrandMilestonePanel({
   realActiveBrand,
   activeBrandDNA,
   dataRefreshTrigger = 0,
+  onUpdateContext,
 }: BrandMilestonePanelProps) {
   const { brands: realBrands, journeyStages, currentStageData, switchBrand, refreshBrands } = useBrand();
   const { user } = useAuth();
@@ -975,6 +978,25 @@ export function BrandMilestonePanel({
               </span>
             )}
           </div>
+          {onUpdateContext && (
+            <button
+              onClick={onUpdateContext}
+              className="font-ui inline-flex items-center gap-1.5 mt-3 transition-colors"
+              style={{
+                fontSize: '13px',
+                color: '#D4A017',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+            >
+              <Upload size={13} />
+              + Add context from document/URL
+            </button>
+          )}
         </div>
       </div>
 

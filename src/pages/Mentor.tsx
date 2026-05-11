@@ -207,6 +207,7 @@ const Mentor = () => {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingMode, setOnboardingMode] = useState<'initial' | 'update'>('initial');
   const [onboardingCheckedFor, setOnboardingCheckedFor] = useState<Set<string>>(new Set());
 
   const { brands: realBrands, activeBrand, activeBrandDNA, switchBrand, createNewBrand, refreshBrands, refreshBrandDNA, isLoading, currentStageData } = useBrand();
@@ -466,6 +467,12 @@ const Mentor = () => {
     });
     setForceRefresh(prev => prev + 1);
 
+    // In update mode, just refresh — don't restart the conversation.
+    if (onboardingMode === 'update') {
+      setOnboardingMode('initial');
+      return;
+    }
+
     // Clear the empty-state greeting for this brand — we are about to populate
     // the conversation with the first AI message instead.
     setEmptyBrands(prev => {
@@ -483,7 +490,12 @@ const Mentor = () => {
     setTimeout(() => {
       triggerFirstAIMessageRef.current?.(activeBrandId);
     }, 300);
-  }, [activeBrandId, refreshBrands, refreshBrandDNA]);
+  }, [activeBrandId, refreshBrands, refreshBrandDNA, onboardingMode]);
+
+  const handleOpenUpdateContext = useCallback(() => {
+    setOnboardingMode('update');
+    setShowOnboarding(true);
+  }, []);
 
   // ─── First-launch auto-init based on profile.brand_status ────────────────
   // When the user has zero projects, branch the first Mentor experience based
@@ -1952,6 +1964,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             onEditMilestoneCategory={handleEditMilestoneCategory}
             conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
             dataRefreshTrigger={forceRefresh}
+            onUpdateContext={handleOpenUpdateContext}
           />
         </aside>
       ) : (
@@ -1972,6 +1985,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               onEditMilestoneCategory={handleEditMilestoneCategory}
               conversation={conversationMapRef.current[currentActiveBrand?.id ?? ''] || null}
               dataRefreshTrigger={forceRefresh}
+              onUpdateContext={() => { handleOpenUpdateContext(); setLeftOpen(false); }}
             />
           </SheetContent>
         </Sheet>
@@ -2090,6 +2104,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         <ProjectOnboarding
           brandId={currentActiveBrand.id}
           onComplete={handleOnboardingComplete}
+          isUpdateMode={onboardingMode === 'update'}
         />
       )}
     </div>

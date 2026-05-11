@@ -19,6 +19,8 @@ import { toast } from "sonner";
 interface ProjectOnboardingProps {
   brandId: string;
   onComplete: () => void;
+  /** When true, opens directly in context tab and merges new context into existing project. */
+  isUpdateMode?: boolean;
 }
 
 type Step = "stage" | "context" | "processing" | "results";
@@ -31,12 +33,14 @@ const PROCESSING_MESSAGES = [
   "Preparing your mentor context...",
 ];
 
-export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProps) {
-  const { journeyStages } = useBrand();
+export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }: ProjectOnboardingProps) {
+  const { journeyStages, activeBrand: ctxActiveBrand } = useBrand();
   const { user } = useAuth();
 
-  const [step, setStep] = useState<Step>("stage");
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>(isUpdateMode ? "context" : "stage");
+  const [selectedStage, setSelectedStage] = useState<string | null>(
+    isUpdateMode ? (ctxActiveBrand?.journey_stage ?? "spark") : null
+  );
   const [activeTab, setActiveTab] = useState<Tab>("paste");
 
   const [pastedText, setPastedText] = useState("");
@@ -238,7 +242,11 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
     // Save onboarding source(s) as project assets — never block the user
     await saveOnboardingAssets(extracted.detectedStage);
 
-    toast.success(`Loaded ${fieldsCount} data points — your mentor is ready`);
+    if (isUpdateMode) {
+      toast.success("Context added — Kinika is up to date");
+    } else {
+      toast.success(`Loaded ${fieldsCount} data points — your mentor is ready`);
+    }
     setSaving(false);
     onComplete();
   };
@@ -344,11 +352,12 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
             setUploadedFile={setUploadedFile}
             onAnalyse={handleAnalyse}
             onSkip={handleSkipFresh}
-            onBack={() => setStep("stage")}
+            onBack={isUpdateMode ? onComplete : () => setStep("stage")}
             fileInputRef={fileInputRef}
             onFileChange={handleFileChange}
             onDrop={handleDrop}
             formatBytes={formatBytes}
+            isUpdateMode={isUpdateMode}
           />
         )}
         {step === "processing" && (
@@ -363,6 +372,7 @@ export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProp
             onEdit={handleEditBeforeSave}
             onSkip={handleSkipFresh}
             saving={saving}
+            isUpdateMode={isUpdateMode}
           />
         )}
       </>
@@ -505,6 +515,7 @@ function ContextStep({
   onFileChange,
   onDrop,
   formatBytes,
+  isUpdateMode,
 }: any) {
   const stage = stages.find((s: any) => s.stage_key === selectedStage);
 
@@ -515,9 +526,9 @@ function ContextStep({
           onClick={onBack}
           className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
         >
-          ← Back
+          {isUpdateMode ? "← Cancel" : "← Back"}
         </button>
-        {stage && (
+        {stage && !isUpdateMode && (
           <span className="text-[12px] text-muted-foreground ml-auto">
             {stage.emoji} {stage.name}
           </span>
@@ -525,10 +536,12 @@ function ContextStep({
       </div>
 
       <h2 className="font-display text-foreground" style={{ fontSize: 22, lineHeight: 1.3, marginBottom: 8 }}>
-        Share what you have built so far
+        {isUpdateMode ? "Add more context to this project" : "Share what you have built so far"}
       </h2>
       <p className="text-muted-foreground" style={{ fontSize: 13, marginBottom: 20 }}>
-        Your mentor will read through everything and get up to speed before your first conversation.
+        {isUpdateMode
+          ? "Your mentor will read this and add it to what it already knows about your project."
+          : "Your mentor will read through everything and get up to speed before your first conversation."}
       </p>
 
       {/* Tabs */}
@@ -621,17 +634,19 @@ function ContextStep({
         className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-ui font-medium hover:bg-primary/90 transition-colors mt-6"
         style={{ fontSize: 14 }}
       >
-        Analyse and continue →
+        {isUpdateMode ? "Add to project context →" : "Analyse and continue →"}
       </button>
 
-      <div className="flex justify-center mt-4">
-        <button
-          onClick={onSkip}
-          className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Skip — start fresh
-        </button>
-      </div>
+      {!isUpdateMode && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={onSkip}
+            className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip — start fresh
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -810,6 +825,7 @@ function ResultsStep({
   onEdit,
   onSkip,
   saving,
+  isUpdateMode,
 }: {
   extracted: ExtractedProjectData;
   stages: any[];
@@ -818,6 +834,7 @@ function ResultsStep({
   onEdit: () => void;
   onSkip: () => void;
   saving: boolean;
+  isUpdateMode?: boolean;
 }) {
   const fieldsCount = Object.values(extracted.fields).reduce(
     (sum, fields) => sum + Object.keys(fields).length,
@@ -884,7 +901,7 @@ function ResultsStep({
           className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground font-ui font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
           style={{ fontSize: 14 }}
         >
-          {saving ? "Saving..." : "Looks good — start mentoring →"}
+          {saving ? "Saving..." : isUpdateMode ? "Add to project context →" : "Looks good — start mentoring →"}
         </button>
         <button
           onClick={onEdit}
@@ -896,15 +913,17 @@ function ResultsStep({
         </button>
       </div>
 
-      <div className="flex justify-center mt-4">
-        <button
-          onClick={onSkip}
-          disabled={saving}
-          className="text-[12px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
-        >
-          Skip — start fresh
-        </button>
-      </div>
+      {!isUpdateMode && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={onSkip}
+            disabled={saving}
+            className="text-[12px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+          >
+            Skip — start fresh
+          </button>
+        </div>
+      )}
     </>
   );
 }
