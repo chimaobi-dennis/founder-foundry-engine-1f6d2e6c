@@ -33,12 +33,14 @@ const PROCESSING_MESSAGES = [
   "Preparing your mentor context...",
 ];
 
-export function ProjectOnboarding({ brandId, onComplete }: ProjectOnboardingProps) {
-  const { journeyStages } = useBrand();
+export function ProjectOnboarding({ brandId, onComplete, isUpdateMode = false }: ProjectOnboardingProps) {
+  const { journeyStages, activeBrand: ctxActiveBrand } = useBrand();
   const { user } = useAuth();
 
-  const [step, setStep] = useState<Step>("stage");
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>(isUpdateMode ? "context" : "stage");
+  const [selectedStage, setSelectedStage] = useState<string | null>(
+    isUpdateMode ? (ctxActiveBrand?.journey_stage ?? "spark") : null
+  );
   const [activeTab, setActiveTab] = useState<Tab>("paste");
 
   const [pastedText, setPastedText] = useState("");
