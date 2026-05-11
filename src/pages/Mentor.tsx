@@ -207,6 +207,7 @@ const Mentor = () => {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingMode, setOnboardingMode] = useState<'initial' | 'update'>('initial');
   const [onboardingCheckedFor, setOnboardingCheckedFor] = useState<Set<string>>(new Set());
 
   const { brands: realBrands, activeBrand, activeBrandDNA, switchBrand, createNewBrand, refreshBrands, refreshBrandDNA, isLoading, currentStageData } = useBrand();
