@@ -515,6 +515,7 @@ function ContextStep({
   onFileChange,
   onDrop,
   formatBytes,
+  isUpdateMode,
 }: any) {
   const stage = stages.find((s: any) => s.stage_key === selectedStage);
 
@@ -525,9 +526,9 @@ function ContextStep({
           onClick={onBack}
           className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
         >
-          ← Back
+          {isUpdateMode ? "← Cancel" : "← Back"}
         </button>
-        {stage && (
+        {stage && !isUpdateMode && (
           <span className="text-[12px] text-muted-foreground ml-auto">
             {stage.emoji} {stage.name}
           </span>
@@ -535,10 +536,12 @@ function ContextStep({
       </div>
 
       <h2 className="font-display text-foreground" style={{ fontSize: 22, lineHeight: 1.3, marginBottom: 8 }}>
-        Share what you have built so far
+        {isUpdateMode ? "Add more context to this project" : "Share what you have built so far"}
       </h2>
       <p className="text-muted-foreground" style={{ fontSize: 13, marginBottom: 20 }}>
-        Your mentor will read through everything and get up to speed before your first conversation.
+        {isUpdateMode
+          ? "Your mentor will read this and add it to what it already knows about your project."
+          : "Your mentor will read through everything and get up to speed before your first conversation."}
       </p>
 
       {/* Tabs */}
