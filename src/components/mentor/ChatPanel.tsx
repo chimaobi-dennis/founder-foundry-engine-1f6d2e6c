@@ -527,27 +527,29 @@ export function ChatPanel({
 
             return (
               <div key={msg.id} className="min-w-0 w-full max-w-full overflow-hidden" style={{ boxSizing: "border-box" }}>
-                {/* Milestone marker */}
+                {/* Milestone marker — chapter break */}
                 {milestone && (
                   <div
                     ref={(el) => { milestoneRefs.current[marker!.milestoneId] = el; }}
                     className={cn(
-                      "flex items-center gap-2 md:gap-3 my-5 transition-all duration-500 min-w-0",
-                      highlightedMilestone === marker!.milestoneId && "bg-primary/10 -mx-4 px-4 py-2 rounded-lg"
+                      "flex flex-col items-center gap-2 my-10 transition-all duration-500 min-w-0",
+                      highlightedMilestone === marker!.milestoneId && "bg-primary/[0.06] -mx-4 px-4 py-3 rounded-lg"
                     )}
                   >
-                    <div className="flex-1 h-px bg-border min-w-0" />
-                    <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-center">
-                      <Flag size={11} className="text-primary" />
-                      <span className={cn("text-[11px] md:text-[12px] font-ui font-medium", categoryTextColors[milestone.category] || "text-muted-foreground")}>
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="flex-1 h-px bg-white/[0.06] min-w-0" />
+                      <div className="w-1 h-1 rounded-full bg-primary/70 flex-shrink-0" />
+                      <div className="flex-1 h-px bg-white/[0.06] min-w-0" />
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                      <span className={cn("text-[10px] font-ui uppercase tracking-[0.18em]", categoryTextColors[milestone.category] || "text-muted-foreground")}>
                         {milestone.category}
                       </span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground">·</span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground">{milestone.name}</span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground hidden sm:inline">·</span>
-                      <span className="text-[11px] md:text-[12px] font-ui text-muted-foreground hidden sm:inline">{milestone.timeAgo}</span>
+                      <span className="text-[10px] font-ui text-muted-foreground/40">·</span>
+                      <span className="font-display italic text-[13px] text-foreground/80">{milestone.name}</span>
+                      <span className="text-[10px] font-ui text-muted-foreground/40 hidden sm:inline">·</span>
+                      <span className="text-[10px] font-ui text-muted-foreground/60 hidden sm:inline">{milestone.timeAgo}</span>
                     </div>
-                    <div className="flex-1 h-px bg-border min-w-0" />
                   </div>
                 )}
 
