@@ -2102,6 +2102,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         <ProjectOnboarding
           brandId={currentActiveBrand.id}
           onComplete={handleOnboardingComplete}
+          isUpdateMode={onboardingMode === 'update'}
         />
       )}
     </div>
