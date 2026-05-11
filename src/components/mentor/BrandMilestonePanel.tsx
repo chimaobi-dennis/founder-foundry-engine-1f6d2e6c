@@ -49,6 +49,8 @@ interface BrandMilestonePanelProps {
   conversation?: { id: string } | null;
   /** Bumped by the parent after any save so the substage progress re-fetches */
   dataRefreshTrigger?: number;
+  /** Open the project context modal in update mode */
+  onUpdateContext?: () => void;
 }
 
 const CATEGORIES: MilestoneCategory[] = [
