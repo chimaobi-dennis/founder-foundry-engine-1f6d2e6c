@@ -19,6 +19,8 @@ import { toast } from "sonner";
 interface ProjectOnboardingProps {
   brandId: string;
   onComplete: () => void;
+  /** When true, opens directly in context tab and merges new context into existing project. */
+  isUpdateMode?: boolean;
 }
 
 type Step = "stage" | "context" | "processing" | "results";
