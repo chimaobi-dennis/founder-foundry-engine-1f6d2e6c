@@ -634,15 +634,16 @@ function ContextStep({
         className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-ui font-medium hover:bg-primary/90 transition-colors mt-6"
         style={{ fontSize: 14 }}
       >
-        Analyse and continue →
+        {isUpdateMode ? "Add to project context →" : "Analyse and continue →"}
       </button>
 
-      <div className="flex justify-center mt-4">
-        <button
-          onClick={onSkip}
-          className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Skip — start fresh
+      {!isUpdateMode && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={onSkip}
+            className="text-[12px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Skip — start fresh
         </button>
       </div>
     </>
