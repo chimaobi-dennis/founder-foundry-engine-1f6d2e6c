@@ -519,19 +519,20 @@ export function BrandMilestonePanel({
           paddingBottom: '80px'
         }}
       >
-        {/* Project Assets — first section */}
-        <div className="px-4" style={{ marginTop: '12px' }}>
+        {/* Context Sources — first section */}
+        <div className="px-4" style={{ marginTop: '16px' }}>
           <p style={{
             fontSize: '10px',
             textTransform: 'uppercase',
-            letterSpacing: '0.08em',
+            letterSpacing: '0.16em',
             color: 'var(--color-text-secondary)',
-            marginBottom: '8px'
+            marginBottom: '12px',
+            fontWeight: 500
           }}>
-            PROJECT ASSETS
+            Context Sources
           </p>
 
-          {/* Upload zone */}
+          {/* Add reference material — quiet text-link style */}
           <input
             ref={fileInputRef}
             type="file"
@@ -543,33 +544,27 @@ export function BrandMilestonePanel({
               if (fileInputRef.current) fileInputRef.current.value = '';
             }}
           />
-          <div
+          <button
             onClick={() => !uploading && fileInputRef.current?.click()}
+            disabled={uploading}
             style={{
-              border: '1.5px dashed rgba(212,160,23,0.3)',
-              borderRadius: '8px',
-              padding: '12px',
-              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 0',
+              background: 'transparent',
+              border: 'none',
+              color: '#D4A017',
+              fontSize: '12px',
+              fontFamily: 'inherit',
               cursor: uploading ? 'wait' : 'pointer',
               marginBottom: '10px',
-              transition: 'border-color 150ms',
-              opacity: uploading ? 0.7 : 1
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.5)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.3)';
+              opacity: uploading ? 0.6 : 1
             }}
           >
-            <Upload size={18} style={{ color: '#D4A017', margin: '0 auto 4px' }} />
-            <div style={{ fontSize: '12px', color: '#D4A017', fontWeight: 500 }}>
-              {uploading ? 'Uploading...' : 'Upload files'}
-            </div>
-            <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginTop: '2px' }}>
-              Docs, images, PDFs
-            </div>
-          </div>
+            <Upload size={12} />
+            {uploading ? 'Uploading…' : '+ Add reference material'}
+          </button>
 
           {/* Assets list */}
           {projectAssets.length === 0 ? (
