@@ -319,20 +319,34 @@ export const saveExtractedContext = async (
   file?: File
 ): Promise<{ fieldsCount: number; error?: string }> => {
   try {
+    console.log('[saveContext] Called with brandId:', brandId);
+    console.log('[saveContext] Extracted data:', extracted);
+    console.log('[saveContext] Fields to save:', extracted.extractedFields?.length || 0);
+    
+    if (!brandId) {
+      throw new Error('brandId is required but was undefined');
+    }
+
     // Save name if extracted
     if (extracted.suggestedName) {
+      console.log('[saveContext] Updating project name to:', extracted.suggestedName);
       await updateProjectName(brandId, extracted.suggestedName);
     }
 
     // Update stage if detected
     if (extracted.detectedStage) {
+      console.log('[saveContext] Updating journey stage to:', extracted.detectedStage);
       await updateJourneyStage(brandId, extracted.detectedStage, 'auto_detected');
     }
 
     // Save extracted fields directly to brand_stage_data with is_ai_discovered
     if (extracted.extractedFields && extracted.extractedFields.length > 0) {
-      const upsertPromises = extracted.extractedFields.map(field =>
-        db
+      console.log('[saveContext] Starting upsert of', extracted.extractedFields.length, 'fields');
+      
+      const upsertPromises = extracted.extractedFields.map(async (field) => {
+        console.log('[saveContext] Upserting field:', field.stage_key, field.field_key, 'value:', field.value);
+        
+        const { error } = await db
           .from('brand_stage_data')
           .upsert({
             brand_id: brandId,
@@ -345,10 +359,18 @@ export const saveExtractedContext = async (
           }, {
             onConflict: 'brand_id,stage_key,field_key',
             ignoreDuplicates: false
-          })
-      );
+          });
+        
+        if (error) {
+          console.error('[saveContext] Upsert error for field:', field.stage_key, field.field_key, error);
+          throw error;
+        }
+      });
       
       await Promise.all(upsertPromises);
+      console.log('[saveContext] All upserts completed successfully');
+    } else {
+      console.log('[saveContext] No extracted fields to save');
     }
 
     // Determine context source
@@ -359,8 +381,10 @@ export const saveExtractedContext = async (
       contextSource = 'fresh_start';
     }
 
+    console.log('[saveContext] Context source:', contextSource);
+
     // Mark onboarding as complete and update brands table
-    await db
+    const { error: brandUpdateError } = await db
       .from('brands')
       .update({
         onboarding_completed: true,
@@ -369,15 +393,24 @@ export const saveExtractedContext = async (
         updated_at: new Date().toISOString()
       })
       .eq('id', brandId);
+    
+    if (brandUpdateError) {
+      console.error('[saveContext] Brand update error:', brandUpdateError);
+      throw brandUpdateError;
+    }
+    
+    console.log('[saveContext] Brand updated successfully');
 
     return { fieldsCount: extracted.extractedFields?.length || 0 };
   } catch (error: any) {
+    console.error('[saveContext] FAILED:', error);
+    console.error('[saveContext] Full error:', JSON.stringify(error));
     await logError({
       userId,
       errorType: 'database',
       module: 'mentor',
       errorMessage: error.message || 'Failed to save extracted context',
-      context: { brandId, error }
+      context: { brandId, error: error.message, fullError: JSON.stringify(error) }
     });
     return { fieldsCount: 0, error: error.message };
   }
