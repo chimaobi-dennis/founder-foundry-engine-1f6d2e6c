@@ -1033,10 +1033,9 @@ export function ChatPanel({
         </div>
       </div>
 
-      {/* Input bar — sticky bottom */}
+      {/* Input bar — anchored bottom of working session */}
       <div className={cn(
-        "flex-shrink-0 border-t border-border bg-card/50 z-10",
-        isMobile && "pb-14"
+        "flex-shrink-0 border-t border-white/[0.06] bg-background z-10 sticky bottom-0"
       )}>
         {/* Pre-fill indicator when retrying a message */}
         {unansweredMessageId && inputValue && (
