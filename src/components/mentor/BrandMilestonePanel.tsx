@@ -532,7 +532,7 @@ export function BrandMilestonePanel({
             Context Sources
           </p>
 
-          {/* Add reference material — quiet text-link style */}
+          {/* Add context from document / URL — opens project context modal */}
           <input
             ref={fileInputRef}
             type="file"
@@ -544,27 +544,27 @@ export function BrandMilestonePanel({
               if (fileInputRef.current) fileInputRef.current.value = '';
             }}
           />
-          <button
-            onClick={() => !uploading && fileInputRef.current?.click()}
-            disabled={uploading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 0',
-              background: 'transparent',
-              border: 'none',
-              color: '#D4A017',
-              fontSize: '12px',
-              fontFamily: 'inherit',
-              cursor: uploading ? 'wait' : 'pointer',
-              marginBottom: '10px',
-              opacity: uploading ? 0.6 : 1
-            }}
-          >
-            <Upload size={12} />
-            {uploading ? 'Uploading…' : '+ Add reference material'}
-          </button>
+          {onUpdateContext && (
+            <button
+              onClick={onUpdateContext}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 0',
+                background: 'transparent',
+                border: 'none',
+                color: '#D4A017',
+                fontSize: '12px',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                marginBottom: '10px',
+              }}
+            >
+              <Upload size={12} />
+              + Add context from document / URL
+            </button>
+          )}
 
           {/* Assets list */}
           {projectAssets.length === 0 ? (
@@ -970,25 +970,6 @@ export function BrandMilestonePanel({
               </span>
             )}
           </div>
-          {onUpdateContext && (
-            <button
-              onClick={onUpdateContext}
-              className="font-ui inline-flex items-center gap-1.5 mt-3 transition-colors"
-              style={{
-                fontSize: '13px',
-                color: '#D4A017',
-                background: 'transparent',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-            >
-              <Upload size={13} />
-              + Add context from document/URL
-            </button>
-          )}
         </div>
       </div>
 
