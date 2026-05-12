@@ -304,16 +304,31 @@ export function BrandDNAPanel({
             return (
               <div key={s.stage_key} className="flex items-center gap-1.5 flex-1">
                 <div
-                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+                  className="h-2 w-2 rounded-full flex-shrink-0"
                   style={{
-                    background: isCurrent ? '#D4A017' : isPast ? 'transparent' : 'rgba(255,255,255,0.1)',
-                    border: isPast ? '1px solid rgba(212,160,23,0.5)' : 'none',
+                    background: isCurrent
+                      ? 'hsl(var(--brand-amber))'
+                      : isPast
+                        ? 'hsl(var(--brand-amber) / 0.18)'
+                        : 'var(--color-background-secondary)',
+                    border: isCurrent
+                      ? '1px solid hsl(var(--brand-amber))'
+                      : isPast
+                        ? '1px solid hsl(var(--brand-amber) / 0.55)'
+                        : '1px solid var(--color-border-secondary)',
+                    boxShadow: isCurrent ? '0 0 0 3px hsl(var(--brand-amber) / 0.12)' : 'none',
                   }}
                 />
                 {i < journeyStages.length - 1 && (
                   <div
-                    className="flex-1 h-px"
-                    style={{ background: isPast ? 'rgba(212,160,23,0.25)' : 'rgba(255,255,255,0.05)' }}
+                    className="flex-1"
+                    style={{
+                      height: '1.5px',
+                      borderRadius: '1px',
+                      background: isPast
+                        ? 'hsl(var(--brand-amber) / 0.45)'
+                        : 'var(--color-border-secondary)',
+                    }}
                   />
                 )}
               </div>
