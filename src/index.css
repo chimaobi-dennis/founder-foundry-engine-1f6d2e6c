@@ -184,9 +184,13 @@
     transition-timing-function: ease;
   }
 
+  html, body, #root {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground font-ui;
-    overflow-x: hidden;
+    overflow: hidden;
   }
 }
 
