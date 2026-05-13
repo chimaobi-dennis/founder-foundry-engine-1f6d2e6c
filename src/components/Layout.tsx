@@ -37,13 +37,13 @@ export function Layout() {
   const isFullHeight = fullHeightPaths.includes(location.pathname) || isEditorRoute;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
+    <div className={`${isFullHeight ? "h-screen overflow-hidden" : "min-h-screen"} flex flex-col bg-background`}>
       <NavigationProgress />
       <TopBar />
-      <div className="flex-1 flex overflow-hidden">
+      <div className={`flex-1 flex ${isFullHeight ? "overflow-hidden" : ""}`}>
         <AppSidebar />
         <main
-          className={`flex-1 min-w-0 overflow-x-hidden ${isFullHeight ? "h-full min-h-0 overflow-hidden flex flex-col pb-0" : "overflow-y-auto pb-16 md:pb-0"} ${showBrandBar ? "pt-[96px]" : "pt-14"} md:!pt-0`}
+          className={`flex-1 min-w-0 overflow-x-hidden ${isFullHeight ? "h-full min-h-0 overflow-hidden flex flex-col pb-0" : "pb-16 md:pb-0"} ${showBrandBar ? "pt-[96px]" : "pt-14"} md:!pt-0`}
         >
           {showBrandBar && (
             <div className="fixed md:sticky top-14 md:top-0 inset-x-0 md:inset-x-auto z-[49] md:z-10">
