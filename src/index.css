@@ -189,15 +189,7 @@
   }
 }
 
-/* Lock the document to the viewport so only inner panels scroll. */
-html,
-body,
-#root {
-  height: 100%;
-  max-height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
+
 
 @layer utilities {
   .font-display {
