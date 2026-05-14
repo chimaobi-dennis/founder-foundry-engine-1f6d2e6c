@@ -234,34 +234,30 @@ export async function generateContentForBrief(
       `"${p.slug}": { "headline": "", "copy_text": "", "subject_line": "", "hashtags": [] }` 
     ).join(',\n');
 
-    const copyPrompt = `
-You are an expert brand copywriter. Generate platform-specific content for all platforms listed.
+    // Fetch campaign_copy system prompt from DB
+    const copySystemPrompt = await getSystemPrompt('campaign_copy');
+    if (!copySystemPrompt) {
+      throw new Error(
+        'campaign_copy system prompt not found in database. Please configure it in Admin → Knowledge Base.'
+      );
+    }
 
-BRAND: ${brand.name}
-BRAND VOICE: ${dna?.brand_voice || 'Not defined'}
-CORE PROMISE: ${dna?.core_promise || 'Not defined'}
-TARGET AUDIENCE: ${dna?.target_audience || 'Not defined'}
-POSITIONING: ${dna?.positioning_statement || 'Not defined'}
-CAMPAIGN GOAL: ${brief.campaign_goal || 'Build awareness'}
-TONE: ${brief.tone || dna?.brand_voice || 'Confident'}
-BRIEF: ${brief.brief || 'Create engaging brand content'}
-
-BRAND CONTEXT FROM MENTOR:
-${mentorContext || 'No mentor context yet'}
-
-CAPTURED STAGE DATA:
-${capturedContext || 'No stage data yet'}
-
-PLATFORM GUIDELINES:
-${platforms.map(p => `${p.slug}: max ${p.character_limit || 'unlimited'} chars. ${p.copy_guidelines || ''}`).join('\n')}
-
-Return ONLY valid JSON with exactly these platform keys:
-{
-${platformList}
-}
-
-For each platform: write copy that matches that platform's style and character limit. Include relevant hashtags array for social platforms. Subject line only for email.
-`;
+    const copyPrompt = injectPromptVariables(copySystemPrompt, {
+      brand_name: brand.name,
+      brand_voice: dna?.brand_voice || '',
+      core_promise: dna?.core_promise || '',
+      target_audience: dna?.target_audience || '',
+      positioning_statement: dna?.positioning_statement || '',
+      campaign_goal: brief.campaign_goal || 'Build awareness',
+      tone: brief.tone || dna?.brand_voice || 'Confident',
+      brief: brief.brief || 'Create engaging brand content',
+      mentor_memory: mentorContext || 'No mentor context yet',
+      captured_stage_data: capturedContext || 'No stage data yet',
+      platform_list: platforms
+        .map(p => `${p.slug}: max ${p.character_limit || 'unlimited'} chars. ${p.copy_guidelines || ''}`)
+        .join('\n'),
+      platform_keys: platformList,
+    });
 
     const copyResult = await withTimeout(
       callAI({
@@ -281,6 +277,31 @@ For each platform: write copy that matches that platform's style and character l
       throw new Error('Failed to parse copy response as JSON');
     }
 
+    // Fetch primary product image once, shared across all platform creatives
+    const productImages = await getBrandProductImages(brand.id);
+    const primaryImage = productImages?.find((img: any) => img.is_primary);
+    const productImageUrl = primaryImage?.file_url || '';
+
+    // Per-platform design guidance so each creative gets distinct layout/zone instructions
+    const platformDesignGuidance: Record<string, string> = {
+      instagram_post:
+        'Square 1080x1080. Bold typography dominant. Clean, editorial feel. Brand color as background or accent. Headline large (min 48px equivalent). Subtext small. Brand mark bottom corner.',
+      instagram_story:
+        'Tall 1080x1920. THREE ZONES: Top third = large hook text or brand element. Middle third = key visual, image, or bold statement. Bottom third = CTA, handle, or swipe prompt. Fill ALL three zones completely. No empty space.',
+      facebook_post:
+        'Wide 1200x630. Split layout or centered. Clear hierarchy. Professional but warm. CTA button visible. Logo prominent.',
+      linkedin_post:
+        'Wide 1200x1200. Corporate but human. Data visualization or bold statement. Professional color palette. Company logo and tagline.',
+      twitter_x:
+        'Wide 1600x900. Minimal. One big idea. Bold single statement in large text. High contrast. Meme-adjacent energy.',
+      tiktok_caption:
+        'Tall 1080x1920. THREE ZONES REQUIRED: Top = hook text overlay style. Middle = main visual content. Bottom = handle + hashtag area. Dark or vibrant background. Text must be large and readable at small size.',
+      whatsapp:
+        'Square 800x800. Clean, simple, direct. One clear message. Friendly visual.',
+      email:
+        'Wide 600x600. Email header style. Clean white or brand background. Logo top center. Headline bold. CTA button visible.',
+    };
+
     // Now generate visuals for each platform in parallel
     const creatives: any[] = [];
 
@@ -299,18 +320,23 @@ For each platform: write copy that matches that platform's style and character l
       let selectedTemplateId = null;
 
       const templateOptions = (templates || [])
-        .map(t => `ID: ${t.id} | Name: ${t.name} | Prompt: ${t.generation_prompt?.slice(0, 100)}`)
+        .map((t: any) => `ID: ${t.id} | Name: ${t.name} | Prompt: ${t.generation_prompt?.slice(0, 100)}`)
         .join('\n');
 
-      const visualSystemPrompt = await getSystemPrompt('template_generation') || `
-You are a professional graphic designer. Generate a complete self-contained HTML/CSS design.
-Return ONLY raw HTML. No markdown, no explanation, no code fences.
-Root element must be a single div sized to ${platform.image_width || 600}x${platform.image_height || 600}px.
-Every editable element must have a data-element attribute.
-`;
+      const visualSystemPrompt = await getSystemPrompt('template_generation');
+      if (!visualSystemPrompt) {
+        throw new Error(
+          'template_generation system prompt not found in database. Please configure it in Admin → Knowledge Base.'
+        );
+      }
+
+      // Build a platform-specific design brief so each creative is genuinely different
+      const designGuidance =
+        platformDesignGuidance[platform.slug] ??
+        `${platform.aspect_ratio || '1:1'} format. Fill entire ${platform.image_width || 600}x${platform.image_height || 600}px canvas.`;
 
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
-        generation_prompt: `Create a ${platform.name} visual (${platform.aspect_ratio || '1:1'}) for: ${brief.brief || brief.campaign_goal || brand.name}. Headline: "${platformCopy.headline || ''}". Copy: "${(platformCopy.copy_text || '').slice(0, 100)}"`,
+        generation_prompt: `Platform: ${platform.name}\nDesign guidance: ${designGuidance}\nCampaign: ${brief.brief || brief.campaign_goal || brand.name}\nHeadline to feature: "${platformCopy.headline || ''}"\nCopy snippet: "${(platformCopy.copy_text || '').slice(0, 80)}"\nCRITICAL: Design must fill the FULL ${platform.image_width || 600}x${platform.image_height || 600}px canvas with no empty space.`,
         aspectRatio: platform.aspect_ratio || '1:1',
         styleIntensity: brief.tone === 'Bold and direct' ? 'bold' : 'balanced',
         variant_index: '1',
@@ -321,11 +347,13 @@ Every editable element must have a data-element attribute.
         positioning_statement: dna?.positioning_statement || '',
         primary_color: brand.primary_color || '#000000',
         secondary_color: brand.secondary_color || '#ffffff',
-        product_image_url: '',
+        product_image_url: productImageUrl,
         design_brief: `${platform.name} content for: ${brief.brief || brief.name}`,
         mentor_memory: mentorContext,
         journey_stage: brand.journey_stage || 'spark',
-        captured_stage_data: capturedContext
+        captured_stage_data: capturedContext,
+        image_width: platform.image_width?.toString() || '600',
+        image_height: platform.image_height?.toString() || '600',
       });
 
       const visualResult = await withTimeout(
@@ -605,22 +633,46 @@ export async function regenerateCreative(
     const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     const sessionId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 
-    // Get the same system prompt used in initial generation
-    const visualSystemPrompt = await getSystemPrompt('template_generation') || `
-You are a professional graphic designer. Generate a complete self-contained HTML/CSS design.
-Return ONLY raw HTML. No markdown, no explanation, no code fences.
-Root element must be a single div sized to ${platform.image_width || 600}x${platform.image_height || 600}px.
-Every editable element must have a data-element attribute.
-`;
+    // Get the same system prompt used in initial generation — no fallback allowed
+    const visualSystemPrompt = await getSystemPrompt('template_generation');
+    if (!visualSystemPrompt) {
+      throw new Error(
+        'template_generation system prompt not found in database. Please configure it in Admin → Knowledge Base.'
+      );
+    }
 
     // Build the copy context from the existing creative
     const copyContext = creative.headline || creative.copy_text
       ? `\n\nEXISTING COPY TO MATCH:\nHeadline: ${creative.headline || ''}\nCopy: ${creative.copy_text || ''}\nHashtags: ${(creative.hashtags || []).join(', ')}\nSubject line: ${creative.subject_line || ''}`
       : '';
 
+    // Per-platform design guidance (same map as initial generation)
+    const regenPlatformDesignGuidance: Record<string, string> = {
+      instagram_post:
+        'Square 1080x1080. Bold typography dominant. Clean, editorial feel. Brand color as background or accent. Headline large (min 48px equivalent). Subtext small. Brand mark bottom corner.',
+      instagram_story:
+        'Tall 1080x1920. THREE ZONES: Top third = large hook text or brand element. Middle third = key visual, image, or bold statement. Bottom third = CTA, handle, or swipe prompt. Fill ALL three zones completely. No empty space.',
+      facebook_post:
+        'Wide 1200x630. Split layout or centered. Clear hierarchy. Professional but warm. CTA button visible. Logo prominent.',
+      linkedin_post:
+        'Wide 1200x1200. Corporate but human. Data visualization or bold statement. Professional color palette. Company logo and tagline.',
+      twitter_x:
+        'Wide 1600x900. Minimal. One big idea. Bold single statement in large text. High contrast. Meme-adjacent energy.',
+      tiktok_caption:
+        'Tall 1080x1920. THREE ZONES REQUIRED: Top = hook text overlay style. Middle = main visual content. Bottom = handle + hashtag area. Dark or vibrant background. Text must be large and readable at small size.',
+      whatsapp:
+        'Square 800x800. Clean, simple, direct. One clear message. Friendly visual.',
+      email:
+        'Wide 600x600. Email header style. Clean white or brand background. Logo top center. Headline bold. CTA button visible.',
+    };
+
+    const regenDesignGuidance =
+      regenPlatformDesignGuidance[platform.slug] ??
+      `${platform.aspect_ratio || '1:1'} format. Fill entire ${platform.image_width || 600}x${platform.image_height || 600}px canvas.`;
+
     // Inject all the same variables as initial generation
     const visualPrompt = injectPromptVariables(visualSystemPrompt, {
-      generation_prompt: `Create a fresh ${platform.name} visual (${platform.aspect_ratio || '1:1'}) for: ${brief.brief || brief.campaign_goal || brand.name}. This is a regeneration - create a new visual variation that stays on-brand and matches the existing copy. Keep the same brand identity but vary the layout and composition.`,
+      generation_prompt: `Platform: ${platform.name}\nDesign guidance: ${regenDesignGuidance}\nThis is a REGENERATION — create a fresh layout variation that stays on-brand and matches the existing copy below. Vary the composition but maintain brand identity.\nHeadline to feature: "${creative.headline || ''}"\nCopy snippet: "${(creative.copy_text || '').slice(0, 80)}"\nCRITICAL: Design must fill the FULL ${platform.image_width || 600}x${platform.image_height || 600}px canvas with no empty space.`,
       aspectRatio: platform.aspect_ratio || '1:1',
       styleIntensity: brief.tone === 'Bold and direct' ? 'bold' : 'balanced',
       variant_index: '1',
@@ -635,7 +687,9 @@ Every editable element must have a data-element attribute.
       design_brief: `${platform.name} content for: ${brief.brief || brief.name}${copyContext}`,
       mentor_memory: mentorContext,
       journey_stage: brand.journey_stage || 'spark',
-      captured_stage_data: capturedContext
+      captured_stage_data: capturedContext,
+      image_width: platform.image_width?.toString() || '600',
+      image_height: platform.image_height?.toString() || '600',
     });
 
     const visualResult = await withTimeout(

@@ -6,6 +6,7 @@ import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getBriefWithCreatives,
+  generateContentForBrief,
   regenerateCreative,
   approveAllCreatives,
   scheduleCreative,
@@ -58,6 +59,8 @@ export default function ContentStudioEditor() {
   const [platformsMeta, setPlatformsMeta] = useState<any[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [briefFailed, setBriefFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [approvingAll, setApprovingAll] = useState(false);
   const [allApprovedFlash, setAllApprovedFlash] = useState(false);
@@ -73,11 +76,18 @@ export default function ContentStudioEditor() {
     try {
       const data = await getBriefWithCreatives(briefId);
       if (!data) {
-        // Brief doesn't exist, redirect to brief list
         navigate('/content-studio');
         return;
       }
       setBrief(data);
+      // Detect failed brief immediately on any load/poll cycle
+      if (data.status === 'failed') {
+        setBriefFailed(true);
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      }
       const cs: Creative[] = data.content_studio_creatives || [];
       cs.sort(
         (a, b) =>
@@ -87,7 +97,6 @@ export default function ContentStudioEditor() {
       setCreatives(cs);
     } catch (e) {
       console.error(e);
-      // On error, also redirect to brief list
       navigate('/content-studio');
     } finally {
       setLoading(false);
@@ -116,6 +125,16 @@ export default function ContentStudioEditor() {
   }, [brief?.selected_platform_ids?.join("|")]);
 
   useEffect(() => {
+    // If the brief has failed, stop all polling immediately
+    if (brief?.status === 'failed') {
+      setBriefFailed(true);
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+
     const expectedTotal = brief?.selected_platform_ids?.length ?? 0;
     const stillBuilding =
       brief?.status === "generating" ||
@@ -467,44 +486,194 @@ export default function ContentStudioEditor() {
     );
   }
 
+  if (briefFailed) {
+    const handleRetry = async () => {
+      if (!briefId || retrying) return;
+      setRetrying(true);
+      setBriefFailed(false);
+      // Reset local creative statuses so placeholders show shimmer during retry
+      setCreatives((prev) => prev.map((c) => ({ ...c, status: 'generating' })));
+      try {
+        await generateContentForBrief(briefId);
+        await load();
+      } catch (e: any) {
+        toast.error(e.message || 'Generation failed. Please try again.');
+        setBriefFailed(true);
+      } finally {
+        setRetrying(false);
+      }
+    };
+
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-6 p-8 text-center">
+        <div
+          style={{
+            width: 48, height: 48, borderRadius: '50%',
+            background: 'hsl(0 84% 60% / 0.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="hsl(0 84% 60%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </div>
+        <div>
+          <p className="font-medium text-foreground mb-1">Content generation failed.</p>
+          <p className="text-sm text-muted-foreground">Please try again.</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            style={{
+              background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))',
+              border: 'none', borderRadius: 6, padding: '8px 20px',
+              fontSize: 14, fontWeight: 600, cursor: retrying ? 'not-allowed' : 'pointer',
+              opacity: retrying ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            {retrying && <Loader2 size={14} className="animate-spin" />}
+            {retrying ? 'Generating…' : 'Try again'}
+          </button>
+          <button
+            onClick={() => navigate('/content-studio')}
+            style={{
+              background: 'transparent', color: 'hsl(var(--muted-foreground))',
+              border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '8px 20px',
+              fontSize: 14, fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const activePlatformName = active?.content_platforms?.name || "Platform";
+
+  // Derive whether generation is still in progress
+  const expectedTotal = brief?.selected_platform_ids?.length ?? 0;
+  const isGenerating =
+    brief?.status === "generating" ||
+    creatives.length < expectedTotal ||
+    creatives.some((c) => c.status === "generating");
+
+  const handleStopGeneration = async () => {
+    // Stop polling immediately
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    // Persist cancelled state as 'failed' so any server job
+    // also sees a terminal status and stops writing back.
+    try {
+      await db
+        .from('content_studio_briefs')
+        .update({ status: 'failed' })
+        .eq('id', briefId);
+    } catch {
+      // best-effort — UI still transitions even if this fails
+    }
+    setBriefFailed(true);
+  };
 
   return (
     <>
-      <StudioEditor
-        open={true}
-        onClose={() => navigate("/content-studio")}
-        templateName={brief.name}
-        variationHtml={active?.visual_html || null}
-        variationId={activeId || ""}
-        brandId={activeBrand?.id}
-        mode="content-studio"
-        briefName={brief.name}
-        readyCount={readyCount}
-        totalCount={totalCount}
-        canvases={canvases}
-        activeCanvasId={activeId}
-        onSelectCanvas={setActiveId}
-        onSaveCreative={handleSaveCreative}
-        onRegenerateVisual={handleRegenerateVisual}
-        regenerating={regenerating}
-        onApproveActive={handleApproveActive}
-        onSkipActive={() => {
-          // Move focus to next non-failed canvas
-          if (!activeId) return;
-          const idx = canvases.findIndex((c) => c.id === activeId);
-          const next =
-            canvases.slice(idx + 1).find((c) => c.status !== "failed") ||
-            canvases.find((c) => c.status !== "failed" && c.id !== activeId);
-          if (next) setActiveId(next.id);
-        }}
-        activeSchedule={activeSchedule}
-        onRescheduleActive={handleReschedule}
-        onRemoveScheduleActive={handleRemoveSchedule}
-        onApproveAll={handleApproveAll}
-        approvingAll={approvingAll}
-        allApproved={allApprovedFlash || allApproved}
-      />
+      <div style={{ position: 'relative' }}>
+        <StudioEditor
+          open={true}
+          onClose={() => navigate("/content-studio")}
+          templateName={brief.name}
+          variationHtml={active?.visual_html || null}
+          variationId={activeId || ""}
+          brandId={activeBrand?.id}
+          mode="content-studio"
+          briefName={brief.name}
+          readyCount={readyCount}
+          totalCount={totalCount}
+          canvases={canvases}
+          activeCanvasId={activeId}
+          onSelectCanvas={setActiveId}
+          onSaveCreative={handleSaveCreative}
+          onRegenerateVisual={handleRegenerateVisual}
+          regenerating={regenerating}
+          onApproveActive={handleApproveActive}
+          onSkipActive={() => {
+            // Move focus to next non-failed canvas
+            if (!activeId) return;
+            const idx = canvases.findIndex((c) => c.id === activeId);
+            const next =
+              canvases.slice(idx + 1).find((c) => c.status !== "failed") ||
+              canvases.find((c) => c.status !== "failed" && c.id !== activeId);
+            if (next) setActiveId(next.id);
+          }}
+          activeSchedule={activeSchedule}
+          onRescheduleActive={handleReschedule}
+          onRemoveScheduleActive={handleRemoveSchedule}
+          onApproveAll={handleApproveAll}
+          approvingAll={approvingAll}
+          allApproved={allApprovedFlash || allApproved}
+        />
+
+        {/* Floating "Stop generation" pill — visible only while generating */}
+        {isGenerating && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 50,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              background: 'hsl(213 52% 11% / 0.92)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid hsl(43 78% 46% / 0.3)',
+              borderRadius: 999,
+              padding: '8px 16px 8px 14px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              pointerEvents: 'auto',
+            }}
+          >
+            {/* animated amber dot */}
+            <span
+              style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: 'hsl(43 78% 46%)',
+                animation: 'amber-pulse 1.4s ease-in-out infinite',
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 13, color: 'hsl(36 33% 88%)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              Generating content…
+            </span>
+            <button
+              onClick={handleStopGeneration}
+              style={{
+                marginLeft: 6,
+                background: 'hsl(0 84% 60% / 0.15)',
+                color: 'hsl(0 84% 70%)',
+                border: '1px solid hsl(0 84% 60% / 0.35)',
+                borderRadius: 999,
+                padding: '3px 12px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(0 84% 60% / 0.28)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'hsl(0 84% 60% / 0.15)')}
+            >
+              Stop
+            </button>
+          </div>
+        )}
+      </div>
 
       <ScheduleModal
         open={scheduleModalOpen}
