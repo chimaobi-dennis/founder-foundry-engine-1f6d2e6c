@@ -53,6 +53,14 @@ export async function markStuckGenerationsAsFailed(briefId: string): Promise<voi
       context: { briefId, creativeIds }
     });
   }
+
+  // Also check if the brief itself is stuck
+  await db
+    .from('content_studio_briefs')
+    .update({ status: 'failed', updated_at: new Date().toISOString() })
+    .eq('id', briefId)
+    .eq('status', 'generating')
+    .lt('updated_at', threeMinutesAgo);
 }
 
 // ─── Platform management ──────────────────────────────────
@@ -267,7 +275,13 @@ export async function generateContentForBrief(
       })
     );
 
-    if (!copyResult.success || !copyResult.text) throw new Error('Copy generation failed');
+    if (!copyResult.success || !copyResult.text) {
+      await db
+        .from('content_studio_briefs')
+        .update({ status: 'failed' })
+        .eq('id', briefId);
+      throw new Error('Copy generation failed');
+    }
 
     let copyData: Record<string, any> = {};
     try {
@@ -393,11 +407,29 @@ export async function generateContentForBrief(
           module: 'prostudio',
           componentName: 'contentStudioService'
         });
+        
+        // Ensure this specific creative is marked failed
+        await db
+          .from('content_studio_creatives')
+          .update({ status: 'failed', updated_at: new Date().toISOString() })
+          .eq('brief_id', briefId)
+          .eq('platform_id', platform.id)
+          .eq('status', 'generating');
       } else {
         creatives.push(creative);
         onPlatformComplete?.(platform.id, creative);
       }
     }));
+
+    // If ALL platforms failed (or none were selected), fail the entire brief
+    const allFailed = creatives.every(c => c.status === 'failed');
+    if (allFailed || creatives.length === 0) {
+      await db
+        .from('content_studio_briefs')
+        .update({ status: 'failed' })
+        .eq('id', briefId);
+      throw new Error('All platform generations failed');
+    }
 
     // Update brief status and last generated time
     await db
@@ -429,8 +461,29 @@ export async function generateContentForBrief(
       .update({ status: 'failed' })
       .eq('id', briefId);
     
-    // Handle timeout specifically
-    if (error.message === 'GENERATION_TIMEOUT') {
+    // Check for rate limit
+    const isRateLimit =
+      error.message?.includes('429') ||
+      error.message?.includes('rate limit') ||
+      error.message?.includes('quota') ||
+      error.status === 429;
+
+    if (isRateLimit) {
+      await logError({
+        errorMessage: 'AI rate limit hit during generation',
+        errorType: 'ai_call',
+        module: 'prostudio',
+        componentName: 'contentStudioService',
+        callLocation: 'generateContentForBrief',
+        pipelineStep: 'rate_limit',
+        context: { briefId }
+      });
+      // Update brief with failed status so UI knows to stop polling
+      await db
+        .from('content_studio_briefs')
+        .update({ status: 'failed' })
+        .eq('id', briefId);
+    } else if (error.message === 'GENERATION_TIMEOUT') {
       await logError({
         errorMessage: 'Generation timed out after 60 seconds',
         errorType: 'ai_call',
