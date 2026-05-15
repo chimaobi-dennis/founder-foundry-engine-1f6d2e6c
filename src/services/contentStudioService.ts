@@ -281,6 +281,11 @@ export async function generateContentForBrief(
       })
     );
 
+    console.log('[COPY DEBUG] success:', copyResult.success);
+    console.log('[COPY DEBUG] text type:', typeof copyResult.text);
+    console.log('[COPY DEBUG] text length:', copyResult.text?.length);
+    console.log('[COPY DEBUG] full text:', copyResult.text);
+
     if (!copyResult.success || !copyResult.text) {
       await db
         .from('content_studio_briefs')
