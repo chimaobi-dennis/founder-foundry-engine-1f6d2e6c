@@ -194,6 +194,7 @@ export default function ContentStudioEditor() {
           canvasHeight: c.content_platforms?.image_height || p.image_height || 600,
           status,
           isApproved: !!c.is_approved,
+          platformConfig: c.content_platforms || p,
         };
       }
       return {
@@ -211,6 +212,7 @@ export default function ContentStudioEditor() {
         canvasHeight: p.image_height || 600,
         status: briefIsFailed ? "failed" : "generating",
         isApproved: false,
+        platformConfig: p,
       } as CanvasItem;
     });
   }, [creatives, platformsMeta, brief?.status]);

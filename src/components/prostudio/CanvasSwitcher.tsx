@@ -43,6 +43,8 @@ export interface CanvasItem {
   status?: string;
   /** Whether the creative is approved */
   isApproved?: boolean;
+  /** Full content_platforms row (for safe zones, typography, occupancy, etc.) */
+  platformConfig?: any;
 }
 
 interface Props {

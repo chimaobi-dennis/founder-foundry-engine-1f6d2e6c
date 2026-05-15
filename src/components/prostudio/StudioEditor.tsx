@@ -59,6 +59,12 @@ import { CanvasGenerating } from "./content-studio/CanvasGenerating";
 import { CanvasCrossfade } from "./content-studio/CanvasCrossfade";
 import { CanvasFailed } from "./content-studio/CanvasFailed";
 import { ContentStudioGenerationStrip } from "./content-studio/GenerationStrip";
+import { PlatformOverlay } from "./content-studio/PlatformOverlay";
+import {
+  applyTypographyNormalization,
+  getPreviewPadding,
+  type PlatformConfig,
+} from "@/lib/platformRenderer";
 
 interface Props {
   open: boolean;
@@ -171,10 +177,18 @@ export function StudioEditor({
   errorBanner,
 }: Props) {
   const { theme } = useTheme();
-  // Render the generated HTML; loading state is handled by parent component
+  // Active platform config (content-studio mode) — drives safe-zones, typography
+  // normalisation, occupancy-aware preview padding, and SVG preference.
+  const activePlatformConfig: PlatformConfig | null = useMemo(() => {
+    if (mode !== 'content-studio' || !canvases || !activeCanvasId) return null;
+    const c = canvases.find(x => x.id === activeCanvasId);
+    return (c?.platformConfig as PlatformConfig) || null;
+  }, [mode, canvases, activeCanvasId]);
+
+  // Render the generated HTML, normalised to the platform's typography scale
   const html = useMemo(
-    () => variationHtml || "",
-    [variationHtml],
+    () => applyTypographyNormalization(variationHtml || "", activePlatformConfig),
+    [variationHtml, activePlatformConfig],
   );
 
   const [elements, setElements] = useState<StudioElement[]>([]);
@@ -254,7 +268,9 @@ export function StudioEditor({
     const recalc = () => {
       const availableWidth = container.clientWidth || 800;
       const availableHeight = container.clientHeight || 600;
-      const padding = 64;
+      // Platform-aware padding: occupancy_target dictates breathing room.
+      const pad = getPreviewPadding(activePlatformConfig);
+      const padding = mode === 'content-studio' ? Math.max(24, pad.x + pad.y + 16) : 64;
       const next = Math.min(
         (availableWidth - padding) / canvasSize.width,
         (availableHeight - padding) / canvasSize.height,
@@ -269,7 +285,7 @@ export function StudioEditor({
     const ro = new ResizeObserver(recalc);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [mode, canvasSize.width, canvasSize.height]);
+  }, [mode, canvasSize.width, canvasSize.height, activePlatformConfig]);
 
   // ─── Export / Save to Library — internal (html2canvas + storage) ────────
   const stageHostElRef = useRef<HTMLDivElement | null>(null);
@@ -1218,6 +1234,14 @@ export function StudioEditor({
                         refreshKey={refreshKey}
                         forceFillStage={mode === 'content-studio'}
                       />
+                      {mode === 'content-studio' && (
+                        <PlatformOverlay
+                          platform={activePlatformConfig}
+                          width={canvasSize.width}
+                          height={canvasSize.height}
+                          zoom={zoom}
+                        />
+                      )}
                     </div>
                   </CanvasCrossfade>
                 );
