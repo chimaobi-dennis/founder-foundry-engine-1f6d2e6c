@@ -540,7 +540,7 @@ export default function ContentStudioEditor() {
 
   return (
     <>
-      <div style={{ position: 'relative' }}>
+      <div className="flex-1 min-h-0 flex flex-col relative">
         <StudioEditor
           open={true}
           onClose={() => navigate("/content-studio")}
