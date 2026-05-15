@@ -53,6 +53,8 @@ interface Props {
   allApproved?: boolean;
 
   errorBanner?: React.ReactNode;
+  /** True while the user has tapped "Try again" and a fresh generation cycle is in flight. */
+  retrying?: boolean;
 }
 
 type Sheet = null | "copy" | "platforms" | "more";
