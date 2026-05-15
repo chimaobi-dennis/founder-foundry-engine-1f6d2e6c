@@ -17,6 +17,8 @@ import {
 import { deleteCalendarPost } from "@/services/calendarService";
 import { supabase } from "@/integrations/supabase/client";
 import { StudioEditor } from "@/components/prostudio/StudioEditor";
+import { ContentStudioMobile } from "@/components/prostudio/content-studio/ContentStudioMobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduleModal } from "@/components/prostudio/content-studio/ScheduleModal";
 import { ApproveScheduleAllModal, type ApproveSchedulePlatform } from "@/components/prostudio/content-studio/ApproveScheduleAllModal";
 import {
@@ -54,6 +56,7 @@ export default function ContentStudioEditor() {
   const navigate = useNavigate();
   const { activeBrand } = useBrand();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [brief, setBrief] = useState<any>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [platformsMeta, setPlatformsMeta] = useState<any[]>([]);
@@ -538,9 +541,100 @@ export default function ContentStudioEditor() {
     setBriefFailed(true);
   };
 
+  // Map mobile copy patches (CanvasItem fields) → Creative DB fields.
+  const handleMobileCopyChange = (patch: any) => {
+    if (!active) return;
+    const dbPatch: any = {};
+    if ("headline" in patch) dbPatch.headline = patch.headline;
+    if ("copyText" in patch) dbPatch.copy_text = patch.copyText;
+    if ("subjectLine" in patch) dbPatch.subject_line = patch.subjectLine;
+    if ("hashtags" in patch) dbPatch.hashtags = patch.hashtags;
+    updateCreativeLocal(active.id, dbPatch);
+  };
+  const handleMobileCopySave = async (patch: any) => {
+    if (!active) return;
+    const dbPatch: any = {};
+    if ("headline" in patch) dbPatch.headline = patch.headline;
+    if ("copyText" in patch) dbPatch.copy_text = patch.copyText;
+    if ("subjectLine" in patch) dbPatch.subject_line = patch.subjectLine;
+    if ("hashtags" in patch) dbPatch.hashtags = patch.hashtags;
+    updateCreativeLocal(active.id, dbPatch);
+    try {
+      await db.from("content_studio_creatives").update(dbPatch).eq("id", active.id);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save");
+    }
+  };
+
+  const failedBanner = briefFailed ? (
+    <div
+      role="alert"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        padding: '10px 16px',
+        background: 'rgba(192, 57, 43, 0.1)',
+        borderLeft: '3px solid #E05C5C',
+        borderBottom: '1px solid hsl(var(--border))',
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ fontSize: 13, color: 'hsl(var(--foreground))' }}>
+        Generation failed — this may be due to an AI rate limit or connection issue.
+      </span>
+      <button
+        onClick={handleRetryBrief}
+        disabled={retrying}
+        style={{
+          background: 'hsl(var(--primary))',
+          color: 'hsl(var(--primary-foreground))',
+          border: 'none',
+          borderRadius: 6,
+          padding: '6px 14px',
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: retrying ? 'not-allowed' : 'pointer',
+          opacity: retrying ? 0.7 : 1,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {retrying && <Loader2 size={12} className="animate-spin" />}
+        {retrying ? 'Retrying…' : 'Try again'}
+      </button>
+    </div>
+  ) : null;
+
   return (
     <>
       <div className="flex-1 min-h-0 flex flex-col relative">
+        {isMobile ? (
+          <ContentStudioMobile
+            briefName={brief.name}
+            readyCount={readyCount}
+            totalCount={totalCount}
+            canvases={canvases}
+            activeCanvasId={activeId}
+            onSelectCanvas={setActiveId}
+            onClose={() => navigate("/content-studio")}
+            onChangeCopy={handleMobileCopyChange}
+            onSaveCopy={handleMobileCopySave}
+            onRegenerateVisual={handleRegenerateVisual}
+            regenerating={regenerating}
+            onApproveActive={handleApproveActive}
+            activeSchedule={activeSchedule}
+            onRescheduleActive={handleReschedule}
+            onRemoveScheduleActive={handleRemoveSchedule}
+            onApproveAll={handleApproveAll}
+            approvingAll={approvingAll}
+            allApproved={allApprovedFlash || allApproved}
+            errorBanner={failedBanner}
+          />
+        ) : (
         <StudioEditor
           open={true}
           onClose={() => navigate("/content-studio")}
@@ -574,51 +668,9 @@ export default function ContentStudioEditor() {
           onApproveAll={handleApproveAll}
           approvingAll={approvingAll}
           allApproved={allApprovedFlash || allApproved}
-          errorBanner={
-            briefFailed ? (
-              <div
-                role="alert"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '10px 16px',
-                  background: 'rgba(192, 57, 43, 0.1)',
-                  borderLeft: '3px solid #E05C5C',
-                  borderBottom: '1px solid hsl(var(--border))',
-                  flexShrink: 0,
-                }}
-              >
-                <span style={{ fontSize: 13, color: 'hsl(var(--foreground))' }}>
-                  Generation failed — this may be due to an AI rate limit or connection issue.
-                </span>
-                <button
-                  onClick={handleRetryBrief}
-                  disabled={retrying}
-                  style={{
-                    background: 'hsl(var(--primary))',
-                    color: 'hsl(var(--primary-foreground))',
-                    border: 'none',
-                    borderRadius: 6,
-                    padding: '6px 14px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: retrying ? 'not-allowed' : 'pointer',
-                    opacity: retrying ? 0.7 : 1,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {retrying && <Loader2 size={12} className="animate-spin" />}
-                  {retrying ? 'Retrying…' : 'Try again'}
-                </button>
-              </div>
-            ) : null
-          }
+          errorBanner={failedBanner}
         />
+        )}
 
         {/* Floating "Stop generation" pill — visible only while generating */}
         {isGenerating && (
