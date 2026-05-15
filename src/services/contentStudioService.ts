@@ -4,7 +4,6 @@ import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
 import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
 import { buildFounderIntelligenceContext } from './founderIntelligenceService';
-import { buildPlatformDesignGuidance } from '@/lib/platformRenderer';
 import { buildPlatformDesignSystem, buildPlatformRenderInstructions } from './platformIntelligenceService';
 
 // ─── Founder Intelligence helpers ───────────────────────────────────────────
@@ -393,26 +392,6 @@ export async function generateContentForBrief(
     const primaryImage = productImages?.find((img: any) => img.is_primary);
     const productImageUrl = primaryImage?.file_url || '';
 
-    // Per-platform design guidance so each creative gets distinct layout/zone instructions
-    const platformDesignGuidance: Record<string, string> = {
-      instagram_post:
-        'Square 1080x1080. Bold typography dominant. Clean, editorial feel. Brand color as background or accent. Headline large (min 48px equivalent). Subtext small. Brand mark bottom corner.',
-      instagram_story:
-        'Tall 1080x1920. THREE ZONES: Top third = large hook text or brand element. Middle third = key visual, image, or bold statement. Bottom third = CTA, handle, or swipe prompt. Fill ALL three zones completely. No empty space.',
-      facebook_post:
-        'Wide 1200x630. Split layout or centered. Clear hierarchy. Professional but warm. CTA button visible. Logo prominent.',
-      linkedin_post:
-        'Wide 1200x1200. Corporate but human. Data visualization or bold statement. Professional color palette. Company logo and tagline.',
-      twitter_x:
-        'Wide 1600x900. Minimal. One big idea. Bold single statement in large text. High contrast. Meme-adjacent energy.',
-      tiktok_caption:
-        'Tall 1080x1920. THREE ZONES REQUIRED: Top = hook text overlay style. Middle = main visual content. Bottom = handle + hashtag area. Dark or vibrant background. Text must be large and readable at small size.',
-      whatsapp:
-        'Square 800x800. Clean, simple, direct. One clear message. Friendly visual.',
-      email:
-        'Wide 600x600. Email header style. Clean white or brand background. Logo top center. Headline bold. CTA button visible.',
-    };
-
     // Fuzzy matcher for AI-returned copy keys (handles slug vs name mismatches)
     function findCopyForPlatform(
       data: Record<string, any>,
@@ -478,10 +457,9 @@ export async function generateContentForBrief(
         );
       }
 
-      // Build a platform-specific design brief so each creative is genuinely different
-      const designGuidance =
-        platformDesignGuidance[platform.slug] ??
-        `${platform.aspect_ratio || '1:1'} format. Fill entire ${platform.image_width || 600}x${platform.image_height || 600}px canvas.`;
+      // ── Platform intelligence: DB-driven design system ──
+      const platformSystem = buildPlatformDesignSystem(platform);
+      const platformInstructions = buildPlatformRenderInstructions(platformSystem);
 
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
         generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nCampaign: ${brief.brief || brief.campaign_goal || brand.name}\nHeadline to feature: "${platformCopy.headline || ''}"\nCopy snippet: "${(platformCopy.copy_text || '').slice(0, 80)}"`,
@@ -811,29 +789,9 @@ export async function regenerateCreative(
       ? `\n\nEXISTING COPY TO MATCH:\nHeadline: ${creative.headline || ''}\nCopy: ${creative.copy_text || ''}\nHashtags: ${(creative.hashtags || []).join(', ')}\nSubject line: ${creative.subject_line || ''}`
       : '';
 
-    // Per-platform design guidance (same map as initial generation)
-    const regenPlatformDesignGuidance: Record<string, string> = {
-      instagram_post:
-        'Square 1080x1080. Bold typography dominant. Clean, editorial feel. Brand color as background or accent. Headline large (min 48px equivalent). Subtext small. Brand mark bottom corner.',
-      instagram_story:
-        'Tall 1080x1920. THREE ZONES: Top third = large hook text or brand element. Middle third = key visual, image, or bold statement. Bottom third = CTA, handle, or swipe prompt. Fill ALL three zones completely. No empty space.',
-      facebook_post:
-        'Wide 1200x630. Split layout or centered. Clear hierarchy. Professional but warm. CTA button visible. Logo prominent.',
-      linkedin_post:
-        'Wide 1200x1200. Corporate but human. Data visualization or bold statement. Professional color palette. Company logo and tagline.',
-      twitter_x:
-        'Wide 1600x900. Minimal. One big idea. Bold single statement in large text. High contrast. Meme-adjacent energy.',
-      tiktok_caption:
-        'Tall 1080x1920. THREE ZONES REQUIRED: Top = hook text overlay style. Middle = main visual content. Bottom = handle + hashtag area. Dark or vibrant background. Text must be large and readable at small size.',
-      whatsapp:
-        'Square 800x800. Clean, simple, direct. One clear message. Friendly visual.',
-      email:
-        'Wide 600x600. Email header style. Clean white or brand background. Logo top center. Headline bold. CTA button visible.',
-    };
-
-    const regenDesignGuidance =
-      regenPlatformDesignGuidance[platform.slug] ??
-      `${platform.aspect_ratio || '1:1'} format. Fill entire ${platform.image_width || 600}x${platform.image_height || 600}px canvas.`;
+    // ── Platform intelligence: DB-driven design system for regeneration ──
+    const regenPlatformSystem = buildPlatformDesignSystem(platform);
+    const regenPlatformInstructions = buildPlatformRenderInstructions(regenPlatformSystem);
 
     // Inject all the same variables as initial generation — powered by founder + platform intelligence
     const visualPrompt = injectPromptVariables(visualSystemPrompt, {
