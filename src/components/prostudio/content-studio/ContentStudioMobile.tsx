@@ -321,48 +321,54 @@ export function ContentStudioMobile(props: Props) {
           }}
         />
 
-        {isGenerating ? (
-          <CanvasGenerating
-            platformName={active?.label || "Platform"}
-            width={w}
-            height={h}
-            scale={scale}
-          />
-        ) : isFailed ? (
-          <CanvasFailed
-            width={w}
-            height={h}
-            zoom={scale}
-            onRetry={onRegenerateVisual}
-          />
-        ) : (
-          <div
-            className="relative overflow-hidden rounded-md shadow-2xl"
-            style={{
-              width: w * scale,
-              height: h * scale,
-              background: "#fff",
-              boxShadow: "0 30px 60px -20px rgba(0,0,0,0.45)",
-            }}
-          >
-            <div
-              style={{
-                width: w,
-                height: h,
-                transform: `scale(${scale})`,
-                transformOrigin: "top left",
-              }}
-              dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+        <div
+          key={isGenerating ? "generating" : isFailed ? "failed" : "ready"}
+          className="relative flex items-center justify-center animate-fade-in"
+          style={{ transition: "opacity 180ms ease" }}
+        >
+          {isGenerating ? (
+            <CanvasGenerating
+              platformName={active?.label || "Platform"}
+              width={w}
+              height={h}
+              scale={scale}
             />
-            <PlatformOverlay
-              platform={platformCfg}
+          ) : isFailed ? (
+            <CanvasFailed
               width={w}
               height={h}
               zoom={scale}
-              compact
+              onRetry={onRegenerateVisual}
             />
-          </div>
-        )}
+          ) : (
+            <div
+              className="relative overflow-hidden rounded-md shadow-2xl"
+              style={{
+                width: w * scale,
+                height: h * scale,
+                background: "#fff",
+                boxShadow: "0 30px 60px -20px rgba(0,0,0,0.45)",
+              }}
+            >
+              <div
+                style={{
+                  width: w,
+                  height: h,
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top left",
+                }}
+                dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+              />
+              <PlatformOverlay
+                platform={platformCfg}
+                width={w}
+                height={h}
+                zoom={scale}
+                compact
+              />
+            </div>
+          )}
+        </div>
 
         {/* Contextual intelligence caption */}
         {!isGenerating && !isFailed && (
