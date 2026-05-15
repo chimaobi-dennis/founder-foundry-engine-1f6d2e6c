@@ -268,7 +268,9 @@ export function StudioEditor({
     const recalc = () => {
       const availableWidth = container.clientWidth || 800;
       const availableHeight = container.clientHeight || 600;
-      const padding = 64;
+      // Platform-aware padding: occupancy_target dictates breathing room.
+      const pad = getPreviewPadding(activePlatformConfig);
+      const padding = mode === 'content-studio' ? Math.max(24, pad.x + pad.y + 16) : 64;
       const next = Math.min(
         (availableWidth - padding) / canvasSize.width,
         (availableHeight - padding) / canvasSize.height,
@@ -283,7 +285,7 @@ export function StudioEditor({
     const ro = new ResizeObserver(recalc);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [mode, canvasSize.width, canvasSize.height]);
+  }, [mode, canvasSize.width, canvasSize.height, activePlatformConfig]);
 
   // ─── Export / Save to Library — internal (html2canvas + storage) ────────
   const stageHostElRef = useRef<HTMLDivElement | null>(null);
