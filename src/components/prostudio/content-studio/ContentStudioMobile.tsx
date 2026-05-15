@@ -178,9 +178,12 @@ export function ContentStudioMobile(props: Props) {
     [active?.html, platformCfg],
   );
 
-  const status = active?.status || "ready";
-  const isGenerating = status === "generating";
-  const isFailed = status === "failed";
+  const rawStatus = active?.status || "ready";
+  // While retrying, force every "failed" state into a clean "generating" cycle so
+  // we never render the failure card and the shimmer at the same time.
+  const status = retrying && rawStatus === "failed" ? "generating" : rawStatus;
+  const isGenerating = status === "generating" || (retrying && rawStatus !== "ready" && rawStatus !== "approved" && rawStatus !== "scheduled");
+  const isFailed = status === "failed" && !retrying;
   const isApproved = !!active?.isApproved || status === "approved" || status === "scheduled";
 
   const closeSheet = () => setSheet(null);
