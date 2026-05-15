@@ -578,7 +578,12 @@ export default function ContentStudioEditor() {
     }
   };
 
-  const failedBanner = briefFailed ? (
+  // Show failure UI ONLY when failed AND not currently retrying.
+  // This prevents the banner + failed canvas + red dots from rendering at the
+  // same time as the generating shimmer.
+  const showFailure = briefFailed && !retrying;
+
+  const failedBanner = showFailure ? (
     <div
       role="alert"
       style={{
@@ -591,6 +596,7 @@ export default function ContentStudioEditor() {
         borderLeft: '3px solid #E05C5C',
         borderBottom: '1px solid hsl(var(--border))',
         flexShrink: 0,
+        transition: 'opacity 180ms ease',
       }}
     >
       <span style={{ fontSize: 13, color: 'hsl(var(--foreground))' }}>
@@ -615,7 +621,6 @@ export default function ContentStudioEditor() {
           whiteSpace: 'nowrap',
         }}
       >
-        {retrying && <Loader2 size={12} className="animate-spin" />}
         {retrying ? 'Retrying…' : 'Try again'}
       </button>
     </div>
