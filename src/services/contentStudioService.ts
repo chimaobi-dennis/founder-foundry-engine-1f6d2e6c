@@ -238,8 +238,16 @@ export async function generateContentForBrief(
     const sessionId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 
     // Generate copy for all platforms in one AI call
-    const platformList = platforms.map(p =>
-      `"${p.slug}": { "headline": "", "copy_text": "", "subject_line": "", "hashtags": [] }` 
+    // Build explicit platform context so the AI uses the correct slug as JSON key
+    const platformDescriptions = platforms.map(p =>
+      `Platform slug (use as JSON key): "${p.slug}"\n` +
+      `  Platform name: ${p.name}\n` +
+      `  Character limit: ${p.character_limit || 'unlimited'}\n` +
+      `  Guidelines: ${p.copy_guidelines || ''}`
+    ).join('\n\n');
+
+    const platformKeys = platforms.map(p =>
+      `"${p.slug}": { "headline": "...", "copy_text": "...", "subject_line": "...", "hashtags": [] }`
     ).join(',\n');
 
     // Fetch campaign_copy system prompt from DB
@@ -261,17 +269,18 @@ export async function generateContentForBrief(
       brief: brief.brief || 'Create engaging brand content',
       mentor_memory: mentorContext || 'No mentor context yet',
       captured_stage_data: capturedContext || 'No stage data yet',
-      platform_list: platforms
-        .map(p => `${p.slug}: max ${p.character_limit || 'unlimited'} chars. ${p.copy_guidelines || ''}`)
-        .join('\n'),
-      platform_keys: platformList,
+      platform_list: platformDescriptions,
+      platform_keys: platformKeys,
     });
 
-    // Append strict JSON-only instruction to prevent markdown/text wrapping
+    // Append strict JSON-only instruction + slug enforcement
+    const slugList = platforms.map(p => `"${p.slug}"`).join(', ');
     const strictCopyPrompt = copyPrompt +
       '\n\nIMPORTANT: Return ONLY a valid JSON object. No explanation, ' +
       'no markdown, no code fences, no text before or after the JSON. ' +
-      'Start your response with { and end with }';
+      'Start your response with { and end with }\n' +
+      'CRITICAL: Use EXACTLY these JSON keys (platform slugs): ' + slugList + '. ' +
+      'Do not use platform display names as keys. Use the slug values above.';
 
     const copyResult = await withTimeout(
       callAI({
@@ -385,11 +394,48 @@ export async function generateContentForBrief(
         'Wide 600x600. Email header style. Clean white or brand background. Logo top center. Headline bold. CTA button visible.',
     };
 
+    // Fuzzy matcher for AI-returned copy keys (handles slug vs name mismatches)
+    function findCopyForPlatform(
+      data: Record<string, any>,
+      platform: any
+    ): Record<string, any> {
+      // Exact slug match
+      if (data[platform.slug]) return data[platform.slug];
+
+      // Platform name as lowercase_underscored
+      const nameLower = platform.name?.toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/\//g, '_');
+      if (nameLower && data[nameLower]) return data[nameLower];
+
+      // Partial match — base word from slug
+      const slugBase = platform.slug.split('_')[0]; // 'instagram' from 'instagram_post'
+      const partialMatch = Object.keys(data).find(key =>
+        key.includes(slugBase) || slugBase.includes(key)
+      );
+      if (partialMatch) return data[partialMatch];
+
+      // Name word match
+      const nameWords = (platform.name?.toLowerCase() || '').split(/\s+/);
+      const nameMatch = Object.keys(data).find(key =>
+        nameWords.some((word: string) => key.includes(word))
+      );
+      if (nameMatch) return data[nameMatch];
+
+      console.warn(
+        '[generateContentForBrief] No copy found for platform:',
+        platform.slug,
+        'Available keys:',
+        Object.keys(data)
+      );
+      return {};
+    }
+
     // Now generate visuals for each platform in parallel
     const creatives: any[] = [];
 
     await Promise.all(platforms.map(async (platform) => {
-      const platformCopy = copyData[platform.slug] || {};
+      const platformCopy = findCopyForPlatform(copyData, platform);
 
       // Find suitable ProStudio template for this platform
       const { data: templates } = await db
