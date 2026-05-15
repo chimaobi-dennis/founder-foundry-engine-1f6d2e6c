@@ -73,6 +73,7 @@ export default function ContentStudioEditor() {
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [approveAllModalOpen, setApproveAllModalOpen] = useState(false);
   const pollRef = useRef<number | null>(null);
+  const retryingRef = useRef(false);
 
   const load = async () => {
     if (!briefId) return;
@@ -82,9 +83,14 @@ export default function ContentStudioEditor() {
         navigate('/content-studio');
         return;
       }
+      // While a retry is in-flight, ignore stale 'failed' from server so the UI
+      // stays in a clean shimmer/loading cycle and doesn't flicker back to failure.
+      if (retryingRef.current && data.status === 'failed') {
+        return;
+      }
       setBrief(data);
       // Detect failed brief immediately on any load/poll cycle
-      if (data.status === 'failed') {
+      if (data.status === 'failed' && !retryingRef.current) {
         setBriefFailed(true);
         if (pollRef.current) {
           clearInterval(pollRef.current);
