@@ -73,6 +73,7 @@ export default function ContentStudioEditor() {
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [approveAllModalOpen, setApproveAllModalOpen] = useState(false);
   const pollRef = useRef<number | null>(null);
+  const retryingRef = useRef(false);
 
   const load = async () => {
     if (!briefId) return;
@@ -82,9 +83,14 @@ export default function ContentStudioEditor() {
         navigate('/content-studio');
         return;
       }
+      // While a retry is in-flight, ignore stale 'failed' from server so the UI
+      // stays in a clean shimmer/loading cycle and doesn't flicker back to failure.
+      if (retryingRef.current && data.status === 'failed') {
+        return;
+      }
       setBrief(data);
       // Detect failed brief immediately on any load/poll cycle
-      if (data.status === 'failed') {
+      if (data.status === 'failed' && !retryingRef.current) {
         setBriefFailed(true);
         if (pollRef.current) {
           clearInterval(pollRef.current);
@@ -499,18 +505,22 @@ export default function ContentStudioEditor() {
 
   const handleRetryBrief = async () => {
     if (!briefId || retrying) return;
+    retryingRef.current = true;
     setRetrying(true);
+    // Hide failure UI INSTANTLY — banner, failed dots, failed canvas overlay.
+    setBriefFailed(false);
+    setBrief((prev: any) => (prev ? { ...prev, status: 'generating' } : prev));
+    setCreatives((prev) => prev.map((c) => ({ ...c, status: 'generating', visual_html: null })));
     try {
-      // Reset brief status locally so canvases switch back to shimmer
-      setBrief((prev: any) => (prev ? { ...prev, status: 'generating' } : prev));
-      setCreatives((prev) => prev.map((c) => ({ ...c, status: 'generating', visual_html: null })));
-      setBriefFailed(false);
       await generateContentForBrief(briefId);
+      retryingRef.current = false;
       await load();
     } catch (e: any) {
+      retryingRef.current = false;
       toast.error(e.message || 'Generation failed. Please try again.');
       setBriefFailed(true);
     } finally {
+      retryingRef.current = false;
       setRetrying(false);
     }
   };
@@ -568,7 +578,12 @@ export default function ContentStudioEditor() {
     }
   };
 
-  const failedBanner = briefFailed ? (
+  // Show failure UI ONLY when failed AND not currently retrying.
+  // This prevents the banner + failed canvas + red dots from rendering at the
+  // same time as the generating shimmer.
+  const showFailure = briefFailed && !retrying;
+
+  const failedBanner = showFailure ? (
     <div
       role="alert"
       style={{
@@ -581,6 +596,7 @@ export default function ContentStudioEditor() {
         borderLeft: '3px solid #E05C5C',
         borderBottom: '1px solid hsl(var(--border))',
         flexShrink: 0,
+        transition: 'opacity 180ms ease',
       }}
     >
       <span style={{ fontSize: 13, color: 'hsl(var(--foreground))' }}>
@@ -605,7 +621,6 @@ export default function ContentStudioEditor() {
           whiteSpace: 'nowrap',
         }}
       >
-        {retrying && <Loader2 size={12} className="animate-spin" />}
         {retrying ? 'Retrying…' : 'Try again'}
       </button>
     </div>
@@ -635,6 +650,7 @@ export default function ContentStudioEditor() {
             approvingAll={approvingAll}
             allApproved={allApprovedFlash || allApproved}
             errorBanner={failedBanner}
+            retrying={retrying}
           />
         ) : (
         <StudioEditor

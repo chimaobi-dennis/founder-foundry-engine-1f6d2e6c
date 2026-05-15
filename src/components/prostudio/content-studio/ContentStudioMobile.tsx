@@ -53,6 +53,8 @@ interface Props {
   allApproved?: boolean;
 
   errorBanner?: React.ReactNode;
+  /** True while the user has tapped "Try again" and a fresh generation cycle is in flight. */
+  retrying?: boolean;
 }
 
 type Sheet = null | "copy" | "platforms" | "more";
@@ -95,6 +97,7 @@ export function ContentStudioMobile(props: Props) {
     approvingAll,
     allApproved,
     errorBanner,
+    retrying,
   } = props;
 
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -175,9 +178,12 @@ export function ContentStudioMobile(props: Props) {
     [active?.html, platformCfg],
   );
 
-  const status = active?.status || "ready";
-  const isGenerating = status === "generating";
-  const isFailed = status === "failed";
+  const rawStatus = active?.status || "ready";
+  // While retrying, force every "failed" state into a clean "generating" cycle so
+  // we never render the failure card and the shimmer at the same time.
+  const status = retrying && rawStatus === "failed" ? "generating" : rawStatus;
+  const isGenerating = status === "generating" || (retrying && rawStatus !== "ready" && rawStatus !== "approved" && rawStatus !== "scheduled");
+  const isFailed = status === "failed" && !retrying;
   const isApproved = !!active?.isApproved || status === "approved" || status === "scheduled";
 
   const closeSheet = () => setSheet(null);
@@ -253,15 +259,21 @@ export function ContentStudioMobile(props: Props) {
         <div className="flex items-center gap-2 px-4 py-3 w-max">
           {canvases.map((c) => {
             const sel = c.id === activeCanvasId;
+            // While a retry is in flight, suppress red "failed" indicators on every
+            // tab and show a retry ring instead — never red + spinner together.
+            const tabFailed = c.status === "failed" && !retrying;
+            const tabRetrying = retrying && (c.status === "failed" || c.status === "generating");
+            const tabGenerating = !tabRetrying && c.status === "generating";
             return (
               <button
                 key={c.id}
                 onClick={() => onSelectCanvas(c.id)}
                 className={cn(
-                  "flex-shrink-0 flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-ui transition-all",
+                  "flex-shrink-0 flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-ui transition-all duration-200",
                   sel
                     ? "bg-foreground text-background"
                     : "bg-muted/30 text-muted-foreground hover:text-foreground",
+                  tabGenerating && !sel && "opacity-70",
                 )}
               >
                 <span
@@ -272,8 +284,21 @@ export function ContentStudioMobile(props: Props) {
                 {(c.isApproved || c.status === "approved" || c.status === "scheduled") && (
                   <Check size={11} className={sel ? "opacity-80" : "text-emerald-500"} />
                 )}
-                {c.status === "failed" && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#E05C5C]" />
+                {tabRetrying && (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border-2 border-transparent animate-spin"
+                    style={{ borderTopColor: "hsl(210 90% 60%)", borderRightColor: "hsl(210 90% 60%)" }}
+                    aria-label="Retrying"
+                  />
+                )}
+                {tabGenerating && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"
+                    aria-label="Generating"
+                  />
+                )}
+                {tabFailed && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#E05C5C]" aria-label="Failed" />
                 )}
               </button>
             );
@@ -296,48 +321,54 @@ export function ContentStudioMobile(props: Props) {
           }}
         />
 
-        {isGenerating ? (
-          <CanvasGenerating
-            platformName={active?.label || "Platform"}
-            width={w}
-            height={h}
-            scale={scale}
-          />
-        ) : isFailed ? (
-          <CanvasFailed
-            width={w}
-            height={h}
-            zoom={scale}
-            onRetry={onRegenerateVisual}
-          />
-        ) : (
-          <div
-            className="relative overflow-hidden rounded-md shadow-2xl"
-            style={{
-              width: w * scale,
-              height: h * scale,
-              background: "#fff",
-              boxShadow: "0 30px 60px -20px rgba(0,0,0,0.45)",
-            }}
-          >
-            <div
-              style={{
-                width: w,
-                height: h,
-                transform: `scale(${scale})`,
-                transformOrigin: "top left",
-              }}
-              dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+        <div
+          key={isGenerating ? "generating" : isFailed ? "failed" : "ready"}
+          className="relative flex items-center justify-center animate-fade-in"
+          style={{ transition: "opacity 180ms ease" }}
+        >
+          {isGenerating ? (
+            <CanvasGenerating
+              platformName={active?.label || "Platform"}
+              width={w}
+              height={h}
+              scale={scale}
             />
-            <PlatformOverlay
-              platform={platformCfg}
+          ) : isFailed ? (
+            <CanvasFailed
               width={w}
               height={h}
               zoom={scale}
-              compact
+              onRetry={onRegenerateVisual}
             />
-          </div>
-        )}
+          ) : (
+            <div
+              className="relative overflow-hidden rounded-md shadow-2xl"
+              style={{
+                width: w * scale,
+                height: h * scale,
+                background: "#fff",
+                boxShadow: "0 30px 60px -20px rgba(0,0,0,0.45)",
+              }}
+            >
+              <div
+                style={{
+                  width: w,
+                  height: h,
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top left",
+                }}
+                dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+              />
+              <PlatformOverlay
+                platform={platformCfg}
+                width={w}
+                height={h}
+                zoom={scale}
+                compact
+              />
+            </div>
+          )}
+        </div>
 
         {/* Contextual intelligence caption */}
         {!isGenerating && !isFailed && (
