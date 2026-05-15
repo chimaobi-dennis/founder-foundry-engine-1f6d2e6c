@@ -3,6 +3,41 @@ import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
 import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
+import { buildFounderIntelligenceContext } from './founderIntelligenceService';
+
+// ─── Founder Intelligence helpers ───────────────────────────────────────────
+// Build a token-efficient creative-memory summary suitable for visual prompts.
+// This is intentionally NOT raw HTML — only summarized patterns + anti-repetition.
+function summarizeCreativeMemoryForVisuals(visualIntelligence: Awaited<ReturnType<typeof buildFounderIntelligenceContext>>): string {
+  const cm = visualIntelligence.creativeMemory;
+  const sc = visualIntelligence.synthesizedContext;
+  const lines: string[] = [];
+
+  if (cm.recurringVisualPatterns.length) {
+    lines.push(`Recurring visual patterns: ${cm.recurringVisualPatterns.join('; ')}`);
+  }
+  if (cm.recurringTypographyPatterns.length) {
+    lines.push(`Typography patterns: ${cm.recurringTypographyPatterns.join('; ')}`);
+  }
+  if (cm.recurringColorDirections.length) {
+    lines.push(`Color directions used: ${cm.recurringColorDirections.slice(0, 6).join(', ')}`);
+  }
+  if (cm.recurringCTAStyles.length) {
+    lines.push(`Prior CTA styles: ${cm.recurringCTAStyles.join('; ')}`);
+  }
+  if (cm.recentCreativeOutputs.length) {
+    const recent = cm.recentCreativeOutputs
+      .slice(0, 5)
+      .map(o => `- [${o.platform}] ${o.headline ?? ''} — ${o.summary ?? ''}`.trim())
+      .join('\n');
+    lines.push(`Recent creative directions:\n${recent}`);
+  }
+  if (sc.antiRepetitionInstructions.length) {
+    lines.push(`Anti-repetition rules:\n- ${sc.antiRepetitionInstructions.join('\n- ')}`);
+  }
+
+  return lines.join('\n\n');
+}
 
 const db = supabase as any;
 
@@ -200,34 +235,15 @@ export async function generateContentForBrief(
     const brand = brief.brands;
     const dna = brand?.brand_dna?.[0];
 
-    // Fetch brand stage data for context
-    const { data: stageData } = await db
-      .from('brand_stage_data')
-      .select('stage_key, field_key, value')
-      .eq('brand_id', brand.id);
+    // ─── Founder intelligence: cumulative, structured, anti-repetition aware ──
+    // Replaces ad-hoc raw memory blobs (mentorContext, capturedContext) with a
+    // synthesized intelligence layer prioritized per module.
+    const [intelligence, visualIntelligence] = await Promise.all([
+      buildFounderIntelligenceContext(brand.id, 'campaign_generation'),
+      buildFounderIntelligenceContext(brand.id, 'visual_generation'),
+    ]);
 
-    const capturedContext = (stageData || [])
-      .map(d => `${d.field_key}: ${d.value}`)
-      .join('\n');
-
-    // Fetch recent mentor messages for context
-    const { data: conversation } = await db
-      .from('mentor_conversations')
-      .select('id')
-      .eq('brand_id', brand.id)
-      .single();
-
-    let mentorContext = '';
-    if (conversation?.id) {
-      const { data: messages } = await db
-        .from('mentor_messages')
-        .select('content')
-        .eq('conversation_id', conversation.id)
-        .eq('role', 'assistant')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      mentorContext = (messages || []).reverse().map(m => m.content.slice(0, 150)).join('\n');
-    }
+    const visualMemorySummary = summarizeCreativeMemoryForVisuals(visualIntelligence);
 
     // Generate session ID
     const bytes = new Uint8Array(16);
@@ -267,8 +283,9 @@ export async function generateContentForBrief(
       campaign_goal: brief.campaign_goal || 'Build awareness',
       tone: brief.tone || dna?.brand_voice || 'Confident',
       brief: brief.brief || 'Create engaging brand content',
-      mentor_memory: mentorContext || 'No mentor context yet',
-      captured_stage_data: capturedContext || 'No stage data yet',
+      founder_intelligence_context: intelligence.promptContext,
+      mentor_memory: intelligence.promptContext,
+      captured_stage_data: intelligence.promptContext,
       platform_list: platformDescriptions,
       platform_keys: platformKeys,
     });
@@ -478,9 +495,11 @@ export async function generateContentForBrief(
         secondary_color: brand.secondary_color || '#ffffff',
         product_image_url: productImageUrl,
         design_brief: `${platform.name} content for: ${brief.brief || brief.name}`,
-        mentor_memory: mentorContext,
+        founder_intelligence_context: visualIntelligence.promptContext,
+        creative_memory: visualMemorySummary,
+        mentor_memory: visualIntelligence.promptContext,
         journey_stage: brand.journey_stage || 'spark',
-        captured_stage_data: capturedContext,
+        captured_stage_data: visualIntelligence.promptContext,
         image_width: platform.image_width?.toString() || '600',
         image_height: platform.image_height?.toString() || '600',
       });
@@ -756,37 +775,11 @@ export async function regenerateCreative(
       .update({ status: 'generating' })
       .eq('id', creativeId);
 
-    // Fetch brand stage data for context
-    const { data: stageData } = await db
-      .from('brand_stage_data')
-      .select('stage_key, field_key, value')
-      .eq('brand_id', brand.id);
-
-    const capturedContext = (stageData || [])
-      .map(d => `${d.field_key}: ${d.value}`)
-      .join('\n');
-
-    // Fetch recent mentor messages for context
-    const { data: conversation } = await db
-      .from('mentor_conversations')
-      .select('id')
-      .eq('brand_id', brand.id)
-      .single();
-
-    let mentorContext = '';
-    if (conversation?.id) {
-      const { data: messages } = await db
-        .from('mentor_messages')
-        .select('content')
-        .eq('conversation_id', conversation.id)
-        .eq('role', 'assistant')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      mentorContext = (messages || []).reverse().map(m => m.content.slice(0, 150)).join('\n');
-    }
-
-    // Fetch project assets for AI context
-    const assetsContext = await getAssetsForAIContext(brand.id);
+    // ─── Founder intelligence for regeneration ──
+    // Visual-module context gives the AI awareness of prior creative outputs,
+    // recurring patterns, typography, color directions, and anti-repetition rules.
+    const visualIntelligence = await buildFounderIntelligenceContext(brand.id, 'visual_generation');
+    const regenVisualMemory = summarizeCreativeMemoryForVisuals(visualIntelligence);
 
     // Fetch primary product image
     const productImages = await getBrandProductImages(brand.id);
@@ -838,7 +831,7 @@ export async function regenerateCreative(
       regenPlatformDesignGuidance[platform.slug] ??
       `${platform.aspect_ratio || '1:1'} format. Fill entire ${platform.image_width || 600}x${platform.image_height || 600}px canvas.`;
 
-    // Inject all the same variables as initial generation
+    // Inject all the same variables as initial generation — powered by founder intelligence
     const visualPrompt = injectPromptVariables(visualSystemPrompt, {
       generation_prompt: `Platform: ${platform.name}\nDesign guidance: ${regenDesignGuidance}\nThis is a REGENERATION — create a fresh layout variation that stays on-brand and matches the existing copy below. Vary the composition but maintain brand identity.\nHeadline to feature: "${creative.headline || ''}"\nCopy snippet: "${(creative.copy_text || '').slice(0, 80)}"\nCRITICAL: Design must fill the FULL ${platform.image_width || 600}x${platform.image_height || 600}px canvas with no empty space.`,
       aspectRatio: platform.aspect_ratio || '1:1',
@@ -853,9 +846,11 @@ export async function regenerateCreative(
       secondary_color: brand.secondary_color || '#ffffff',
       product_image_url: productImageUrl,
       design_brief: `${platform.name} content for: ${brief.brief || brief.name}${copyContext}`,
-      mentor_memory: mentorContext,
+      founder_intelligence_context: visualIntelligence.promptContext,
+      creative_memory: regenVisualMemory,
+      mentor_memory: visualIntelligence.promptContext,
       journey_stage: brand.journey_stage || 'spark',
-      captured_stage_data: capturedContext,
+      captured_stage_data: visualIntelligence.promptContext,
       image_width: platform.image_width?.toString() || '600',
       image_height: platform.image_height?.toString() || '600',
     });
