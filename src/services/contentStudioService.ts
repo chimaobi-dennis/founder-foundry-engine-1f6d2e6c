@@ -462,10 +462,8 @@ export async function generateContentForBrief(
         );
       }
 
-      // Build a platform-specific design brief so each creative is genuinely different
-      const designGuidance =
-        platformDesignGuidance[platform.slug] ??
-        `${platform.aspect_ratio || '1:1'} format. Fill entire ${platform.image_width || 600}x${platform.image_height || 600}px canvas.`;
+      // Build a platform-specific design brief from the dynamic config
+      const designGuidance = buildPlatformDesignGuidance(platform);
 
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
         generation_prompt: `Platform: ${platform.name}\nDesign guidance: ${designGuidance}\nCampaign: ${brief.brief || brief.campaign_goal || brand.name}\nHeadline to feature: "${platformCopy.headline || ''}"\nCopy snippet: "${(platformCopy.copy_text || '').slice(0, 80)}"\nCRITICAL: Design must fill the FULL ${platform.image_width || 600}x${platform.image_height || 600}px canvas with no empty space.`,
