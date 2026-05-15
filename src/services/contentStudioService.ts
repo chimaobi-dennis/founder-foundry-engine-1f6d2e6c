@@ -4,6 +4,7 @@ import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
 import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
 import { buildFounderIntelligenceContext } from './founderIntelligenceService';
+import { buildPlatformDesignGuidance } from '@/lib/platformRenderer';
 
 // ─── Founder Intelligence helpers ───────────────────────────────────────────
 // Build a token-efficient creative-memory summary suitable for visual prompts.
