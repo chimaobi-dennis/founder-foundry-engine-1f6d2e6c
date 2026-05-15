@@ -51,6 +51,8 @@ interface Props {
 
 type Sheet = null | "copy" | "platforms" | "more";
 
+const BASE_DOCK_CLEARANCE = 28;
+
 function formatScheduleLabel(info: ScheduleInfo) {
   try {
     const [y, m, d] = info.date.split("-").map(Number);
@@ -92,6 +94,7 @@ export function ContentStudioMobile(props: Props) {
   const [sheet, setSheet] = useState<Sheet>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
+  const [viewportMetrics, setViewportMetrics] = useState({ height: 0, bottomInset: 0 });
 
   const active = canvases.find((c) => c.id === activeCanvasId) || canvases[0];
   const w = active?.canvasWidth || 600;
@@ -106,6 +109,43 @@ export function ContentStudioMobile(props: Props) {
     const ro = new ResizeObserver(recalc);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+
+  // Mobile browser chrome can overlay the layout viewport. Track the visual
+  // viewport so the dock stays above system/browser UI on iOS, Android, and in-app browsers.
+  useEffect(() => {
+    let frame: number | null = null;
+
+    const measure = () => {
+      const visualViewport = window.visualViewport;
+      const visualHeight = visualViewport?.height ?? window.innerHeight;
+      const offsetTop = visualViewport?.offsetTop ?? 0;
+      const hiddenBottom = Math.max(0, window.innerHeight - visualHeight - offsetTop);
+
+      setViewportMetrics({
+        height: Math.round(visualHeight),
+        bottomInset: Math.ceil(hiddenBottom),
+      });
+    };
+
+    const scheduleMeasure = () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    };
+
+    measure();
+    window.addEventListener("resize", scheduleMeasure);
+    window.addEventListener("orientationchange", scheduleMeasure);
+    window.visualViewport?.addEventListener("resize", scheduleMeasure);
+    window.visualViewport?.addEventListener("scroll", scheduleMeasure);
+
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", scheduleMeasure);
+      window.removeEventListener("orientationchange", scheduleMeasure);
+      window.visualViewport?.removeEventListener("resize", scheduleMeasure);
+      window.visualViewport?.removeEventListener("scroll", scheduleMeasure);
+    };
   }, []);
 
   const scale = useMemo(() => {
@@ -128,11 +168,19 @@ export function ContentStudioMobile(props: Props) {
   const isApproved = !!active?.isApproved || status === "approved" || status === "scheduled";
 
   const closeSheet = () => setSheet(null);
+  const shellHeight = viewportMetrics.height ? `${viewportMetrics.height}px` : "100svh";
+  const dockBottomInset = `max(env(safe-area-inset-bottom, 0px), ${viewportMetrics.bottomInset}px)`;
 
   return (
     <div
       className="flex-1 min-h-0 flex flex-col"
-      style={{ background: "hsl(var(--background))", height: "100dvh", maxHeight: "100dvh" }}
+      style={{
+        background: "hsl(var(--background))",
+        height: shellHeight,
+        minHeight: "100svh",
+        maxHeight: shellHeight,
+        overflow: "hidden",
+      }}
     >
       {/* TOP BAR — minimal */}
       <div
@@ -291,50 +339,57 @@ export function ContentStudioMobile(props: Props) {
 
       {/* BOTTOM DOCK */}
       <div
-        className="flex-shrink-0 grid grid-cols-5 gap-1 px-2 pt-2.5"
+        className="flex-shrink-0 px-3 pt-2.5"
         style={{
-          background: "hsl(var(--card) / 0.95)",
-          backdropFilter: "blur(12px)",
-          borderTop: "1px solid hsl(var(--border) / 0.6)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)",
+          paddingBottom: `calc(${dockBottomInset} + ${BASE_DOCK_CLEARANCE}px)`,
         }}
       >
-        <DockButton
-          icon={<Pencil size={18} />}
-          label="Edit copy"
-          onClick={() => setSheet("copy")}
-          disabled={isGenerating || isFailed}
-        />
-        <DockButton
-          icon={
-            regenerating ? (
-              <Loader2 size={18} className="animate-spin" />
-            ) : (
-              <RefreshCw size={18} />
-            )
-          }
-          label="Regenerate"
-          onClick={onRegenerateVisual}
-          disabled={isGenerating || regenerating}
-        />
-        <DockButton
-          icon={<Check size={18} />}
-          label={isApproved ? "Approved" : "Approve"}
-          onClick={onApproveActive}
-          disabled={isGenerating || isFailed}
-          highlight={isApproved}
-        />
-        <DockButton
-          icon={<CalendarPlus size={18} />}
-          label={activeSchedule ? "Reschedule" : "Schedule"}
-          onClick={activeSchedule ? onRescheduleActive : onApproveActive}
-          disabled={isGenerating || isFailed}
-        />
-        <DockButton
-          icon={<MoreHorizontal size={18} />}
-          label="More"
-          onClick={() => setSheet("more")}
-        />
+        <div
+          className="grid grid-cols-5 gap-1 rounded-2xl px-1.5 py-2 shadow-2xl"
+          style={{
+            background: "hsl(var(--card) / 0.94)",
+            backdropFilter: "blur(16px)",
+            border: "1px solid hsl(var(--border) / 0.7)",
+            boxShadow: "0 18px 45px -24px hsl(var(--foreground) / 0.45)",
+          }}
+        >
+          <DockButton
+            icon={<Pencil size={18} />}
+            label="Edit copy"
+            onClick={() => setSheet("copy")}
+            disabled={isGenerating || isFailed}
+          />
+          <DockButton
+            icon={
+              regenerating ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <RefreshCw size={18} />
+              )
+            }
+            label="Regenerate"
+            onClick={onRegenerateVisual}
+            disabled={isGenerating || regenerating}
+          />
+          <DockButton
+            icon={<Check size={18} />}
+            label={isApproved ? "Approved" : "Approve"}
+            onClick={onApproveActive}
+            disabled={isGenerating || isFailed}
+            highlight={isApproved}
+          />
+          <DockButton
+            icon={<CalendarPlus size={18} />}
+            label={activeSchedule ? "Reschedule" : "Schedule"}
+            onClick={activeSchedule ? onRescheduleActive : onApproveActive}
+            disabled={isGenerating || isFailed}
+          />
+          <DockButton
+            icon={<MoreHorizontal size={18} />}
+            label="More"
+            onClick={() => setSheet("more")}
+          />
+        </div>
       </div>
 
       {/* BOTTOM SHEET — Copy editor */}
