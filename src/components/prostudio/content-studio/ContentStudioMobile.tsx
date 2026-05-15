@@ -97,6 +97,7 @@ export function ContentStudioMobile(props: Props) {
     approvingAll,
     allApproved,
     errorBanner,
+    retrying,
   } = props;
 
   const [sheet, setSheet] = useState<Sheet>(null);
