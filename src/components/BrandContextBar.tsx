@@ -18,16 +18,27 @@ export function BrandContextBar() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const BRAND_SCOPED_MODULES = new Set([
+    "mentor",
+    "pro-studio",
+    "content-studio",
+    "content-calendar",
+    "doc-studio",
+    "reel-builder",
+    "library",
+    "brand-dna",
+  ]);
+
   const handleSwitchBrand = async (brandId: string) => {
     await switchBrand(brandId);
     setOpen(false);
-    
-    // Update URL to reflect the new brand ID
-    const pathSegments = location.pathname.split('/');
-    // Replace the last segment (brand ID) with the new brand ID
-    if (pathSegments.length > 0) {
-      pathSegments[pathSegments.length - 1] = brandId;
-      navigate(pathSegments.join('/'), { replace: true });
+
+    // Preserve the current module segment and replace/append the brandId.
+    // Never drop the module name (was causing /{brandId} 404s).
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const moduleSegment = pathSegments[0];
+    if (moduleSegment && BRAND_SCOPED_MODULES.has(moduleSegment)) {
+      navigate(`/${moduleSegment}/${brandId}`, { replace: true });
     }
   };
 
