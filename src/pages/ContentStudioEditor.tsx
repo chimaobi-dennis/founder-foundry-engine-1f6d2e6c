@@ -492,71 +492,23 @@ export default function ContentStudioEditor() {
     );
   }
 
-  if (briefFailed) {
-    const handleRetry = async () => {
-      if (!briefId || retrying) return;
-      setRetrying(true);
+  const handleRetryBrief = async () => {
+    if (!briefId || retrying) return;
+    setRetrying(true);
+    try {
+      // Reset brief status locally so canvases switch back to shimmer
+      setBrief((prev: any) => (prev ? { ...prev, status: 'generating' } : prev));
+      setCreatives((prev) => prev.map((c) => ({ ...c, status: 'generating', visual_html: null })));
       setBriefFailed(false);
-      // Reset local creative statuses so placeholders show shimmer during retry
-      setCreatives((prev) => prev.map((c) => ({ ...c, status: 'generating' })));
-      try {
-        await generateContentForBrief(briefId);
-        await load();
-      } catch (e: any) {
-        toast.error(e.message || 'Generation failed. Please try again.');
-        setBriefFailed(true);
-      } finally {
-        setRetrying(false);
-      }
-    };
-
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-6 p-8 text-center">
-        <div
-          style={{
-            width: 48, height: 48, borderRadius: '50%',
-            background: 'hsl(0 84% 60% / 0.12)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="hsl(0 84% 60%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-        </div>
-        <div>
-          <p className="font-medium text-foreground mb-1">Content generation failed.</p>
-          <p className="text-sm text-muted-foreground">Please try again.</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleRetry}
-            disabled={retrying}
-            style={{
-              background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))',
-              border: 'none', borderRadius: 6, padding: '8px 20px',
-              fontSize: 14, fontWeight: 600, cursor: retrying ? 'not-allowed' : 'pointer',
-              opacity: retrying ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 8,
-            }}
-          >
-            {retrying && <Loader2 size={14} className="animate-spin" />}
-            {retrying ? 'Generating…' : 'Try again'}
-          </button>
-          <button
-            onClick={() => navigate('/content-studio')}
-            style={{
-              background: 'transparent', color: 'hsl(var(--muted-foreground))',
-              border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '8px 20px',
-              fontSize: 14, fontWeight: 500, cursor: 'pointer',
-            }}
-          >
-            Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+      await generateContentForBrief(briefId);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || 'Generation failed. Please try again.');
+      setBriefFailed(true);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const activePlatformName = active?.content_platforms?.name || "Platform";
 
