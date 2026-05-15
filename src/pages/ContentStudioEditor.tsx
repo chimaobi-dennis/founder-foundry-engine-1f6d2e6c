@@ -56,6 +56,7 @@ export default function ContentStudioEditor() {
   const navigate = useNavigate();
   const { activeBrand } = useBrand();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [brief, setBrief] = useState<any>(null);
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [platformsMeta, setPlatformsMeta] = useState<any[]>([]);
