@@ -168,6 +168,7 @@ export function StudioEditor({
   onRemoveScheduleActive,
   approvingAll,
   allApproved,
+  errorBanner,
 }: Props) {
   const { theme } = useTheme();
   // Render the generated HTML; loading state is handled by parent component
