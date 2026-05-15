@@ -110,8 +110,12 @@ export function ContentStudioMobile(props: Props) {
 
   const scale = useMemo(() => {
     if (!stageSize.w || !stageSize.h) return 0.5;
-    const padX = 28; // breathing room
-    const padY = 28;
+    // Tight margins so the creative dominates the viewport.
+    // Vertical formats (stories/reels) get less side padding to maximize height.
+    const isVertical = h > w;
+    const isSquare = Math.abs(w - h) < 2;
+    const padX = isVertical ? 12 : isSquare ? 16 : 16;
+    const padY = isVertical ? 12 : isSquare ? 16 : 20;
     return Math.max(
       0.1,
       Math.min((stageSize.w - padX) / w, (stageSize.h - padY) / h),
