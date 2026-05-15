@@ -392,25 +392,10 @@ export async function generateContentForBrief(
     const primaryImage = productImages?.find((img: any) => img.is_primary);
     const productImageUrl = primaryImage?.file_url || '';
 
-    // Per-platform design guidance so each creative gets distinct layout/zone instructions
-    const platformDesignGuidance: Record<string, string> = {
-      instagram_post:
-        'Square 1080x1080. Bold typography dominant. Clean, editorial feel. Brand color as background or accent. Headline large (min 48px equivalent). Subtext small. Brand mark bottom corner.',
-      instagram_story:
-        'Tall 1080x1920. THREE ZONES: Top third = large hook text or brand element. Middle third = key visual, image, or bold statement. Bottom third = CTA, handle, or swipe prompt. Fill ALL three zones completely. No empty space.',
-      facebook_post:
-        'Wide 1200x630. Split layout or centered. Clear hierarchy. Professional but warm. CTA button visible. Logo prominent.',
-      linkedin_post:
-        'Wide 1200x1200. Corporate but human. Data visualization or bold statement. Professional color palette. Company logo and tagline.',
-      twitter_x:
-        'Wide 1600x900. Minimal. One big idea. Bold single statement in large text. High contrast. Meme-adjacent energy.',
-      tiktok_caption:
-        'Tall 1080x1920. THREE ZONES REQUIRED: Top = hook text overlay style. Middle = main visual content. Bottom = handle + hashtag area. Dark or vibrant background. Text must be large and readable at small size.',
-      whatsapp:
-        'Square 800x800. Clean, simple, direct. One clear message. Friendly visual.',
-      email:
-        'Wide 600x600. Email header style. Clean white or brand background. Logo top center. Headline bold. CTA button visible.',
-    };
+    // Per-platform design guidance is built dynamically from the
+    // `content_platforms` row (typography_scale, occupancy_target,
+    // required_zones, safe zones, supports_svg, platform_render_rules…).
+    // No hardcoded slug map.
 
     // Fuzzy matcher for AI-returned copy keys (handles slug vs name mismatches)
     function findCopyForPlatform(
