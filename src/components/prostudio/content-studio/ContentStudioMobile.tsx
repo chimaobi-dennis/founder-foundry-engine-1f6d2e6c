@@ -17,6 +17,12 @@ import { cn } from "@/lib/utils";
 import type { CanvasItem } from "../CanvasSwitcher";
 import { CanvasGenerating } from "./CanvasGenerating";
 import { CanvasFailed } from "./CanvasFailed";
+import { PlatformOverlay } from "./PlatformOverlay";
+import {
+  applyTypographyNormalization,
+  getPreviewPadding,
+  type PlatformConfig,
+} from "@/lib/platformRenderer";
 
 interface ScheduleInfo {
   calendarPostId: string;
@@ -148,19 +154,26 @@ export function ContentStudioMobile(props: Props) {
     };
   }, []);
 
+  const platformCfg = (active?.platformConfig as PlatformConfig | undefined) || null;
+
   const scale = useMemo(() => {
     if (!stageSize.w || !stageSize.h) return 0.5;
-    // Tight margins so the creative dominates the viewport.
-    // Vertical formats (stories/reels) get less side padding to maximize height.
+    // Platform-aware padding: occupancy_target controls how much breathing
+    // room the preview keeps around the creative.
+    const pad = getPreviewPadding(platformCfg);
     const isVertical = h > w;
-    const isSquare = Math.abs(w - h) < 2;
-    const padX = isVertical ? 12 : isSquare ? 16 : 16;
-    const padY = isVertical ? 12 : isSquare ? 16 : 20;
+    const padX = Math.max(8, isVertical ? Math.round(pad.x * 0.6) : pad.x);
+    const padY = Math.max(8, isVertical ? Math.round(pad.y * 0.6) : pad.y);
     return Math.max(
       0.1,
-      Math.min((stageSize.w - padX) / w, (stageSize.h - padY) / h),
+      Math.min((stageSize.w - padX * 2) / w, (stageSize.h - padY * 2) / h),
     );
-  }, [stageSize.w, stageSize.h, w, h]);
+  }, [stageSize.w, stageSize.h, w, h, platformCfg]);
+
+  const normalizedHtml = useMemo(
+    () => applyTypographyNormalization(active?.html || "", platformCfg),
+    [active?.html, platformCfg],
+  );
 
   const status = active?.status || "ready";
   const isGenerating = status === "generating";
@@ -299,7 +312,7 @@ export function ContentStudioMobile(props: Props) {
           />
         ) : (
           <div
-            className="overflow-hidden rounded-md shadow-2xl"
+            className="relative overflow-hidden rounded-md shadow-2xl"
             style={{
               width: w * scale,
               height: h * scale,
@@ -314,7 +327,14 @@ export function ContentStudioMobile(props: Props) {
                 transform: `scale(${scale})`,
                 transformOrigin: "top left",
               }}
-              dangerouslySetInnerHTML={{ __html: active?.html || "" }}
+              dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+            />
+            <PlatformOverlay
+              platform={platformCfg}
+              width={w}
+              height={h}
+              zoom={scale}
+              compact
             />
           </div>
         )}
