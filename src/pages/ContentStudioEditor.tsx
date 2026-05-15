@@ -650,6 +650,7 @@ export default function ContentStudioEditor() {
             approvingAll={approvingAll}
             allApproved={allApprovedFlash || allApproved}
             errorBanner={failedBanner}
+            retrying={retrying}
           />
         ) : (
         <StudioEditor
