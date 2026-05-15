@@ -17,6 +17,12 @@ import { cn } from "@/lib/utils";
 import type { CanvasItem } from "../CanvasSwitcher";
 import { CanvasGenerating } from "./CanvasGenerating";
 import { CanvasFailed } from "./CanvasFailed";
+import { PlatformOverlay } from "./PlatformOverlay";
+import {
+  applyTypographyNormalization,
+  getPreviewPadding,
+  type PlatformConfig,
+} from "@/lib/platformRenderer";
 
 interface ScheduleInfo {
   calendarPostId: string;
