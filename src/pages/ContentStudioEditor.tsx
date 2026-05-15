@@ -713,6 +713,7 @@ export default function ContentStudioEditor() {
             ) : null
           }
         />
+        )}
 
         {/* Floating "Stop generation" pill — visible only while generating */}
         {isGenerating && (
