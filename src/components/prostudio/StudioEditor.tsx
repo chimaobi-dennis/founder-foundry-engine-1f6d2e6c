@@ -1234,6 +1234,14 @@ export function StudioEditor({
                         refreshKey={refreshKey}
                         forceFillStage={mode === 'content-studio'}
                       />
+                      {mode === 'content-studio' && (
+                        <PlatformOverlay
+                          platform={activePlatformConfig}
+                          width={canvasSize.width}
+                          height={canvasSize.height}
+                          zoom={zoom}
+                        />
+                      )}
                     </div>
                   </CanvasCrossfade>
                 );
