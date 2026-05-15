@@ -17,6 +17,8 @@ import {
 import { deleteCalendarPost } from "@/services/calendarService";
 import { supabase } from "@/integrations/supabase/client";
 import { StudioEditor } from "@/components/prostudio/StudioEditor";
+import { ContentStudioMobile } from "@/components/prostudio/content-studio/ContentStudioMobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduleModal } from "@/components/prostudio/content-studio/ScheduleModal";
 import { ApproveScheduleAllModal, type ApproveSchedulePlatform } from "@/components/prostudio/content-studio/ApproveScheduleAllModal";
 import {
