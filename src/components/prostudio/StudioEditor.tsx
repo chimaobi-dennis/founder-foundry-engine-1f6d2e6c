@@ -120,6 +120,8 @@ interface Props {
   allApproved?: boolean;
   /** Brief id for content-studio mode (passed to saveCreativeToLibrary) */
   briefId?: string;
+  /** Optional error banner rendered between the toolbar and the canvas (content-studio mode). */
+  errorBanner?: React.ReactNode;
 }
 
 const ICON_FOR_TYPE = {
