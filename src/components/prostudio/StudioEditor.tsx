@@ -177,10 +177,18 @@ export function StudioEditor({
   errorBanner,
 }: Props) {
   const { theme } = useTheme();
-  // Render the generated HTML; loading state is handled by parent component
+  // Active platform config (content-studio mode) — drives safe-zones, typography
+  // normalisation, occupancy-aware preview padding, and SVG preference.
+  const activePlatformConfig: PlatformConfig | null = useMemo(() => {
+    if (mode !== 'content-studio' || !canvases || !activeCanvasId) return null;
+    const c = canvases.find(x => x.id === activeCanvasId);
+    return (c?.platformConfig as PlatformConfig) || null;
+  }, [mode, canvases, activeCanvasId]);
+
+  // Render the generated HTML, normalised to the platform's typography scale
   const html = useMemo(
-    () => variationHtml || "",
-    [variationHtml],
+    () => applyTypographyNormalization(variationHtml || "", activePlatformConfig),
+    [variationHtml, activePlatformConfig],
   );
 
   const [elements, setElements] = useState<StudioElement[]>([]);
