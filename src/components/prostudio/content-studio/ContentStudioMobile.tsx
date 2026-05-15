@@ -110,8 +110,12 @@ export function ContentStudioMobile(props: Props) {
 
   const scale = useMemo(() => {
     if (!stageSize.w || !stageSize.h) return 0.5;
-    const padX = 28; // breathing room
-    const padY = 28;
+    // Tight margins so the creative dominates the viewport.
+    // Vertical formats (stories/reels) get less side padding to maximize height.
+    const isVertical = h > w;
+    const isSquare = Math.abs(w - h) < 2;
+    const padX = isVertical ? 12 : isSquare ? 16 : 16;
+    const padY = isVertical ? 12 : isSquare ? 16 : 20;
     return Math.max(
       0.1,
       Math.min((stageSize.w - padX) / w, (stageSize.h - padY) / h),
@@ -128,7 +132,7 @@ export function ContentStudioMobile(props: Props) {
   return (
     <div
       className="flex-1 min-h-0 flex flex-col"
-      style={{ background: "hsl(var(--background))" }}
+      style={{ background: "hsl(var(--background))", height: "100dvh", maxHeight: "100dvh" }}
     >
       {/* TOP BAR — minimal */}
       <div
@@ -287,11 +291,12 @@ export function ContentStudioMobile(props: Props) {
 
       {/* BOTTOM DOCK */}
       <div
-        className="flex-shrink-0 grid grid-cols-5 gap-1 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="flex-shrink-0 grid grid-cols-5 gap-1 px-2 pt-2.5"
         style={{
           background: "hsl(var(--card) / 0.95)",
           backdropFilter: "blur(12px)",
           borderTop: "1px solid hsl(var(--border) / 0.6)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)",
         }}
       >
         <DockButton
