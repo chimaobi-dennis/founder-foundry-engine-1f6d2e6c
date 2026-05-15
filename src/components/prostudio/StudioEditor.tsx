@@ -59,6 +59,12 @@ import { CanvasGenerating } from "./content-studio/CanvasGenerating";
 import { CanvasCrossfade } from "./content-studio/CanvasCrossfade";
 import { CanvasFailed } from "./content-studio/CanvasFailed";
 import { ContentStudioGenerationStrip } from "./content-studio/GenerationStrip";
+import { PlatformOverlay } from "./content-studio/PlatformOverlay";
+import {
+  applyTypographyNormalization,
+  getPreviewPadding,
+  type PlatformConfig,
+} from "@/lib/platformRenderer";
 
 interface Props {
   open: boolean;
