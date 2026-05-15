@@ -791,29 +791,8 @@ export async function regenerateCreative(
       ? `\n\nEXISTING COPY TO MATCH:\nHeadline: ${creative.headline || ''}\nCopy: ${creative.copy_text || ''}\nHashtags: ${(creative.hashtags || []).join(', ')}\nSubject line: ${creative.subject_line || ''}`
       : '';
 
-    // Per-platform design guidance (same map as initial generation)
-    const regenPlatformDesignGuidance: Record<string, string> = {
-      instagram_post:
-        'Square 1080x1080. Bold typography dominant. Clean, editorial feel. Brand color as background or accent. Headline large (min 48px equivalent). Subtext small. Brand mark bottom corner.',
-      instagram_story:
-        'Tall 1080x1920. THREE ZONES: Top third = large hook text or brand element. Middle third = key visual, image, or bold statement. Bottom third = CTA, handle, or swipe prompt. Fill ALL three zones completely. No empty space.',
-      facebook_post:
-        'Wide 1200x630. Split layout or centered. Clear hierarchy. Professional but warm. CTA button visible. Logo prominent.',
-      linkedin_post:
-        'Wide 1200x1200. Corporate but human. Data visualization or bold statement. Professional color palette. Company logo and tagline.',
-      twitter_x:
-        'Wide 1600x900. Minimal. One big idea. Bold single statement in large text. High contrast. Meme-adjacent energy.',
-      tiktok_caption:
-        'Tall 1080x1920. THREE ZONES REQUIRED: Top = hook text overlay style. Middle = main visual content. Bottom = handle + hashtag area. Dark or vibrant background. Text must be large and readable at small size.',
-      whatsapp:
-        'Square 800x800. Clean, simple, direct. One clear message. Friendly visual.',
-      email:
-        'Wide 600x600. Email header style. Clean white or brand background. Logo top center. Headline bold. CTA button visible.',
-    };
-
-    const regenDesignGuidance =
-      regenPlatformDesignGuidance[platform.slug] ??
-      `${platform.aspect_ratio || '1:1'} format. Fill entire ${platform.image_width || 600}x${platform.image_height || 600}px canvas.`;
+    // Per-platform design guidance built dynamically from content_platforms
+    const regenDesignGuidance = buildPlatformDesignGuidance(platform);
 
     // Inject all the same variables as initial generation — powered by founder intelligence
     const visualPrompt = injectPromptVariables(visualSystemPrompt, {
