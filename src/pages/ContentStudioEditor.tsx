@@ -505,18 +505,22 @@ export default function ContentStudioEditor() {
 
   const handleRetryBrief = async () => {
     if (!briefId || retrying) return;
+    retryingRef.current = true;
     setRetrying(true);
+    // Hide failure UI INSTANTLY — banner, failed dots, failed canvas overlay.
+    setBriefFailed(false);
+    setBrief((prev: any) => (prev ? { ...prev, status: 'generating' } : prev));
+    setCreatives((prev) => prev.map((c) => ({ ...c, status: 'generating', visual_html: null })));
     try {
-      // Reset brief status locally so canvases switch back to shimmer
-      setBrief((prev: any) => (prev ? { ...prev, status: 'generating' } : prev));
-      setCreatives((prev) => prev.map((c) => ({ ...c, status: 'generating', visual_html: null })));
-      setBriefFailed(false);
       await generateContentForBrief(briefId);
+      retryingRef.current = false;
       await load();
     } catch (e: any) {
+      retryingRef.current = false;
       toast.error(e.message || 'Generation failed. Please try again.');
       setBriefFailed(true);
     } finally {
+      retryingRef.current = false;
       setRetrying(false);
     }
   };
