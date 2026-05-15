@@ -132,7 +132,7 @@ export function ContentStudioMobile(props: Props) {
   return (
     <div
       className="flex-1 min-h-0 flex flex-col"
-      style={{ background: "hsl(var(--background))" }}
+      style={{ background: "hsl(var(--background))", height: "100dvh", maxHeight: "100dvh" }}
     >
       {/* TOP BAR — minimal */}
       <div
