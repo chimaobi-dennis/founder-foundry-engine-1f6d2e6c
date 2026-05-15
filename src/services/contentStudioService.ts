@@ -267,10 +267,16 @@ export async function generateContentForBrief(
       platform_keys: platformList,
     });
 
+    // Append strict JSON-only instruction to prevent markdown/text wrapping
+    const strictCopyPrompt = copyPrompt +
+      '\n\nIMPORTANT: Return ONLY a valid JSON object. No explanation, ' +
+      'no markdown, no code fences, no text before or after the JSON. ' +
+      'Start your response with { and end with }';
+
     const copyResult = await withTimeout(
       callAI({
         taskType: 'campaign_copy',
-        messages: [{ role: 'user', content: copyPrompt }],
+        messages: [{ role: 'user', content: strictCopyPrompt }],
         maxTokens: 4000
       })
     );
@@ -283,12 +289,70 @@ export async function generateContentForBrief(
       throw new Error('Copy generation failed');
     }
 
+    const rawText = copyResult.text || '';
+    console.log('[generateContentForBrief] Raw copy response:', rawText.slice(0, 500));
+
+    // Try multiple extraction strategies to parse JSON reliably
     let copyData: Record<string, any> = {};
-    try {
-      const clean = copyResult.text.replace(/```json|```/g, '').trim();
-      copyData = JSON.parse(clean);
-    } catch {
-      throw new Error('Failed to parse copy response as JSON');
+    let parsed = false;
+
+    // Strategy 1: find JSON object between first { and last }
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        copyData = JSON.parse(jsonMatch[0]);
+        parsed = true;
+        console.log('[generateContentForBrief] Parsed via strategy 1 (regex)');
+      } catch (e: any) {
+        console.log('[generateContentForBrief] Strategy 1 failed:', e.message);
+      }
+    }
+
+    // Strategy 2: strip markdown fences and retry
+    if (!parsed) {
+      try {
+        const clean = rawText
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/\s*```$/i, '')
+          .trim();
+        copyData = JSON.parse(clean);
+        parsed = true;
+        console.log('[generateContentForBrief] Parsed via strategy 2 (fence strip)');
+      } catch (e: any) {
+        console.log('[generateContentForBrief] Strategy 2 failed:', e.message);
+      }
+    }
+
+    // Strategy 3: find JSON after any preamble text
+    if (!parsed) {
+      const lines = rawText.split('\n');
+      const jsonStart = lines.findIndex(l => l.trim().startsWith('{'));
+      if (jsonStart >= 0) {
+        try {
+          const jsonOnly = lines.slice(jsonStart).join('\n');
+          copyData = JSON.parse(jsonOnly);
+          parsed = true;
+          console.log('[generateContentForBrief] Parsed via strategy 3 (line scan)');
+        } catch (e: any) {
+          console.log('[generateContentForBrief] Strategy 3 failed:', e.message);
+        }
+      }
+    }
+
+    // Fallback: use empty copy so visual generation still runs
+    if (!parsed) {
+      console.warn('[generateContentForBrief] All parse strategies failed — using fallback copy');
+      console.error('[generateContentForBrief] Full raw response:', rawText);
+      copyData = {};
+      platforms.forEach((p: any) => {
+        copyData[p.slug] = {
+          headline: brief.name || '',
+          copy_text: brief.brief || '',
+          hashtags: [],
+          subject_line: '',
+        };
+      });
     }
 
     // Fetch primary product image once, shared across all platform creatives
