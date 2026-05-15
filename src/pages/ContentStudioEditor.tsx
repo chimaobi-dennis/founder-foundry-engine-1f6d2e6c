@@ -165,9 +165,17 @@ export default function ContentStudioEditor() {
       ? platformsMeta
       : creatives.map((c) => c.content_platforms).filter(Boolean);
 
+    const briefIsFailed = brief?.status === 'failed';
+
     return list.map((p: any) => {
       const c = byPlatform.get(p.id);
       if (c) {
+        const baseStatus = (!c.visual_html && (c.status === "ready" || !c.status))
+          ? "generating"
+          : (c.status || "ready");
+        // If brief failed, force any non-ready/non-approved canvas into failed
+        const isReady = baseStatus === "ready" || baseStatus === "approved" || baseStatus === "scheduled" || !!c.is_approved;
+        const status = briefIsFailed && !isReady ? "failed" : baseStatus;
         return {
           id: c.id,
           html: c.visual_html,
@@ -181,9 +189,7 @@ export default function ContentStudioEditor() {
           characterLimit: c.content_platforms?.character_limit ?? p.character_limit,
           canvasWidth: c.content_platforms?.image_width || p.image_width || 600,
           canvasHeight: c.content_platforms?.image_height || p.image_height || 600,
-          status: (!c.visual_html && (c.status === "ready" || !c.status))
-            ? "generating"
-            : (c.status || "ready"),
+          status,
           isApproved: !!c.is_approved,
         };
       }
@@ -200,11 +206,11 @@ export default function ContentStudioEditor() {
         characterLimit: p.character_limit ?? null,
         canvasWidth: p.image_width || 600,
         canvasHeight: p.image_height || 600,
-        status: "generating",
+        status: briefIsFailed ? "failed" : "generating",
         isApproved: false,
       } as CanvasItem;
     });
-  }, [creatives, platformsMeta]);
+  }, [creatives, platformsMeta, brief?.status]);
 
   useEffect(() => {
     if (!canvases.length) return;
