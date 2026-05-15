@@ -120,6 +120,8 @@ interface Props {
   allApproved?: boolean;
   /** Brief id for content-studio mode (passed to saveCreativeToLibrary) */
   briefId?: string;
+  /** Optional error banner rendered between the toolbar and the canvas (content-studio mode). */
+  errorBanner?: React.ReactNode;
 }
 
 const ICON_FOR_TYPE = {
@@ -166,6 +168,7 @@ export function StudioEditor({
   onRemoveScheduleActive,
   approvingAll,
   allApproved,
+  errorBanner,
 }: Props) {
   const { theme } = useTheme();
   // Render the generated HTML; loading state is handled by parent component
@@ -1111,6 +1114,8 @@ export function StudioEditor({
                 regenerating={!!regenerating}
               />
             )}
+
+            {errorBanner}
 
             <div
               ref={canvasContainerRef}
