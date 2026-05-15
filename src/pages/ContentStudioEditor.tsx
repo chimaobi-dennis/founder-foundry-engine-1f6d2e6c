@@ -668,50 +668,7 @@ export default function ContentStudioEditor() {
           onApproveAll={handleApproveAll}
           approvingAll={approvingAll}
           allApproved={allApprovedFlash || allApproved}
-          errorBanner={
-            briefFailed ? (
-              <div
-                role="alert"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '10px 16px',
-                  background: 'rgba(192, 57, 43, 0.1)',
-                  borderLeft: '3px solid #E05C5C',
-                  borderBottom: '1px solid hsl(var(--border))',
-                  flexShrink: 0,
-                }}
-              >
-                <span style={{ fontSize: 13, color: 'hsl(var(--foreground))' }}>
-                  Generation failed — this may be due to an AI rate limit or connection issue.
-                </span>
-                <button
-                  onClick={handleRetryBrief}
-                  disabled={retrying}
-                  style={{
-                    background: 'hsl(var(--primary))',
-                    color: 'hsl(var(--primary-foreground))',
-                    border: 'none',
-                    borderRadius: 6,
-                    padding: '6px 14px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: retrying ? 'not-allowed' : 'pointer',
-                    opacity: retrying ? 0.7 : 1,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {retrying && <Loader2 size={12} className="animate-spin" />}
-                  {retrying ? 'Retrying…' : 'Try again'}
-                </button>
-              </div>
-            ) : null
-          }
+          errorBanner={failedBanner}
         />
         )}
 
