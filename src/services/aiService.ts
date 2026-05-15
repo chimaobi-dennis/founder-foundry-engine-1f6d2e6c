@@ -326,12 +326,30 @@ const callGoogleAI = async (
   maxTokens: number = 2000
 ): Promise<AICallResult> => {
   try {
+    // ── Param validation to prevent 'Params are not set' SDK error ──
     if (!apiKey) {
+      console.error('[callGoogleAI] API key is empty/undefined');
       return {
         success: false,
         error: 'Google AI API key is empty. Add it in admin dashboard → AI Models → Providers.'
       };
     }
+    if (!modelId) {
+      console.error('[callGoogleAI] Model ID is empty/undefined');
+      return { success: false, error: 'Google AI model ID is not set. Check task defaults in admin.' };
+    }
+    if (!messages || messages.length === 0) {
+      console.error('[callGoogleAI] No messages provided');
+      return { success: false, error: 'No messages provided to AI call' };
+    }
+
+    console.log('[callGoogleAI] params:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey.length,
+      model: modelId,
+      messageCount: messages.length,
+      firstMessageLength: typeof messages[0]?.content === 'string' ? messages[0].content.length : 0,
+    });
 
     const ai = new GoogleGenAI({ apiKey });
 
@@ -368,13 +386,22 @@ const callGoogleAI = async (
     }
 
     if (dedupedContents.length === 0) {
-      return { success: false, error: 'No valid messages to send' };
+      console.error('[callGoogleAI] After filtering/dedup, no valid messages remain');
+      return { success: false, error: 'No valid messages to send after filtering' };
     }
 
-    console.log('Google GenAI call:', {
+    // Validate that messages have actual text content
+    const hasEmptyContent = dedupedContents.some(m => !m.parts?.[0]?.text?.trim());
+    if (hasEmptyContent) {
+      console.error('[callGoogleAI] Some messages have empty text content after dedup');
+      return { success: false, error: 'Messages contain empty text content' };
+    }
+
+    console.log('[callGoogleAI] call:', {
       model: modelId,
       messageCount: dedupedContents.length,
-      hasSystemPrompt: !!systemPrompt
+      hasSystemPrompt: !!systemPrompt,
+      firstMsgLength: dedupedContents[0].parts[0].text.length,
     });
 
     const config: any = {
@@ -428,9 +455,27 @@ const callGoogleAIStreaming = async (
   onChunk?: (text: string) => void
 ): Promise<AICallResult> => {
   try {
+    // ── Param validation to prevent 'Params are not set' SDK error ──
     if (!apiKey) {
+      console.error('[callGoogleAIStreaming] API key is empty/undefined');
       return { success: false, error: 'Google AI API key is empty.' };
     }
+    if (!modelId) {
+      console.error('[callGoogleAIStreaming] Model ID is empty/undefined');
+      return { success: false, error: 'Google AI model ID is not set.' };
+    }
+    if (!messages || messages.length === 0) {
+      console.error('[callGoogleAIStreaming] No messages provided');
+      return { success: false, error: 'No messages provided to AI call' };
+    }
+
+    console.log('[callGoogleAIStreaming] params:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey.length,
+      model: modelId,
+      messageCount: messages.length,
+      firstMessageLength: typeof messages[0]?.content === 'string' ? messages[0].content.length : 0,
+    });
 
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey });
@@ -455,8 +500,16 @@ const callGoogleAIStreaming = async (
 
     if (dedupedContents[0]?.role === 'model') dedupedContents.shift();
     if (dedupedContents.length === 0) {
+      console.error('[callGoogleAIStreaming] After filtering/dedup, no valid messages remain');
       return { success: false, error: 'No valid messages' };
     }
+
+    console.log('[callGoogleAIStreaming] call:', {
+      model: modelId,
+      messageCount: dedupedContents.length,
+      hasSystemPrompt: !!systemPrompt,
+      firstMsgLength: dedupedContents[0].parts[0].text.length,
+    });
 
     const config: any = {
       maxOutputTokens: maxTokens,
@@ -701,7 +754,25 @@ export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
     const { model, provider } = resolved;
     const modelIdToUse = overrideModelId ?? model.model_id;
 
-    console.log(`AI call: task=${taskType} model=${modelIdToUse} provider=${provider.slug}`);
+    // Validate resolved model and provider have required fields
+    if (!modelIdToUse) {
+      const error = `No model_id resolved for task type: ${taskType}. Please set it in Admin → AI Models → Task Defaults.`;
+      console.error('[callAI]', error);
+      return { success: false, error };
+    }
+    if (!provider.slug) {
+      const error = `No provider slug resolved for task type: ${taskType}. Check provider configuration.`;
+      console.error('[callAI]', error);
+      return { success: false, error };
+    }
+
+    console.log('[callAI] Resolved model:', {
+      taskType,
+      modelId: modelIdToUse,
+      providerSlug: provider.slug,
+      apiKeySource: provider.api_key ? 'db' : 'MISSING',
+      apiKeyLength: provider.api_key?.length ?? 0,
+    });
 
     // Step 2 — Build request
     currentPipelineStep = 'building_request';
@@ -715,13 +786,16 @@ export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
     let result: AICallResult;
 
     switch (provider.slug) {
-      case 'google-ai-studio':
-        console.log('✓ Matched case: google-ai-studio -> routing to callGoogleAI');
-        console.log('Routing to callGoogleAI with key length:',
-          provider.api_key?.length ?? 0);
+      case 'google-ai-studio': {
+        console.log('[callAI] ✓ Matched case: google-ai-studio');
+        const googleApiKey = provider.api_key ?? '';
+        console.log('[callAI] API key source:', provider.api_key ? 'db (provider record)' : 'MISSING');
+        if (!googleApiKey) {
+          console.error('[callAI] Google AI API key is MISSING from provider record');
+        }
         if (onChunk) {
           result = await callGoogleAIStreaming(
-            provider.api_key ?? '',
+            googleApiKey,
             modelIdToUse,
             options.messages,
             options.systemPrompt,
@@ -730,13 +804,15 @@ export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
           );
         } else {
           result = await callGoogleAI(
-            provider.api_key ?? '',
+            googleApiKey,
             modelIdToUse,
             options.messages,
             options.systemPrompt,
             options.maxTokens ?? 2000
           );
         }
+        break;
+      }
         break;
 
       case 'anthropic':
