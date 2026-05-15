@@ -312,7 +312,7 @@ export function ContentStudioMobile(props: Props) {
           />
         ) : (
           <div
-            className="overflow-hidden rounded-md shadow-2xl"
+            className="relative overflow-hidden rounded-md shadow-2xl"
             style={{
               width: w * scale,
               height: h * scale,
@@ -327,7 +327,14 @@ export function ContentStudioMobile(props: Props) {
                 transform: `scale(${scale})`,
                 transformOrigin: "top left",
               }}
-              dangerouslySetInnerHTML={{ __html: active?.html || "" }}
+              dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+            />
+            <PlatformOverlay
+              platform={platformCfg}
+              width={w}
+              height={h}
+              zoom={scale}
+              compact
             />
           </div>
         )}
