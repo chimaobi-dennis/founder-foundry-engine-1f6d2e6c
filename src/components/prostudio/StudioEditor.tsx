@@ -1115,6 +1115,8 @@ export function StudioEditor({
               />
             )}
 
+            {errorBanner}
+
             <div
               ref={canvasContainerRef}
               className="flex-1 flex items-center justify-center relative"
