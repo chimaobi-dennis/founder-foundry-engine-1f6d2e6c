@@ -592,13 +592,13 @@ const callOpenAICompatible = async (
             {
               type: 'image_url',
               image_url: {
-                url: `data:${imageMimeType};base64,${imageBase64}` 
+                url: `data:${imageMimeType};base64,${imageBase64}`
               }
             },
             {
               type: 'text',
-              text: typeof msg.content === 'string' 
-                ? msg.content 
+              text: typeof msg.content === 'string'
+                ? msg.content
                 : msg.content
             }
           ]
@@ -611,8 +611,44 @@ const callOpenAICompatible = async (
       ? [{ role: 'system', content: systemPrompt }, ...processedMessages]
       : processedMessages;
 
-    const authValue = authHeaderPrefix 
-      ? `${authHeaderPrefix} ${apiKey}` 
+    // Normalize messages before sending to OpenAI
+    const normalizedMessages = allMessages.map((m: any) => {
+      if (typeof m.content === 'string') {
+        return m;
+      }
+
+      // OpenAI-compatible multimodal array
+      if (Array.isArray(m.content)) {
+        return m;
+      }
+
+      // Gemini/object fallback
+      return {
+        role: m.role,
+        content: JSON.stringify(m.content)
+      };
+    });
+
+    // Max payload protection
+    const estimatedSize = JSON.stringify(normalizedMessages).length;
+    if (estimatedSize > 500000) {
+      return {
+        success: false,
+        error: 'Payload too large for OpenAI request'
+      };
+    }
+
+    // Log outgoing payload shape
+    console.log('[OpenAI Request]', {
+      model: modelId,
+      messageCount: allMessages.length,
+      hasSystemPrompt: !!systemPrompt,
+      firstMessage: allMessages[0],
+      estimatedSize: estimatedSize
+    });
+
+    const authValue = authHeaderPrefix
+      ? `${authHeaderPrefix} ${apiKey}`
       : apiKey;
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -623,17 +659,30 @@ const callOpenAICompatible = async (
       },
       body: JSON.stringify({
         model: modelId,
-        messages: allMessages,
+        messages: normalizedMessages,
         max_tokens: maxTokens
       })
     });
 
     const data = await response.json();
 
+    console.log('[OpenAI Response Status]', response.status);
+    console.log('[OpenAI Response Body]', data);
+
     if (!response.ok) {
-      return { 
-        success: false, 
-        error: data.error?.message ?? 'API call failed' 
+      console.error('[OpenAI API ERROR]', {
+        status: response.status,
+        data,
+        model: modelId,
+        baseUrl,
+        messageCount: allMessages.length,
+      });
+
+      return {
+        success: false,
+        error:
+          data?.error?.message ||
+          `OpenAI API error (${response.status})`
       };
     }
 
