@@ -62,6 +62,7 @@ import { ContentStudioGenerationStrip } from "./content-studio/GenerationStrip";
 import { PlatformOverlay } from "./content-studio/PlatformOverlay";
 import {
   applyTypographyNormalization,
+  detectNativeHtmlDimensions,
   getPreviewPadding,
   type PlatformConfig,
 } from "@/lib/platformRenderer";
