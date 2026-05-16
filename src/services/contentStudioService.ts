@@ -488,7 +488,7 @@ export async function generateContentForBrief(
 
       console.log('[ContentStudio] === Visual Generation Step ===');
       console.log('[ContentStudio] Platform:', platform.name);
-      console.log('[ContentStudio] Prompt sent to AI:', visualPrompt.slice(0, 500) + '...');
+      console.log('[ContentStudio] Prompt sent to AI1:', visualPrompt);
       console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
       if (visualResult.text) {
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
@@ -839,7 +839,7 @@ export async function regenerateCreative(
     console.log('[ContentStudio] === Regenerate Visual Step ===');
     console.log('[ContentStudio] Platform:', platform.name);
     console.log('[ContentStudio] Creative ID:', creativeId);
-    console.log('[ContentStudio] Prompt sent to AI:', visualPrompt);
+    console.log('[ContentStudio] Prompt sent to AI2:', visualPrompt);
     console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
     if (visualResult.text) {
       console.log('[ContentStudio] Visual result length:', visualResult.text.length);
@@ -1008,7 +1008,7 @@ export async function retryFailedCreatives(
       console.log('[ContentStudio] === Retry Visual Generation Step ===');
       console.log('[ContentStudio] Platform:', platform.name);
       console.log('[ContentStudio] Creative ID:', creative.id);
-      console.log('[ContentStudio] Prompt sent to AI:', visualPrompt);
+      console.log('[ContentStudio] Prompt sent to AI3:', visualPrompt);
       console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
       if (visualResult.text) {
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
