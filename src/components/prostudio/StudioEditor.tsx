@@ -1250,7 +1250,7 @@ export function StudioEditor({
                         onIntrinsicSize={setCanvasSize}
                         getElementState={getElementState}
                         refreshKey={refreshKey}
-                        forceFillStage={mode === 'content-studio'}
+                        forceFillStage={mode === 'content-studio' && !nativeDetected}
                       />
                       {mode === 'content-studio' && (
                         <PlatformOverlay
