@@ -308,10 +308,12 @@ export async function generateContentForBrief(
       })
     );
 
-    console.log('[COPY DEBUG] success:', copyResult.success);
-    console.log('[COPY DEBUG] text type:', typeof copyResult.text);
-    console.log('[COPY DEBUG] text length:', copyResult.text?.length);
-    console.log('[COPY DEBUG] full text:', copyResult.text);
+    console.log('[ContentStudio] === Copy Generation Step ===');
+    console.log('[ContentStudio] Prompt sent to AI:', strictCopyPrompt.slice(0, 500) + '...');
+    console.log('[ContentStudio] AI response received:', copyResult.success ? 'SUCCESS' : 'FAILED');
+    if (copyResult.text) {
+      console.log('[ContentStudio] Copy result:', copyResult.text.slice(0, 500) + '...');
+    }
 
     if (!copyResult.success || !copyResult.text) {
       await db
@@ -322,7 +324,6 @@ export async function generateContentForBrief(
     }
 
     const rawText = copyResult.text || '';
-    console.log('[generateContentForBrief] Raw copy response:', rawText.slice(0, 500));
 
     // Try multiple extraction strategies to parse JSON reliably
     let copyData: Record<string, any> = {};
@@ -334,9 +335,8 @@ export async function generateContentForBrief(
       try {
         copyData = JSON.parse(jsonMatch[0]);
         parsed = true;
-        console.log('[generateContentForBrief] Parsed via strategy 1 (regex)');
       } catch (e: any) {
-        console.log('[generateContentForBrief] Strategy 1 failed:', e.message);
+        // Strategy 1 failed
       }
     }
 
@@ -350,9 +350,8 @@ export async function generateContentForBrief(
           .trim();
         copyData = JSON.parse(clean);
         parsed = true;
-        console.log('[generateContentForBrief] Parsed via strategy 2 (fence strip)');
       } catch (e: any) {
-        console.log('[generateContentForBrief] Strategy 2 failed:', e.message);
+        // Strategy 2 failed
       }
     }
 
@@ -365,17 +364,14 @@ export async function generateContentForBrief(
           const jsonOnly = lines.slice(jsonStart).join('\n');
           copyData = JSON.parse(jsonOnly);
           parsed = true;
-          console.log('[generateContentForBrief] Parsed via strategy 3 (line scan)');
         } catch (e: any) {
-          console.log('[generateContentForBrief] Strategy 3 failed:', e.message);
+          // Strategy 3 failed
         }
       }
     }
 
     // Fallback: use empty copy so visual generation still runs
     if (!parsed) {
-      console.warn('[generateContentForBrief] All parse strategies failed — using fallback copy');
-      console.error('[generateContentForBrief] Full raw response:', rawText);
       copyData = {};
       platforms.forEach((p: any) => {
         copyData[p.slug] = {
@@ -391,6 +387,8 @@ export async function generateContentForBrief(
     const productImages = await getBrandProductImages(brand.id);
     const primaryImage = productImages?.find((img: any) => img.is_primary);
     const productImageUrl = primaryImage?.file_url || '';
+
+    console.log('[ContentStudio] Copy parsed successfully, platforms:', Object.keys(copyData).join(', '));
 
     // Fuzzy matcher for AI-returned copy keys (handles slug vs name mismatches)
     function findCopyForPlatform(
@@ -420,12 +418,6 @@ export async function generateContentForBrief(
       );
       if (nameMatch) return data[nameMatch];
 
-      console.warn(
-        '[generateContentForBrief] No copy found for platform:',
-        platform.slug,
-        'Available keys:',
-        Object.keys(data)
-      );
       return {};
     }
 
@@ -493,6 +485,14 @@ export async function generateContentForBrief(
           maxTokens: 8000
         })
       );
+
+      console.log('[ContentStudio] === Visual Generation Step ===');
+      console.log('[ContentStudio] Platform:', platform.name);
+      console.log('[ContentStudio] Prompt sent to AI:', visualPrompt.slice(0, 500) + '...');
+      console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
+      if (visualResult.text) {
+        console.log('[ContentStudio] Visual result length:', visualResult.text.length);
+      }
 
       if (visualResult.success && visualResult.text) {
         visualHtml = visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
@@ -645,7 +645,7 @@ export async function createNotification(
       action_url: actionUrl || null,
       related_id: relatedId || null
     });
-  if (error) console.error('Failed to create notification:', error);
+  if (error) { /* notification creation failed */ }
 }
 
 export async function getNotifications(userId: string, unreadOnly = false) {
@@ -827,6 +827,15 @@ export async function regenerateCreative(
       })
     );
 
+    console.log('[ContentStudio] === Regenerate Visual Step ===');
+    console.log('[ContentStudio] Platform:', platform.name);
+    console.log('[ContentStudio] Creative ID:', creativeId);
+    console.log('[ContentStudio] Prompt sent to AI:', visualPrompt.slice(0, 500) + '...');
+    console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
+    if (visualResult.text) {
+      console.log('[ContentStudio] Visual result length:', visualResult.text.length);
+    }
+
     const visualHtml = visualResult.success && visualResult.text
       ? visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
       : creative.visual_html;
@@ -899,11 +908,10 @@ export async function saveCreativeToLibrary({
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('[saveCreativeToLibrary] Not authenticated');
+      return null;
       throw new Error('Not authenticated');
     }
 
-    console.log('[saveCreativeToLibrary] Fetching creative:', creativeId);
 
     // Fetch the creative with platform dimensions and brief
     const { data: creative, error: creativeError } = await db
@@ -913,16 +921,16 @@ export async function saveCreativeToLibrary({
       .single();
 
     if (creativeError) {
-      console.error('[saveCreativeToLibrary] Failed to fetch creative:', creativeError);
+      return null;
       throw creativeError;
     }
 
     if (!creative) {
-      console.error('[saveCreativeToLibrary] Creative not found');
+      return null;
       throw new Error('Creative not found');
     }
     if (!creative.visual_html) {
-      console.error('[saveCreativeToLibrary] No visual HTML to save');
+      return null;
       throw new Error('No visual HTML to save');
     }
 
@@ -930,17 +938,6 @@ export async function saveCreativeToLibrary({
     const brief = creative.content_studio_briefs;
     const renderWidth = platform?.image_width || 600;
     const renderHeight = platform?.image_height || 600;
-
-    console.log('[saveCreativeToLibrary] Calling assetService.saveToLibrary with:', {
-      brandId,
-      userId: user.id,
-      name: platform?.name || 'Design',
-      sourceModule: 'contentstudio',
-      format,
-      platformWidth: renderWidth,
-      platformHeight: renderHeight,
-      parentAssetId,
-    });
 
     // Call the new asset service to save to library
     const asset = await saveToAssetLibrary({
@@ -959,11 +956,10 @@ export async function saveCreativeToLibrary({
     });
 
     if (!asset) {
-      console.error('[saveCreativeToLibrary] assetService.saveToLibrary returned null');
+      return null;
       throw new Error('Failed to save asset - asset service returned null');
     }
 
-    console.log('[saveCreativeToLibrary] Asset saved successfully:', asset.id);
 
     // Update the creative row to mark it as saved
     const { error: updateErr } = await db
@@ -975,15 +971,14 @@ export async function saveCreativeToLibrary({
       .eq('id', creativeId);
 
     if (updateErr) {
-      console.error('[saveCreativeToLibrary] Failed to update creative:', updateErr);
+      return null;
       throw updateErr;
     }
 
-    console.log('[saveCreativeToLibrary] Creative updated successfully');
 
     return { publicUrl: asset.file_url, asset };
   } catch (error: any) {
-    console.error('[saveCreativeToLibrary] Error:', error);
+    return null;
     await logError({
       errorMessage: error.message || 'Save to library failed',
       errorType: 'storage',
@@ -1004,7 +999,6 @@ export async function saveCreativeToLibrary({
 
 export async function approveSingleCreative(creativeId: string): Promise<void> {
   try {
-    console.log('[approveSingleCreative] Approving creative:', creativeId);
     const { error } = await db
       .from('content_studio_creatives')
       .update({
@@ -1015,12 +1009,11 @@ export async function approveSingleCreative(creativeId: string): Promise<void> {
       .eq('id', creativeId);
 
     if (error) {
-      console.error('[approveSingleCreative] Failed to approve creative:', error);
+      throw error;
       throw error;
     }
-    console.log('[approveSingleCreative] Creative approved successfully');
   } catch (error: any) {
-    console.error('[approveSingleCreative] Error:', error);
+    throw error;
     await logError({
       errorMessage: error.message || 'Failed to approve creative',
       errorType: 'database',
@@ -1079,7 +1072,6 @@ export async function scheduleCreative(params: ScheduleCreativeParams): Promise<
       visualHtml,
     } = params;
 
-    console.log('[scheduleCreative] Scheduling creative:', { creativeId, platformSlug, scheduledDate, scheduledTime });
 
     // a. Fetch platform record to confirm it exists
     const { data: platform, error: platformError } = await db
@@ -1089,10 +1081,9 @@ export async function scheduleCreative(params: ScheduleCreativeParams): Promise<
       .single();
 
     if (platformError) {
-      console.error('[scheduleCreative] Platform not found:', platformError);
+      return null;
       throw new Error(`Platform '${platformSlug}' not found`);
     }
-    console.log('[scheduleCreative] Platform confirmed:', platform.name);
 
     // b. Insert into calendar_posts
     const { data: calendarPost, error: insertError } = await db
@@ -1115,10 +1106,9 @@ export async function scheduleCreative(params: ScheduleCreativeParams): Promise<
       .single();
 
     if (insertError) {
-      console.error('[scheduleCreative] Failed to insert calendar post:', insertError);
+      return null;
       throw insertError;
     }
-    console.log('[scheduleCreative] Calendar post created:', calendarPost.id);
 
     // c. Update content_studio_creatives
     const scheduledAt = `${scheduledDate} ${scheduledTime}`;
@@ -1134,14 +1124,13 @@ export async function scheduleCreative(params: ScheduleCreativeParams): Promise<
       .eq('id', creativeId);
 
     if (updateError) {
-      console.error('[scheduleCreative] Failed to update creative:', updateError);
+      return null;
       throw updateError;
     }
-    console.log('[scheduleCreative] Creative updated successfully');
 
     return calendarPost;
   } catch (error: any) {
-    console.error('[scheduleCreative] Error:', error);
+    return null;
     await logError({
       errorMessage: error.message || 'Failed to schedule creative',
       errorType: 'database',
@@ -1158,7 +1147,6 @@ export async function scheduleCreative(params: ScheduleCreativeParams): Promise<
 
 export async function approveAllCreatives(briefId: string): Promise<void> {
   try {
-    console.log('[approveAllCreatives] Approving all creatives for brief:', briefId);
     const { error } = await db
       .from('content_studio_creatives')
       .update({
@@ -1170,12 +1158,11 @@ export async function approveAllCreatives(briefId: string): Promise<void> {
       .eq('status', 'ready');
 
     if (error) {
-      console.error('[approveAllCreatives] Failed to approve creatives:', error);
+      throw error;
       throw error;
     }
-    console.log('[approveAllCreatives] All creatives approved successfully');
   } catch (error: any) {
-    console.error('[approveAllCreatives] Error:', error);
+    throw error;
     await logError({
       errorMessage: error.message || 'Failed to approve all creatives',
       errorType: 'database',
@@ -1196,7 +1183,6 @@ export async function rescheduleCreative(
   newTime: string
 ): Promise<void> {
   try {
-    console.log('[rescheduleCreative] Rescheduling calendar post:', calendarPostId, { newDate, newTime });
 
     // Update calendar_posts
     const { error: updatePostError } = await db
@@ -1209,7 +1195,7 @@ export async function rescheduleCreative(
       .eq('id', calendarPostId);
 
     if (updatePostError) {
-      console.error('[rescheduleCreative] Failed to update calendar post:', updatePostError);
+      throw new Error('Failed to update calendar post');
       throw updatePostError;
     }
 
@@ -1224,13 +1210,12 @@ export async function rescheduleCreative(
       .eq('calendar_post_id', calendarPostId);
 
     if (updateCreativeError) {
-      console.error('[rescheduleCreative] Failed to update creative scheduled_at:', updateCreativeError);
+      throw new Error('Failed to update creative scheduled_at');
       throw updateCreativeError;
     }
 
-    console.log('[rescheduleCreative] Rescheduled successfully');
   } catch (error: any) {
-    console.error('[rescheduleCreative] Error:', error);
+    throw error;
     await logError({
       errorMessage: error.message || 'Failed to reschedule creative',
       errorType: 'database',
@@ -1247,7 +1232,6 @@ export async function rescheduleCreative(
 
 export async function getScheduledCreative(creativeId: string): Promise<CalendarPost | null> {
   try {
-    console.log('[getScheduledCreative] Fetching scheduled creative:', creativeId);
     const { data, error } = await db
       .from('calendar_posts')
       .select('*')
@@ -1257,17 +1241,16 @@ export async function getScheduledCreative(creativeId: string): Promise<Calendar
     if (error) {
       if (error.code === 'PGRST116') {
         // No rows returned - creative not scheduled yet
-        console.log('[getScheduledCreative] Creative not scheduled yet');
+        return null;
         return null;
       }
-      console.error('[getScheduledCreative] Error fetching scheduled creative:', error);
+      return null;
       throw error;
     }
 
-    console.log('[getScheduledCreative] Scheduled creative found:', data?.id);
     return data;
   } catch (error: any) {
-    console.error('[getScheduledCreative] Error:', error);
+    return null;
     await logError({
       errorMessage: error.message || 'Failed to fetch scheduled creative',
       errorType: 'database',
