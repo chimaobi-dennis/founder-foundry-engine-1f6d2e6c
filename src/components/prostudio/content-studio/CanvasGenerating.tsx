@@ -30,21 +30,23 @@ export function CanvasGenerating({ platformName, width, height, scale }: Props) 
     return () => window.clearInterval(t);
   }, []);
 
-  const w = width * scale;
-  const h = height * scale;
   // Scale the inner content cluster so it reads well at any canvas size,
   // but never grows obnoxiously large or shrinks to nothing.
-  const contentScale = Math.max(0.6, Math.min(1.4, Math.min(w, h) / 600));
+  const contentScale = Math.max(0.6, Math.min(1.4, Math.min(width, height) / 600));
 
   return (
     <div
-      className="relative overflow-hidden rounded-sm"
+      className="canvas-scale-layer relative overflow-hidden rounded-sm"
       style={{
-        width: w,
-        height: h,
+        width,
+        height,
         background: "#1A2A3A",
       }}
     >
+      <div
+        className="canvas-stage-transform"
+        style={{ transform: `scale(${scale})`, transformOrigin: "top center", willChange: "transform" }}
+      >
       {/* Local keyframes — scoped so we don't depend on tailwind config */}
       <style>{`
         @keyframes cg-shimmer {
@@ -172,6 +174,7 @@ export function CanvasGenerating({ platformName, width, height, scale }: Props) 
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

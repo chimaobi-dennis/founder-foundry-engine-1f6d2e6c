@@ -279,21 +279,27 @@ export function EditableCanvas({
 
   return (
     <div
-      className="overflow-hidden rounded-sm relative bg-white"
-      style={{ width: width * zoom, height: height * zoom }}
+      className="canvas-scale-layer overflow-hidden rounded-sm relative bg-white"
+      style={{
+        width,
+        height,
+        position: "relative",
+      }}
     >
       {/* Stage — actual editable HTML at native size, scaled via transform */}
       <div
         ref={stageRef}
         onClick={onStageClick}
         onDoubleClick={onStageDoubleClick}
+        className="canvas-stage-transform"
         style={{
           width,
           height,
           position: "relative",
           overflow: "hidden",
           transform: `scale(${zoom})`,
-          transformOrigin: "top left",
+          transformOrigin: "top center",
+          willChange: "transform",
         }}
       />
 
