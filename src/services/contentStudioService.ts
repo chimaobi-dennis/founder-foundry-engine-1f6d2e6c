@@ -523,7 +523,7 @@ export async function generateContentForBrief(
           module: 'prostudio',
           componentName: 'contentStudioService'
         });
-        
+
         // Ensure this specific creative is marked failed
         await db
           .from('content_studio_creatives')
@@ -537,27 +537,36 @@ export async function generateContentForBrief(
       }
     }));
 
-    // If ALL platforms failed (or none were selected), fail the entire brief
-    const allFailed = creatives.every(c => c.status === 'failed');
-    if (allFailed || creatives.length === 0) {
-      await db
-        .from('content_studio_briefs')
-        .update({ status: 'failed' })
-        .eq('id', briefId);
-      throw new Error('All platform generations failed');
+    // Calculate brief status based on creatives (partial-success resilience)
+    const readyCount = creatives.filter(c => c.status === 'ready').length;
+    const failedCount = creatives.filter(c => c.status === 'failed').length;
+    const totalPlatforms = platforms.length;
+
+    let briefStatus: string;
+    if (readyCount === totalPlatforms) {
+      briefStatus = 'ready';
+    } else if (readyCount === 0) {
+      briefStatus = 'failed';
+    } else {
+      briefStatus = 'partial_failed'; // Some succeeded, some failed
     }
 
     // Update brief status and last generated time
     await db
       .from('content_studio_briefs')
       .update({
-        status: 'ready',
+        status: briefStatus,
         last_generated_at: new Date().toISOString(),
         next_generation_at: brief.is_series
           ? calculateNextGenerationTime(brief.series_interval || 'weekly')
           : null
       })
       .eq('id', briefId);
+
+    console.log('[ContentStudio] === Generation Complete ===');
+    console.log('[ContentStudio] Brief status:', briefStatus);
+    console.log('[ContentStudio] Platforms ready:', readyCount, '/', totalPlatforms);
+    console.log('[ContentStudio] Platforms failed:', failedCount, '/', totalPlatforms);
 
     // Create notification
     await createNotification(
@@ -883,6 +892,189 @@ export async function regenerateCreative(
         context: { creativeId, brandId }
       });
     }
+    throw error;
+  }
+}
+
+/**
+ * Retry only failed creatives for a brief (partial-success resilience)
+ * Preserves successful outputs and only regenerates failed platforms
+ */
+export async function retryFailedCreatives(
+  briefId: string,
+  onPlatformComplete?: (platformId: string, creative: any) => void
+): Promise<void> {
+  try {
+    // Fetch brief with brand and DNA
+    const { data: brief, error: briefError } = await db
+      .from('content_studio_briefs')
+      .select('*, brands(*), founder_dna(*)')
+      .eq('id', briefId)
+      .single();
+
+    if (briefError || !brief) {
+      throw new Error('Brief not found');
+    }
+
+    const brand = brief.brands;
+    const dna = brief.founder_dna;
+
+    // Fetch only failed creatives
+    const { data: failedCreatives, error: failedError } = await db
+      .from('content_studio_creatives')
+      .select('*, content_platforms(*)')
+      .eq('brief_id', briefId)
+      .eq('status', 'failed');
+
+    if (failedError || !failedCreatives || failedCreatives.length === 0) {
+      console.log('[ContentStudio] No failed creatives to retry');
+      return;
+    }
+
+    console.log('[ContentStudio] === Retrying Failed Creatives ===');
+    console.log('[ContentStudio] Failed creatives count:', failedCreatives.length);
+
+    // Generate session ID for this retry batch
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    const sessionId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+
+    // Build intelligence context
+    const intelligence = await buildFounderIntelligenceContext(brand.id);
+    const visualIntelligence = await buildFounderIntelligenceContext(brand.id);
+    const visualMemorySummary = summarizeCreativeMemoryForVisuals(visualIntelligence);
+
+    // Fetch primary product image
+    const productImages = await getBrandProductImages(brand.id);
+    const primaryImage = productImages?.find((img: any) => img.is_primary);
+    const productImageUrl = primaryImage?.file_url || '';
+
+    // Fetch visual system prompt
+    const visualSystemPrompt = await getSystemPrompt('template_generation');
+    if (!visualSystemPrompt) {
+      throw new Error('template_generation system prompt not found');
+    }
+
+    // Retry each failed creative in parallel
+    await Promise.all(failedCreatives.map(async (creative) => {
+      const platform = creative.content_platforms;
+
+      // Mark as retrying
+      await db
+        .from('content_studio_creatives')
+        .update({ status: 'retrying', updated_at: new Date().toISOString() })
+        .eq('id', creative.id);
+
+      // Build platform intelligence
+      const platformSystem = buildPlatformDesignSystem(platform);
+      const platformInstructions = buildPlatformRenderInstructions(platformSystem);
+
+      const visualPrompt = injectPromptVariables(visualSystemPrompt, {
+        generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nRETRY GENERATION — create a fresh layout variation that stays on-brand and matches the existing copy below.\nHeadline to feature: "${creative.headline || ''}"\nCopy snippet: "${(creative.copy_text || '').slice(0, 80)}"`,
+        aspectRatio: platform.aspect_ratio || '1:1',
+        styleIntensity: brief.tone === 'Bold and direct' ? 'bold' : 'balanced',
+        variant_index: '1',
+        variant_count: '1',
+        brand_voice: dna?.brand_voice || '',
+        core_promise: dna?.core_promise || '',
+        target_audience: dna?.target_audience || '',
+        positioning_statement: dna?.positioning_statement || '',
+        primary_color: brand.primary_color || '#000000',
+        secondary_color: brand.secondary_color || '#ffffff',
+        product_image_url: productImageUrl,
+        design_brief: `${platform.name} content for: ${brief.brief || brief.name}`,
+        platform_design_system: JSON.stringify(platformSystem, null, 2),
+        platform_render_instructions: platformInstructions,
+        founder_intelligence_context: visualIntelligence.promptContext,
+        creative_memory: visualMemorySummary,
+        mentor_memory: visualIntelligence.promptContext,
+        journey_stage: brand.journey_stage || 'spark',
+        captured_stage_data: visualIntelligence.promptContext,
+        image_width: platformSystem.dimensions.width.toString(),
+        image_height: platformSystem.dimensions.height.toString(),
+      });
+
+      const visualResult = await withTimeout(
+        callAI({
+          taskType: 'template_generation',
+          messages: [{ role: 'user', content: visualPrompt }],
+          maxTokens: 8000
+        })
+      );
+
+      console.log('[ContentStudio] === Retry Visual Generation Step ===');
+      console.log('[ContentStudio] Platform:', platform.name);
+      console.log('[ContentStudio] Creative ID:', creative.id);
+      console.log('[ContentStudio] Prompt sent to AI:', visualPrompt.slice(0, 500) + '...');
+      console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
+      if (visualResult.text) {
+        console.log('[ContentStudio] Visual result length:', visualResult.text.length);
+      }
+
+      const visualHtml = visualResult.success && visualResult.text
+        ? visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
+        : null;
+
+      // Update the creative with new result
+      await db
+        .from('content_studio_creatives')
+        .update({
+          visual_html: visualHtml,
+          status: visualHtml ? 'ready' : 'failed',
+          generation_session_id: sessionId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', creative.id);
+
+      if (visualHtml) {
+        onPlatformComplete?.(platform.id, creative);
+      }
+    }));
+
+    // Recalculate brief status after retry
+    const { data: allCreatives } = await db
+      .from('content_studio_creatives')
+      .select('status')
+      .eq('brief_id', briefId);
+
+    if (allCreatives) {
+      const readyCount = allCreatives.filter(c => c.status === 'ready').length;
+      const failedCount = allCreatives.filter(c => c.status === 'failed').length;
+      const total = allCreatives.length;
+
+      let briefStatus: string;
+      if (readyCount === total) {
+        briefStatus = 'ready';
+      } else if (readyCount === 0) {
+        briefStatus = 'failed';
+      } else {
+        briefStatus = 'partial_failed';
+      }
+
+      await db
+        .from('content_studio_briefs')
+        .update({ status: briefStatus })
+        .eq('id', briefId);
+
+      console.log('[ContentStudio] === Retry Complete ===');
+      console.log('[ContentStudio] Brief status:', briefStatus);
+      console.log('[ContentStudio] Platforms ready:', readyCount, '/', total);
+      console.log('[ContentStudio] Platforms failed:', failedCount, '/', total);
+    }
+  } catch (error: any) {
+    await logError({
+      errorMessage: error.message || 'Retry failed creatives failed',
+      errorType: 'ai_call',
+      module: 'prostudio',
+      componentName: 'contentStudioService',
+      callLocation: 'retryFailedCreatives',
+      userAction: 'retry_failed',
+      pipelineStep: 'ai_generation',
+      context: { briefId }
+    });
     throw error;
   }
 }
