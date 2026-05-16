@@ -83,19 +83,18 @@ export function EditableCanvas({
     if (!stage) return;
 
     // When the parent dictates exact canvas dimensions (content-studio mode),
-    // prepend a CSS reset so the AI-generated root fills the stage exactly —
-    // no white space, regardless of what the AI emitted.
+    // inject a SCOPED reset so the AI-generated root fills the stage without
+    // leaking `html, body` rules into the app shell.
     const fillReset = forceFillStage
       ? `<style data-fill-reset>
-          html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+          [data-studio-stage-root] { width: 100%; height: 100%; overflow: hidden; }
           [data-studio-stage-root] > * { width: 100% !important; height: 100% !important; box-sizing: border-box; }
         </style>`
       : "";
+    // `html` arrives from applyTypographyNormalization which already wraps
+    // the creative in <div class="studio-stage-scope" data-studio-stage-root>
+    // and scopes every <style> block inside it, so we can inject directly.
     stage.innerHTML = fillReset + html;
-    if (forceFillStage) {
-      // Wrap injected content in a marker so the > * selector above matches.
-      stage.setAttribute("data-studio-stage-root", "");
-    }
 
     // Assign unique data-studio-id to every [data-element] node based on its
     // data-element value + DOM index.
