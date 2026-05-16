@@ -187,26 +187,27 @@ export function buildTypographyNormalizationCss(p: PlatformConfig | null | undef
   const ctaMin = p.min_cta_size ?? scale.cta_min ?? 0;
 
   const rules: string[] = [];
+  const S = STUDIO_SCOPE_SEL; // scope all rules so they never leak to the app shell
 
   // Generic headline normalisation — applies to <h1/h2/h3> + role=headline
   if (headlineMin > 0) {
     rules.push(
-      `[data-element-type="text"][data-role="headline"], h1, h2, .headline { font-size: max(var(--__hl, ${headlineMin}px), ${headlineMin}px) !important; }`,
+      `${S} [data-element-type="text"][data-role="headline"], ${S} h1, ${S} h2, ${S} .headline { font-size: max(var(--__hl, ${headlineMin}px), ${headlineMin}px) !important; }`,
     );
   }
   if (headlineMax > 0) {
     rules.push(
-      `[data-element-type="text"][data-role="headline"], h1, h2, .headline { max-font-size: ${headlineMax}px; }`,
+      `${S} [data-element-type="text"][data-role="headline"], ${S} h1, ${S} h2, ${S} .headline { max-font-size: ${headlineMax}px; }`,
     );
   }
   if (bodyMin > 0) {
     rules.push(
-      `[data-element-type="text"][data-role="body"], p, .body { font-size: max(var(--__bd, ${bodyMin}px), ${bodyMin}px) !important; }`,
+      `${S} [data-element-type="text"][data-role="body"], ${S} p, ${S} .body { font-size: max(var(--__bd, ${bodyMin}px), ${bodyMin}px) !important; }`,
     );
   }
   if (ctaMin > 0) {
     rules.push(
-      `[data-element-type="text"][data-role="cta"], .cta, [role="button"], button { font-size: max(var(--__cta, ${ctaMin}px), ${ctaMin}px) !important; }`,
+      `${S} [data-element-type="text"][data-role="cta"], ${S} .cta, ${S} [role="button"], ${S} button { font-size: max(var(--__cta, ${ctaMin}px), ${ctaMin}px) !important; }`,
     );
   }
 
@@ -214,14 +215,75 @@ export function buildTypographyNormalizationCss(p: PlatformConfig | null | undef
   return `<style data-platform-typography>\n${rules.join('\n')}\n</style>`;
 }
 
-/** Wrap raw AI HTML with the typography normalisation block. */
+/* ──────────────────────────────────────────────────────────────────────
+ * CSS scoping
+ *
+ * CRITICAL: AI-generated HTML is injected directly into the document
+ * (via innerHTML / dangerouslySetInnerHTML). Any <style> blocks it
+ * contains — e.g. `body { font-family: ... }`, `h1 { font-size:72px }`,
+ * `* { box-sizing: ... }` — apply GLOBALLY to the whole app, blowing
+ * up toolbar/sidebar typography.
+ *
+ * To prevent this we:
+ *   1. Wrap every injected creative in a `<div class="studio-stage-scope">`
+ *   2. Rewrite every selector inside every <style> block to be prefixed
+ *      with that scope (and rewrite html/body/:root → the scope itself).
+ *
+ * The scope class is intentionally generic so a single wrapper covers
+ * both the prostudio EditableCanvas path and the mobile content-studio
+ * dangerouslySetInnerHTML path.
+ * ─────────────────────────────────────────────────────────────────── */
+
+export const STUDIO_SCOPE_CLASS = 'studio-stage-scope';
+export const STUDIO_SCOPE_SEL = `.${STUDIO_SCOPE_CLASS}`;
+
+/** Prefix every selector in a CSS string with the studio scope. */
+function scopeCss(css: string, scope: string): string {
+  // Match a selector list followed by `{`. The selector list cannot contain
+  // `{`, `}`, or `;`, and we skip @-rules like @media/@keyframes (their
+  // inner rules are still matched by the same regex on the next pass).
+  return css.replace(
+    /(^|[}{;])\s*([^{}@;][^{}@;]*?)\s*\{/g,
+    (_m, lead, selList) => {
+      const scoped = selList
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .map((s: string) => {
+          // Replace root-level selectors with the scope itself
+          if (/^(html|body|:root|\*)$/i.test(s)) return scope;
+          // Don't double-scope if already scoped
+          if (s.startsWith(scope)) return s;
+          // Keyframe percentages / from / to — leave alone
+          if (/^(from|to|\d+%)$/i.test(s)) return s;
+          return `${scope} ${s}`;
+        })
+        .join(', ');
+      return `${lead} ${scoped} {`;
+    },
+  );
+}
+
+/** Rewrite every <style>…</style> block in an HTML string so its rules
+ *  only apply within the studio stage scope. */
+export function scopeStyleBlocks(html: string, scope = STUDIO_SCOPE_SEL): string {
+  return html.replace(
+    /<style([^>]*)>([\s\S]*?)<\/style>/gi,
+    (_m, attrs, css) => `<style${attrs}>\n${scopeCss(css, scope)}\n</style>`,
+  );
+}
+
+/** Wrap raw AI HTML with the typography normalisation block + a scope
+ *  wrapper so any `<style>` rules in the creative cannot leak to the app. */
 export function applyTypographyNormalization(
   html: string | null | undefined,
   p: PlatformConfig | null | undefined,
 ): string {
   if (!html) return '';
-  const css = buildTypographyNormalizationCss(p);
-  return css ? css + html : html;
+  const typoCss = buildTypographyNormalizationCss(p);
+  const scopedHtml = scopeStyleBlocks(html);
+  // The typo block is already scoped via STUDIO_SCOPE_SEL inside its rules.
+  return `<div class="${STUDIO_SCOPE_CLASS}" data-studio-stage-root>${typoCss}${scopedHtml}</div>`;
 }
 
 /**
