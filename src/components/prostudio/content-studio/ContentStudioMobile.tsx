@@ -107,8 +107,15 @@ export function ContentStudioMobile(props: Props) {
   const [viewportMetrics, setViewportMetrics] = useState({ height: 0, bottomInset: 0 });
 
   const active = canvases.find((c) => c.id === activeCanvasId) || canvases[0];
-  const w = active?.canvasWidth || 600;
-  const h = active?.canvasHeight || 600;
+  // Native creative dimensions baked into the AI HTML take priority over the
+  // platform spec so the renderer adapts to whatever the model emitted
+  // (1080×1350, 1080×1920, 1200×630, …) instead of stretching it.
+  const nativeDims = useMemo(
+    () => detectNativeHtmlDimensions(active?.html),
+    [active?.html],
+  );
+  const w = nativeDims?.width || active?.canvasWidth || 600;
+  const h = nativeDims?.height || active?.canvasHeight || 600;
 
   // Recompute the stage size on resize so the preview always fills naturally.
   useEffect(() => {
