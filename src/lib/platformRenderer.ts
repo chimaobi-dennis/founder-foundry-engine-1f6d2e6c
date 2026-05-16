@@ -77,6 +77,56 @@ export function getCanvasDimensions(p: PlatformConfig | null | undefined) {
   };
 }
 
+/**
+ * Detect the native creative dimensions baked into the AI-generated HTML.
+ *
+ * The AI typically emits a wrapping element with inline `width:1080px;height:1350px`
+ * (or attributes). We parse the FIRST element/style/svg tag we find and return
+ * `{ width, height }` if both are present, else `null`.
+ *
+ * Used by the renderer to make the stage adapt to whatever the model produced
+ * (1080×1350, 1080×1920, 1200×630, …) instead of stretching to platform spec.
+ */
+export function detectNativeHtmlDimensions(
+  html: string | null | undefined,
+): { width: number; height: number } | null {
+  if (!html) return null;
+  // Strip our own injected <style data-...> blocks before scanning so they
+  // don't accidentally match width/height inside CSS rules.
+  const cleaned = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+
+  // 1) Inline style on first opening tag: style="...; width:1080px; height:1350px; ..."
+  const styleMatch = cleaned.match(/<[^>]+style\s*=\s*"([^"]+)"/i);
+  if (styleMatch) {
+    const style = styleMatch[1];
+    const w = style.match(/(?:^|[\s;])width\s*:\s*(\d+(?:\.\d+)?)\s*px/i);
+    const h = style.match(/(?:^|[\s;])height\s*:\s*(\d+(?:\.\d+)?)\s*px/i);
+    if (w && h) {
+      const width = parseFloat(w[1]);
+      const height = parseFloat(h[1]);
+      if (width >= 100 && height >= 100) return { width, height };
+    }
+  }
+
+  // 2) <svg width="1080" height="1350"> or attribute pairs on the root element
+  const attrMatch = cleaned.match(/<\w+[^>]*\swidth\s*=\s*"(\d+)"[^>]*\sheight\s*=\s*"(\d+)"/i);
+  if (attrMatch) {
+    const width = parseFloat(attrMatch[1]);
+    const height = parseFloat(attrMatch[2]);
+    if (width >= 100 && height >= 100) return { width, height };
+  }
+
+  // 3) SVG viewBox="0 0 1080 1350"
+  const vb = cleaned.match(/viewBox\s*=\s*"\s*0\s+0\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*"/i);
+  if (vb) {
+    const width = parseFloat(vb[1]);
+    const height = parseFloat(vb[2]);
+    if (width >= 100 && height >= 100) return { width, height };
+  }
+
+  return null;
+}
+
 /** Safe-zone rect in source-pixel space. */
 export function getSafeZoneRect(p: PlatformConfig | null | undefined) {
   const { width, height } = getCanvasDimensions(p);

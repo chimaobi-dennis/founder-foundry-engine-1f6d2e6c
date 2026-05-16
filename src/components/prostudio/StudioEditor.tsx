@@ -62,6 +62,7 @@ import { ContentStudioGenerationStrip } from "./content-studio/GenerationStrip";
 import { PlatformOverlay } from "./content-studio/PlatformOverlay";
 import {
   applyTypographyNormalization,
+  detectNativeHtmlDimensions,
   getPreviewPadding,
   type PlatformConfig,
 } from "@/lib/platformRenderer";
@@ -247,16 +248,28 @@ export function StudioEditor({
     if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
   }, []);
 
-  // Update canvas size per platform in content-studio mode
+  // Update canvas size per platform in content-studio mode.
+  // Priority: NATIVE dimensions baked into the AI HTML > platform spec > default.
+  // This makes the renderer adapt to whatever the model emitted (1080×1350,
+  // 1080×1920, 1200×630, …) instead of stretching to platform spec.
+  const [nativeDetected, setNativeDetected] = useState(false);
   useEffect(() => {
-    if (mode === 'content-studio' && canvases && activeCanvasId) {
-      const activeCanvas = canvases.find(c => c.id === activeCanvasId);
-      if (activeCanvas && activeCanvas.canvasWidth && activeCanvas.canvasHeight) {
-        setCanvasSize({
-          width: activeCanvas.canvasWidth,
-          height: activeCanvas.canvasHeight
-        });
-      }
+    if (mode !== 'content-studio' || !canvases || !activeCanvasId) {
+      setNativeDetected(false);
+      return;
+    }
+    const activeCanvas = canvases.find(c => c.id === activeCanvasId);
+    if (!activeCanvas) return;
+    const native = detectNativeHtmlDimensions(activeCanvas.html);
+    if (native) {
+      setCanvasSize(native);
+      setNativeDetected(true);
+    } else if (activeCanvas.canvasWidth && activeCanvas.canvasHeight) {
+      setCanvasSize({
+        width: activeCanvas.canvasWidth,
+        height: activeCanvas.canvasHeight,
+      });
+      setNativeDetected(false);
     }
   }, [mode, canvases, activeCanvasId]);
 
@@ -1138,7 +1151,12 @@ export function StudioEditor({
               className="flex-1 flex items-center justify-center relative"
               style={{
                 minHeight: 0,
-                background: "#111111",
+                background: theme === "dark" ? "hsl(220 14% 11%)" : "hsl(220 14% 94%)",
+                backgroundImage:
+                  theme === "dark"
+                    ? "radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)"
+                    : "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px)",
+                backgroundSize: "22px 22px",
                 overflow: "hidden",
                 cursor: (tool === "hand" || tempPan) ? (panRef.current ? "grabbing" : "grab") : "default",
               }}
@@ -1232,7 +1250,7 @@ export function StudioEditor({
                         onIntrinsicSize={setCanvasSize}
                         getElementState={getElementState}
                         refreshKey={refreshKey}
-                        forceFillStage={mode === 'content-studio'}
+                        forceFillStage={mode === 'content-studio' && !nativeDetected}
                       />
                       {mode === 'content-studio' && (
                         <PlatformOverlay

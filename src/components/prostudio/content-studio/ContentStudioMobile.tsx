@@ -20,6 +20,7 @@ import { CanvasFailed } from "./CanvasFailed";
 import { PlatformOverlay } from "./PlatformOverlay";
 import {
   applyTypographyNormalization,
+  detectNativeHtmlDimensions,
   getPreviewPadding,
   type PlatformConfig,
 } from "@/lib/platformRenderer";
@@ -106,8 +107,15 @@ export function ContentStudioMobile(props: Props) {
   const [viewportMetrics, setViewportMetrics] = useState({ height: 0, bottomInset: 0 });
 
   const active = canvases.find((c) => c.id === activeCanvasId) || canvases[0];
-  const w = active?.canvasWidth || 600;
-  const h = active?.canvasHeight || 600;
+  // Native creative dimensions baked into the AI HTML take priority over the
+  // platform spec so the renderer adapts to whatever the model emitted
+  // (1080×1350, 1080×1920, 1200×630, …) instead of stretching it.
+  const nativeDims = useMemo(
+    () => detectNativeHtmlDimensions(active?.html),
+    [active?.html],
+  );
+  const w = nativeDims?.width || active?.canvasWidth || 600;
+  const h = nativeDims?.height || active?.canvasHeight || 600;
 
   // Recompute the stage size on resize so the preview always fills naturally.
   useEffect(() => {
@@ -310,14 +318,19 @@ export function ContentStudioMobile(props: Props) {
       <div
         ref={stageRef}
         className="flex-1 min-h-0 flex items-center justify-center relative overflow-hidden"
-        style={{ background: "hsl(var(--muted) / 0.25)" }}
+        style={{
+          background: "hsl(var(--muted) / 0.35)",
+          backgroundImage:
+            "radial-gradient(circle, hsl(var(--foreground) / 0.06) 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
+        }}
       >
         {/* subtle radial glow */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 35%, hsl(var(--primary) / 0.06), transparent 65%)",
+              "radial-gradient(ellipse at 50% 35%, hsl(var(--primary) / 0.05), transparent 65%)",
           }}
         />
 
