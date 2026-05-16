@@ -488,6 +488,9 @@ export async function generateContentForBrief(
 
       console.log('[ContentStudio] === Visual Generation Step ===');
       console.log('[ContentStudio] Platform:', platform.name);
+      console.log('[ContentStudio] Task type used: template_generation');
+      console.log('[ContentStudio] Model used:', visualResult.modelUsed);
+      console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
       console.log('[ContentStudio] Prompt sent to AI1:', visualPrompt);
       console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
       if (visualResult.text) {
@@ -829,16 +832,19 @@ export async function regenerateCreative(
     });
 
     const visualResult = await withTimeout(
-      callAI({
-        taskType: 'template_generation',
-        messages: [{ role: 'user', content: visualPrompt }],
-        maxTokens: 8000
-      })
-    );
+        callAI({
+          taskType: 'template_generation',
+          messages: [{ role: 'user', content: visualPrompt }],
+          maxTokens: 8000
+        })
+      );
 
     console.log('[ContentStudio] === Regenerate Visual Step ===');
     console.log('[ContentStudio] Platform:', platform.name);
     console.log('[ContentStudio] Creative ID:', creativeId);
+    console.log('[ContentStudio] Task type used: template_generation');
+    console.log('[ContentStudio] Model used:', visualResult.modelUsed);
+    console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
     console.log('[ContentStudio] Prompt sent to AI2:', visualPrompt);
     console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
     if (visualResult.text) {
@@ -1008,6 +1014,9 @@ export async function retryFailedCreatives(
       console.log('[ContentStudio] === Retry Visual Generation Step ===');
       console.log('[ContentStudio] Platform:', platform.name);
       console.log('[ContentStudio] Creative ID:', creative.id);
+      console.log('[ContentStudio] Task type used: template_generation');
+      console.log('[ContentStudio] Model used:', visualResult.modelUsed);
+      console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
       console.log('[ContentStudio] Prompt sent to AI3:', visualPrompt);
       console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
       if (visualResult.text) {
