@@ -20,6 +20,7 @@ import { CanvasFailed } from "./CanvasFailed";
 import { PlatformOverlay } from "./PlatformOverlay";
 import {
   applyTypographyNormalization,
+  detectNativeHtmlDimensions,
   getPreviewPadding,
   type PlatformConfig,
 } from "@/lib/platformRenderer";
