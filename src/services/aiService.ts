@@ -660,7 +660,8 @@ const callOpenAICompatible = async (
       body: JSON.stringify({
         model: modelId,
         messages: normalizedMessages,
-        max_tokens: maxTokens
+        max_tokens: maxTokens,
+        max_completion_tokens: maxTokens // Newer OpenAI models require this parameter
       })
     });
 
