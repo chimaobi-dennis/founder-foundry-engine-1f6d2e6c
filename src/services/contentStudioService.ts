@@ -839,7 +839,7 @@ export async function regenerateCreative(
     console.log('[ContentStudio] === Regenerate Visual Step ===');
     console.log('[ContentStudio] Platform:', platform.name);
     console.log('[ContentStudio] Creative ID:', creativeId);
-    console.log('[ContentStudio] Prompt sent to AI:', visualPrompt.slice(0, 500) + '...');
+    console.log('[ContentStudio] Prompt sent to AI:', visualPrompt);
     console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
     if (visualResult.text) {
       console.log('[ContentStudio] Visual result length:', visualResult.text.length);
