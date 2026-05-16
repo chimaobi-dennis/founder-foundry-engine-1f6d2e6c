@@ -309,7 +309,7 @@ export async function generateContentForBrief(
     );
 
     console.log('[ContentStudio] === Copy Generation Step ===');
-    console.log('[ContentStudio] Prompt sent to AI:', strictCopyPrompt.slice(0, 500) + '...');
+    console.log('[ContentStudio] Prompt sent to AI:', strictCopyPrompt);
     console.log('[ContentStudio] AI response received:', copyResult.success ? 'SUCCESS' : 'FAILED');
     if (copyResult.text) {
       console.log('[ContentStudio] Copy result:', copyResult.text.slice(0, 500) + '...');
