@@ -248,16 +248,22 @@ export function StudioEditor({
     if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
   }, []);
 
-  // Update canvas size per platform in content-studio mode
+  // Update canvas size per platform in content-studio mode.
+  // Priority: NATIVE dimensions baked into the AI HTML > platform spec > default.
+  // This makes the renderer adapt to whatever the model emitted (1080×1350,
+  // 1080×1920, 1200×630, …) instead of stretching to platform spec.
   useEffect(() => {
-    if (mode === 'content-studio' && canvases && activeCanvasId) {
-      const activeCanvas = canvases.find(c => c.id === activeCanvasId);
-      if (activeCanvas && activeCanvas.canvasWidth && activeCanvas.canvasHeight) {
-        setCanvasSize({
-          width: activeCanvas.canvasWidth,
-          height: activeCanvas.canvasHeight
-        });
-      }
+    if (mode !== 'content-studio' || !canvases || !activeCanvasId) return;
+    const activeCanvas = canvases.find(c => c.id === activeCanvasId);
+    if (!activeCanvas) return;
+    const native = detectNativeHtmlDimensions(activeCanvas.html);
+    if (native) {
+      setCanvasSize(native);
+    } else if (activeCanvas.canvasWidth && activeCanvas.canvasHeight) {
+      setCanvasSize({
+        width: activeCanvas.canvasWidth,
+        height: activeCanvas.canvasHeight,
+      });
     }
   }, [mode, canvases, activeCanvasId]);
 
