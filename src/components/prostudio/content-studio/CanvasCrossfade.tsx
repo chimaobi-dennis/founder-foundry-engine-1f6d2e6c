@@ -251,15 +251,14 @@ export function CanvasCrossfade({
 
   const showProgress = showSkeleton || progress < 100;
 
+  const stageWidth = width * zoom;
+  const stageHeight = height * zoom;
+
   return (
     <div
-      className="canvas-scale-layer relative flex items-center justify-center flex-shrink-0"
-      style={{ width, height }}
+      className="relative flex items-center justify-center flex-shrink-0"
+      style={{ width: stageWidth, height: stageHeight }}
     >
-      <div
-        className="canvas-stage-transform"
-        style={{ transform: `scale(${zoom})`, transformOrigin: "top center", willChange: "transform" }}
-      >
       <div
         className="absolute top-0 left-0 right-0 h-[2px] z-20 overflow-hidden pointer-events-none"
         style={{
@@ -357,7 +356,6 @@ export function CanvasCrossfade({
           />
         </div>
       )}
-    </div>
     </div>
   );
 }

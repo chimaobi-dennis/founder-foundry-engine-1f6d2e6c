@@ -1224,11 +1224,11 @@ export function StudioEditor({
                     <div
                       ref={captureStageHost}
                       data-studio-stage
-                      className="relative flex-shrink-0 canvas-stage"
+                      className="relative flex-shrink-0"
                       style={{
-                        width: canvasSize.width,
-                        height: canvasSize.height,
-                        overflow: "auto",
+                        width: canvasSize.width * zoom,
+                        height: canvasSize.height * zoom,
+                        overflow: "hidden",
                         pointerEvents: (tool === "hand" || tempPan) ? "none" : "auto",
                       }}
                     >

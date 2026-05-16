@@ -261,39 +261,3 @@
   animation: name-fade-in 300ms ease;
 }
 
-/* ── Canvas Scaling Isolation ───────────────────────────────────── */
-/* Prevents zoom/transform from leaking into UI elements */
-.canvas-stage {
-  position: relative;
-  overflow: auto;
-}
-
-.canvas-scale-layer {
-  /* Container uses fixed dimensions — no zoom applied here */
-  position: relative;
-}
-
-.canvas-stage-transform {
-  /* ONLY this layer receives transform: scale() */
-  transform-origin: top center;
-  will-change: transform;
-  /* Prevent font inheritance from scaled parent */
-  font-size: inherit;
-  /* Ensure em/rem units don't cascade incorrectly */
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-/* Reset any zoom/scale properties on UI chrome to prevent leakage */
-.toolbar,
-.sidebar,
-.inspector-panel,
-.tabs,
-.copy-panel,
-.design-panel,
-.navigation {
-  zoom: 1 !important;
-  transform: none !important;
-  font-size: inherit !important;
-}
-
