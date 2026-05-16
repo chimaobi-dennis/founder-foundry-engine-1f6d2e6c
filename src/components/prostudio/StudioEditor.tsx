@@ -1145,7 +1145,12 @@ export function StudioEditor({
               className="flex-1 flex items-center justify-center relative"
               style={{
                 minHeight: 0,
-                background: "#111111",
+                background: theme === "dark" ? "hsl(220 14% 11%)" : "hsl(220 14% 94%)",
+                backgroundImage:
+                  theme === "dark"
+                    ? "radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)"
+                    : "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px)",
+                backgroundSize: "22px 22px",
                 overflow: "hidden",
                 cursor: (tool === "hand" || tempPan) ? (panRef.current ? "grabbing" : "grab") : "default",
               }}
