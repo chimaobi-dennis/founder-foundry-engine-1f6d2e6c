@@ -318,14 +318,19 @@ export function ContentStudioMobile(props: Props) {
       <div
         ref={stageRef}
         className="flex-1 min-h-0 flex items-center justify-center relative overflow-hidden"
-        style={{ background: "hsl(var(--muted) / 0.25)" }}
+        style={{
+          background: "hsl(var(--muted) / 0.35)",
+          backgroundImage:
+            "radial-gradient(circle, hsl(var(--foreground) / 0.06) 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
+        }}
       >
         {/* subtle radial glow */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 35%, hsl(var(--primary) / 0.06), transparent 65%)",
+              "radial-gradient(ellipse at 50% 35%, hsl(var(--primary) / 0.05), transparent 65%)",
           }}
         />
 
