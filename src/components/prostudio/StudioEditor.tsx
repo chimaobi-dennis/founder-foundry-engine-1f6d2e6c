@@ -365,7 +365,7 @@ export function StudioEditor({
     wrapper.style.cssText = `position:fixed;left:-99999px;top:0;width:${w}px;height:${h}px;overflow:hidden;background:#fff;`;
     // Scope any <style> blocks in the AI html so they don't bleed into the
     // live app while we capture (wrapper sits in document.body during render).
-    const scoped = (await import("@/lib/platformRenderer")).scopeStyleBlocks(htmlStr || "");
+    const scoped = scopeStyleBlocks(htmlStr || "");
     wrapper.innerHTML = `<style>div[data-export-root]{width:${w}px;height:${h}px;overflow:hidden;}div[data-export-root]>*{width:100%!important;height:100%!important;box-sizing:border-box;}</style><div data-export-root class="studio-stage-scope">${scoped}</div>`;
     document.body.appendChild(wrapper);
     try {
