@@ -312,7 +312,7 @@ export async function generateContentForBrief(
     console.log('[ContentStudio] Prompt sent to AI:', strictCopyPrompt);
     console.log('[ContentStudio] AI response received:', copyResult.success ? 'SUCCESS' : 'FAILED');
     if (copyResult.text) {
-      console.log('[ContentStudio] Copy result:', copyResult.text.slice(0, 500) + '...');
+      console.log('[ContentStudio] Copy result:', copyResult.text);
     }
 
     if (!copyResult.success || !copyResult.text) {
@@ -395,29 +395,49 @@ export async function generateContentForBrief(
       data: Record<string, any>,
       platform: any
     ): Record<string, any> {
+      console.log('[findCopyForPlatform]', {
+        platformSlug: platform.slug,
+        platformName: platform.name,
+        availableKeys: Object.keys(data),
+        exactMatch: !!data[platform.slug]
+      });
+
       // Exact slug match
-      if (data[platform.slug]) return data[platform.slug];
+      if (data[platform.slug]) {
+        console.log('[findCopyForPlatform] Found exact slug match:', platform.slug);
+        return data[platform.slug];
+      }
 
       // Platform name as lowercase_underscored
       const nameLower = platform.name?.toLowerCase()
         .replace(/\s+/g, '_')
         .replace(/\//g, '_');
-      if (nameLower && data[nameLower]) return data[nameLower];
+      if (nameLower && data[nameLower]) {
+        console.log('[findCopyForPlatform] Found name match:', nameLower);
+        return data[nameLower];
+      }
 
       // Partial match — base word from slug
       const slugBase = platform.slug.split('_')[0]; // 'instagram' from 'instagram_post'
       const partialMatch = Object.keys(data).find(key =>
         key.includes(slugBase) || slugBase.includes(key)
       );
-      if (partialMatch) return data[partialMatch];
+      if (partialMatch) {
+        console.log('[findCopyForPlatform] Found partial match:', partialMatch);
+        return data[partialMatch];
+      }
 
       // Name word match
       const nameWords = (platform.name?.toLowerCase() || '').split(/\s+/);
       const nameMatch = Object.keys(data).find(key =>
         nameWords.some((word: string) => key.includes(word))
       );
-      if (nameMatch) return data[nameMatch];
+      if (nameMatch) {
+        console.log('[findCopyForPlatform] Found name word match:', nameMatch);
+        return data[nameMatch];
+      }
 
+      console.log('[findCopyForPlatform] No match found, returning empty object');
       return {};
     }
 
@@ -515,6 +535,15 @@ export async function generateContentForBrief(
         status: visualHtml ? 'ready' : 'failed',
         updated_at: new Date().toISOString()
       };
+
+      console.log('[creative payload]', {
+        platformId: platform.id,
+        platformSlug: platform.slug,
+        headline: creativePayload.headline,
+        copyTextLength: creativePayload.copy_text?.length,
+        hashtagsCount: creativePayload.hashtags?.length,
+        subjectLine: creativePayload.subject_line
+      });
 
       // Upsert creative row - prevents duplicates per generation session
       const conflictColumns = sessionId 
