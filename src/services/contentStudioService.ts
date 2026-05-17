@@ -501,25 +501,48 @@ export async function generateContentForBrief(
         visualHtml = visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
       }
 
-      // Insert creative row
+      // Prepare creative payload
+      const creativePayload = {
+        brief_id: briefId,
+        platform_id: platform.id,
+        generation_session_id: sessionId,
+        headline: platformCopy.headline || null,
+        copy_text: platformCopy.copy_text || null,
+        subject_line: platformCopy.subject_line || null,
+        hashtags: platformCopy.hashtags || [],
+        visual_html: visualHtml,
+        template_id: selectedTemplateId,
+        status: visualHtml ? 'ready' : 'failed',
+        updated_at: new Date().toISOString()
+      };
+
+      // Upsert creative row - prevents duplicates per generation session
+      const conflictColumns = sessionId 
+        ? 'generation_session_id,platform_id' 
+        : 'brief_id,platform_id';
+
+      console.log('[creative upsert]', {
+        generationSessionId: sessionId,
+        platformId: platform.id,
+        conflictColumns,
+        status: creativePayload.status
+      });
+
       const { data: creative, error } = await db
         .from('content_studio_creatives')
-        .insert({
-          brief_id: briefId,
-          platform_id: platform.id,
-          generation_session_id: sessionId,
-          headline: platformCopy.headline || null,
-          copy_text: platformCopy.copy_text || null,
-          subject_line: platformCopy.subject_line || null,
-          hashtags: platformCopy.hashtags || [],
-          visual_html: visualHtml,
-          template_id: selectedTemplateId,
-          status: visualHtml ? 'ready' : 'failed'
+        .upsert(creativePayload, {
+          onConflict: conflictColumns
         })
         .select('*, content_platforms(*)')
         .single();
 
       if (error) {
+        console.error('[creative upsert failed]', {
+          error: error.message,
+          generationSessionId: sessionId,
+          platformId: platform.id
+        });
+
         await logError({
           errorMessage: error.message,
           errorType: 'ai_call',
@@ -535,6 +558,11 @@ export async function generateContentForBrief(
           .eq('platform_id', platform.id)
           .eq('status', 'generating');
       } else {
+        console.log('[creative upsert success]', {
+          creativeId: creative?.id,
+          platformId: platform.id,
+          status: creative?.status
+        });
         creatives.push(creative);
         onPlatformComplete?.(platform.id, creative);
       }
@@ -855,14 +883,34 @@ export async function regenerateCreative(
       ? visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
       : creative.visual_html;
 
-    await db
+    console.log('[creative regenerate update]', {
+      creativeId,
+      newSessionId: sessionId,
+      status: 'ready',
+      hasVisualHtml: !!visualHtml
+    });
+
+    const { error: regenUpdateError } = await db
       .from('content_studio_creatives')
       .update({
         visual_html: visualHtml,
         status: 'ready',
-        generation_session_id: sessionId
+        generation_session_id: sessionId,
+        updated_at: new Date().toISOString()
       })
       .eq('id', creativeId);
+
+    if (regenUpdateError) {
+      console.error('[creative regenerate update failed]', {
+        creativeId,
+        error: regenUpdateError.message
+      });
+    } else {
+      console.log('[creative regenerate update success]', {
+        creativeId,
+        status: 'ready'
+      });
+    }
 
     return visualHtml;
   } catch (error: any) {
@@ -1028,7 +1076,14 @@ export async function retryFailedCreatives(
         : null;
 
       // Update the creative with new result
-      await db
+      console.log('[creative retry update]', {
+        creativeId: creative.id,
+        platformId: platform.id,
+        newSessionId: sessionId,
+        status: visualHtml ? 'ready' : 'failed'
+      });
+
+      const { error: retryUpdateError } = await db
         .from('content_studio_creatives')
         .update({
           visual_html: visualHtml,
@@ -1037,6 +1092,19 @@ export async function retryFailedCreatives(
           updated_at: new Date().toISOString()
         })
         .eq('id', creative.id);
+
+      if (retryUpdateError) {
+        console.error('[creative retry update failed]', {
+          creativeId: creative.id,
+          error: retryUpdateError.message
+        });
+      } else {
+        console.log('[creative retry update success]', {
+          creativeId: creative.id,
+          platformId: platform.id,
+          status: visualHtml ? 'ready' : 'failed'
+        });
+      }
 
       if (visualHtml) {
         onPlatformComplete?.(platform.id, creative);
