@@ -149,10 +149,16 @@ export async function createBrief(brandId: string, userId: string, brief: {
   name: string;
   brief?: string;
   campaign_goal?: string;
-  tone?: string;
   is_series?: boolean;
   series_interval?: string;
   selected_platform_ids: string[];
+  // AI Workspace Configuration
+  visual_direction?: string;
+  visual_assets?: string[];
+  layout_complexity?: string;
+  creative_mode?: string;
+  ai_freedom?: number;
+  image_density?: number;
 }) {
   const nextGenAt = brief.is_series
     ? calculateNextGenerationTime(brief.series_interval || 'weekly')
