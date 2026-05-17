@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, forwardRef, useImperativeHandle } from "react";
-import html2canvas from "html2canvas";
+import domtoimage from "dom-to-image-more";
 import { CreativeRenderer, CreativeData } from "./CreativeRenderer";
 
 export interface ExportCanvasHandle {
@@ -189,28 +189,24 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           console.log(`[ExportCanvas] Capturing ${data.platformName || "canvas"} at ${data.width}x${data.height} (scale: ${pixelRatio})`);
           
           const canvas = await Promise.race([
-            html2canvas(artboard, {
-              // Use exact artboard dimensions
+            domtoimage.toCanvas(artboard, {
               width: data.width,
               height: data.height,
-              // Scale for retina/quality
+              bgcolor: backgroundColor || "#ffffff",
+              style: {
+                transform: "scale(1)",
+                transformOrigin: "top left",
+                margin: "0",
+              },
               scale: pixelRatio,
-              // Transparent background (let artboard bg show through)
-              backgroundColor: backgroundColor,
-              // CORS for external images
-              useCORS: true,
-              // DO NOT use allowTaint - can cause issues
-              allowTaint: false,
-              // CRITICAL: foreignObjectRendering causes blank exports in Safari/SVG layouts
-              foreignObjectRendering: false,
-              // Logging for debugging
-              logging: true,
-              // Remove unnecessary overlays
-              ignoreElements: (element) => {
-                // Ignore any editor overlays
-                return element.hasAttribute("data-editor-overlay") ||
-                       element.classList.contains("editor-ui") ||
-                       element.classList.contains("drag-handle");
+              cacheBust: true,
+              filter: (node) => {
+                if (!(node instanceof HTMLElement)) return true;
+                return !(
+                  node.hasAttribute("data-editor-overlay") ||
+                  node.classList.contains("editor-ui") ||
+                  node.classList.contains("drag-handle")
+                );
               },
             }),
             new Promise<never>((_, reject) =>
@@ -225,6 +221,12 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           const expectedWidth = Math.round(data.width * pixelRatio);
           const expectedHeight = Math.round(data.height * pixelRatio);
           
+          console.log("[ExportCanvas] Export complete", {
+            expected: `${expectedWidth}x${expectedHeight}`,
+            actual: `${canvas.width}x${canvas.height}`,
+            platform: data.platformName,
+          });
+          
           if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
             console.warn("[ExportCanvas] Dimension mismatch:", {
               platform: data.platformName,
@@ -232,8 +234,6 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
               actual: `${canvas.width}x${canvas.height}`,
               artboardSize: `${artboard.offsetWidth}x${artboard.offsetHeight}`,
             });
-          } else {
-            console.log(`[ExportCanvas] Captured successfully: ${canvas.width}x${canvas.height}`);
           }
 
           return canvas;
@@ -273,21 +273,23 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
     const artboardId = `export-artboard-${data.platformId || "default"}`;
 
     // Debug mode: render visibly on screen
-    const debugStyles = DEBUG_EXPORT ? {
-      position: "fixed" as const,
+    const debugStyles: React.CSSProperties = DEBUG_EXPORT ? {
+      position: "fixed",
       left: "10px",
       top: "10px",
       zIndex: 9999,
       border: "2px solid red",
     } : {
-      // CRITICAL: Use visibility-friendly offscreen positioning
+      // CRITICAL: Use renderable offscreen positioning
       // NEVER use display:none, visibility:hidden, or opacity:0
-      position: "fixed" as const,
-      left: "-99999px",
+      // NEVER use left:-99999px (causes browser rendering instability)
+      position: "fixed",
+      left: 0,
       top: 0,
-      // Wrapper needs proper overflow handling but NOT 0x0 dimensions
-      overflow: "visible",
+      opacity: 0.01,
+      pointerEvents: "none" as const,
       zIndex: -1,
+      contain: "layout style paint",
     };
 
     return (

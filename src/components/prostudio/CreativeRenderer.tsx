@@ -158,8 +158,7 @@ function wrapHtmlForExport(
           width: 100% !important;
           height: 100% !important;
           min-height: 100% !important;
-          max-width: ${width}px !important;
-          max-height: ${height}px !important;
+          /* REMOVED: max-width/max-height that was clipping content */
         }
 
         /* Convert fixed positions to absolute within artboard */
