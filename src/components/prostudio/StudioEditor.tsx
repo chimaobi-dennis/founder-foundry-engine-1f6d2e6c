@@ -399,19 +399,42 @@ export function StudioEditor({
       }
     }
     
-    // Legacy fallback using html2canvas on visible canvas
+    // Legacy fallback using html2canvas on temporary element
     console.warn(`[StudioEditor] Using legacy capture for ${canvasId}`);
     const canvas = canvases?.find(c => c.id === canvasId);
     if (!canvas) return null;
     
-    // Create temporary wrapper for legacy capture
+    // Create temporary artboard for legacy capture with EXACT dimensions
     const w = canvas.canvasWidth || canvasSize.width;
     const h = canvas.canvasHeight || canvasSize.height;
     const wrapper = document.createElement("div");
-    wrapper.style.cssText = `position:fixed;left:-99999px;top:0;width:${w}px;height:${h}px;overflow:hidden;background:#fff;`;
+    wrapper.id = `fallback-export-${canvasId}`;
+    wrapper.style.cssText = `
+      position: fixed;
+      left: -99999px;
+      top: 0;
+      width: ${w}px;
+      height: ${h}px;
+      overflow: hidden;
+      background: #ffffff;
+      box-sizing: border-box;
+      transform: none;
+      zoom: 1;
+    `;
+    
     const scoped = scopeStyleBlocks(canvas.html || "");
-    wrapper.innerHTML = `<style>div[data-export-root]{width:${w}px;height:${h}px;overflow:hidden;}</style><div data-export-root class="studio-stage-scope">${scoped}</div>`;
+    wrapper.innerHTML = `
+      <div data-export-root style="width:${w}px;height:${h}px;overflow:hidden;position:relative;">
+        ${scoped}
+      </div>
+    `;
     document.body.appendChild(wrapper);
+    
+    // Wait for fonts and images in fallback mode too
+    if (typeof document !== "undefined" && "fonts" in document) {
+      await document.fonts.ready;
+    }
+    await new Promise(r => setTimeout(r, 300));
     
     try {
       const target = wrapper.querySelector<HTMLElement>("div[data-export-root]") || wrapper;
@@ -419,11 +442,18 @@ export function StudioEditor({
         width: w,
         height: h,
         scale: pixelRatio,
-        backgroundColor: "#ffffff",
+        backgroundColor: null, // Transparent per requirements
         useCORS: true,
-        logging: false,
+        allowTaint: true,
+        foreignObjectRendering: true,
+        logging: process.env.NODE_ENV === "development",
       });
+      
+      console.log(`[StudioEditor] Legacy capture succeeded: ${result.width}x${result.height}`);
       return result;
+    } catch (e) {
+      console.error(`[StudioEditor] Legacy capture failed:`, e);
+      return null;
     } finally {
       wrapper.remove();
     }
@@ -1497,6 +1527,28 @@ export function StudioEditor({
             data={buildCreativeData(canvas)}
           />
         ))}
+        
+        {/* Single variation export canvas for ProStudio mode (no canvases array) */}
+        {!canvases?.length && variationId && (
+          <ExportCanvas
+            key={`export-${variationId}`}
+            ref={(el) => {
+              if (el) {
+                exportCanvasRefs.current.set(variationId, el);
+              } else {
+                exportCanvasRefs.current.delete(variationId);
+              }
+            }}
+            data={{
+              html: variationHtml || "",
+              platformId: variationId,
+              platformName: templateName || "Design",
+              width: canvasSize.width,
+              height: canvasSize.height,
+              backgroundColor: "#ffffff",
+            }}
+          />
+        )}
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

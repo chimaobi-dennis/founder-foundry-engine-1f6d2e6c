@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 export interface CreativeData {
@@ -23,109 +23,98 @@ interface CreativeRendererProps {
   scale?: number;
   /** Creative data to render */
   data: CreativeData;
-  /** Optional className */
+  /** Optional className for the artboard */
   className?: string;
-  /** Ref to the container element (for export capture) */
-  containerRef?: React.RefObject<HTMLDivElement | null>;
-  /** Called when rendering is complete */
+  /** Called when rendering is complete (fonts loaded) */
   onRenderComplete?: () => void;
+  /** Optional ID for direct DOM access */
+  id?: string;
 }
 
 /**
  * CreativeRenderer - Shared render pipeline for both editor and export
  * 
  * Architecture:
- * - Editor mode: Renders with zoom/scale, includes selection UI
- * - Export mode: Renders at scale(1), clean output, no UI chrome
+ * - Editor mode: Renders with zoom/scale in the visible workspace
+ * - Export mode: Renders at scale(1) with fixed dimensions, no transforms
  * 
- * Both modes share the same design state and rendering pipeline.
- * No DOM copying - both render from the same creative data.
+ * CRITICAL: The export artboard is a SINGLE div with:
+ * - Fixed width/height in pixels
+ * - overflow: hidden
+ * - NO parent containers with padding/margin/transform
+ * - NO responsive units
+ * 
+ * This ensures html2canvas captures exact pixel dimensions without
+ * interference from parent layouts.
  */
-export function CreativeRenderer({
-  mode,
-  scale = 1,
-  data,
-  className,
-  containerRef: externalRef,
-  onRenderComplete,
-}: CreativeRendererProps) {
-  const internalRef = useRef<HTMLDivElement>(null);
-  const containerRef = externalRef || internalRef;
-  const [isReady, setIsReady] = useState(false);
+export const CreativeRenderer = forwardRef<HTMLDivElement, CreativeRendererProps>(
+  ({ mode, scale = 1, data, className, onRenderComplete, id }, ref) => {
+    const [isReady, setIsReady] = useState(false);
+    const isExport = mode === "export";
+    const effectiveScale = isExport ? 1 : scale;
 
-  const isExport = mode === "export";
-  const effectiveScale = isExport ? 1 : scale;
+    // Ensure fonts are loaded before marking ready
+    useEffect(() => {
+      const checkFonts = async () => {
+        if (typeof document !== "undefined" && "fonts" in document) {
+          await document.fonts.ready;
+        }
+        // Small delay for layout stabilization
+        await new Promise((r) => setTimeout(r, 100));
+        setIsReady(true);
+        onRenderComplete?.();
+      };
 
-  // Ensure fonts are loaded before marking ready
-  useEffect(() => {
-    const checkFonts = async () => {
-      if (typeof document !== "undefined" && "fonts" in document) {
-        await document.fonts.ready;
-      }
-      // Small delay for layout stabilization
-      await new Promise((r) => setTimeout(r, 100));
-      setIsReady(true);
-      onRenderComplete?.();
-    };
+      checkFonts();
+    }, [data.html, onRenderComplete]);
 
-    checkFonts();
-  }, [data.html, onRenderComplete]);
+    // Wrap HTML with scoped styles for fixed artboard rendering
+    const wrappedHtml = wrapHtmlForExport(data.html, {
+      width: data.width,
+      height: data.height,
+      backgroundColor: data.backgroundColor || "#ffffff",
+    });
 
-  // Wrap HTML with scoped styles for fixed artboard rendering
-  const wrappedHtml = wrapHtmlForExport(data.html, {
-    width: data.width,
-    height: data.height,
-    backgroundColor: data.backgroundColor || "#ffffff",
-  });
-
-  return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "relative",
-        isExport && "absolute left-0 top-0",
-        className
-      )}
-      style={{
-        width: data.width,
-        height: data.height,
-        overflow: "hidden",
-        backgroundColor: data.backgroundColor || "#ffffff",
-        // In export mode, no transforms. In editor mode, apply scale.
-        transform: isExport ? undefined : `scale(${effectiveScale})`,
-        transformOrigin: "top left",
-      }}
-      data-creative-renderer={mode}
-      data-platform-id={data.platformId}
-      data-width={data.width}
-      data-height={data.height}
-    >
-      {/* 
-        The inner artboard uses fixed dimensions.
-        All content is absolutely positioned within this fixed frame.
-      */}
+    return (
       <div
+        ref={ref}
+        id={id}
         className={cn(
-          "absolute inset-0 overflow-hidden",
-          !isReady && "opacity-0"
+          "creative-artboard",
+          !isReady && !isExport && "opacity-0",
+          className
         )}
         style={{
+          // FIXED DIMENSIONS - Never use responsive units
           width: data.width,
           height: data.height,
+          // NO ZOOM in export mode
+          transform: isExport ? "none" : `scale(${effectiveScale})`,
+          transformOrigin: "top left",
+          // Clean box model
+          boxSizing: "border-box",
+          margin: 0,
+          padding: 0,
+          // Background
+          backgroundColor: data.backgroundColor || "#ffffff",
+          // Clip content
+          overflow: "hidden",
+          // Ensure position for children
+          position: "relative",
         }}
+        data-creative-renderer={mode}
+        data-platform-id={data.platformId}
+        data-width={data.width}
+        data-height={data.height}
+        // Mark as artboard for export targeting
+        data-artboard="true"
         dangerouslySetInnerHTML={{ __html: wrappedHtml }}
       />
-      
-      {/* Editor-only UI overlay */}
-      {!isExport && (
-        <div 
-          className="absolute inset-0 pointer-events-none"
-          data-editor-overlay
-        />
-      )}
-    </div>
-  );
-}
+    );
+  }
+);
+
+CreativeRenderer.displayName = "CreativeRenderer";
 
 /**
  * Wrap raw HTML with scoped styles that enforce fixed artboard behavior.
@@ -133,6 +122,7 @@ export function CreativeRenderer({
  * - Fixed dimensions
  * - Overflow hidden
  * - No responsive scaling
+ * - SVG icons inlined (no external refs)
  */
 function wrapHtmlForExport(
   html: string,
@@ -142,7 +132,7 @@ function wrapHtmlForExport(
 
   return `
     <div 
-      class="creative-artboard-root"
+      class="creative-content-root"
       style="
         width: ${width}px;
         height: ${height}px;
@@ -150,30 +140,45 @@ function wrapHtmlForExport(
         overflow: hidden;
         background-color: ${backgroundColor};
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       "
     >
       <style>
         /* Reset any responsive behavior */
-        .creative-artboard-root,
-        .creative-artboard-root * {
+        .creative-content-root,
+        .creative-content-root * {
           box-sizing: border-box;
         }
         
-        /* Ensure direct children don't overflow */
-        .creative-artboard-root > * {
-          max-width: ${width}px;
-          max-height: ${height}px;
+        /* Force all children to respect artboard bounds */
+        .creative-content-root > * {
+          max-width: ${width}px !important;
+          max-height: ${height}px !important;
         }
         
-        /* Common AI-generated layout fixes */
-        .creative-artboard-root [style*="position: fixed"] {
+        /* Convert fixed positions to absolute within artboard */
+        .creative-content-root [style*="position: fixed"],
+        .creative-content-root [style*="position:fixed"] {
           position: absolute !important;
         }
         
-        /* Remove any viewport-relative units */
-        .creative-artboard-root [style*="vw"],
-        .creative-artboard-root [style*="vh"] {
-          /* These will be overridden by specific width/height */
+        /* Handle images - ensure they load */
+        .creative-content-root img {
+          max-width: 100%;
+          height: auto;
+        }
+        
+        /* SVG handling - ensure visibility */
+        .creative-content-root svg {
+          display: block;
+          max-width: 100%;
+          max-height: 100%;
+        }
+        
+        /* Font inheritance */
+        .creative-content-root {
+          font-family: inherit;
         }
       </style>
       ${html}
