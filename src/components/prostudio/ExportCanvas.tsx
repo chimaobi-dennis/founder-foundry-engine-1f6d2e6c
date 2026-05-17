@@ -64,6 +64,21 @@ function nextFrame(): Promise<void> {
 }
 
 /**
+ * Wait for render stabilization - double rAF ensures paint completes
+ */
+async function waitForRenderStabilization(): Promise<void> {
+  // First rAF schedules the callback before next repaint
+  await nextFrame();
+  // Second rAF schedules callback after paint has occurred
+  await nextFrame();
+}
+
+/**
+ * Debug mode flag - set to true to render export artboard visibly
+ */
+const DEBUG_EXPORT = false;
+
+/**
  * ExportCanvas - Dedicated export artboard with NO wrapper containers
  * 
  * CRITICAL ARCHITECTURE:
@@ -87,14 +102,14 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
 
     /**
      * Full stabilization before capture:
-     * 1. Next frame for layout
+     * 1. Double rAF for render stabilization
      * 2. Font loading
      * 3. Image loading
      * 4. Additional delay for safety
      */
     const stabilizeForCapture = useCallback(async (): Promise<void> => {
-      // Wait for next frame (layout stabilization)
-      await nextFrame();
+      // CRITICAL: Double rAF ensures paint has completed
+      await waitForRenderStabilization();
       
       // Wait for all fonts to load
       if (typeof document !== "undefined" && "fonts" in document) {
@@ -133,17 +148,42 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           return null;
         }
 
-        // CRITICAL: Force exact dimensions before capture
+        // CRITICAL: Ensure artboard is properly positioned before capture
+        // Remove any display:none, visibility:hidden, opacity:0
+        artboard.style.display = "block";
+        artboard.style.visibility = "visible";
+        artboard.style.opacity = "1";
+        
+        // Force exact dimensions
         artboard.style.width = `${data.width}px`;
         artboard.style.height = `${data.height}px`;
         artboard.style.transform = "none";
         artboard.style.zoom = "1";
+        artboard.style.position = "relative";
+        artboard.style.overflow = "hidden";
 
         // Stabilize before capture
         await stabilizeForCapture();
 
-        // Force another frame after dimension changes
-        await nextFrame();
+        // Verify dimensions are correct
+        const rect = artboard.getBoundingClientRect();
+        console.log(`[ExportCanvas] Pre-capture dimensions: ${rect.width}x${rect.height}`, {
+          platform: data.platformName,
+          expected: `${data.width}x${data.height}`,
+        });
+        
+        if (rect.width === 0 || rect.height === 0) {
+          console.error("[ExportCanvas] ABORT: Export node has 0x0 dimensions!", {
+            rect,
+            artboardStyle: {
+              width: artboard.style.width,
+              height: artboard.style.height,
+              display: artboard.style.display,
+              visibility: artboard.style.visibility,
+            },
+          });
+          return null;
+        }
 
         try {
           console.log(`[ExportCanvas] Capturing ${data.platformName || "canvas"} at ${data.width}x${data.height} (scale: ${pixelRatio})`);
@@ -163,8 +203,8 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
               allowTaint: true,
               // Enable foreign object rendering for SVGs
               foreignObjectRendering: true,
-              // Logging for debugging
-              logging: process.env.NODE_ENV === "development",
+              // Logging for debugging - always log in development
+              logging: true,
               // Remove unnecessary overlays
               ignoreElements: (element) => {
                 // Ignore any editor overlays
@@ -232,21 +272,29 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
     // Generate unique ID for this export artboard
     const artboardId = `export-artboard-${data.platformId || "default"}`;
 
+    // Debug mode: render visibly on screen
+    const debugStyles = DEBUG_EXPORT ? {
+      position: "fixed" as const,
+      left: "10px",
+      top: "10px",
+      zIndex: 9999,
+      border: "2px solid red",
+    } : {
+      // CRITICAL: Use visibility-friendly offscreen positioning
+      // NEVER use display:none, visibility:hidden, or opacity:0
+      position: "fixed" as const,
+      left: "-99999px",
+      top: 0,
+      // Wrapper needs proper overflow handling but NOT 0x0 dimensions
+      overflow: "visible",
+      zIndex: -1,
+    };
+
     return (
       <div
         id={artboardId}
         data-export-artboard-wrapper
-        style={{
-          // Offscreen positioning - completely hidden
-          position: "fixed",
-          left: "-99999px",
-          top: 0,
-          // No dimensions on wrapper - let artboard define size
-          width: 0,
-          height: 0,
-          overflow: "visible",
-          zIndex: -1,
-        }}
+        style={debugStyles}
         className={className}
       >
         {/* 
