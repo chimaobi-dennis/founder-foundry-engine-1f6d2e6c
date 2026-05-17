@@ -12,6 +12,7 @@ export interface BriefData {
   campaignGoal: string;
   keyBenefit: string;
   callToAction: string;
+  tone?: string;
   // AI Workspace Configuration
   visualDirection?: string;
   visualAssets?: string[];
