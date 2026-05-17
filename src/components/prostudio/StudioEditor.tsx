@@ -369,6 +369,19 @@ export function StudioEditor({
   }, [canvasSize.width, canvasSize.height]);
 
   /**
+   * Wait for export canvas ref to be available
+   */
+  const waitForExportCanvas = async (canvasId: string, maxWaitMs = 5000): Promise<ExportCanvasHandle | null> => {
+    const startTime = Date.now();
+    while (Date.now() - startTime < maxWaitMs) {
+      const handle = exportCanvasRefs.current.get(canvasId);
+      if (handle) return handle;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return null;
+  };
+
+  /**
    * Capture canvas using ExportCanvas (html-to-image architecture)
    * This is the primary export method for all formats
    */
@@ -376,10 +389,16 @@ export function StudioEditor({
     canvasId: string,
     pixelRatio = 2
   ): Promise<HTMLCanvasElement | null> => {
-    const exportHandle = exportCanvasRefs.current.get(canvasId);
+    // Wait for export canvas to be available
+    let exportHandle = exportCanvasRefs.current.get(canvasId);
     
     if (!exportHandle) {
-      console.error(`[StudioEditor] No export canvas available for ${canvasId}`);
+      console.log(`[StudioEditor] Waiting for export canvas ${canvasId}...`);
+      exportHandle = await waitForExportCanvas(canvasId);
+    }
+    
+    if (!exportHandle) {
+      console.error(`[StudioEditor] No export canvas available for ${canvasId} after waiting`);
       return null;
     }
     

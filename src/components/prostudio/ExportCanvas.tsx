@@ -128,15 +128,40 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
   ({ data, className }, ref) => {
     const artboardRef = useRef<HTMLDivElement>(null);
     const [isReady, setIsReady] = useState(false);
+    const [artboardReady, setArtboardReady] = useState(false);
+
+    /**
+     * Called when CreativeRenderer reports it's ready (fonts loaded, layout done)
+     */
+    const handleArtboardReady = useCallback(() => {
+      if (DEBUG_EXPORT) {
+        console.log("[ExportCanvas] Artboard reports ready");
+      }
+      setArtboardReady(true);
+    }, []);
 
     /**
      * Full stabilization before capture:
-     * 1. Double rAF for render stabilization
-     * 2. Font loading
-     * 3. Image loading
-     * 4. Additional delay for safety
+     * 1. Wait for artboard to be ready
+     * 2. Double rAF for render stabilization
+     * 3. Font loading
+     * 4. Image loading
+     * 5. Additional delay for safety
      */
     const stabilizeForCapture = useCallback(async (): Promise<void> => {
+      // CRITICAL: Wait for artboard to report ready first
+      if (!artboardReady) {
+        if (DEBUG_EXPORT) {
+          console.log("[ExportCanvas] Waiting for artboard to be ready...");
+        }
+        // Wait up to 5 seconds for artboard to be ready
+        let attempts = 0;
+        while (!artboardReady && attempts < 50) {
+          await new Promise((r) => setTimeout(r, 100));
+          attempts++;
+        }
+      }
+      
       // CRITICAL: Double rAF ensures paint has completed
       await waitForRenderStabilization();
       
@@ -155,7 +180,7 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
       await new Promise((resolve) => setTimeout(resolve, 300));
       
       setIsReady(true);
-    }, []);
+    }, [artboardReady]);
 
     /**
      * Freeze animations by injecting CSS
@@ -384,6 +409,7 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           mode="export"
           data={data}
           id={`artboard-${data.platformId || "default"}`}
+          onRenderComplete={handleArtboardReady}
         />
       </div>
     );
