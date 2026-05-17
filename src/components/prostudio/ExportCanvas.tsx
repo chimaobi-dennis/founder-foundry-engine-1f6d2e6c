@@ -221,25 +221,43 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           return null;
         }
 
+        // CRITICAL: Get the actual content dimensions
+        const scrollWidth = artboard.scrollWidth;
+        const scrollHeight = artboard.scrollHeight;
+        const rect = artboard.getBoundingClientRect();
+        
+        // Use expected dimensions, but ensure we capture full content
+        const captureWidth = Math.max(data.width, scrollWidth, rect.width);
+        const captureHeight = Math.max(data.height, scrollHeight, rect.height);
+        
+        if (DEBUG_EXPORT) {
+          console.log("[ExportCanvas] Dimension analysis:", {
+            expected: `${data.width}x${data.height}`,
+            scroll: `${scrollWidth}x${scrollHeight}`,
+            rect: `${rect.width}x${rect.height}`,
+            capture: `${captureWidth}x${captureHeight}`,
+          });
+        }
+
         // CRITICAL: Force exact dimensions before capture
         const originalStyles: Record<string, string> = {};
-        const stylesToSave = ["width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight", "transform", "position"];
+        const stylesToSave = ["width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight", "transform", "position", "overflow"];
         stylesToSave.forEach(prop => {
           originalStyles[prop] = artboard.style.getPropertyValue(prop);
         });
 
+        // Set dimensions to match expected platform size
         artboard.style.width = `${data.width}px`;
         artboard.style.height = `${data.height}px`;
         artboard.style.minWidth = `${data.width}px`;
         artboard.style.minHeight = `${data.height}px`;
-        artboard.style.maxWidth = `${data.width}px`;
-        artboard.style.maxHeight = `${data.height}px`;
+        // REMOVED: maxWidth/maxHeight that was causing clipping
         artboard.style.transform = "none";
         artboard.style.position = "relative";
         artboard.style.display = "block";
         artboard.style.visibility = "visible";
         artboard.style.opacity = "1";
-        artboard.style.overflow = "hidden";
+        artboard.style.overflow = "visible"; // Allow content to be fully captured
 
         // Stabilize before capture
         await stabilizeForCapture();
@@ -247,18 +265,18 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
         // Freeze animations
         const unfreezeAnimations = freezeAnimations(artboard);
 
-        // Verify dimensions are correct
-        const rect = artboard.getBoundingClientRect();
+        // Verify dimensions are correct after stabilization
+        const finalRect = artboard.getBoundingClientRect();
         if (DEBUG_EXPORT) {
-          console.log(`[ExportCanvas] Pre-capture dimensions: ${rect.width}x${rect.height}`, {
+          console.log(`[ExportCanvas] Pre-capture dimensions: ${finalRect.width}x${finalRect.height}`, {
             platform: data.platformName,
             expected: `${data.width}x${data.height}`,
           });
         }
         
-        if (rect.width === 0 || rect.height === 0) {
+        if (finalRect.width === 0 || finalRect.height === 0) {
           console.error("[ExportCanvas] ABORT: Export node has 0x0 dimensions!", {
-            rect,
+            finalRect,
             artboardStyle: {
               width: artboard.style.width,
               height: artboard.style.height,
@@ -270,14 +288,16 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
 
         try {
           if (DEBUG_EXPORT) {
-            console.log(`[ExportCanvas] Capturing ${data.platformName || "canvas"} at ${data.width}x${data.height} (scale: ${pixelRatio})`);
+            console.log(`[ExportCanvas] Capturing ${data.platformName || "canvas"} at ${captureWidth}x${captureHeight} (scale: ${pixelRatio})`);
           }
           
+          // CRITICAL: Use capture dimensions to avoid clipping
+          // If content is wider than expected, we capture it all
           const exportOptions = {
-            width: data.width,
-            height: data.height,
-            canvasWidth: data.width * pixelRatio,
-            canvasHeight: data.height * pixelRatio,
+            width: captureWidth,
+            height: captureHeight,
+            canvasWidth: captureWidth * pixelRatio,
+            canvasHeight: captureHeight * pixelRatio,
             pixelRatio: pixelRatio,
             backgroundColor: backgroundColor,
             cacheBust: true,
@@ -317,9 +337,10 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           }
 
           // Convert data URL to canvas
-          const expectedWidth = Math.round(data.width * pixelRatio);
-          const expectedHeight = Math.round(data.height * pixelRatio);
-          const canvas = await dataUrlToCanvas(dataUrl, expectedWidth, expectedHeight);
+          // Use capture dimensions to match what was actually captured
+          const outputWidth = Math.round(captureWidth * pixelRatio);
+          const outputHeight = Math.round(captureHeight * pixelRatio);
+          const canvas = await dataUrlToCanvas(dataUrl, outputWidth, outputHeight);
 
           // Cleanup
           unfreezeAnimations();
@@ -331,8 +352,9 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
 
           if (DEBUG_EXPORT) {
             console.log("[ExportCanvas] Export complete", {
-              expected: `${expectedWidth}x${expectedHeight}`,
-              actual: `${canvas.width}x${canvas.height}`,
+              expected: `${data.width}x${data.height}`,
+              captured: `${captureWidth}x${captureHeight}`,
+              output: `${canvas.width}x${canvas.height}`,
               platform: data.platformName,
             });
           }
@@ -343,7 +365,7 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           return null;
         }
       },
-      [data, stabilizeForCapture, freezeAnimations]
+      [data.width, data.height, data.platformName, stabilizeForCapture, freezeAnimations]
     );
 
     /**

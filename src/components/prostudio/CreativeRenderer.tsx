@@ -189,7 +189,7 @@ function wrapHtmlForExport(
           height:100%;
           min-height:${height}px;
           position:relative;
-          overflow:hidden;
+          overflow:visible;
         "
       >
         ${html}
