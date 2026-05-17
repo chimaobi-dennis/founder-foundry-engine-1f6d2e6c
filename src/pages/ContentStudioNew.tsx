@@ -25,6 +25,7 @@ import {
   createBrief,
   generateContentForBrief,
 } from "@/services/contentStudioService";
+import { calculateGenerationCredits } from "@/utils/calculateGenerationCredits";
 import { cn } from "@/lib/utils";
 
 const goals = [
@@ -136,41 +137,17 @@ export default function ContentStudioNew() {
     );
   };
 
-  // Calculate credits based on configuration
-  const calculateCredits = () => {
-    let credits = selectedPlatformIds.length;
-
-    // Base multiplier from complexity
-    const complexityMultipliers: Record<string, number> = {
-      simple: 0.75,
-      balanced: 1,
-      advanced: 1.5,
-      experimental: 2,
-    };
-    credits *= complexityMultipliers[layoutComplexityLevel] || 1;
-
-    // AI-generated visuals add cost
-    if (selectedAssets.includes("ai_generated")) {
-      credits *= 1.5;
-    }
-
-    // SVG generation adds cost
-    if (selectedAssets.includes("svg_graphics")) {
-      credits += selectedPlatformIds.length * 0.5;
-    }
-
-    // Experimental mode adds cost
-    if (creativeMode === "experimental") {
-      credits *= 1.3;
-    }
-
-    // AI freedom above 70 adds cost
-    if (aiFreedom > 70) {
-      credits *= 1.2;
-    }
-
-    return Math.ceil(credits);
-  };
+  // Calculate credits using shared utility (single source of truth)
+  const creditResult = calculateGenerationCredits({
+    platformCount: selectedPlatformIds.length,
+    complexityLevel: layoutComplexityLevel,
+    creativeMode: creativeMode,
+    aiFreedom: aiFreedom,
+    visualAssets: selectedAssets,
+    variationCount: 1,
+  });
+  const credits = creditResult.estimatedCredits;
+  const creditBreakdown = creditResult.breakdown;
 
   const togglePlatform = (id: string) => {
     setSelectedPlatformIds((prev) =>
@@ -220,8 +197,6 @@ export default function ContentStudioNew() {
       setSubmitting(false);
     }
   };
-
-  const credits = calculateCredits();
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">

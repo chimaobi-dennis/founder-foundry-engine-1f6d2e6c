@@ -1,10 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
-import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
+import { injectPromptVariables, getSystemPrompt, callAI } from './aiService';
 import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
 import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
 import { buildFounderIntelligenceContext } from './founderIntelligenceService';
 import { buildPlatformDesignSystem, buildPlatformRenderInstructions } from './platformIntelligenceService';
+import { calculateGenerationCredits, CreditBreakdown, CreditCalculationInput } from '@/utils/calculateGenerationCredits';
 
 // ─── Founder Intelligence helpers ───────────────────────────────────────────
 // Build a token-efficient creative-memory summary suitable for visual prompts.
@@ -177,7 +178,6 @@ export async function createBrief(brandId: string, userId: string, brief: {
   // Calculate estimated credits
   const { estimatedCredits } = calculateGenerationCredits({
     platformCount: brief.selected_platform_ids.length,
-    visualGenerationEnabled: true,
     complexityLevel: generationSettings.layout_complexity,
     creativeMode: generationSettings.creative_mode,
     aiFreedom: generationSettings.ai_freedom,
@@ -222,93 +222,6 @@ export async function createBrief(brandId: string, userId: string, brief: {
     throw error;
   }
   return data.id;
-}
-
-// ─── Credit Calculation Utility ─────────────────────────
-
-export interface CreditBreakdown {
-  baseCredits: number;
-  complexityMultiplier: number;
-  aiVisualsMultiplier: number;
-  svgCost: number;
-  experimentalMultiplier: number;
-  aiFreedomMultiplier: number;
-  totalCredits: number;
-}
-
-export interface CreditCalculationInput {
-  platformCount: number;
-  visualGenerationEnabled: boolean;
-  complexityLevel: string;
-  creativeMode: string;
-  aiFreedom: number;
-  visualAssets: string[];
-  variationCount?: number;
-}
-
-export function calculateGenerationCredits(input: CreditCalculationInput): {
-  estimatedCredits: number;
-  breakdown: CreditBreakdown;
-} {
-  const {
-    platformCount,
-    complexityLevel,
-    creativeMode,
-    aiFreedom,
-    visualAssets,
-    variationCount = 1,
-  } = input;
-
-  // Base credits: 1 per platform
-  let baseCredits = platformCount * variationCount;
-  let totalCredits = baseCredits;
-
-  // Complexity multiplier
-  const complexityMultipliers: Record<string, number> = {
-    simple: 0.75,
-    balanced: 1,
-    advanced: 1.5,
-    experimental: 2,
-  };
-  const complexityMultiplier = complexityMultipliers[complexityLevel] || 1;
-  totalCredits *= complexityMultiplier;
-
-  // AI visuals multiplier
-  const aiVisualsMultiplier = visualAssets.includes('ai_generated') ? 1.5 : 1;
-  totalCredits *= aiVisualsMultiplier;
-
-  // SVG generation cost
-  const svgCost = visualAssets.includes('svg_graphics') ? platformCount * 0.5 * variationCount : 0;
-  totalCredits += svgCost;
-
-  // Experimental mode multiplier
-  const experimentalMultiplier = creativeMode === 'experimental' ? 1.3 : 1;
-  totalCredits *= experimentalMultiplier;
-
-  // AI freedom multiplier (above 70% on 0-100 scale, or 0.7 on 0-1 scale)
-  const aiFreedomMultiplier = aiFreedom > 70 || aiFreedom > 0.7 ? 1.2 : 1;
-  totalCredits *= aiFreedomMultiplier;
-
-  const rawTotal = Math.ceil(totalCredits);
-  // Cap at 9.99 to fit NUMERIC(3,2) database field (max 9.99)
-  const cappedTotal = Math.min(rawTotal, 9.99);
-  // Round to 2 decimal places for database compatibility
-  const finalCredits = Math.round(cappedTotal * 100) / 100;
-
-  const breakdown: CreditBreakdown = {
-    baseCredits,
-    complexityMultiplier,
-    aiVisualsMultiplier,
-    svgCost,
-    experimentalMultiplier,
-    aiFreedomMultiplier,
-    totalCredits: finalCredits,
-  };
-
-  return {
-    estimatedCredits: finalCredits,
-    breakdown,
-  };
 }
 
 // ─── Visual Asset Instruction Builder ───────────────────
@@ -1835,3 +1748,6 @@ export async function getActiveSeries() {
     .lte('next_generation_at', new Date().toISOString());
   return data || [];
 }
+
+// Re-export credit calculation types from shared utility for backward compatibility
+export type { CreditBreakdown, CreditCalculationInput } from '@/utils/calculateGenerationCredits';
