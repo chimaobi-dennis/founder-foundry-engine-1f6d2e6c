@@ -185,34 +185,42 @@ export async function createBrief(brandId: string, userId: string, brief: {
     variationCount: 1,
   });
 
+  const insertPayload = {
+    brand_id: brandId,
+    user_id: userId,
+    name: brief.name,
+    brief: brief.brief,
+    campaign_goal: brief.campaign_goal,
+    is_series: brief.is_series,
+    series_interval: brief.series_interval,
+    selected_platform_ids: brief.selected_platform_ids,
+    // AI Workspace Configuration
+    visual_direction: generationSettings.visual_direction,
+    visual_assets: generationSettings.visual_assets,
+    layout_complexity: generationSettings.layout_complexity,
+    creative_mode: generationSettings.creative_mode,
+    ai_freedom: generationSettings.ai_freedom,
+    image_density: generationSettings.image_density,
+    generation_settings: generationSettings,
+    estimated_credits: estimatedCredits,
+    actual_credits_used: null, // Will be updated after generation
+    series_active: brief.is_series || false,
+    next_generation_at: nextGenAt,
+    status: 'draft'
+  };
+
+  console.log('[ContentStudio] DEBUG: Inserting brief with values:', insertPayload);
+  console.log('[ContentStudio] DEBUG: ai_freedom:', insertPayload.ai_freedom, 'image_density:', insertPayload.image_density, 'estimated_credits:', insertPayload.estimated_credits);
+
   const { data, error } = await db
     .from('content_studio_briefs')
-    .insert({
-      brand_id: brandId,
-      user_id: userId,
-      name: brief.name,
-      brief: brief.brief,
-      campaign_goal: brief.campaign_goal,
-      is_series: brief.is_series,
-      series_interval: brief.series_interval,
-      selected_platform_ids: brief.selected_platform_ids,
-      // AI Workspace Configuration
-      visual_direction: generationSettings.visual_direction,
-      visual_assets: generationSettings.visual_assets,
-      layout_complexity: generationSettings.layout_complexity,
-      creative_mode: generationSettings.creative_mode,
-      ai_freedom: generationSettings.ai_freedom,
-      image_density: generationSettings.image_density,
-      generation_settings: generationSettings,
-      estimated_credits: estimatedCredits,
-      actual_credits_used: null, // Will be updated after generation
-      series_active: brief.is_series || false,
-      next_generation_at: nextGenAt,
-      status: 'draft'
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
-  if (error) throw error;
+  if (error) {
+    console.error('[ContentStudio] DEBUG: Brief insert error:', error);
+    throw error;
+  }
   return data.id;
 }
 
@@ -277,13 +285,15 @@ export function calculateGenerationCredits(input: CreditCalculationInput): {
   const experimentalMultiplier = creativeMode === 'experimental' ? 1.3 : 1;
   totalCredits *= experimentalMultiplier;
 
-  // AI freedom multiplier (above 70%)
-  const aiFreedomMultiplier = aiFreedom > 70 ? 1.2 : 1;
+  // AI freedom multiplier (above 70% on 0-100 scale, or 0.7 on 0-1 scale)
+  const aiFreedomMultiplier = aiFreedom > 70 || aiFreedom > 0.7 ? 1.2 : 1;
   totalCredits *= aiFreedomMultiplier;
 
   const rawTotal = Math.ceil(totalCredits);
   // Cap at 9.99 to fit NUMERIC(3,2) database field (max 9.99)
   const cappedTotal = Math.min(rawTotal, 9.99);
+  // Round to 2 decimal places for database compatibility
+  const finalCredits = Math.round(cappedTotal * 100) / 100;
 
   const breakdown: CreditBreakdown = {
     baseCredits,
@@ -292,11 +302,11 @@ export function calculateGenerationCredits(input: CreditCalculationInput): {
     svgCost,
     experimentalMultiplier,
     aiFreedomMultiplier,
-    totalCredits: cappedTotal,
+    totalCredits: finalCredits,
   };
 
   return {
-    estimatedCredits: cappedTotal,
+    estimatedCredits: finalCredits,
     breakdown,
   };
 }
@@ -341,13 +351,16 @@ export interface GenerationSettings {
 export function buildGenerationSettings(
   brief: Partial<GenerationSettings>
 ): GenerationSettings {
+  // Scale 0-100 values to 0.00-1.00 to fit NUMERIC(3,2) database field
+  const aiFreedom = brief.ai_freedom ?? 50;
+  const imageDensity = brief.image_density ?? 50;
   return {
     visual_direction: brief.visual_direction || 'balanced',
     visual_assets: brief.visual_assets || ['product_photos', 'brand_images'],
     layout_complexity: brief.layout_complexity || 'balanced',
     creative_mode: brief.creative_mode || 'on_brand',
-    ai_freedom: brief.ai_freedom ?? 50,
-    image_density: brief.image_density ?? 50,
+    ai_freedom: parseFloat((aiFreedom / 100).toFixed(2)), // 50 -> 0.50
+    image_density: parseFloat((imageDensity / 100).toFixed(2)), // 50 -> 0.50
   };
 }
 
