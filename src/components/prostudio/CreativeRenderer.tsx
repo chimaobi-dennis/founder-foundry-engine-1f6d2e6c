@@ -131,57 +131,70 @@ function wrapHtmlForExport(
   const { width, height, backgroundColor } = config;
 
   return `
-    <div 
+    <div
       class="creative-content-root"
       style="
-        width: ${width}px;
-        height: ${height}px;
-        position: relative;
-        overflow: hidden;
-        background-color: ${backgroundColor};
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
+        width:${width}px;
+        height:${height}px;
+        position:relative;
+        overflow:hidden;
+        background:${backgroundColor};
+        box-sizing:border-box;
+        margin:0;
+        padding:0;
       "
     >
       <style>
-        /* Reset any responsive behavior */
         .creative-content-root,
         .creative-content-root * {
           box-sizing: border-box;
         }
-        
-        /* Force all children to respect artboard bounds */
-        .creative-content-root > * {
+
+        /* Force the AI-generated root node to fill the export canvas */
+        .creative-content-inner {
+          display: block;
+        }
+        .creative-content-inner > *:first-child {
+          width: 100% !important;
+          height: 100% !important;
+          min-height: 100% !important;
           max-width: ${width}px !important;
           max-height: ${height}px !important;
         }
-        
+
         /* Convert fixed positions to absolute within artboard */
         .creative-content-root [style*="position: fixed"],
         .creative-content-root [style*="position:fixed"] {
           position: absolute !important;
         }
-        
-        /* Handle images - ensure they load */
+
         .creative-content-root img {
           max-width: 100%;
           height: auto;
         }
-        
-        /* SVG handling - ensure visibility */
+
         .creative-content-root svg {
           display: block;
           max-width: 100%;
           max-height: 100%;
         }
-        
-        /* Font inheritance */
+
         .creative-content-root {
           font-family: inherit;
         }
       </style>
-      ${html}
+      <div
+        class="creative-content-inner"
+        style="
+          width:100%;
+          height:100%;
+          min-height:${height}px;
+          position:relative;
+          overflow:hidden;
+        "
+      >
+        ${html}
+      </div>
     </div>
   `;
 }
