@@ -243,7 +243,7 @@ export default function ContentStudioNew() {
         <div className="space-y-6">
           {/* Header */}
           <div>
-            <h1 className="font-display text-2xl text-foreground">AI Creative Workspace</h1>
+            <h1 className="font-display text-2xl text-foreground">Brand Campaign Workspace</h1>
             <p className="text-[13px] font-ui text-muted-foreground mt-1">
               {activeBrand?.name || "Brand"} • Configure your generation parameters
             </p>

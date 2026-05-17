@@ -10,9 +10,15 @@ export interface BriefData {
   productName: string;
   targetAudience: string;
   campaignGoal: string;
-  tone: string;
   keyBenefit: string;
   callToAction: string;
+  // AI Workspace Configuration
+  visualDirection?: string;
+  visualAssets?: string[];
+  layoutComplexity?: string;
+  creativeMode?: string;
+  aiFreedom?: number;
+  imageDensity?: number;
 }
 
 export type PlatformTab =
@@ -79,9 +85,14 @@ export function getRoastBrief(): BriefData {
     productName: "Nordform Daily Stack",
     targetAudience: "Stockholm professionals 28–42",
     campaignGoal: "Drive first purchase",
-    tone: "Confident and warm",
     keyBenefit: "Science-based supplements with honest claims — no fluff",
     callToAction: "Start your daily ritual",
+    visualDirection: "minimal",
+    visualAssets: ["product_photos", "brand_images"],
+    layoutComplexity: "balanced",
+    creativeMode: "on_brand",
+    aiFreedom: 50,
+    imageDensity: 50,
   };
 }
 
@@ -90,9 +101,14 @@ export function getLagosBrief(): BriefData {
     productName: "Sthlm Studio",
     targetAudience: "Swedish creative freelancers and small studios",
     campaignGoal: "Build awareness",
-    tone: "Professional",
     keyBenefit: "All-in-one studio management built for how Stockholm works",
     callToAction: "Start your free trial",
+    visualDirection: "editorial",
+    visualAssets: ["product_photos", "svg_graphics"],
+    layoutComplexity: "advanced",
+    creativeMode: "explore",
+    aiFreedom: 60,
+    imageDensity: 40,
   };
 }
 

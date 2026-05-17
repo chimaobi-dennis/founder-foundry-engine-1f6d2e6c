@@ -164,12 +164,48 @@ export async function createBrief(brandId: string, userId: string, brief: {
     ? calculateNextGenerationTime(brief.series_interval || 'weekly')
     : null;
 
+  // Build generation settings with defaults
+  const generationSettings = buildGenerationSettings({
+    visual_direction: brief.visual_direction,
+    visual_assets: brief.visual_assets,
+    layout_complexity: brief.layout_complexity,
+    creative_mode: brief.creative_mode,
+    ai_freedom: brief.ai_freedom,
+    image_density: brief.image_density,
+  });
+
+  // Calculate estimated credits
+  const { estimatedCredits } = calculateGenerationCredits({
+    platformCount: brief.selected_platform_ids.length,
+    visualGenerationEnabled: true,
+    complexityLevel: generationSettings.layout_complexity,
+    creativeMode: generationSettings.creative_mode,
+    aiFreedom: generationSettings.ai_freedom,
+    visualAssets: generationSettings.visual_assets,
+    variationCount: 1,
+  });
+
   const { data, error } = await db
     .from('content_studio_briefs')
     .insert({
       brand_id: brandId,
       user_id: userId,
-      ...brief,
+      name: brief.name,
+      brief: brief.brief,
+      campaign_goal: brief.campaign_goal,
+      is_series: brief.is_series,
+      series_interval: brief.series_interval,
+      selected_platform_ids: brief.selected_platform_ids,
+      // AI Workspace Configuration
+      visual_direction: generationSettings.visual_direction,
+      visual_assets: generationSettings.visual_assets,
+      layout_complexity: generationSettings.layout_complexity,
+      creative_mode: generationSettings.creative_mode,
+      ai_freedom: generationSettings.ai_freedom,
+      image_density: generationSettings.image_density,
+      generation_settings: generationSettings,
+      estimated_credits: estimatedCredits,
+      actual_credits_used: null, // Will be updated after generation
       series_active: brief.is_series || false,
       next_generation_at: nextGenAt,
       status: 'draft'
@@ -178,6 +214,137 @@ export async function createBrief(brandId: string, userId: string, brief: {
     .single();
   if (error) throw error;
   return data.id;
+}
+
+// ─── Credit Calculation Utility ─────────────────────────
+
+export interface CreditBreakdown {
+  baseCredits: number;
+  complexityMultiplier: number;
+  aiVisualsMultiplier: number;
+  svgCost: number;
+  experimentalMultiplier: number;
+  aiFreedomMultiplier: number;
+  totalCredits: number;
+}
+
+export interface CreditCalculationInput {
+  platformCount: number;
+  visualGenerationEnabled: boolean;
+  complexityLevel: string;
+  creativeMode: string;
+  aiFreedom: number;
+  visualAssets: string[];
+  variationCount?: number;
+}
+
+export function calculateGenerationCredits(input: CreditCalculationInput): {
+  estimatedCredits: number;
+  breakdown: CreditBreakdown;
+} {
+  const {
+    platformCount,
+    complexityLevel,
+    creativeMode,
+    aiFreedom,
+    visualAssets,
+    variationCount = 1,
+  } = input;
+
+  // Base credits: 1 per platform
+  let baseCredits = platformCount * variationCount;
+  let totalCredits = baseCredits;
+
+  // Complexity multiplier
+  const complexityMultipliers: Record<string, number> = {
+    simple: 0.75,
+    balanced: 1,
+    advanced: 1.5,
+    experimental: 2,
+  };
+  const complexityMultiplier = complexityMultipliers[complexityLevel] || 1;
+  totalCredits *= complexityMultiplier;
+
+  // AI visuals multiplier
+  const aiVisualsMultiplier = visualAssets.includes('ai_generated') ? 1.5 : 1;
+  totalCredits *= aiVisualsMultiplier;
+
+  // SVG generation cost
+  const svgCost = visualAssets.includes('svg_graphics') ? platformCount * 0.5 * variationCount : 0;
+  totalCredits += svgCost;
+
+  // Experimental mode multiplier
+  const experimentalMultiplier = creativeMode === 'experimental' ? 1.3 : 1;
+  totalCredits *= experimentalMultiplier;
+
+  // AI freedom multiplier (above 70%)
+  const aiFreedomMultiplier = aiFreedom > 70 ? 1.2 : 1;
+  totalCredits *= aiFreedomMultiplier;
+
+  const breakdown: CreditBreakdown = {
+    baseCredits,
+    complexityMultiplier,
+    aiVisualsMultiplier,
+    svgCost,
+    experimentalMultiplier,
+    aiFreedomMultiplier,
+    totalCredits: Math.ceil(totalCredits),
+  };
+
+  return {
+    estimatedCredits: Math.ceil(totalCredits),
+    breakdown,
+  };
+}
+
+// ─── Visual Asset Instruction Builder ───────────────────
+
+export function buildVisualAssetInstructions(visualAssets: string[] | null | undefined): string {
+  if (!visualAssets || visualAssets.length === 0) {
+    return 'Use brand-appropriate imagery and graphics.';
+  }
+
+  const instructions: string[] = [];
+  const assetMap: Record<string, string> = {
+    ai_generated: 'Generate custom AI visuals that match the brand aesthetic and campaign theme.',
+    brand_images: 'Incorporate uploaded brand images where appropriate for authenticity.',
+    product_photos: 'Feature product photography prominently to showcase offerings.',
+    svg_graphics: 'Use editable SVG vector graphics for scalable, crisp design elements.',
+    illustrations: 'Include custom illustrations to add personality and visual interest.',
+    abstract_shapes: 'Use abstract geometric shapes and patterns as design accents.',
+  };
+
+  for (const asset of visualAssets) {
+    if (assetMap[asset]) {
+      instructions.push(assetMap[asset]);
+    }
+  }
+
+  return instructions.join(' ') || 'Use brand-appropriate imagery and graphics.';
+}
+
+// ─── Generation Settings Builder ────────────────────────
+
+export interface GenerationSettings {
+  visual_direction: string;
+  visual_assets: string[];
+  layout_complexity: string;
+  creative_mode: string;
+  ai_freedom: number;
+  image_density: number;
+}
+
+export function buildGenerationSettings(
+  brief: Partial<GenerationSettings>
+): GenerationSettings {
+  return {
+    visual_direction: brief.visual_direction || 'balanced',
+    visual_assets: brief.visual_assets || ['product_photos', 'brand_images'],
+    layout_complexity: brief.layout_complexity || 'balanced',
+    creative_mode: brief.creative_mode || 'on_brand',
+    ai_freedom: brief.ai_freedom ?? 50,
+    image_density: brief.image_density ?? 50,
+  };
 }
 
 export async function prefillBriefFromBrand(brandId: string) {
@@ -203,7 +370,6 @@ export async function prefillBriefFromBrand(brandId: string) {
   return {
     name: `${brand?.name || 'My Brand'} — Content`,
     campaign_goal: dna?.campaign_strategy || stageMap['campaign_strategy'] || '',
-    tone: dna?.brand_voice || '',
     brief: ''
   };
 }
@@ -281,6 +447,19 @@ export async function generateContentForBrief(
       );
     }
 
+    // Build generation settings with safe defaults
+    const generationSettings = buildGenerationSettings({
+      visual_direction: brief.visual_direction,
+      visual_assets: brief.visual_assets,
+      layout_complexity: brief.layout_complexity,
+      creative_mode: brief.creative_mode,
+      ai_freedom: brief.ai_freedom,
+      image_density: brief.image_density,
+    });
+
+    // Build visual asset instructions for copy generation context
+    const visualAssetInstructions = buildVisualAssetInstructions(generationSettings.visual_assets);
+
     const copyPrompt = injectPromptVariables(copySystemPrompt, {
       brand_name: brand.name,
       brand_voice: dna?.brand_voice || '',
@@ -288,13 +467,20 @@ export async function generateContentForBrief(
       target_audience: dna?.target_audience || '',
       positioning_statement: dna?.positioning_statement || '',
       campaign_goal: brief.campaign_goal || 'Build awareness',
-      tone: brief.tone || dna?.brand_voice || 'Confident',
       brief: brief.brief || 'Create engaging brand content',
       founder_intelligence_context: intelligence.promptContext,
       mentor_memory: intelligence.promptContext,
       captured_stage_data: intelligence.promptContext,
       platform_list: platformDescriptions,
       platform_keys: platformKeys,
+      // New AI Workspace Configuration variables
+      visual_direction: generationSettings.visual_direction,
+      layout_complexity: generationSettings.layout_complexity,
+      creative_mode: generationSettings.creative_mode,
+      ai_freedom: generationSettings.ai_freedom.toString(),
+      image_density: generationSettings.image_density.toString(),
+      visual_assets: generationSettings.visual_assets.join(', '),
+      visual_asset_instructions: visualAssetInstructions,
     });
 
     // Append strict JSON-only instruction + slug enforcement
@@ -479,10 +665,13 @@ export async function generateContentForBrief(
       const platformSystem = buildPlatformDesignSystem(platform);
       const platformInstructions = buildPlatformRenderInstructions(platformSystem);
 
+      // Build visual generation prompt with AI workspace configuration
+      const visualAssetInstructions = buildVisualAssetInstructions(generationSettings.visual_assets);
+
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
         generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nCampaign: ${brief.brief || brief.campaign_goal || brand.name}\nHeadline to feature: "${platformCopy.headline || ''}"\nCopy snippet: "${(platformCopy.copy_text || '').slice(0, 80)}"`,
         aspectRatio: platform.aspect_ratio || '1:1',
-        styleIntensity: brief.tone === 'Bold and direct' ? 'bold' : 'balanced',
+        styleIntensity: generationSettings.visual_direction === 'bold' ? 'bold' : 'balanced',
         variant_index: '1',
         variant_count: '1',
         brand_voice: dna?.brand_voice || '',
@@ -502,6 +691,14 @@ export async function generateContentForBrief(
         captured_stage_data: visualIntelligence.promptContext,
         image_width: platformSystem.dimensions.width.toString(),
         image_height: platformSystem.dimensions.height.toString(),
+        // New AI Workspace Configuration variables
+        visual_direction: generationSettings.visual_direction,
+        layout_complexity: generationSettings.layout_complexity,
+        creative_mode: generationSettings.creative_mode,
+        ai_freedom: generationSettings.ai_freedom.toString(),
+        image_density: generationSettings.image_density.toString(),
+        visual_assets: generationSettings.visual_assets.join(', '),
+        visual_asset_instructions: visualAssetInstructions,
       });
 
       const visualResult = await withTimeout(
@@ -872,7 +1069,7 @@ export async function regenerateCreative(
     const visualPrompt = injectPromptVariables(visualSystemPrompt, {
       generation_prompt: `Platform: ${platform.name}\n\n${regenPlatformInstructions}\n\nThis is a REGENERATION — create a fresh layout variation that stays on-brand and matches the existing copy below. Vary the composition but maintain brand identity.\nHeadline to feature: "${creative.headline || ''}"\nCopy snippet: "${(creative.copy_text || '').slice(0, 80)}"`,
       aspectRatio: platform.aspect_ratio || '1:1',
-      styleIntensity: brief.tone === 'Bold and direct' ? 'bold' : 'balanced',
+      styleIntensity: brief.visual_direction === 'bold' ? 'bold' : 'balanced',
       variant_index: '1',
       variant_count: '1',
       brand_voice: dna?.brand_voice || '',
@@ -892,6 +1089,14 @@ export async function regenerateCreative(
       captured_stage_data: visualIntelligence.promptContext,
       image_width: regenPlatformSystem.dimensions.width.toString(),
       image_height: regenPlatformSystem.dimensions.height.toString(),
+      // AI Workspace Configuration (from brief)
+      visual_direction: brief.visual_direction || 'balanced',
+      layout_complexity: brief.layout_complexity || 'balanced',
+      creative_mode: brief.creative_mode || 'on_brand',
+      ai_freedom: (brief.ai_freedom ?? 50).toString(),
+      image_density: (brief.image_density ?? 50).toString(),
+      visual_assets: (brief.visual_assets || ['product_photos', 'brand_images']).join(', '),
+      visual_asset_instructions: buildVisualAssetInstructions(brief.visual_assets),
     });
 
     const visualResult = await withTimeout(
@@ -1064,7 +1269,7 @@ export async function retryFailedCreatives(
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
         generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nRETRY GENERATION — create a fresh layout variation that stays on-brand and matches the existing copy below.\nHeadline to feature: "${creative.headline || ''}"\nCopy snippet: "${(creative.copy_text || '').slice(0, 80)}"`,
         aspectRatio: platform.aspect_ratio || '1:1',
-        styleIntensity: brief.tone === 'Bold and direct' ? 'bold' : 'balanced',
+        styleIntensity: brief.visual_direction === 'bold' ? 'bold' : 'balanced',
         variant_index: '1',
         variant_count: '1',
         brand_voice: dna?.brand_voice || '',
@@ -1084,6 +1289,14 @@ export async function retryFailedCreatives(
         captured_stage_data: visualIntelligence.promptContext,
         image_width: platformSystem.dimensions.width.toString(),
         image_height: platformSystem.dimensions.height.toString(),
+        // AI Workspace Configuration (from brief)
+        visual_direction: brief.visual_direction || 'balanced',
+        layout_complexity: brief.layout_complexity || 'balanced',
+        creative_mode: brief.creative_mode || 'on_brand',
+        ai_freedom: (brief.ai_freedom ?? 50).toString(),
+        image_density: (brief.image_density ?? 50).toString(),
+        visual_assets: (brief.visual_assets || ['product_photos', 'brand_images']).join(', '),
+        visual_asset_instructions: buildVisualAssetInstructions(brief.visual_assets),
       });
 
       const visualResult = await withTimeout(

@@ -71,6 +71,15 @@ export interface ConversationMemory {
   strategicSignals: string[];
 }
 
+export interface GenerationPreferences {
+  visualDirection?: string;
+  visualAssets?: string[];
+  layoutComplexity?: string;
+  creativeMode?: string;
+  aiFreedom?: number;
+  imageDensity?: number;
+}
+
 export interface CreativeMemory {
   recentCreativeOutputs: {
     id: string;
@@ -87,6 +96,9 @@ export interface CreativeMemory {
   recurringCTAStyles: string[];
 
   antiRepetitionSignals: string[];
+
+  // AI Workspace Generation Preferences (from recent briefs)
+  generationPreferences: GenerationPreferences;
 }
 
 export interface FounderIntelligenceContext {
@@ -274,6 +286,7 @@ function emptyConversationMemory(): ConversationMemory {
 async function getCreativeMemory(
   brandId: string
 ): Promise<CreativeMemory> {
+  // Fetch recent creatives with their briefs for generation preferences
   const { data: creatives } = await db
     .from('content_studio_creatives')
     .select(`
@@ -282,12 +295,20 @@ async function getCreativeMemory(
       copy_text,
       visual_html,
       created_at,
+      brief_id,
       content_platforms (
         name,
         slug
       ),
       content_studio_briefs (
-        brand_id
+        brand_id,
+        visual_direction,
+        visual_assets,
+        layout_complexity,
+        creative_mode,
+        ai_freedom,
+        image_density,
+        generation_settings
       )
     `)
     .order('created_at', { ascending: false })
@@ -297,6 +318,22 @@ async function getCreativeMemory(
     (c: any) =>
       c.content_studio_briefs?.brand_id === brandId
   );
+
+  // Extract generation preferences from most recent brief with settings
+  const latestBriefWithSettings = filteredCreatives.find(
+    (c: any) => c.content_studio_briefs?.generation_settings || c.content_studio_briefs?.visual_direction
+  )?.content_studio_briefs;
+
+  const generationPreferences: GenerationPreferences = latestBriefWithSettings
+    ? {
+        visualDirection: latestBriefWithSettings.visual_direction || latestBriefWithSettings.generation_settings?.visual_direction,
+        visualAssets: latestBriefWithSettings.visual_assets || latestBriefWithSettings.generation_settings?.visual_assets,
+        layoutComplexity: latestBriefWithSettings.layout_complexity || latestBriefWithSettings.generation_settings?.layout_complexity,
+        creativeMode: latestBriefWithSettings.creative_mode || latestBriefWithSettings.generation_settings?.creative_mode,
+        aiFreedom: latestBriefWithSettings.ai_freedom ?? latestBriefWithSettings.generation_settings?.ai_freedom,
+        imageDensity: latestBriefWithSettings.image_density ?? latestBriefWithSettings.generation_settings?.image_density,
+      }
+    : {}; // Empty defaults if no previous generation settings found
 
   const recentCreativeOutputs = filteredCreatives.map((c: any) => ({
     id: c.id,
@@ -324,6 +361,8 @@ async function getCreativeMemory(
     recurringCTAStyles: detectCTAPatterns(allHtml),
 
     antiRepetitionSignals: buildAntiRepetitionSignals(filteredCreatives),
+
+    generationPreferences,
   };
 }
 
