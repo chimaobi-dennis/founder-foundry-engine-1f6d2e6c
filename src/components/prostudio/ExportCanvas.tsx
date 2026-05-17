@@ -199,11 +199,11 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
               backgroundColor: backgroundColor,
               // CORS for external images
               useCORS: true,
-              // Allow tainted canvas (for cross-origin images that allow it)
-              allowTaint: true,
-              // Enable foreign object rendering for SVGs
-              foreignObjectRendering: true,
-              // Logging for debugging - always log in development
+              // DO NOT use allowTaint - can cause issues
+              allowTaint: false,
+              // CRITICAL: foreignObjectRendering causes blank exports in Safari/SVG layouts
+              foreignObjectRendering: false,
+              // Logging for debugging
               logging: true,
               // Remove unnecessary overlays
               ignoreElements: (element) => {

@@ -444,8 +444,8 @@ export function StudioEditor({
         scale: pixelRatio,
         backgroundColor: null, // Transparent per requirements
         useCORS: true,
-        allowTaint: true,
-        foreignObjectRendering: true,
+        allowTaint: false,
+        foreignObjectRendering: false, // Causes blank exports in Safari/SVG layouts
         logging: process.env.NODE_ENV === "development",
       });
       
