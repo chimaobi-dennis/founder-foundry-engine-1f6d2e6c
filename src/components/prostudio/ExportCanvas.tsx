@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, forwardRef, useImperativeHandle } from "react";
-import domtoimage from "dom-to-image-more";
+import * as htmlToImage from "html-to-image";
 import { CreativeRenderer, CreativeData } from "./CreativeRenderer";
 
 export interface ExportCanvasHandle {
@@ -12,10 +12,12 @@ export interface ExportCanvasHandle {
 export interface CaptureOptions {
   /** Pixel ratio for capture (default: 2 for retina) */
   pixelRatio?: number;
-  /** Background color (default: null for transparent) */
-  backgroundColor?: string | null;
+  /** Background color (default: #ffffff) */
+  backgroundColor?: string;
   /** Timeout for capture (default: 30000ms) */
   timeout?: number;
+  /** Export format */
+  format?: "png" | "jpeg";
 }
 
 interface ExportCanvasProps {
@@ -34,10 +36,12 @@ async function waitForImages(container: HTMLElement): Promise<void> {
     if (img.complete && img.naturalHeight !== 0) {
       return Promise.resolve();
     }
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
-        console.warn("[ExportCanvas] Image load timeout:", img.src);
-        resolve(); // Continue anyway
+        if (DEBUG_EXPORT) {
+          console.warn("[ExportCanvas] Image load timeout:", img.src);
+        }
+        resolve();
       }, 5000);
       
       img.addEventListener("load", () => {
@@ -47,8 +51,10 @@ async function waitForImages(container: HTMLElement): Promise<void> {
       
       img.addEventListener("error", () => {
         clearTimeout(timeout);
-        console.warn("[ExportCanvas] Image load error:", img.src);
-        resolve(); // Continue anyway
+        if (DEBUG_EXPORT) {
+          console.warn("[ExportCanvas] Image load error:", img.src);
+        }
+        resolve();
       }, { once: true });
     });
   });
@@ -67,10 +73,31 @@ function nextFrame(): Promise<void> {
  * Wait for render stabilization - double rAF ensures paint completes
  */
 async function waitForRenderStabilization(): Promise<void> {
-  // First rAF schedules the callback before next repaint
   await nextFrame();
-  // Second rAF schedules callback after paint has occurred
   await nextFrame();
+}
+
+/**
+ * Convert data URL to HTMLCanvasElement
+ */
+function dataUrlToCanvas(dataUrl: string, width: number, height: number): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Failed to get canvas context"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas);
+    };
+    img.onerror = () => reject(new Error("Failed to load data URL into image"));
+    img.src = dataUrl;
+  });
 }
 
 /**
@@ -84,8 +111,9 @@ const DEBUG_EXPORT = false;
  * CRITICAL ARCHITECTURE:
  * - Single artboard div with fixed dimensions
  * - NO parent containers with transforms/padding/margins
- * - Positioned offscreen at left: -99999px
  * - Captures ONLY the artboard node, never parent containers
+ * 
+ * Uses html-to-image library for reliable exports.
  * 
  * Required fixes implemented:
  * 1. Fixed dimensions per platform - never responsive
@@ -93,7 +121,8 @@ const DEBUG_EXPORT = false;
  * 3. NO editor wrappers or overlays
  * 4. Image loading wait before capture
  * 5. Font loading wait before capture
- * 6. Correct html2canvas settings per requirements
+ * 6. Proper CSS filtering for editor UI
+ * 7. Animation freezing before capture
  */
 export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
   ({ data, className }, ref) => {
@@ -129,6 +158,24 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
     }, []);
 
     /**
+     * Freeze animations by injecting CSS
+     */
+    const freezeAnimations = useCallback((node: HTMLElement): (() => void) => {
+      const style = document.createElement("style");
+      style.textContent = `
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      `;
+      node.appendChild(style);
+      
+      return () => {
+        style.remove();
+      };
+    }, []);
+
+    /**
      * Capture the rendered creative to a canvas.
      * Returns null if capture fails.
      * 
@@ -138,8 +185,9 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
       async (options: CaptureOptions = {}): Promise<HTMLCanvasElement | null> => {
         const {
           pixelRatio = 2,
-          backgroundColor = null,
+          backgroundColor = "#ffffff",
           timeout = 30000,
+          format = "png",
         } = options;
 
         const artboard = artboardRef.current;
@@ -148,29 +196,40 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
           return null;
         }
 
-        // CRITICAL: Ensure artboard is properly positioned before capture
-        // Remove any display:none, visibility:hidden, opacity:0
+        // CRITICAL: Force exact dimensions before capture
+        const originalStyles: Record<string, string> = {};
+        const stylesToSave = ["width", "height", "minWidth", "minHeight", "maxWidth", "maxHeight", "transform", "position"];
+        stylesToSave.forEach(prop => {
+          originalStyles[prop] = artboard.style.getPropertyValue(prop);
+        });
+
+        artboard.style.width = `${data.width}px`;
+        artboard.style.height = `${data.height}px`;
+        artboard.style.minWidth = `${data.width}px`;
+        artboard.style.minHeight = `${data.height}px`;
+        artboard.style.maxWidth = `${data.width}px`;
+        artboard.style.maxHeight = `${data.height}px`;
+        artboard.style.transform = "none";
+        artboard.style.position = "relative";
         artboard.style.display = "block";
         artboard.style.visibility = "visible";
         artboard.style.opacity = "1";
-        
-        // Force exact dimensions
-        artboard.style.width = `${data.width}px`;
-        artboard.style.height = `${data.height}px`;
-        artboard.style.transform = "none";
-        artboard.style.zoom = "1";
-        artboard.style.position = "relative";
         artboard.style.overflow = "hidden";
 
         // Stabilize before capture
         await stabilizeForCapture();
 
+        // Freeze animations
+        const unfreezeAnimations = freezeAnimations(artboard);
+
         // Verify dimensions are correct
         const rect = artboard.getBoundingClientRect();
-        console.log(`[ExportCanvas] Pre-capture dimensions: ${rect.width}x${rect.height}`, {
-          platform: data.platformName,
-          expected: `${data.width}x${data.height}`,
-        });
+        if (DEBUG_EXPORT) {
+          console.log(`[ExportCanvas] Pre-capture dimensions: ${rect.width}x${rect.height}`, {
+            platform: data.platformName,
+            expected: `${data.width}x${data.height}`,
+          });
+        }
         
         if (rect.width === 0 || rect.height === 0) {
           console.error("[ExportCanvas] ABORT: Export node has 0x0 dimensions!", {
@@ -178,71 +237,88 @@ export const ExportCanvas = forwardRef<ExportCanvasHandle, ExportCanvasProps>(
             artboardStyle: {
               width: artboard.style.width,
               height: artboard.style.height,
-              display: artboard.style.display,
-              visibility: artboard.style.visibility,
             },
           });
+          unfreezeAnimations();
           return null;
         }
 
         try {
-          console.log(`[ExportCanvas] Capturing ${data.platformName || "canvas"} at ${data.width}x${data.height} (scale: ${pixelRatio})`);
+          if (DEBUG_EXPORT) {
+            console.log(`[ExportCanvas] Capturing ${data.platformName || "canvas"} at ${data.width}x${data.height} (scale: ${pixelRatio})`);
+          }
           
-          const canvas = await Promise.race([
-            domtoimage.toCanvas(artboard, {
-              width: data.width,
-              height: data.height,
-              bgcolor: backgroundColor || "#ffffff",
-              style: {
-                transform: "scale(1)",
-                transformOrigin: "top left",
-                margin: "0",
-              },
-              scale: pixelRatio,
-              cacheBust: true,
-              filter: (node) => {
-                if (!(node instanceof HTMLElement)) return true;
-                return !(
-                  node.hasAttribute("data-editor-overlay") ||
-                  node.classList.contains("editor-ui") ||
-                  node.classList.contains("drag-handle")
-                );
-              },
-            }),
-            new Promise<never>((_, reject) =>
-              setTimeout(
-                () => reject(new Error("Export capture timeout")),
-                timeout
-              )
-            ),
-          ]);
+          const exportOptions = {
+            width: data.width,
+            height: data.height,
+            canvasWidth: data.width * pixelRatio,
+            canvasHeight: data.height * pixelRatio,
+            pixelRatio: pixelRatio,
+            backgroundColor: backgroundColor,
+            cacheBust: true,
+            skipAutoScale: true,
+            filter: (node: Node) => {
+              if (!(node instanceof HTMLElement)) return true;
+              const isEditorUi =
+                node.classList?.contains("editor-overlay") ||
+                node.classList?.contains("editor-ui") ||
+                node.classList?.contains("drag-handle") ||
+                node.hasAttribute?.("data-editor-overlay");
+              
+              if (DEBUG_EXPORT && isEditorUi) {
+                console.log("[ExportCanvas] Filtering out:", node.className);
+              }
+              
+              return !isEditorUi;
+            },
+          };
 
-          // Validate captured dimensions
-          const expectedWidth = Math.round(data.width * pixelRatio);
-          const expectedHeight = Math.round(data.height * pixelRatio);
+          let dataUrl: string;
           
-          console.log("[ExportCanvas] Export complete", {
-            expected: `${expectedWidth}x${expectedHeight}`,
-            actual: `${canvas.width}x${canvas.height}`,
-            platform: data.platformName,
-          });
-          
-          if (canvas.width !== expectedWidth || canvas.height !== expectedHeight) {
-            console.warn("[ExportCanvas] Dimension mismatch:", {
-              platform: data.platformName,
-              expected: `${expectedWidth}x${expectedHeight}`,
-              actual: `${canvas.width}x${canvas.height}`,
-              artboardSize: `${artboard.offsetWidth}x${artboard.offsetHeight}`,
-            });
+          if (format === "jpeg") {
+            dataUrl = await Promise.race([
+              htmlToImage.toJpeg(artboard, exportOptions),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("Export capture timeout")), timeout)
+              ),
+            ]);
+          } else {
+            dataUrl = await Promise.race([
+              htmlToImage.toPng(artboard, exportOptions),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error("Export capture timeout")), timeout)
+              ),
+            ]);
           }
 
+          // Convert data URL to canvas
+          const expectedWidth = Math.round(data.width * pixelRatio);
+          const expectedHeight = Math.round(data.height * pixelRatio);
+          const canvas = await dataUrlToCanvas(dataUrl, expectedWidth, expectedHeight);
+
+          // Cleanup
+          unfreezeAnimations();
+          
+          // Restore original styles
+          stylesToSave.forEach(prop => {
+            artboard.style.setProperty(prop, originalStyles[prop]);
+          });
+
+          if (DEBUG_EXPORT) {
+            console.log("[ExportCanvas] Export complete", {
+              expected: `${expectedWidth}x${expectedHeight}`,
+              actual: `${canvas.width}x${canvas.height}`,
+              platform: data.platformName,
+            });
+          }
+          
           return canvas;
         } catch (error) {
           console.error("[ExportCanvas] Capture failed:", error);
           return null;
         }
       },
-      [data, stabilizeForCapture]
+      [data, stabilizeForCapture, freezeAnimations]
     );
 
     /**

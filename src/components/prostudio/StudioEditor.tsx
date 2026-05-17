@@ -22,7 +22,6 @@ import {
   GripVertical,
   Check,
 } from "lucide-react";
-import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import JSZip from "jszip";
 import { saveOutputToLibrary } from "@/services/templateService";
@@ -328,37 +327,27 @@ export function StudioEditor({
   }, []);
   const currentVersion = activeCanvasId ? versionByCanvas[activeCanvasId] : undefined;
 
-  /** Capture the inner stage (data-studio-stage > scaled child) at full resolution. */
+  /** 
+   * Capture the stage using ExportCanvas (new architecture)
+   * This is used for saving to library
+   */
   const captureStage = useCallback(async (scale: number): Promise<string | null> => {
-    const host = stageHostElRef.current;
-    if (!host) return null;
-    // The actual stage we want to capture is the inner div with scale transform.
-    // Temporarily neutralize the transform so html2canvas captures intrinsic px.
-    const inner = host.querySelector<HTMLElement>("div[style*='transform: scale']");
-    const target: HTMLElement = inner || host;
-    const originalTransform = target.style.transform;
-    const originalWidth = host.style.width;
-    const originalHeight = host.style.height;
-    try {
-      target.style.transform = "scale(1)";
-      // Match the host to intrinsic size so it doesn't crop the un-scaled content
-      host.style.width = `${canvasSize.width}px`;
-      host.style.height = `${canvasSize.height}px`;
-      const canvas = await html2canvas(target, {
-        width: canvasSize.width,
-        height: canvasSize.height,
-        scale,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-      });
-      return canvas.toDataURL("image/png");
-    } finally {
-      target.style.transform = originalTransform;
-      host.style.width = originalWidth;
-      host.style.height = originalHeight;
+    // Use the current variation's export canvas if available
+    const exportHandle = variationId ? exportCanvasRefs.current.get(variationId) : null;
+    
+    if (exportHandle) {
+      try {
+        const canvas = await exportHandle.capture({ pixelRatio: scale });
+        return canvas?.toDataURL("image/png") || null;
+      } catch (e) {
+        console.error("[StudioEditor] Export capture failed:", e);
+        return null;
+      }
     }
-  }, [canvasSize.width, canvasSize.height]);
+    
+    console.warn("[StudioEditor] No export canvas available for capture");
+    return null;
+  }, [variationId]);
 
 
   // ─── Export Canvas Refs ───────────────────────────────────────────────
@@ -380,8 +369,8 @@ export function StudioEditor({
   }, [canvasSize.width, canvasSize.height]);
 
   /**
-   * Capture canvas using ExportCanvas (new architecture)
-   * Falls back to legacy html2canvas if ExportCanvas ref not available
+   * Capture canvas using ExportCanvas (html-to-image architecture)
+   * This is the primary export method for all formats
    */
   const captureCanvasWithRetry = useCallback(async (
     canvasId: string,
@@ -389,75 +378,19 @@ export function StudioEditor({
   ): Promise<HTMLCanvasElement | null> => {
     const exportHandle = exportCanvasRefs.current.get(canvasId);
     
-    if (exportHandle) {
-      // Use new ExportCanvas architecture
-      try {
-        const canvas = await exportHandle.capture({ pixelRatio });
-        return canvas;
-      } catch (e) {
-        console.warn(`[StudioEditor] ExportCanvas capture failed for ${canvasId}, falling back`, e);
-      }
+    if (!exportHandle) {
+      console.error(`[StudioEditor] No export canvas available for ${canvasId}`);
+      return null;
     }
-    
-    // Legacy fallback using html2canvas on temporary element
-    console.warn(`[StudioEditor] Using legacy capture for ${canvasId}`);
-    const canvas = canvases?.find(c => c.id === canvasId);
-    if (!canvas) return null;
-    
-    // Create temporary artboard for legacy capture with EXACT dimensions
-    const w = canvas.canvasWidth || canvasSize.width;
-    const h = canvas.canvasHeight || canvasSize.height;
-    const wrapper = document.createElement("div");
-    wrapper.id = `fallback-export-${canvasId}`;
-    wrapper.style.cssText = `
-      position: fixed;
-      left: -99999px;
-      top: 0;
-      width: ${w}px;
-      height: ${h}px;
-      overflow: hidden;
-      background: #ffffff;
-      box-sizing: border-box;
-      transform: none;
-      zoom: 1;
-    `;
-    
-    const scoped = scopeStyleBlocks(canvas.html || "");
-    wrapper.innerHTML = `
-      <div data-export-root style="width:${w}px;height:${h}px;overflow:hidden;position:relative;">
-        ${scoped}
-      </div>
-    `;
-    document.body.appendChild(wrapper);
-    
-    // Wait for fonts and images in fallback mode too
-    if (typeof document !== "undefined" && "fonts" in document) {
-      await document.fonts.ready;
-    }
-    await new Promise(r => setTimeout(r, 300));
     
     try {
-      const target = wrapper.querySelector<HTMLElement>("div[data-export-root]") || wrapper;
-      const result = await html2canvas(target, {
-        width: w,
-        height: h,
-        scale: pixelRatio,
-        backgroundColor: null, // Transparent per requirements
-        useCORS: true,
-        allowTaint: false,
-        foreignObjectRendering: false, // Causes blank exports in Safari/SVG layouts
-        logging: process.env.NODE_ENV === "development",
-      });
-      
-      console.log(`[StudioEditor] Legacy capture succeeded: ${result.width}x${result.height}`);
-      return result;
+      const canvas = await exportHandle.capture({ pixelRatio });
+      return canvas;
     } catch (e) {
-      console.error(`[StudioEditor] Legacy capture failed:`, e);
+      console.error(`[StudioEditor] Export capture failed for ${canvasId}:`, e);
       return null;
-    } finally {
-      wrapper.remove();
     }
-  }, [canvases, canvasSize]);
+  }, []);
 
   const slugify = (s: string) => (s || "design").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
