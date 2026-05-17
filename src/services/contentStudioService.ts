@@ -684,70 +684,141 @@ export async function generateContentForBrief(
         subjectLine: creativePayload.subject_line
       });
 
-      // Upsert creative row - prevents duplicates per generation session
-      const conflictColumns = sessionId 
-        ? 'generation_session_id,platform_id' 
-        : 'brief_id,platform_id';
-
-      console.log('[creative upsert]', {
-        generationSessionId: sessionId,
-        platformId: platform.id,
-        conflictColumns,
-        status: creativePayload.status
-      });
-
-      const { data: creative, error } = await db
+      // ═══════════════════════════════════════════════════════════════════════
+      // PERSISTENCE LAYER - Separate from AI generation
+      // ═══════════════════════════════════════════════════════════════════════
+      
+      // Check for existing creative row to update (avoids duplicates)
+      const { data: existingCreative } = await db
         .from('content_studio_creatives')
-        .upsert(creativePayload, {
-          onConflict: conflictColumns
-        })
-        .select('*, content_platforms(*)')
-        .single();
+        .select('id')
+        .eq('brief_id', briefId)
+        .eq('platform_id', platform.id)
+        .eq('generation_session_id', sessionId)
+        .maybeSingle();
 
-      if (error) {
-        console.error('[creative upsert failed]', {
-          error: error.message,
+      async function persistCreative(retries = 2): Promise<{ data: any; error: any }> {
+        let lastError: any = null;
+        
+        for (let attempt = 1; attempt <= retries + 1; attempt++) {
+          if (attempt > 1) {
+            console.log('[creative save retry]', {
+              attempt,
+              platformId: platform.id,
+              generationSessionId: sessionId
+            });
+            // Wait briefly before retry
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+
+          try {
+            if (existingCreative?.id) {
+              const { data, error } = await db
+                .from('content_studio_creatives')
+                .update({
+                  ...creativePayload,
+                  id: existingCreative.id,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', existingCreative.id)
+                .select('*, content_platforms(*)')
+                .single();
+              if (!error) return { data, error: null };
+              lastError = error;
+            } else {
+              const { data, error } = await db
+                .from('content_studio_creatives')
+                .insert(creativePayload)
+                .select('*, content_platforms(*)')
+                .single();
+              if (!error) return { data, error: null };
+              lastError = error;
+            }
+          } catch (e: any) {
+            lastError = e;
+          }
+        }
+        
+        return { data: null, error: lastError };
+      }
+
+      const { data: savedCreative, error: persistError } = await persistCreative();
+
+      if (persistError) {
+        // AI generation succeeded but persistence failed
+        // This is a persistence issue, NOT an AI generation issue
+        console.error('[creative persistence failed - AI generation was successful]', {
+          error: persistError.message,
           generationSessionId: sessionId,
-          platformId: platform.id
+          platformId: platform.id,
+          operation: existingCreative?.id ? 'update' : 'insert',
+          aiSuccess: true,
+          visualHtmlLength: visualHtml?.length
         });
 
         await logError({
-          errorMessage: error.message,
-          errorType: 'ai_call',
+          errorMessage: persistError.message,
+          errorType: 'database',
           module: 'prostudio',
-          componentName: 'contentStudioService'
+          componentName: 'contentStudioService',
+          context: {
+            briefId,
+            platformId: platform.id,
+            sessionId,
+            operation: existingCreative?.id ? 'update' : 'insert',
+            aiGenerationSuccess: true
+          }
         });
 
-        // Ensure this specific creative is marked failed
-        await db
-          .from('content_studio_creatives')
-          .update({ status: 'failed', updated_at: new Date().toISOString() })
-          .eq('brief_id', briefId)
-          .eq('platform_id', platform.id)
-          .eq('status', 'generating');
+        // Mark this platform as 'persist_failed' (different from 'failed')
+        // AI generation worked, only persistence failed
+        const failedCreative = {
+          ...creativePayload,
+          id: existingCreative?.id || 'temp-failed',
+          status: 'persist_failed' as const,
+          platform: { name: platform.name, slug: platform.slug },
+          aiGenerated: true,
+          persistError: persistError.message
+        };
+        
+        // Add to creatives array so it gets counted in brief status
+        creatives.push(failedCreative);
+        
+        // Still notify callback but with persist_failed status
+        onPlatformComplete?.(platform.id, failedCreative);
+        
+        // Do NOT mark brief as failed - AI generation succeeded
+        // This platform can be retried for persistence only
       } else {
-        console.log('[creative upsert success]', {
-          creativeId: creative?.id,
+        console.log('[creative persistence success]', {
+          creativeId: savedCreative?.id,
           platformId: platform.id,
-          status: creative?.status
+          status: savedCreative?.status,
+          operation: existingCreative?.id ? 'update' : 'insert',
+          aiSuccess: true
         });
-        creatives.push(creative);
-        onPlatformComplete?.(platform.id, creative);
+        creatives.push(savedCreative);
+        onPlatformComplete?.(platform.id, savedCreative);
       }
     }));
 
     // Calculate brief status based on creatives (partial-success resilience)
+    // Separate AI generation failure from persistence failure
     const readyCount = creatives.filter(c => c.status === 'ready').length;
-    const failedCount = creatives.filter(c => c.status === 'failed').length;
+    const aiFailedCount = creatives.filter(c => c.status === 'failed').length; // AI generation failed
+    const persistFailedCount = creatives.filter(c => c.status === 'persist_failed').length; // AI succeeded, save failed
     const totalPlatforms = platforms.length;
 
+    // Brief status: only mark failed if AI generation failed, not if persistence failed
     let briefStatus: string;
     if (readyCount === totalPlatforms) {
       briefStatus = 'ready';
-    } else if (readyCount === 0) {
-      briefStatus = 'failed';
+    } else if (readyCount === 0 && aiFailedCount > 0) {
+      briefStatus = 'failed'; // AI generation failed for all platforms
+    } else if (persistFailedCount > 0 && aiFailedCount === 0) {
+      briefStatus = 'persist_retry_needed'; // AI succeeded, but some saves failed
     } else {
-      briefStatus = 'partial_failed'; // Some succeeded, some failed
+      briefStatus = 'partial_failed'; // Some AI generation succeeded, some failed
     }
 
     // Update brief status and last generated time
@@ -765,7 +836,8 @@ export async function generateContentForBrief(
     console.log('[ContentStudio] === Generation Complete ===');
     console.log('[ContentStudio] Brief status:', briefStatus);
     console.log('[ContentStudio] Platforms ready:', readyCount, '/', totalPlatforms);
-    console.log('[ContentStudio] Platforms failed:', failedCount, '/', totalPlatforms);
+    console.log('[ContentStudio] AI generation failed:', aiFailedCount, '/', totalPlatforms);
+    console.log('[ContentStudio] Persistence failed (retryable):', persistFailedCount, '/', totalPlatforms);
 
     // Create notification
     await createNotification(
@@ -1152,17 +1224,32 @@ export async function retryFailedCreatives(
     const brand = brief.brands;
     const dna = brief.founder_dna;
 
-    // Fetch only failed creatives
-    const { data: failedCreatives, error: failedError } = await db
+    // Fetch both AI-failed and persistence-failed creatives
+    // 'failed' = AI generation failed (needs regeneration)
+    // 'persist_failed' = AI succeeded but save failed (needs retry persistence only)
+    const { data: aiFailedCreatives } = await db
       .from('content_studio_creatives')
       .select('*, content_platforms(*)')
       .eq('brief_id', briefId)
       .eq('status', 'failed');
+    
+    const { data: persistFailedCreatives } = await db
+      .from('content_studio_creatives')
+      .select('*, content_platforms(*)')
+      .eq('brief_id', briefId)
+      .eq('status', 'persist_failed');
 
-    if (failedError || !failedCreatives || failedCreatives.length === 0) {
-      console.log('[ContentStudio] No failed creatives to retry');
+    const failedCreatives = [...(aiFailedCreatives || []), ...(persistFailedCreatives || [])];
+
+    if (failedCreatives.length === 0) {
+      console.log('[ContentStudio] No failed or persist-failed creatives to retry');
       return;
     }
+    
+    console.log('[ContentStudio] Retry targets:', {
+      aiFailed: aiFailedCreatives?.length || 0,
+      persistFailed: persistFailedCreatives?.length || 0
+    });
 
     console.log('[ContentStudio] === Retrying Failed Creatives ===');
     console.log('[ContentStudio] Failed creatives count:', failedCreatives.length);
@@ -1343,6 +1430,175 @@ export async function retryFailedCreatives(
       context: { briefId }
     });
     throw error;
+  }
+}
+
+/**
+ * Retry persistence for creatives that failed to save to database.
+ * AI generation succeeded, but database insert/update failed.
+ * This is a pure persistence retry - no AI regeneration needed.
+ */
+export async function retryPersistFailedCreatives(
+  briefId: string,
+  onPlatformComplete?: (platformId: string, creative: any) => void
+): Promise<void> {
+  console.log('[ContentStudio] === Starting Persistence Retry ===', { briefId });
+
+  const sessionId = crypto.randomUUID();
+  const { data: brief } = await db
+    .from('content_studio_briefs')
+    .select('*')
+    .eq('id', briefId)
+    .single();
+
+  if (!brief) {
+    throw new Error('Brief not found');
+  }
+
+  // Get all creatives that failed persistence
+  const { data: persistFailedCreatives } = await db
+    .from('content_studio_creatives')
+    .select('*, content_platforms(*)')
+    .eq('brief_id', briefId)
+    .eq('status', 'persist_failed');
+
+  if (!persistFailedCreatives || persistFailedCreatives.length === 0) {
+    console.log('[ContentStudio] No persistence-failed creatives to retry');
+    return;
+  }
+
+  console.log('[ContentStudio] Persistence retry targets:', {
+    count: persistFailedCreatives.length,
+    platforms: persistFailedCreatives.map(c => c.content_platforms?.name)
+  });
+
+  const successfulSaves: any[] = [];
+
+  await Promise.all(persistFailedCreatives.map(async (creative) => {
+    const platform = creative.content_platforms;
+    if (!platform) return;
+
+    // Retry persistence with the same data that AI generated
+    console.log('[ContentStudio] Retrying persistence for:', {
+      platformId: platform.id,
+      platformName: platform.name,
+      creativeId: creative.id
+    });
+
+    // Check for existing creative row
+    const { data: existingCreative } = await db
+      .from('content_studio_creatives')
+      .select('id')
+      .eq('brief_id', briefId)
+      .eq('platform_id', platform.id)
+      .eq('generation_session_id', sessionId)
+      .maybeSingle();
+
+    async function persistWithRetry(retries = 2): Promise<{ data: any; error: any }> {
+      let lastError: any = null;
+      
+      for (let attempt = 1; attempt <= retries + 1; attempt++) {
+        if (attempt > 1) {
+          console.log('[creative persistence retry]', { attempt, platformId: platform.id });
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        try {
+          const payload = {
+            brief_id: briefId,
+            platform_id: platform.id,
+            generation_session_id: sessionId,
+            headline: creative.headline,
+            copy_text: creative.copy_text,
+            subject_line: creative.subject_line,
+            hashtags: creative.hashtags,
+            visual_html: creative.visual_html,
+            template_id: creative.template_id,
+            status: 'ready',
+            updated_at: new Date().toISOString()
+          };
+
+          if (existingCreative?.id) {
+            const { data, error } = await db
+              .from('content_studio_creatives')
+              .update({ ...payload, id: existingCreative.id })
+              .eq('id', existingCreative.id)
+              .select('*, content_platforms(*)')
+              .single();
+            if (!error) return { data, error: null };
+            lastError = error;
+          } else {
+            const { data, error } = await db
+              .from('content_studio_creatives')
+              .insert(payload)
+              .select('*, content_platforms(*)')
+              .single();
+            if (!error) return { data, error: null };
+            lastError = error;
+          }
+        } catch (e: any) {
+          lastError = e;
+        }
+      }
+      
+      return { data: null, error: lastError };
+    }
+
+    const { data: savedCreative, error: persistError } = await persistWithRetry();
+
+    if (persistError) {
+      console.error('[ContentStudio] Persistence retry failed:', {
+        platformId: platform.id,
+        error: persistError.message
+      });
+      
+      await logError({
+        errorMessage: persistError.message,
+        errorType: 'database',
+        module: 'prostudio',
+        componentName: 'contentStudioService',
+        callLocation: 'retryPersistFailedCreatives',
+        context: { briefId, platformId: platform.id, creativeId: creative.id }
+      });
+    } else {
+      console.log('[ContentStudio] Persistence retry success:', {
+        platformId: platform.id,
+        creativeId: savedCreative?.id
+      });
+      successfulSaves.push(savedCreative);
+      onPlatformComplete?.(platform.id, savedCreative);
+    }
+  }));
+
+  // Update brief status based on results
+  const { data: allCreatives } = await db
+    .from('content_studio_creatives')
+    .select('status')
+    .eq('brief_id', briefId);
+
+  if (allCreatives) {
+    const readyCount = allCreatives.filter(c => c.status === 'ready').length;
+    const persistFailedCount = allCreatives.filter(c => c.status === 'persist_failed').length;
+    const total = allCreatives.length;
+
+    let briefStatus: string;
+    if (readyCount === total) {
+      briefStatus = 'ready';
+    } else if (persistFailedCount > 0) {
+      briefStatus = 'persist_retry_needed';
+    } else {
+      briefStatus = 'partial_failed';
+    }
+
+    await db
+      .from('content_studio_briefs')
+      .update({ status: briefStatus })
+      .eq('id', briefId);
+
+    console.log('[ContentStudio] === Persistence Retry Complete ===');
+    console.log('[ContentStudio] Brief status:', briefStatus);
+    console.log('[ContentStudio] Platforms ready:', readyCount, '/', total);
+    console.log('[ContentStudio] Persistence still failed:', persistFailedCount, '/', total);
   }
 }
 
