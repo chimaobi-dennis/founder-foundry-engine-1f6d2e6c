@@ -27,6 +27,8 @@ import jsPDF from "jspdf";
 import JSZip from "jszip";
 import { saveOutputToLibrary } from "@/services/templateService";
 import { saveCreativeToLibrary } from "@/services/contentStudioService";
+import { ExportCanvas, ExportCanvasHandle } from "./ExportCanvas";
+import { CreativeData } from "./CreativeRenderer";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { SaveFormatModal, type SaveFormat } from "./SaveFormatModal";
@@ -359,25 +361,73 @@ export function StudioEditor({
   }, [canvasSize.width, canvasSize.height]);
 
 
-  /** Render arbitrary HTML at given intrinsic dimensions to a canvas. Used for multi-platform export. */
-  const renderHtmlToCanvas = useCallback(async (htmlStr: string, w: number, h: number, scale = 2): Promise<HTMLCanvasElement> => {
+  // ─── Export Canvas Refs ───────────────────────────────────────────────
+  // Map of canvas IDs to ExportCanvas refs for high-quality export
+  const exportCanvasRefs = useRef<Map<string, ExportCanvasHandle>>(new Map());
+
+  /**
+   * Build CreativeData for a canvas/platform for export
+   */
+  const buildCreativeData = useCallback((canvas: CanvasItem): CreativeData => {
+    return {
+      html: canvas.html || "",
+      platformId: canvas.id,
+      platformName: canvas.label || "Canvas",
+      width: canvas.canvasWidth || canvasSize.width,
+      height: canvas.canvasHeight || canvasSize.height,
+      backgroundColor: "#ffffff",
+    };
+  }, [canvasSize.width, canvasSize.height]);
+
+  /**
+   * Capture canvas using ExportCanvas (new architecture)
+   * Falls back to legacy html2canvas if ExportCanvas ref not available
+   */
+  const captureCanvasWithRetry = useCallback(async (
+    canvasId: string,
+    pixelRatio = 2
+  ): Promise<HTMLCanvasElement | null> => {
+    const exportHandle = exportCanvasRefs.current.get(canvasId);
+    
+    if (exportHandle) {
+      // Use new ExportCanvas architecture
+      try {
+        const canvas = await exportHandle.capture({ pixelRatio });
+        return canvas;
+      } catch (e) {
+        console.warn(`[StudioEditor] ExportCanvas capture failed for ${canvasId}, falling back`, e);
+      }
+    }
+    
+    // Legacy fallback using html2canvas on visible canvas
+    console.warn(`[StudioEditor] Using legacy capture for ${canvasId}`);
+    const canvas = canvases?.find(c => c.id === canvasId);
+    if (!canvas) return null;
+    
+    // Create temporary wrapper for legacy capture
+    const w = canvas.canvasWidth || canvasSize.width;
+    const h = canvas.canvasHeight || canvasSize.height;
     const wrapper = document.createElement("div");
     wrapper.style.cssText = `position:fixed;left:-99999px;top:0;width:${w}px;height:${h}px;overflow:hidden;background:#fff;`;
-    // Scope any <style> blocks in the AI html so they don't bleed into the
-    // live app while we capture (wrapper sits in document.body during render).
-    const scoped = scopeStyleBlocks(htmlStr || "");
-    wrapper.innerHTML = `<style>div[data-export-root]{width:${w}px;height:${h}px;overflow:hidden;}div[data-export-root]>*{width:100%!important;height:100%!important;box-sizing:border-box;}</style><div data-export-root class="studio-stage-scope">${scoped}</div>`;
+    const scoped = scopeStyleBlocks(canvas.html || "");
+    wrapper.innerHTML = `<style>div[data-export-root]{width:${w}px;height:${h}px;overflow:hidden;}</style><div data-export-root class="studio-stage-scope">${scoped}</div>`;
     document.body.appendChild(wrapper);
+    
     try {
       const target = wrapper.querySelector<HTMLElement>("div[data-export-root]") || wrapper;
-      const canvas = await html2canvas(target, {
-        width: w, height: h, scale, backgroundColor: "#ffffff", useCORS: true, logging: false,
+      const result = await html2canvas(target, {
+        width: w,
+        height: h,
+        scale: pixelRatio,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
       });
-      return canvas;
+      return result;
     } finally {
       wrapper.remove();
     }
-  }, []);
+  }, [canvases, canvasSize]);
 
   const slugify = (s: string) => (s || "design").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -407,8 +457,13 @@ export function StudioEditor({
 
       const rendered: { id: string; name: string; canvas: HTMLCanvasElement }[] = [];
       for (const it of work) {
-        const canvas = await renderHtmlToCanvas(it.html, it.w, it.h, 2);
-        rendered.push({ id: it.id, name: slugify(it.name), canvas });
+        // Use new captureCanvasWithRetry (ExportCanvas if available, else legacy fallback)
+        const canvas = await captureCanvasWithRetry(it.id, 2);
+        if (canvas) {
+          rendered.push({ id: it.id, name: slugify(it.name), canvas });
+        } else {
+          console.error(`[StudioEditor] Failed to capture canvas for ${it.id}`);
+        }
         setExportProgress((p) => ({ ...p, [it.id]: 1 }));
       }
 
@@ -446,7 +501,7 @@ export function StudioEditor({
       setIsExporting(false);
       setExportProgress({});
     }
-  }, [canvases, variationId, variationHtml, templateName, briefName, canvasSize.width, canvasSize.height, renderHtmlToCanvas]);
+  }, [canvases, variationId, variationHtml, templateName, briefName, canvasSize.width, canvasSize.height, captureCanvasWithRetry]);
 
   const handleExport = useCallback(() => {
     if (onDownload) { onDownload(); return; }
@@ -1424,6 +1479,24 @@ export function StudioEditor({
             onSetMain={onSetMainCanvas}
           />
         )}
+
+        {/* Hidden Export Canvases for high-quality export
+            Each canvas gets an ExportCanvas that renders the same HTML
+            but at fixed scale(1) without responsive transforms */}
+        {canvases?.map((canvas) => (
+          <ExportCanvas
+            key={`export-${canvas.id}`}
+            ref={(el) => {
+              // Store the ExportCanvas handle in the Map when mounted
+              if (el) {
+                exportCanvasRefs.current.set(canvas.id, el);
+              } else {
+                exportCanvasRefs.current.delete(canvas.id);
+              }
+            }}
+            data={buildCreativeData(canvas)}
+          />
+        ))}
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
