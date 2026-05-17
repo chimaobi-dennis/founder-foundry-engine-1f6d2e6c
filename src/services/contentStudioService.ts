@@ -501,7 +501,10 @@ export async function generateContentForBrief(
     );
 
     console.log('[ContentStudio] === Copy Generation Step ===');
-    console.log('[ContentStudio] Prompt sent to AI:', strictCopyPrompt);
+    console.log('[ContentStudio] FULL PROMPT SENT TO AI (campaign_copy):');
+    console.log('--- PROMPT START ---');
+    console.log(strictCopyPrompt);
+    console.log('--- PROMPT END ---');
     console.log('[ContentStudio] AI response received:', copyResult.success ? 'SUCCESS' : 'FAILED');
     if (copyResult.text) {
       console.log('[ContentStudio] Copy result:', copyResult.text);
@@ -714,7 +717,10 @@ export async function generateContentForBrief(
       console.log('[ContentStudio] Task type used: template_generation');
       console.log('[ContentStudio] Model used:', visualResult.modelUsed);
       console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
-      console.log('[ContentStudio] Prompt sent to AI1:', visualPrompt);
+      console.log('[ContentStudio] FULL PROMPT SENT TO AI (template_generation):');
+      console.log('--- PROMPT START ---');
+      console.log(visualPrompt);
+      console.log('--- PROMPT END ---');
       console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
       if (visualResult.text) {
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
@@ -1113,7 +1119,10 @@ export async function regenerateCreative(
     console.log('[ContentStudio] Task type used: template_generation');
     console.log('[ContentStudio] Model used:', visualResult.modelUsed);
     console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
-    console.log('[ContentStudio] Prompt sent to AI2:', visualPrompt);
+    console.log('[ContentStudio] FULL PROMPT SENT TO AI (regenerate):');
+    console.log('--- PROMPT START ---');
+    console.log(visualPrompt);
+    console.log('--- PROMPT END ---');
     console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
     if (visualResult.text) {
       console.log('[ContentStudio] Visual result length:', visualResult.text.length);
@@ -1313,7 +1322,10 @@ export async function retryFailedCreatives(
       console.log('[ContentStudio] Task type used: template_generation');
       console.log('[ContentStudio] Model used:', visualResult.modelUsed);
       console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
-      console.log('[ContentStudio] Prompt sent to AI3:', visualPrompt);
+      console.log('[ContentStudio] FULL PROMPT SENT TO AI (retry):');
+      console.log('--- PROMPT START ---');
+      console.log(visualPrompt);
+      console.log('--- PROMPT END ---');
       console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
       if (visualResult.text) {
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
