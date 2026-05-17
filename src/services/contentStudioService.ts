@@ -281,6 +281,10 @@ export function calculateGenerationCredits(input: CreditCalculationInput): {
   const aiFreedomMultiplier = aiFreedom > 70 ? 1.2 : 1;
   totalCredits *= aiFreedomMultiplier;
 
+  const rawTotal = Math.ceil(totalCredits);
+  // Cap at 9.99 to fit NUMERIC(3,2) database field (max 9.99)
+  const cappedTotal = Math.min(rawTotal, 9.99);
+
   const breakdown: CreditBreakdown = {
     baseCredits,
     complexityMultiplier,
@@ -288,11 +292,11 @@ export function calculateGenerationCredits(input: CreditCalculationInput): {
     svgCost,
     experimentalMultiplier,
     aiFreedomMultiplier,
-    totalCredits: Math.ceil(totalCredits),
+    totalCredits: cappedTotal,
   };
 
   return {
-    estimatedCredits: Math.ceil(totalCredits),
+    estimatedCredits: cappedTotal,
     breakdown,
   };
 }
