@@ -195,7 +195,7 @@ export async function createBrief(brandId: string, userId: string, brief: {
     series_interval: brief.series_interval,
     selected_platform_ids: brief.selected_platform_ids,
     // AI Workspace Configuration
-    visual_direction: generationSettings.visual_direction,
+    visual_direction: [generationSettings.visual_direction], // Array format for DB
     visual_assets: generationSettings.visual_assets,
     layout_complexity: generationSettings.layout_complexity,
     creative_mode: generationSettings.creative_mode,
