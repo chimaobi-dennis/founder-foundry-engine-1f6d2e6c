@@ -355,3 +355,15 @@ export {
   type IRegenerationApi,
   type IAnalyticsApi,
 } from './sceneToolingContract';
+
+// ─── Phase 6A: Reliability Layer ──────────────────────────────
+export {
+  validateScene,
+  checkExportSafety,
+  type SceneValidationResult,
+  type SceneMetrics,
+  type QualityTier,
+  type GatewayOptions,
+  type ExportSafetyResult,
+  type ExportSafetyIssue,
+} from './sceneValidationGateway';

@@ -2,8 +2,8 @@
  * sceneGenerationPipeline.ts
  *
  * The official generation flow.
- * Orchestrates: strategy → prompt → AI call → parse → validate →
- * normalize → repair → refine → score → reject/accept → version snapshot.
+ * Orchestrates: strategy → prompt → AI call → parse → validationGateway →
+ * accept/reject → version snapshot.
  */
 
 import type { SceneDocument } from '@/types/scene';
@@ -13,6 +13,7 @@ import { prepareScene } from './safeRenderScene';
 import { repairScene, type RepairResult } from './repairScene';
 import { refineComposition, type RefinementResult } from './refineComposition';
 import { evaluateSceneQuality, type QualityEvaluation, type EvaluationOptions } from './evaluateSceneQuality';
+import { validateScene, type SceneValidationResult } from './sceneValidationGateway';
 import type { CreativeStrategy } from './creativeStrategist';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -180,58 +181,35 @@ async function singlePipelineRun(
     };
   }
 
-  // 4. Validate + Normalize
+  // 4–8. Validation Gateway (validate → normalize → repair → refine → score → accept/reject)
   onProgress?.('validating');
   t = performance.now();
-  const { document: validated } = prepareScene(parsed.sceneJson);
+  const gateway = validateScene(parsed.sceneJson, {
+    autoRepair: ctx.autoRepair,
+    autoRefine: ctx.autoRefine,
+    minimumScore: ctx.minimumScore,
+    platformSlug: ctx.platformSlug,
+    evaluationOptions: ctx.evaluationOptions,
+  });
   stages.validate = Math.round(performance.now() - t);
 
-  let scene = validated;
-
-  // 5. Repair
-  let repair: RepairResult | null = null;
-  if (ctx.autoRepair) {
-    onProgress?.('repairing');
-    t = performance.now();
-    repair = repairScene(scene, { platformSlug: ctx.platformSlug });
-    scene = repair.scene;
-    stages.repair = Math.round(performance.now() - t);
-  }
-
-  // 6. Refine
-  let refinement: RefinementResult | null = null;
-  if (ctx.autoRefine) {
-    onProgress?.('refining');
-    t = performance.now();
-    refinement = refineComposition(scene, { platformSlug: ctx.platformSlug });
-    scene = refinement.scene;
-    stages.refine = Math.round(performance.now() - t);
-  }
-
-  // 7. Score
-  onProgress?.('scoring');
-  t = performance.now();
-  const evaluation = evaluateSceneQuality(scene, {
-    platformSlug: ctx.platformSlug,
-    minimumScore: ctx.minimumScore,
-    ...ctx.evaluationOptions,
-  });
-  stages.score = Math.round(performance.now() - t);
-
-  // 8. Accept / Reject
-  const accepted = evaluation.flags.passesMinimum;
+  const scene = gateway.scene;
+  const repair = gateway.detail.repair;
+  const refinement = gateway.detail.refinement;
+  const evaluation = gateway.detail.evaluation;
+  const accepted = gateway.accepted;
 
   onProgress?.(accepted ? 'complete' : 'rejected');
 
   return {
-    scene: accepted ? scene : scene, // return scene even if rejected (for inspection)
+    scene,
     prompt,
     strategy: prompt.strategy,
     evaluation,
     repair,
     refinement,
     accepted,
-    rejectionReason: accepted ? null : `Quality score ${evaluation.overall} below minimum ${ctx.minimumScore}`,
+    rejectionReason: accepted ? null : (gateway.rejectedReason || `Quality score ${gateway.score} below minimum ${ctx.minimumScore}`),
     durationMs: 0,
     stages,
   };
