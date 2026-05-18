@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
 import type { SceneDocument } from "@/types/scene";
-import { SceneStoreProvider } from "./sceneStore";
+import { SceneStoreProvider, useSceneStore } from "./sceneStore";
 import { SceneCanvas } from "./SceneCanvas";
 import { SceneToolbar } from "./SceneToolbar";
 import { SceneLayersPanel } from "./SceneLayersPanel";
 import { ScenePropertiesPanel } from "./ScenePropertiesPanel";
+import { cn } from "@/lib/utils";
 
 interface Props {
   document: SceneDocument;
@@ -12,6 +13,8 @@ interface Props {
   /** Override panels (e.g. hide layers, custom right rail). */
   leftPanel?: ReactNode;
   rightPanel?: ReactNode;
+  /** AI copilot panel (chat). */
+  copilotPanel?: ReactNode;
 }
 
 /**
@@ -21,23 +24,81 @@ interface Props {
  * Sits at the same architectural level as `StudioEditor` (HTML mode).
  * Choose between them via render-engine switching at the call site.
  */
-export function SceneEditor({ document, onChange, leftPanel, rightPanel }: Props) {
+export function SceneEditor({ document, onChange, leftPanel, rightPanel, copilotPanel }: Props) {
   return (
     <SceneStoreProvider initialDocument={document} onChange={onChange}>
-      <div className="flex flex-col h-full w-full bg-background text-foreground">
-        <SceneToolbar />
-        <div className="flex-1 flex min-h-0">
-          <aside className="w-56 border-r border-border bg-card hidden md:flex flex-col">
-            {leftPanel ?? <SceneLayersPanel />}
-          </aside>
-          <main className="flex-1 min-w-0 relative">
-            <SceneCanvas />
-          </main>
-          <aside className="w-64 border-l border-border bg-card hidden md:flex flex-col">
-            {rightPanel ?? <ScenePropertiesPanel />}
-          </aside>
-        </div>
-      </div>
+      <SceneEditorInner
+        leftPanel={leftPanel}
+        rightPanel={rightPanel}
+        copilotPanel={copilotPanel}
+      />
     </SceneStoreProvider>
+  );
+}
+
+function SceneEditorInner({
+  leftPanel,
+  rightPanel,
+  copilotPanel,
+}: {
+  leftPanel?: ReactNode;
+  rightPanel?: ReactNode;
+  copilotPanel?: ReactNode;
+}) {
+  const { focusMode, aiPending, aiMessage } = useSceneStore();
+
+  return (
+    <div className="flex flex-col h-full w-full bg-background text-foreground">
+      {/* Toolbar — hidden in focus mode */}
+      <div
+        className={cn(
+          "transition-all duration-300 ease-out overflow-hidden",
+          focusMode ? "max-h-0 opacity-0" : "max-h-16 opacity-100"
+        )}
+      >
+        <SceneToolbar />
+      </div>
+
+      <div className="flex-1 flex min-h-0">
+        {/* Left panel — layers */}
+        <aside
+          className={cn(
+            "border-r border-border bg-card/80 backdrop-blur-sm hidden md:flex flex-col transition-all duration-300 ease-out",
+            focusMode ? "w-0 opacity-0 overflow-hidden" : "w-56 opacity-100"
+          )}
+        >
+          {leftPanel ?? <SceneLayersPanel />}
+        </aside>
+
+        {/* Main canvas */}
+        <main className="flex-1 min-w-0 relative">
+          <SceneCanvas />
+
+          {/* AI status indicator */}
+          {aiPending && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 backdrop-blur-md border border-primary/20 shadow-lg">
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs font-medium text-primary">
+                  {aiMessage || "AI is thinking..."}
+                </span>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Right panel — properties or copilot */}
+        <aside
+          className={cn(
+            "border-l border-border bg-card/80 backdrop-blur-sm hidden md:flex flex-col transition-all duration-300 ease-out",
+            focusMode ? "w-0 opacity-0 overflow-hidden" : "w-72 opacity-100"
+          )}
+        >
+          {copilotPanel
+            ? copilotPanel
+            : (rightPanel ?? <ScenePropertiesPanel />)}
+        </aside>
+      </div>
+    </div>
   );
 }

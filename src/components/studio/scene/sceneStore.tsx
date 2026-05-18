@@ -15,6 +15,10 @@ export interface SceneState {
   clipboard: SceneNode[];
   // per-node ui state (not persisted)
   ui: Record<string, { hidden?: boolean; locked?: boolean }>;
+  // Phase 5 additions
+  focusMode: boolean;
+  aiPending: boolean;
+  aiMessage: string | null;
 }
 
 type Action =
@@ -33,7 +37,10 @@ type Action =
   | { type: "rename"; id: string; name: string }
   | { type: "undo" }
   | { type: "redo" }
-  | { type: "snapshot" };
+  | { type: "snapshot" }
+  | { type: "apply_scene"; document: SceneDocument }
+  | { type: "set_focus_mode"; on: boolean }
+  | { type: "set_ai_pending"; pending: boolean; message?: string | null };
 
 function patchNode(nodes: SceneNode[], id: string, patch: Partial<SceneNode>): SceneNode[] {
   return nodes.map((n) => {
@@ -158,6 +165,12 @@ function reducer(state: SceneState, action: Action): SceneState {
     }
     case "snapshot":
       return { ...state, history: [...state.history, state.document].slice(-HISTORY_LIMIT), future: [] };
+    case "apply_scene":
+      return snapshot({ document: action.document });
+    case "set_focus_mode":
+      return { ...state, focusMode: action.on };
+    case "set_ai_pending":
+      return { ...state, aiPending: action.pending, aiMessage: action.message ?? null };
     default:
       return state;
   }
@@ -179,6 +192,8 @@ interface SceneCtx extends SceneState {
   setPan: (p: { x: number; y: number }) => void;
   undo: () => void;
   redo: () => void;
+  applyScene: (doc: SceneDocument) => void;
+  toggleFocusMode: () => void;
 }
 
 const Ctx = createContext<SceneCtx | null>(null);
@@ -217,6 +232,9 @@ export function SceneStoreProvider({
     future: [],
     clipboard: [],
     ui: {},
+    focusMode: false,
+    aiPending: false,
+    aiMessage: null,
   });
 
   const firstRun = useRef(true);
@@ -262,6 +280,8 @@ export function SceneStoreProvider({
     setPan: useCallback((p) => dispatch({ type: "set_pan", pan: p }), []),
     undo: useCallback(() => dispatch({ type: "undo" }), []),
     redo: useCallback(() => dispatch({ type: "redo" }), []),
+    applyScene: useCallback((doc: SceneDocument) => dispatch({ type: "apply_scene", document: doc }), []),
+    toggleFocusMode: useCallback(() => dispatch({ type: "set_focus_mode", on: !state.focusMode }), [state.focusMode]),
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
