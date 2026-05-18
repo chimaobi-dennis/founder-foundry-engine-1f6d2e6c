@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useReducer, useRef, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, ReactNode } from "react";
 import type { SceneDocument, SceneNode } from "@/types/scene";
 
 // ─── State ────────────────────────────────────────────────────
@@ -219,11 +219,15 @@ export function SceneStoreProvider({
     ui: {},
   });
 
-  const lastDocRef = useRef<SceneDocument>(initialDocument);
-  if (lastDocRef.current !== state.document) {
-    lastDocRef.current = state.document;
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
     onChange?.(state.document);
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.document]);
 
   const selectedNode = useMemo(
     () => (state.selectedIds[0] ? findNode(state.document.nodes, state.selectedIds[0]) : null),
