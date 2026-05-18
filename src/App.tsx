@@ -50,6 +50,7 @@ import AdminAIModels from "./pages/admin/AdminAIModels";
 import AdminKnowledgeBase from "./pages/admin/AdminKnowledgeBase";
 import AdminJourneyStages from "./pages/admin/AdminJourneyStages";
 import AdminErrorLogs from "./pages/admin/AdminErrorLogs";
+import AdminRuntimeSettings from "./pages/admin/AdminRuntimeSettings";
 
 const queryClient = new QueryClient();
 
@@ -125,6 +126,7 @@ const App = () => (
                         <Route path="knowledge-base" element={<AdminKnowledgeBase />} />
                         <Route path="journey-stages" element={<AdminJourneyStages />} />
                         <Route path="errors" element={<AdminErrorLogs />} />
+                        <Route path="settings" element={<AdminRuntimeSettings />} />
                       </Route>
                       {/* Main app shell */}
                       <Route element={<Layout />}>

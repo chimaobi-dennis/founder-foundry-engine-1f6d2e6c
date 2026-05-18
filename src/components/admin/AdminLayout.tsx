@@ -29,6 +29,12 @@ const sections = [
       { label: "Error Logs", icon: Bug, path: "/admin/errors" },
     ],
   },
+  {
+    label: "SYSTEM",
+    items: [
+      { label: "Runtime Settings", icon: Settings, path: "/admin/settings" },
+    ],
+  },
 ];
 
 export function AdminLayout() {
