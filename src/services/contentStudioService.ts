@@ -9,12 +9,10 @@ import { calculateGenerationCredits, CreditBreakdown, CreditCalculationInput } f
 import type { SceneDocument, RenderEngine } from '@/types/scene';
 import {
   processSceneGeneration,
-  resolveGenerationMode,
   buildScenePromptInstructions,
-  type GenerationMode,
-  type SceneBridgeResult,
   type GenerationTelemetry,
 } from './sceneGenerationBridge';
+import { getContentStudioGenerationSettings } from './platformSettingsService';
 
 // ─── Founder Intelligence helpers ───────────────────────────────────────────
 // Build a token-efficient creative-memory summary suitable for visual prompts.
@@ -69,7 +67,7 @@ async function withTimeout<T>(
 
 // ─── AI Generation Result Parser ────────────────────────────────────────────
 // Routes through the Scene Generation Bridge for validation, repair, refinement,
-// quality gating, and fallback safety. Supports html, scene, and hybrid modes.
+// quality gating, and telemetry. Render engine is determined by platform_settings.
 
 interface ParsedGenerationResult {
   visualHtml: string | null;
@@ -88,22 +86,18 @@ interface ParsedGenerationResult {
 function parseAIGenerationResult(
   rawText: string | null,
   options?: {
-    mode?: GenerationMode;
+    renderEngine?: RenderEngine;
     platformSlug?: string;
     platformWidth?: number;
     platformHeight?: number;
-    existingHtml?: string | null;
   }
 ): ParsedGenerationResult {
-  const mode = options?.mode ?? 'hybrid';
-
   // Run through the Scene Generation Bridge
   const bridge = processSceneGeneration(rawText, {
-    mode,
+    renderEngine: options?.renderEngine ?? 'html',
     platformSlug: options?.platformSlug,
     platformWidth: options?.platformWidth,
     platformHeight: options?.platformHeight,
-    existingHtml: options?.existingHtml,
   });
 
   return {
@@ -396,6 +390,10 @@ export async function generateContentForBrief(
 
     const brand = brief.brands;
     const dna = brand?.brand_dna?.[0];
+
+    // ─── Runtime render engine from platform_settings ──
+    const genSettings = await getContentStudioGenerationSettings();
+    const runtimeRenderEngine: RenderEngine = genSettings.render_engine;
 
     // ─── Founder intelligence: cumulative, structured, anti-repetition aware ──
     // Replaces ad-hoc raw memory blobs (mentorContext, capturedContext) with a
@@ -715,16 +713,12 @@ export async function generateContentForBrief(
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
       }
 
-      // Resolve generation mode for this brief
-      const generationMode = resolveGenerationMode(
-        (brief as any).generation_mode ?? 'hybrid'
-      );
-
       // Parse + validate + repair + refine + quality gate via Scene Bridge
+      // render_engine sourced from platform_settings (loaded once above the loop)
       const parsedResult = parseAIGenerationResult(
         visualResult.success ? visualResult.text : null,
         {
-          mode: generationMode,
+          renderEngine: runtimeRenderEngine,
           platformSlug: platform.slug,
           platformWidth: platformSystem.dimensions.width,
           platformHeight: platformSystem.dimensions.height,
@@ -747,7 +741,6 @@ export async function generateContentForBrief(
         scene_json: parsedResult.sceneJson,
         render_engine: parsedResult.renderEngine,
         scene_version: 'v1',
-        generation_mode: generationMode,
         generation_quality_score: parsedResult.telemetry?.qualityScore ?? null,
         generation_telemetry: parsedResult.telemetry ?? null,
         generation_fallback_reason: parsedResult.fallbackReason ?? null,
@@ -1150,20 +1143,18 @@ export async function regenerateCreative(
       console.log('[ContentStudio] Visual result length:', visualResult.text.length);
     }
 
-    // Resolve generation mode for regeneration
-    const regenMode = resolveGenerationMode(
-      (brief as any).generation_mode ?? 'hybrid'
-    );
+    // Render engine from platform_settings
+    const regenSettings = await getContentStudioGenerationSettings();
+    const regenRenderEngine: RenderEngine = regenSettings.render_engine;
 
     // Parse + validate + repair + refine + quality gate via Scene Bridge
     const parsedRegen = parseAIGenerationResult(
       visualResult.success ? visualResult.text : null,
       {
-        mode: regenMode,
+        renderEngine: regenRenderEngine,
         platformSlug: platform.slug,
         platformWidth: regenPlatformSystem.dimensions.width,
         platformHeight: regenPlatformSystem.dimensions.height,
-        existingHtml: creative.visual_html,
       }
     );
     // Fall back to existing visual_html if generation returned nothing
@@ -1180,7 +1171,6 @@ export async function regenerateCreative(
       hasVisualHtml: !!visualHtml,
       hasSceneJson: !!parsedRegen.sceneJson,
       qualityScore: parsedRegen.telemetry?.qualityScore,
-      fellBackToHtml: parsedRegen.fellBackToHtml,
     });
 
     const { error: regenUpdateError } = await db
@@ -1189,7 +1179,6 @@ export async function regenerateCreative(
         visual_html: visualHtml,
         scene_json: parsedRegen.sceneJson,
         render_engine: parsedRegen.renderEngine,
-        generation_mode: regenMode,
         generation_quality_score: parsedRegen.telemetry?.qualityScore ?? null,
         generation_telemetry: parsedRegen.telemetry ?? null,
         generation_fallback_reason: parsedRegen.fallbackReason ?? null,
@@ -1386,20 +1375,18 @@ export async function retryFailedCreatives(
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
       }
 
-      // Resolve generation mode for retry
-      const retryMode = resolveGenerationMode(
-        (brief as any).generation_mode ?? 'hybrid'
-      );
+      // Render engine from platform_settings
+      const retrySettings = await getContentStudioGenerationSettings();
+      const retryRenderEngine: RenderEngine = retrySettings.render_engine;
 
       // Parse + validate + repair + refine + quality gate via Scene Bridge
       const parsedRetry = parseAIGenerationResult(
         visualResult.success ? visualResult.text : null,
         {
-          mode: retryMode,
+          renderEngine: retryRenderEngine,
           platformSlug: platform.slug,
           platformWidth: platformSystem.dimensions.width,
           platformHeight: platformSystem.dimensions.height,
-          existingHtml: creative.visual_html,
         }
       );
       const visualHtml = parsedRetry.visualHtml;
@@ -1421,7 +1408,6 @@ export async function retryFailedCreatives(
           visual_html: visualHtml,
           scene_json: parsedRetry.sceneJson,
           render_engine: parsedRetry.renderEngine,
-          generation_mode: retryMode,
           generation_quality_score: parsedRetry.telemetry?.qualityScore ?? null,
           generation_telemetry: parsedRetry.telemetry ?? null,
           generation_fallback_reason: parsedRetry.fallbackReason ?? null,

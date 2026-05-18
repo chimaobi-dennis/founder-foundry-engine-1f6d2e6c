@@ -6,13 +6,15 @@
  * does NOT redesign, replace, or duplicate anything.
  *
  * Responsibilities:
- *   1. Generation mode resolution (html / scene / hybrid)
+ *   1. Route AI output based on render_engine from platform_settings
  *   2. Scene JSON validation + repair + refinement + scoring
  *   3. Quality gate (score → status mapping)
  *   4. Safe generation constraints enforcement
- *   5. Fallback from scene → HTML on failure
- *   6. Export parity validation
- *   7. Telemetry capture
+ *   5. Export parity validation
+ *   6. Telemetry capture
+ *
+ * The runtime render engine is determined by platform_settings,
+ * NOT by brief-level or creative-level generation_mode.
  *
  * NEVER throws. Returns structured results.
  */
@@ -24,8 +26,6 @@ import { validateScene, type SceneValidationResult } from '@/lib/scene/sceneVali
 // ═══════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════
-
-export type GenerationMode = 'html' | 'scene' | 'hybrid';
 
 export type CreativeStatus = 'ready' | 'failed';
 
@@ -49,7 +49,7 @@ export interface SceneBridgeResult {
 }
 
 export interface GenerationTelemetry {
-  generationMode: GenerationMode;
+  renderEngine: RenderEngine;
   qualityScore: number;
   retryCount: number;
   repairCount: number;
@@ -65,17 +65,13 @@ export interface GenerationTelemetry {
 }
 
 export interface SceneBridgeOptions {
-  /** Generation mode. Default 'hybrid'. */
-  mode?: GenerationMode;
+  /** Render engine from platform_settings. Default 'html'. */
+  renderEngine?: RenderEngine;
   /** Platform slug for safe-zone-aware validation. */
   platformSlug?: string;
   /** Platform dimensions for constraint enforcement. */
   platformWidth?: number;
   platformHeight?: number;
-  /** Maximum retries on score < 70 in scene mode. Default 1. */
-  maxRetries?: number;
-  /** Existing visual HTML (for hybrid fallback). */
-  existingHtml?: string | null;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -156,17 +152,15 @@ export function processSceneGeneration(
   options: SceneBridgeOptions = {}
 ): SceneBridgeResult {
   const {
-    mode = 'hybrid',
+    renderEngine: engine = 'html',
     platformSlug,
     platformWidth,
     platformHeight,
-    maxRetries = 1,
-    existingHtml = null,
   } = options;
 
   const start = performance.now();
   const telemetry: GenerationTelemetry = {
-    generationMode: mode,
+    renderEngine: engine,
     qualityScore: 0,
     retryCount: 0,
     repairCount: 0,
@@ -181,17 +175,13 @@ export function processSceneGeneration(
     timestamp: new Date().toISOString(),
   };
 
-  // ── Mode: html — pass through directly ────────────────────
-  if (mode === 'html') {
+  // ── render_engine: html — pass through directly ───────────
+  if (engine === 'html') {
     return htmlOnlyResult(rawAIText, telemetry);
   }
 
-  // ── Try to parse as SceneDocument JSON ────────────────────
+  // ── render_engine: scene — parse as SceneDocument JSON ────
   if (!rawAIText) {
-    if (mode === 'hybrid' && existingHtml) {
-      telemetry.fallbackUsed = true;
-      return htmlFallbackResult(existingHtml, 'AI returned empty response', telemetry);
-    }
     return failedResult('AI returned empty response', telemetry);
   }
 
@@ -199,24 +189,10 @@ export function processSceneGeneration(
   try {
     parsed = parseAISceneResponse(rawAIText);
   } catch {
-    if (mode === 'hybrid') {
-      telemetry.fallbackUsed = true;
-      return htmlFallbackResult(
-        cleanHtml(rawAIText) || existingHtml,
-        'Scene JSON parse failed',
-        telemetry
-      );
-    }
     return failedResult('Scene JSON parse failed', telemetry);
   }
 
-  // If no scene JSON found, handle by mode
   if (parsed.type !== 'scene' || !parsed.sceneJson) {
-    if (mode === 'hybrid') {
-      // HTML came back — use it directly
-      const html = parsed.type === 'html' ? rawAIText : existingHtml;
-      return htmlFallbackResult(cleanHtml(html), 'AI returned HTML instead of scene JSON', telemetry);
-    }
     return failedResult('AI did not return valid SceneDocument JSON', telemetry);
   }
 
@@ -246,11 +222,6 @@ export function processSceneGeneration(
       maxGroupDepth: MAX_GROUP_DEPTH,
     });
   } catch {
-    // Gateway should never throw, but safety first
-    if (mode === 'hybrid') {
-      telemetry.fallbackUsed = true;
-      return htmlFallbackResult(existingHtml, 'Validation gateway crashed', telemetry);
-    }
     return failedResult('Validation gateway crashed', telemetry);
   }
   telemetry.validationDurationMs = Math.round(performance.now() - validationStart);
@@ -266,17 +237,8 @@ export function processSceneGeneration(
   const status = qualityToStatus(validation.score);
 
   if (status === 'failed') {
-    // Score < 70 — fallback in hybrid, fail in scene-only
-    if (mode === 'hybrid' && existingHtml) {
-      telemetry.fallbackUsed = true;
-      return htmlFallbackResult(
-        existingHtml,
-        `Scene quality score ${validation.score} below 70`,
-        telemetry
-      );
-    }
-    // In scene-only mode, if gateway accepted it (score ≥ 45),
-    // mark as ready — diagnostics live in telemetry JSON
+    // If gateway still accepted it (score ≥ 45), mark ready —
+    // diagnostics live in telemetry JSON
     if (validation.accepted) {
       return {
         renderEngine: 'scene',
@@ -311,28 +273,15 @@ export function processSceneGeneration(
 }
 
 /**
- * Determine the default generation mode for a brief.
- * For initial rollout this returns 'hybrid' for safety.
- */
-export function resolveGenerationMode(
-  briefMode?: string | null
-): GenerationMode {
-  if (briefMode === 'html' || briefMode === 'scene' || briefMode === 'hybrid') {
-    return briefMode;
-  }
-  return 'hybrid';
-}
-
-/**
  * Build the additional scene-mode instructions for the AI prompt.
- * Appended to the visual generation prompt when mode is 'scene' or 'hybrid'.
+ * Appended to the visual generation prompt when render_engine is 'scene'.
  */
 export function buildScenePromptInstructions(
-  mode: GenerationMode,
+  engine: RenderEngine,
   width: number,
   height: number
 ): string {
-  if (mode === 'html') return '';
+  if (engine === 'html') return '';
 
   const lines = [
     '\n\n=== SCENE JSON OUTPUT MODE ===',
