@@ -61,9 +61,9 @@ export function SceneResizeHandles({ node, zoom }: Props) {
       e.preventDefault();
       const cx = node.x + node.width / 2;
       const cy = node.y + node.height / 2;
+      const currentTarget = e.currentTarget as HTMLDivElement;
+      const root = currentTarget.closest("[data-scene-artboard]") as HTMLElement | null;
       const move = (ev: PointerEvent) => {
-        const target = e.currentTarget as HTMLDivElement;
-        const root = target.closest("[data-scene-artboard]") as HTMLElement | null;
         if (!root) return;
         const rect = root.getBoundingClientRect();
         const px = (ev.clientX - rect.left) / zoom;
