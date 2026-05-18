@@ -6,6 +6,7 @@ import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from
 import { buildFounderIntelligenceContext } from './founderIntelligenceService';
 import { buildPlatformDesignSystem, buildPlatformRenderInstructions } from './platformIntelligenceService';
 import { calculateGenerationCredits, CreditBreakdown, CreditCalculationInput } from '@/utils/calculateGenerationCredits';
+import type { SceneDocument, RenderEngine } from '@/types/scene';
 
 // ─── Founder Intelligence helpers ───────────────────────────────────────────
 // Build a token-efficient creative-memory summary suitable for visual prompts.
@@ -56,6 +57,45 @@ async function withTimeout<T>(
     setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
   );
   return Promise.race([promise, timeoutPromise]);
+}
+
+// ─── AI Generation Result Parser ────────────────────────────────────────────
+// When the AI starts returning scene_json, this function will detect it and
+// return the appropriate render_engine. Until then, everything is HTML.
+
+interface ParsedGenerationResult {
+  visualHtml: string | null;
+  sceneJson: SceneDocument | null;
+  renderEngine: RenderEngine;
+}
+
+function parseAIGenerationResult(rawText: string | null): ParsedGenerationResult {
+  if (!rawText) {
+    return { visualHtml: null, sceneJson: null, renderEngine: 'html' };
+  }
+
+  const cleaned = rawText.replace(/^```(?:html|json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+
+  // Future: detect if the AI returned a JSON scene document
+  // For now, always treat as HTML
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === 'object' && 'version' in parsed && 'nodes' in parsed && Array.isArray(parsed.nodes)) {
+      return {
+        visualHtml: null,
+        sceneJson: parsed as SceneDocument,
+        renderEngine: 'scene',
+      };
+    }
+  } catch {
+    // Not JSON — treat as HTML (this is the expected path for now)
+  }
+
+  return {
+    visualHtml: cleaned,
+    sceneJson: null,
+    renderEngine: 'html',
+  };
 }
 
 // ─── Stuck generation detector ───────────────────────────────────────────────
@@ -656,12 +696,15 @@ export async function generateContentForBrief(
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
       }
 
-      if (visualResult.success && visualResult.text) {
-        visualHtml = visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-      }
+      // Parse the AI result — supports both legacy HTML and future scene_json
+      const parsedResult = parseAIGenerationResult(
+        visualResult.success ? visualResult.text : null
+      );
+      visualHtml = parsedResult.visualHtml;
 
       // Prepare creative payload
-      const creativePayload = {
+      const hasContent = !!(parsedResult.visualHtml || parsedResult.sceneJson);
+      const creativePayload: Record<string, unknown> = {
         brief_id: briefId,
         platform_id: platform.id,
         generation_session_id: sessionId,
@@ -669,9 +712,12 @@ export async function generateContentForBrief(
         copy_text: platformCopy.copy_text || null,
         subject_line: platformCopy.subject_line || null,
         hashtags: platformCopy.hashtags || [],
-        visual_html: visualHtml,
+        visual_html: parsedResult.visualHtml,
+        scene_json: parsedResult.sceneJson,
+        render_engine: parsedResult.renderEngine,
+        scene_version: 'v1',
         template_id: selectedTemplateId,
-        status: visualHtml ? 'ready' : 'failed',
+        status: hasContent ? 'ready' : 'failed',
         updated_at: new Date().toISOString()
       };
 
@@ -679,8 +725,8 @@ export async function generateContentForBrief(
         platformId: platform.id,
         platformSlug: platform.slug,
         headline: creativePayload.headline,
-        copyTextLength: creativePayload.copy_text?.length,
-        hashtagsCount: creativePayload.hashtags?.length,
+        copyTextLength: (creativePayload.copy_text as string | null)?.length,
+        hashtagsCount: (creativePayload.hashtags as string[] | null)?.length,
         subjectLine: creativePayload.subject_line
       });
 
@@ -1130,22 +1176,30 @@ export async function regenerateCreative(
       console.log('[ContentStudio] Visual result length:', visualResult.text.length);
     }
 
-    const visualHtml = visualResult.success && visualResult.text
-      ? visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
-      : creative.visual_html;
+    // Parse the AI result — supports both legacy HTML and future scene_json
+    const parsedRegen = parseAIGenerationResult(
+      visualResult.success ? visualResult.text : null
+    );
+    // Fall back to existing visual_html if generation returned nothing
+    const visualHtml = parsedRegen.visualHtml || creative.visual_html;
+    const hasContent = !!(parsedRegen.visualHtml || parsedRegen.sceneJson);
 
     console.log('[creative regenerate update]', {
       creativeId,
       newSessionId: sessionId,
-      status: 'ready',
-      hasVisualHtml: !!visualHtml
+      renderEngine: parsedRegen.renderEngine,
+      status: hasContent ? 'ready' : 'failed',
+      hasVisualHtml: !!visualHtml,
+      hasSceneJson: !!parsedRegen.sceneJson,
     });
 
     const { error: regenUpdateError } = await db
       .from('content_studio_creatives')
       .update({
         visual_html: visualHtml,
-        status: 'ready',
+        scene_json: parsedRegen.sceneJson,
+        render_engine: parsedRegen.renderEngine,
+        status: hasContent ? 'ready' : 'failed',
         generation_session_id: sessionId,
         updated_at: new Date().toISOString()
       })
@@ -1348,23 +1402,29 @@ export async function retryFailedCreatives(
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
       }
 
-      const visualHtml = visualResult.success && visualResult.text
-        ? visualResult.text.replace(/^```(?:html)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
-        : null;
+      // Parse the AI result — supports both legacy HTML and future scene_json
+      const parsedRetry = parseAIGenerationResult(
+        visualResult.success ? visualResult.text : null
+      );
+      const visualHtml = parsedRetry.visualHtml;
+      const retryHasContent = !!(parsedRetry.visualHtml || parsedRetry.sceneJson);
 
       // Update the creative with new result
       console.log('[creative retry update]', {
         creativeId: creative.id,
         platformId: platform.id,
         newSessionId: sessionId,
-        status: visualHtml ? 'ready' : 'failed'
+        renderEngine: parsedRetry.renderEngine,
+        status: retryHasContent ? 'ready' : 'failed'
       });
 
       const { error: retryUpdateError } = await db
         .from('content_studio_creatives')
         .update({
           visual_html: visualHtml,
-          status: visualHtml ? 'ready' : 'failed',
+          scene_json: parsedRetry.sceneJson,
+          render_engine: parsedRetry.renderEngine,
+          status: retryHasContent ? 'ready' : 'failed',
           generation_session_id: sessionId,
           updated_at: new Date().toISOString()
         })
@@ -1514,6 +1574,8 @@ export async function retryPersistFailedCreatives(
             hashtags: creative.hashtags,
             visual_html: creative.visual_html,
             template_id: creative.template_id,
+            render_engine: creative.render_engine || 'html',
+            scene_json: creative.scene_json || null,
             status: 'ready',
             updated_at: new Date().toISOString()
           };
@@ -1644,9 +1706,9 @@ export async function saveCreativeToLibrary({
       return null;
       throw new Error('Creative not found');
     }
-    if (!creative.visual_html) {
+    if (!creative.visual_html && !creative.scene_json) {
       return null;
-      throw new Error('No visual HTML to save');
+      throw new Error('No visual content to save (neither HTML nor scene_json)');
     }
 
     const platform = creative.content_platforms;

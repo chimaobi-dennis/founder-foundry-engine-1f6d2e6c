@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { logError } from './errorService';
+import type { SceneDocument, RenderEngine, StudioSessionPayload } from '@/types/scene';
 
 const db = supabase as any;
 
@@ -29,6 +30,8 @@ export interface SaveToLibraryParams {
   templateOutputId?: string;
   generationParams?: Record<string, unknown>;
   parentAssetId?: string;
+  sceneJson?: SceneDocument | null;
+  renderEngine?: RenderEngine;
 }
 
 export interface Asset {
@@ -57,6 +60,8 @@ export interface StudioSession {
   user_id: string;
   source_module: string;
   visual_html: string;
+  scene_json: SceneDocument | null;
+  render_engine: RenderEngine;
   platform_slug: string | null;
   platform_width: number | null;
   platform_height: number | null;
@@ -107,6 +112,8 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       templateOutputId,
       generationParams,
       parentAssetId,
+      sceneJson = null,
+      renderEngine = 'html',
     } = params;
 
     console.log('[assetService.saveToLibrary] Starting save with params:', {
@@ -268,6 +275,8 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
         user_id: userId,
         source_module: sourceModule,
         visual_html: visualHtml,
+        scene_json: sceneJson,
+        render_engine: renderEngine,
         platform_slug: platformSlug || null,
         platform_width: platformWidth,
         platform_height: platformHeight,
@@ -390,6 +399,36 @@ export async function getStudioSession(assetId: string): Promise<StudioSession |
       callLocation: 'getStudioSession',
       userAction: 'open_in_studio',
       pipelineStep: 'fetch_session',
+      context: { assetId }
+    });
+    return null;
+  }
+}
+
+/**
+ * Fetch a studio session and return a unified payload the frontend can use
+ * to decide which renderer (HTML or Scene) to mount.
+ */
+export async function getStudioSessionPayload(assetId: string): Promise<StudioSessionPayload | null> {
+  try {
+    const session = await getStudioSession(assetId);
+    if (!session) return null;
+
+    return {
+      renderEngine: (session.render_engine || 'html') as RenderEngine,
+      visualHtml: session.visual_html || null,
+      sceneJson: (session.scene_json as SceneDocument) || null,
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to build session payload';
+    await logError({
+      errorMessage: message,
+      errorType: 'database',
+      module: 'prostudio',
+      componentName: 'assetService',
+      callLocation: 'getStudioSessionPayload',
+      userAction: 'open_in_studio',
+      pipelineStep: 'build_payload',
       context: { assetId }
     });
     return null;

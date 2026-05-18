@@ -3,6 +3,7 @@ import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { getBrandProductImages, setPrimaryProductImage, uploadBrandProductImage } from './projectAssetsService';
 import { logError } from './errorService';
 import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
+import type { SceneDocument, RenderEngine } from '@/types/scene';
 
 const db = supabase as any;
 
@@ -729,6 +730,8 @@ Every editable element must have a data-element attribute.
               brand_id: brandId,
               output_type: 'html_css',
               output_html: htmlContent,
+              render_engine: 'html' as RenderEngine,
+              scene_json: null as SceneDocument | null,
               aspect_ratio: aspectRatio,
               style_intensity: styleIntensity === 'subtle' ? 1 : styleIntensity === 'balanced' ? 2 : 3,
               product_image_used: !!productImageUrl,
