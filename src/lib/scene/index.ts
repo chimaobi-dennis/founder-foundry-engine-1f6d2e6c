@@ -225,3 +225,133 @@ export {
   type SceneVariation,
   type VariationOptions,
 } from './generateSceneVariations';
+
+// ─── Phase 4: Productization Layer ───────────────────────────
+
+export {
+  orchestrateEdit,
+  orchestrateIntent,
+  type OrchestratorResult,
+  type OrchestratorAction,
+  type OrchestratorContext,
+} from './sceneAiOrchestrator';
+
+export {
+  parseCreativeInstruction,
+  type EditIntent,
+  type EditIntentType,
+} from './parseCreativeInstruction';
+
+export {
+  SceneSessionManager,
+  type SessionState,
+  type AiAction,
+  type SessionEvents,
+} from './sceneSessionManager';
+
+export {
+  runGenerationPipeline,
+  type PipelineResult,
+  type PipelineStage,
+  type PipelineOptions,
+  type AiCallerFn,
+} from './sceneGenerationPipeline';
+
+export {
+  SceneTimelineManager,
+  type TimelineEntry,
+  type TimelineView,
+  type RevisionComparison,
+} from './sceneTimeline';
+
+export {
+  buildRegenerateContext,
+  applyRegeneratedNodes,
+  regenerateToPromptBlock,
+  type RegenerateScope,
+  type RegenerateRequest,
+  type RegenerateContext,
+} from './smartRegenerate';
+
+export {
+  critiqueScene,
+  type SceneCritique,
+  type CritiqueItem,
+  type CritiqueOptions,
+} from './critiqueScene';
+
+export {
+  getMode,
+  getAllModes,
+  applyModeToTokens,
+  modeToPromptBlock,
+  type CreativeMode,
+  type ModeConfig,
+} from './creativeModes';
+
+export {
+  createCampaign,
+  addCampaignAsset,
+  updateCampaignTokens,
+  approveAsset,
+  getCampaignStats,
+  type Campaign,
+  type CampaignAsset,
+  type CampaignGenerationRequest,
+} from './campaignSceneSystem';
+
+export {
+  exportScene,
+  exportBatch,
+  downloadExport,
+  type ExportFormat,
+  type ExportRequest,
+  type ExportResult,
+  type BatchExportRequest,
+  type BatchExportResult,
+} from './sceneExportManager';
+
+export {
+  SceneAnalyticsManager,
+  type AnalyticsEvent,
+  type AnalyticsSnapshot,
+  type AnalyticsEventType,
+} from './sceneAnalytics';
+
+export {
+  SceneRecoveryManager,
+  localStorageAdapter,
+  createMemoryStorage,
+  type RecoverySnapshot,
+  type RecoveryStorage,
+  type RecoveryOptions,
+} from './sceneRecovery';
+
+export {
+  cullToViewport,
+  SceneRenderCache,
+  ImageMemoryManager,
+  MutationBatcher,
+  estimateComplexity,
+  type Viewport,
+  type CullingResult,
+} from './sceneRuntimeOptimizer';
+
+export {
+  SCENE_ENGINE_VERSION,
+  SCENE_ENGINE_PHASES,
+  type ISceneEngine,
+  type IOrchestratorApi,
+  type IMutationApi,
+  type IPatchApi,
+  type IGenerationApi,
+  type IExportApi,
+  type ITimelineApi,
+  type IQualityApi,
+  type IReflowApi,
+  type ITokensApi,
+  type IModesApi,
+  type IVariationsApi,
+  type IRegenerationApi,
+  type IAnalyticsApi,
+} from './sceneToolingContract';
