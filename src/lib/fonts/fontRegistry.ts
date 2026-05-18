@@ -27,6 +27,9 @@ const FONT_REGISTRY: FontEntry[] = [
 
 const FALLBACK_FONT = 'Inter';
 
+/** Flat list of allowed font family names. */
+export const ALLOWED_FONTS: readonly string[] = FONT_REGISTRY.map((f) => f.family);
+
 /** Immutable map for O(1) lookups (lower-cased key). */
 const registryMap = new Map<string, FontEntry>(
   FONT_REGISTRY.map((f) => [f.family.toLowerCase(), f])

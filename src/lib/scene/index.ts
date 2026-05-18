@@ -88,3 +88,140 @@ export {
   type StudioScenePayload,
   type StudioExportRequest,
 } from './studioBridge';
+
+// ─── Phase 3: AI-Native Creative Intelligence ────────────────
+
+export {
+  applyMutation,
+  applyMutationChain,
+  replaceHeadline,
+  rewriteCta,
+  swapTypography,
+  changeColorDirection,
+  adjustSpacing,
+  increaseDensity,
+  simplifyComposition,
+  boostContrast,
+  findNode,
+  findNodes,
+  replaceNode,
+  removeNode,
+  addNode,
+  addChildNode,
+  updateText,
+  updateFill,
+  updateTextColor,
+  resizeNode,
+  repositionNode,
+} from './mutations';
+
+export type {
+  MutationId,
+  MutationParams,
+  MutationResult,
+  MutationChain,
+} from './mutations';
+
+export {
+  applyPatches,
+  patchUpdate,
+  patchResize,
+  patchReposition,
+  patchRemove,
+  type PatchOp,
+  type PatchResult,
+} from './scenePatchEngine';
+
+export {
+  diffScenes,
+  scenesChanged,
+  diffSummary,
+  type SceneDiffResult,
+  type NodeDiff,
+} from './sceneDiff';
+
+export {
+  SceneHistory,
+  type SceneSnapshot,
+  type SnapshotSource,
+  type VersionTimeline,
+} from './sceneVersioning';
+
+export {
+  refineComposition,
+  type RefinementResult,
+  type RefinementOptions,
+} from './refineComposition';
+
+export {
+  reflowScene,
+  reflowToPreset,
+  REFLOW_PRESETS,
+  type ReflowOptions,
+  type ReflowResult,
+} from './reflowScene';
+
+export {
+  createHeroSection,
+  createCTASection,
+  createMetricsRow,
+  createQuoteBlock,
+  createTestimonialCard,
+  createFeatureGrid,
+  createSplitPanel,
+  createEditorialHeader,
+} from './smartComponents';
+
+export {
+  applyTokens,
+  mergeTokens,
+  createDefaultTokens,
+  extractTokensFromScene,
+  type DesignTokens,
+  type ColorTokens,
+  type TypographyTokens,
+} from './sceneTokens';
+
+export {
+  BrandMemoryManager,
+  fingerprintScene,
+  type SceneFingerprint,
+  type BrandMemory,
+  type BrandTendencies,
+} from './sceneBrandMemory';
+
+export {
+  generateStrategy,
+  strategyToPromptBlock,
+  type StrategyInput,
+  type CreativeStrategy,
+} from './creativeStrategist';
+
+export {
+  compileScenePrompt,
+  type PromptCompilerInput,
+  type CompiledPrompt,
+} from './compileScenePrompt';
+
+export {
+  evaluateSceneQuality,
+  type QualityEvaluation,
+  type QualityIssue,
+  type EvaluationOptions,
+} from './evaluateSceneQuality';
+
+export {
+  repairScene,
+  type RepairResult,
+  type RepairAction,
+  type RepairOptions,
+} from './repairScene';
+
+export {
+  generateVariations,
+  generateVariation,
+  generateCustomVariation,
+  type VariationStyle,
+  type SceneVariation,
+  type VariationOptions,
+} from './generateSceneVariations';
