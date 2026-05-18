@@ -7,6 +7,14 @@ import { buildFounderIntelligenceContext } from './founderIntelligenceService';
 import { buildPlatformDesignSystem, buildPlatformRenderInstructions } from './platformIntelligenceService';
 import { calculateGenerationCredits, CreditBreakdown, CreditCalculationInput } from '@/utils/calculateGenerationCredits';
 import type { SceneDocument, RenderEngine } from '@/types/scene';
+import {
+  processSceneGeneration,
+  resolveGenerationMode,
+  buildScenePromptInstructions,
+  type GenerationMode,
+  type SceneBridgeResult,
+  type GenerationTelemetry,
+} from './sceneGenerationBridge';
 
 // ─── Founder Intelligence helpers ───────────────────────────────────────────
 // Build a token-efficient creative-memory summary suitable for visual prompts.
@@ -60,41 +68,52 @@ async function withTimeout<T>(
 }
 
 // ─── AI Generation Result Parser ────────────────────────────────────────────
-// When the AI starts returning scene_json, this function will detect it and
-// return the appropriate render_engine. Until then, everything is HTML.
+// Routes through the Scene Generation Bridge for validation, repair, refinement,
+// quality gating, and fallback safety. Supports html, scene, and hybrid modes.
 
 interface ParsedGenerationResult {
   visualHtml: string | null;
   sceneJson: SceneDocument | null;
   renderEngine: RenderEngine;
+  /** Creative status from quality gate. */
+  creativeStatus: 'ready' | 'failed';
+  /** Whether scene → HTML fallback was triggered. */
+  fellBackToHtml: boolean;
+  /** Fallback reason if any. */
+  fallbackReason: string | null;
+  /** Generation telemetry for this creative. */
+  telemetry: GenerationTelemetry | null;
 }
 
-function parseAIGenerationResult(rawText: string | null): ParsedGenerationResult {
-  if (!rawText) {
-    return { visualHtml: null, sceneJson: null, renderEngine: 'html' };
+function parseAIGenerationResult(
+  rawText: string | null,
+  options?: {
+    mode?: GenerationMode;
+    platformSlug?: string;
+    platformWidth?: number;
+    platformHeight?: number;
+    existingHtml?: string | null;
   }
+): ParsedGenerationResult {
+  const mode = options?.mode ?? 'hybrid';
 
-  const cleaned = rawText.replace(/^```(?:html|json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
-
-  // Future: detect if the AI returned a JSON scene document
-  // For now, always treat as HTML
-  try {
-    const parsed = JSON.parse(cleaned);
-    if (parsed && typeof parsed === 'object' && 'version' in parsed && 'nodes' in parsed && Array.isArray(parsed.nodes)) {
-      return {
-        visualHtml: null,
-        sceneJson: parsed as SceneDocument,
-        renderEngine: 'scene',
-      };
-    }
-  } catch {
-    // Not JSON — treat as HTML (this is the expected path for now)
-  }
+  // Run through the Scene Generation Bridge
+  const bridge = processSceneGeneration(rawText, {
+    mode,
+    platformSlug: options?.platformSlug,
+    platformWidth: options?.platformWidth,
+    platformHeight: options?.platformHeight,
+    existingHtml: options?.existingHtml,
+  });
 
   return {
-    visualHtml: cleaned,
-    sceneJson: null,
-    renderEngine: 'html',
+    visualHtml: bridge.visualHtml,
+    sceneJson: bridge.sceneJson,
+    renderEngine: bridge.renderEngine,
+    creativeStatus: bridge.status,
+    fellBackToHtml: bridge.fellBackToHtml,
+    fallbackReason: bridge.fallbackReason,
+    telemetry: bridge.telemetry,
   };
 }
 
@@ -696,14 +715,26 @@ export async function generateContentForBrief(
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
       }
 
-      // Parse the AI result — supports both legacy HTML and future scene_json
+      // Resolve generation mode for this brief
+      const generationMode = resolveGenerationMode(
+        (brief as any).generation_mode ?? 'hybrid'
+      );
+
+      // Parse + validate + repair + refine + quality gate via Scene Bridge
       const parsedResult = parseAIGenerationResult(
-        visualResult.success ? visualResult.text : null
+        visualResult.success ? visualResult.text : null,
+        {
+          mode: generationMode,
+          platformSlug: platform.slug,
+          platformWidth: platformSystem.dimensions.width,
+          platformHeight: platformSystem.dimensions.height,
+        }
       );
       visualHtml = parsedResult.visualHtml;
 
-      // Prepare creative payload
+      // Prepare creative payload — status driven by quality gate
       const hasContent = !!(parsedResult.visualHtml || parsedResult.sceneJson);
+      const qualityStatus = parsedResult.creativeStatus;
       const creativePayload: Record<string, unknown> = {
         brief_id: briefId,
         platform_id: platform.id,
@@ -716,10 +747,29 @@ export async function generateContentForBrief(
         scene_json: parsedResult.sceneJson,
         render_engine: parsedResult.renderEngine,
         scene_version: 'v1',
+        generation_mode: generationMode,
+        generation_quality_score: parsedResult.telemetry?.qualityScore ?? null,
+        generation_telemetry: parsedResult.telemetry ?? null,
+        generation_fallback_reason: parsedResult.fallbackReason ?? null,
+        export_unstable: parsedResult.telemetry ? parsedResult.telemetry.parityScore < 92 : false,
         template_id: selectedTemplateId,
-        status: hasContent ? 'ready' : 'failed',
+        status: hasContent ? qualityStatus : 'failed',
         updated_at: new Date().toISOString()
       };
+
+      // Log scene bridge results
+      if (parsedResult.renderEngine === 'scene') {
+        console.log('[ContentStudio] Scene bridge result:', {
+          platform: platform.slug,
+          renderEngine: parsedResult.renderEngine,
+          qualityScore: parsedResult.telemetry?.qualityScore,
+          status: qualityStatus,
+          repairCount: parsedResult.telemetry?.repairCount,
+          fellBackToHtml: parsedResult.fellBackToHtml,
+          fallbackReason: parsedResult.fallbackReason,
+          constraintsApplied: parsedResult.telemetry?.constraintsApplied,
+        });
+      }
 
       console.log('[creative payload]', {
         platformId: platform.id,
@@ -731,75 +781,24 @@ export async function generateContentForBrief(
       });
 
       // ═══════════════════════════════════════════════════════════════════════
-      // PERSISTENCE LAYER - Separate from AI generation
+      // PERSISTENCE — Upsert into content_studio_creatives
+      // ON CONFLICT (generation_session_id, platform_id)
+      // One platform + one session = one creative record.
       // ═══════════════════════════════════════════════════════════════════════
-      
-      // Check for existing creative row to update (avoids duplicates)
-      const { data: existingCreative } = await db
+
+      const { data: savedCreative, error: persistError } = await db
         .from('content_studio_creatives')
-        .select('id')
-        .eq('brief_id', briefId)
-        .eq('platform_id', platform.id)
-        .eq('generation_session_id', sessionId)
-        .maybeSingle();
-
-      async function persistCreative(retries = 2): Promise<{ data: any; error: any }> {
-        let lastError: any = null;
-        
-        for (let attempt = 1; attempt <= retries + 1; attempt++) {
-          if (attempt > 1) {
-            console.log('[creative save retry]', {
-              attempt,
-              platformId: platform.id,
-              generationSessionId: sessionId
-            });
-            // Wait briefly before retry
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-
-          try {
-            if (existingCreative?.id) {
-              const { data, error } = await db
-                .from('content_studio_creatives')
-                .update({
-                  ...creativePayload,
-                  id: existingCreative.id,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', existingCreative.id)
-                .select('*, content_platforms(*)')
-                .single();
-              if (!error) return { data, error: null };
-              lastError = error;
-            } else {
-              const { data, error } = await db
-                .from('content_studio_creatives')
-                .insert(creativePayload)
-                .select('*, content_platforms(*)')
-                .single();
-              if (!error) return { data, error: null };
-              lastError = error;
-            }
-          } catch (e: any) {
-            lastError = e;
-          }
-        }
-        
-        return { data: null, error: lastError };
-      }
-
-      const { data: savedCreative, error: persistError } = await persistCreative();
+        .upsert(creativePayload, {
+          onConflict: 'generation_session_id,platform_id',
+        })
+        .select('*, content_platforms(*)')
+        .single();
 
       if (persistError) {
-        // AI generation succeeded but persistence failed
-        // This is a persistence issue, NOT an AI generation issue
-        console.error('[creative persistence failed - AI generation was successful]', {
+        console.error('[creative upsert failed]', {
           error: persistError.message,
           generationSessionId: sessionId,
           platformId: platform.id,
-          operation: existingCreative?.id ? 'update' : 'insert',
-          aiSuccess: true,
-          visualHtmlLength: visualHtml?.length
         });
 
         await logError({
@@ -807,41 +806,22 @@ export async function generateContentForBrief(
           errorType: 'database',
           module: 'prostudio',
           componentName: 'contentStudioService',
-          context: {
-            briefId,
-            platformId: platform.id,
-            sessionId,
-            operation: existingCreative?.id ? 'update' : 'insert',
-            aiGenerationSuccess: true
-          }
+          context: { briefId, platformId: platform.id, sessionId }
         });
 
-        // Mark this platform as 'persist_failed' (different from 'failed')
-        // AI generation worked, only persistence failed
-        const failedCreative = {
+        // Persist failure → status 'failed', diagnostics in telemetry
+        creatives.push({
           ...creativePayload,
-          id: existingCreative?.id || 'temp-failed',
-          status: 'persist_failed' as const,
-          platform: { name: platform.name, slug: platform.slug },
-          aiGenerated: true,
-          persistError: persistError.message
-        };
-        
-        // Add to creatives array so it gets counted in brief status
-        creatives.push(failedCreative);
-        
-        // Still notify callback but with persist_failed status
-        onPlatformComplete?.(platform.id, failedCreative);
-        
-        // Do NOT mark brief as failed - AI generation succeeded
-        // This platform can be retried for persistence only
+          id: `upsert-failed-${platform.id}`,
+          status: 'failed',
+          content_platforms: { name: platform.name, slug: platform.slug },
+        });
+        onPlatformComplete?.(platform.id, { ...creativePayload, status: 'failed' });
       } else {
-        console.log('[creative persistence success]', {
+        console.log('[creative upsert success]', {
           creativeId: savedCreative?.id,
           platformId: platform.id,
           status: savedCreative?.status,
-          operation: existingCreative?.id ? 'update' : 'insert',
-          aiSuccess: true
         });
         creatives.push(savedCreative);
         onPlatformComplete?.(platform.id, savedCreative);
@@ -849,22 +829,17 @@ export async function generateContentForBrief(
     }));
 
     // Calculate brief status based on creatives (partial-success resilience)
-    // Separate AI generation failure from persistence failure
     const readyCount = creatives.filter(c => c.status === 'ready').length;
-    const aiFailedCount = creatives.filter(c => c.status === 'failed').length; // AI generation failed
-    const persistFailedCount = creatives.filter(c => c.status === 'persist_failed').length; // AI succeeded, save failed
+    const failedCount = creatives.filter(c => c.status === 'failed').length;
     const totalPlatforms = platforms.length;
 
-    // Brief status: only mark failed if AI generation failed, not if persistence failed
     let briefStatus: string;
     if (readyCount === totalPlatforms) {
       briefStatus = 'ready';
-    } else if (readyCount === 0 && aiFailedCount > 0) {
-      briefStatus = 'failed'; // AI generation failed for all platforms
-    } else if (persistFailedCount > 0 && aiFailedCount === 0) {
-      briefStatus = 'persist_retry_needed'; // AI succeeded, but some saves failed
+    } else if (readyCount === 0 && failedCount > 0) {
+      briefStatus = 'failed';
     } else {
-      briefStatus = 'partial_failed'; // Some AI generation succeeded, some failed
+      briefStatus = 'partial_failed';
     }
 
     // Update brief status and last generated time
@@ -882,8 +857,7 @@ export async function generateContentForBrief(
     console.log('[ContentStudio] === Generation Complete ===');
     console.log('[ContentStudio] Brief status:', briefStatus);
     console.log('[ContentStudio] Platforms ready:', readyCount, '/', totalPlatforms);
-    console.log('[ContentStudio] AI generation failed:', aiFailedCount, '/', totalPlatforms);
-    console.log('[ContentStudio] Persistence failed (retryable):', persistFailedCount, '/', totalPlatforms);
+    console.log('[ContentStudio] Platforms failed:', failedCount, '/', totalPlatforms);
 
     // Create notification
     await createNotification(
@@ -1176,21 +1150,37 @@ export async function regenerateCreative(
       console.log('[ContentStudio] Visual result length:', visualResult.text.length);
     }
 
-    // Parse the AI result — supports both legacy HTML and future scene_json
+    // Resolve generation mode for regeneration
+    const regenMode = resolveGenerationMode(
+      (brief as any).generation_mode ?? 'hybrid'
+    );
+
+    // Parse + validate + repair + refine + quality gate via Scene Bridge
     const parsedRegen = parseAIGenerationResult(
-      visualResult.success ? visualResult.text : null
+      visualResult.success ? visualResult.text : null,
+      {
+        mode: regenMode,
+        platformSlug: platform.slug,
+        platformWidth: regenPlatformSystem.dimensions.width,
+        platformHeight: regenPlatformSystem.dimensions.height,
+        existingHtml: creative.visual_html,
+      }
     );
     // Fall back to existing visual_html if generation returned nothing
     const visualHtml = parsedRegen.visualHtml || creative.visual_html;
     const hasContent = !!(parsedRegen.visualHtml || parsedRegen.sceneJson);
 
+    const regenQualityStatus = parsedRegen.creativeStatus;
+
     console.log('[creative regenerate update]', {
       creativeId,
       newSessionId: sessionId,
       renderEngine: parsedRegen.renderEngine,
-      status: hasContent ? 'ready' : 'failed',
+      status: hasContent ? regenQualityStatus : 'failed',
       hasVisualHtml: !!visualHtml,
       hasSceneJson: !!parsedRegen.sceneJson,
+      qualityScore: parsedRegen.telemetry?.qualityScore,
+      fellBackToHtml: parsedRegen.fellBackToHtml,
     });
 
     const { error: regenUpdateError } = await db
@@ -1199,7 +1189,12 @@ export async function regenerateCreative(
         visual_html: visualHtml,
         scene_json: parsedRegen.sceneJson,
         render_engine: parsedRegen.renderEngine,
-        status: hasContent ? 'ready' : 'failed',
+        generation_mode: regenMode,
+        generation_quality_score: parsedRegen.telemetry?.qualityScore ?? null,
+        generation_telemetry: parsedRegen.telemetry ?? null,
+        generation_fallback_reason: parsedRegen.fallbackReason ?? null,
+        export_unstable: parsedRegen.telemetry ? parsedRegen.telemetry.parityScore < 92 : false,
+        status: hasContent ? regenQualityStatus : 'failed',
         generation_session_id: sessionId,
         updated_at: new Date().toISOString()
       })
@@ -1278,31 +1273,20 @@ export async function retryFailedCreatives(
     const brand = brief.brands;
     const dna = brief.founder_dna;
 
-    // Fetch both AI-failed and persistence-failed creatives
-    // 'failed' = AI generation failed (needs regeneration)
-    // 'persist_failed' = AI succeeded but save failed (needs retry persistence only)
-    const { data: aiFailedCreatives } = await db
+    // Fetch failed creatives for retry
+    const { data: failedCreatives } = await db
       .from('content_studio_creatives')
       .select('*, content_platforms(*)')
       .eq('brief_id', briefId)
       .eq('status', 'failed');
-    
-    const { data: persistFailedCreatives } = await db
-      .from('content_studio_creatives')
-      .select('*, content_platforms(*)')
-      .eq('brief_id', briefId)
-      .eq('status', 'persist_failed');
 
-    const failedCreatives = [...(aiFailedCreatives || []), ...(persistFailedCreatives || [])];
-
-    if (failedCreatives.length === 0) {
-      console.log('[ContentStudio] No failed or persist-failed creatives to retry');
+    if (!failedCreatives || failedCreatives.length === 0) {
+      console.log('[ContentStudio] No failed creatives to retry');
       return;
     }
-    
+
     console.log('[ContentStudio] Retry targets:', {
-      aiFailed: aiFailedCreatives?.length || 0,
-      persistFailed: persistFailedCreatives?.length || 0
+      failed: failedCreatives.length,
     });
 
     console.log('[ContentStudio] === Retrying Failed Creatives ===');
@@ -1402,12 +1386,25 @@ export async function retryFailedCreatives(
         console.log('[ContentStudio] Visual result length:', visualResult.text.length);
       }
 
-      // Parse the AI result — supports both legacy HTML and future scene_json
+      // Resolve generation mode for retry
+      const retryMode = resolveGenerationMode(
+        (brief as any).generation_mode ?? 'hybrid'
+      );
+
+      // Parse + validate + repair + refine + quality gate via Scene Bridge
       const parsedRetry = parseAIGenerationResult(
-        visualResult.success ? visualResult.text : null
+        visualResult.success ? visualResult.text : null,
+        {
+          mode: retryMode,
+          platformSlug: platform.slug,
+          platformWidth: platformSystem.dimensions.width,
+          platformHeight: platformSystem.dimensions.height,
+          existingHtml: creative.visual_html,
+        }
       );
       const visualHtml = parsedRetry.visualHtml;
       const retryHasContent = !!(parsedRetry.visualHtml || parsedRetry.sceneJson);
+      const retryQualityStatus = parsedRetry.creativeStatus;
 
       // Update the creative with new result
       console.log('[creative retry update]', {
@@ -1415,7 +1412,7 @@ export async function retryFailedCreatives(
         platformId: platform.id,
         newSessionId: sessionId,
         renderEngine: parsedRetry.renderEngine,
-        status: retryHasContent ? 'ready' : 'failed'
+        status: retryHasContent ? retryQualityStatus : 'failed',
       });
 
       const { error: retryUpdateError } = await db
@@ -1424,7 +1421,12 @@ export async function retryFailedCreatives(
           visual_html: visualHtml,
           scene_json: parsedRetry.sceneJson,
           render_engine: parsedRetry.renderEngine,
-          status: retryHasContent ? 'ready' : 'failed',
+          generation_mode: retryMode,
+          generation_quality_score: parsedRetry.telemetry?.qualityScore ?? null,
+          generation_telemetry: parsedRetry.telemetry ?? null,
+          generation_fallback_reason: parsedRetry.fallbackReason ?? null,
+          export_unstable: parsedRetry.telemetry ? parsedRetry.telemetry.parityScore < 92 : false,
+          status: retryHasContent ? retryQualityStatus : 'failed',
           generation_session_id: sessionId,
           updated_at: new Date().toISOString()
         })
@@ -1494,9 +1496,9 @@ export async function retryFailedCreatives(
 }
 
 /**
- * Retry persistence for creatives that failed to save to database.
- * AI generation succeeded, but database insert/update failed.
- * This is a pure persistence retry - no AI regeneration needed.
+ * Retry persistence for failed creatives.
+ * Re-persists existing creative data without re-calling AI.
+ * Uses upsert on (generation_session_id, platform_id).
  */
 export async function retryPersistFailedCreatives(
   briefId: string,
@@ -1504,7 +1506,6 @@ export async function retryPersistFailedCreatives(
 ): Promise<void> {
   console.log('[ContentStudio] === Starting Persistence Retry ===', { briefId });
 
-  const sessionId = crypto.randomUUID();
   const { data: brief } = await db
     .from('content_studio_briefs')
     .select('*')
@@ -1515,105 +1516,47 @@ export async function retryPersistFailedCreatives(
     throw new Error('Brief not found');
   }
 
-  // Get all creatives that failed persistence
-  const { data: persistFailedCreatives } = await db
+  // Get all failed creatives that have content (AI succeeded, persistence failed)
+  const { data: failedCreatives } = await db
     .from('content_studio_creatives')
     .select('*, content_platforms(*)')
     .eq('brief_id', briefId)
-    .eq('status', 'persist_failed');
+    .eq('status', 'failed');
 
-  if (!persistFailedCreatives || persistFailedCreatives.length === 0) {
-    console.log('[ContentStudio] No persistence-failed creatives to retry');
+  // Only retry those that already have visual content
+  const retryable = (failedCreatives || []).filter(
+    (c: any) => c.visual_html || c.scene_json
+  );
+
+  if (retryable.length === 0) {
+    console.log('[ContentStudio] No retryable creatives found');
     return;
   }
 
   console.log('[ContentStudio] Persistence retry targets:', {
-    count: persistFailedCreatives.length,
-    platforms: persistFailedCreatives.map(c => c.content_platforms?.name)
+    count: retryable.length,
+    platforms: retryable.map((c: any) => c.content_platforms?.name)
   });
 
-  const successfulSaves: any[] = [];
-
-  await Promise.all(persistFailedCreatives.map(async (creative) => {
+  await Promise.all(retryable.map(async (creative: any) => {
     const platform = creative.content_platforms;
     if (!platform) return;
 
-    // Retry persistence with the same data that AI generated
-    console.log('[ContentStudio] Retrying persistence for:', {
-      platformId: platform.id,
-      platformName: platform.name,
-      creativeId: creative.id
-    });
-
-    // Check for existing creative row
-    const { data: existingCreative } = await db
+    const { data: savedCreative, error: persistError } = await db
       .from('content_studio_creatives')
-      .select('id')
-      .eq('brief_id', briefId)
-      .eq('platform_id', platform.id)
-      .eq('generation_session_id', sessionId)
-      .maybeSingle();
-
-    async function persistWithRetry(retries = 2): Promise<{ data: any; error: any }> {
-      let lastError: any = null;
-      
-      for (let attempt = 1; attempt <= retries + 1; attempt++) {
-        if (attempt > 1) {
-          console.log('[creative persistence retry]', { attempt, platformId: platform.id });
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        try {
-          const payload = {
-            brief_id: briefId,
-            platform_id: platform.id,
-            generation_session_id: sessionId,
-            headline: creative.headline,
-            copy_text: creative.copy_text,
-            subject_line: creative.subject_line,
-            hashtags: creative.hashtags,
-            visual_html: creative.visual_html,
-            template_id: creative.template_id,
-            render_engine: creative.render_engine || 'html',
-            scene_json: creative.scene_json || null,
-            status: 'ready',
-            updated_at: new Date().toISOString()
-          };
-
-          if (existingCreative?.id) {
-            const { data, error } = await db
-              .from('content_studio_creatives')
-              .update({ ...payload, id: existingCreative.id })
-              .eq('id', existingCreative.id)
-              .select('*, content_platforms(*)')
-              .single();
-            if (!error) return { data, error: null };
-            lastError = error;
-          } else {
-            const { data, error } = await db
-              .from('content_studio_creatives')
-              .insert(payload)
-              .select('*, content_platforms(*)')
-              .single();
-            if (!error) return { data, error: null };
-            lastError = error;
-          }
-        } catch (e: any) {
-          lastError = e;
-        }
-      }
-      
-      return { data: null, error: lastError };
-    }
-
-    const { data: savedCreative, error: persistError } = await persistWithRetry();
+      .update({
+        status: 'ready',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', creative.id)
+      .select('*, content_platforms(*)')
+      .single();
 
     if (persistError) {
       console.error('[ContentStudio] Persistence retry failed:', {
         platformId: platform.id,
-        error: persistError.message
+        error: persistError.message,
       });
-      
       await logError({
         errorMessage: persistError.message,
         errorType: 'database',
@@ -1625,32 +1568,23 @@ export async function retryPersistFailedCreatives(
     } else {
       console.log('[ContentStudio] Persistence retry success:', {
         platformId: platform.id,
-        creativeId: savedCreative?.id
+        creativeId: savedCreative?.id,
       });
-      successfulSaves.push(savedCreative);
       onPlatformComplete?.(platform.id, savedCreative);
     }
   }));
 
-  // Update brief status based on results
+  // Recalculate brief status
   const { data: allCreatives } = await db
     .from('content_studio_creatives')
     .select('status')
     .eq('brief_id', briefId);
 
   if (allCreatives) {
-    const readyCount = allCreatives.filter(c => c.status === 'ready').length;
-    const persistFailedCount = allCreatives.filter(c => c.status === 'persist_failed').length;
+    const readyCount = allCreatives.filter((c: any) => c.status === 'ready').length;
     const total = allCreatives.length;
 
-    let briefStatus: string;
-    if (readyCount === total) {
-      briefStatus = 'ready';
-    } else if (persistFailedCount > 0) {
-      briefStatus = 'persist_retry_needed';
-    } else {
-      briefStatus = 'partial_failed';
-    }
+    const briefStatus = readyCount === total ? 'ready' : readyCount === 0 ? 'failed' : 'partial_failed';
 
     await db
       .from('content_studio_briefs')
@@ -1660,7 +1594,6 @@ export async function retryPersistFailedCreatives(
     console.log('[ContentStudio] === Persistence Retry Complete ===');
     console.log('[ContentStudio] Brief status:', briefStatus);
     console.log('[ContentStudio] Platforms ready:', readyCount, '/', total);
-    console.log('[ContentStudio] Persistence still failed:', persistFailedCount, '/', total);
   }
 }
 
