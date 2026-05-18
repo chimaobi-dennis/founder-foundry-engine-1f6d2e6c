@@ -15,6 +15,11 @@ import type {
   ImageNode,
   ShapeNode,
   GroupNode,
+  FrameNode,
+  StackNode,
+  SvgNode,
+  IconNode,
+  ButtonNode,
 } from '@/types/scene';
 import { loadSceneFonts, waitForFontsReady, resolveFontFamily, resolveFontWeight } from '@/lib/fonts/fontRegistry';
 
@@ -178,6 +183,21 @@ async function renderNode(ctx: CanvasRenderingContext2D, node: SceneNode): Promi
       break;
     case 'group':
       await renderGroupNode(ctx, node);
+      break;
+    case 'frame':
+      await renderFrameNode(ctx, node);
+      break;
+    case 'stack':
+      await renderStackNode(ctx, node);
+      break;
+    case 'svg':
+      await renderSvgNode(ctx, node);
+      break;
+    case 'icon':
+      renderIconNode(ctx, node);
+      break;
+    case 'button':
+      renderButtonNode(ctx, node);
       break;
   }
 
@@ -389,6 +409,135 @@ async function renderGroupNode(ctx: CanvasRenderingContext2D, node: GroupNode): 
   const sortedChildren = [...node.children].sort((a, b) => a.zIndex - b.zIndex);
   for (const child of sortedChildren) {
     await safeRenderNode(ctx, child);
+  }
+}
+
+// ─── Frame Rendering ───────────────────────────────────────
+
+async function renderFrameNode(ctx: CanvasRenderingContext2D, node: FrameNode): Promise<void> {
+  // Draw frame background
+  ctx.beginPath();
+  roundRect(ctx, 0, 0, node.width, node.height, node.radius);
+  if (node.fill && node.fill !== 'transparent') {
+    const gradient = parseGradient(ctx, node.fill, node.width, node.height);
+    ctx.fillStyle = gradient || node.fill;
+    ctx.fill();
+  }
+  if (node.stroke && node.stroke !== 'transparent' && node.strokeWidth > 0) {
+    ctx.strokeStyle = node.stroke;
+    ctx.lineWidth = node.strokeWidth;
+    ctx.stroke();
+  }
+
+  // Clip children if needed
+  if (node.clipContent) {
+    ctx.save();
+    ctx.beginPath();
+    roundRect(ctx, 0, 0, node.width, node.height, node.radius);
+    ctx.clip();
+  }
+
+  const sorted = [...node.children].sort((a, b) => a.zIndex - b.zIndex);
+  for (const child of sorted) {
+    await safeRenderNode(ctx, child);
+  }
+
+  if (node.clipContent) {
+    ctx.restore();
+  }
+}
+
+// ─── Stack Rendering ───────────────────────────────────────
+
+async function renderStackNode(ctx: CanvasRenderingContext2D, node: StackNode): Promise<void> {
+  const isH = node.direction === 'horizontal';
+  const pad = node.padding || 0;
+  let cursor = pad;
+
+  const sorted = [...node.children].sort((a, b) => a.zIndex - b.zIndex);
+
+  for (const child of sorted) {
+    ctx.save();
+    if (isH) {
+      ctx.translate(cursor, pad);
+    } else {
+      ctx.translate(pad, cursor);
+    }
+    await safeRenderNode(ctx, child);
+    ctx.restore();
+
+    cursor += (isH ? child.width : child.height) + (node.gap || 0);
+  }
+}
+
+// ─── SVG Node Rendering ─────────────────────────────────────
+
+async function renderSvgNode(ctx: CanvasRenderingContext2D, node: SvgNode): Promise<void> {
+  if (!node.svgContent) return;
+
+  let dataUri: string;
+  if (node.svgContent.startsWith('data:')) {
+    dataUri = node.svgContent;
+  } else {
+    dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(node.svgContent)))}`;
+  }
+
+  try {
+    const img = await loadImage(dataUri);
+    ctx.drawImage(img, 0, 0, node.width, node.height);
+  } catch {
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, node.width, node.height);
+  }
+}
+
+// ─── Icon Node Rendering ─────────────────────────────────────
+
+function renderIconNode(ctx: CanvasRenderingContext2D, node: IconNode): void {
+  // Render placeholder — actual icon SVG resolution will be handled by sceneAssetResolver
+  const size = Math.min(node.width, node.height);
+  const cx = node.width / 2;
+  const cy = node.height / 2;
+
+  ctx.strokeStyle = node.color || '#000000';
+  ctx.lineWidth = node.strokeWidth || 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size / 2 - 4, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Draw icon name as text fallback
+  ctx.fillStyle = node.color || '#000000';
+  ctx.font = `${Math.max(8, size * 0.2)}px "Inter"`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(node.iconName || '?', cx, cy);
+}
+
+// ─── Button Node Rendering ───────────────────────────────────
+
+function renderButtonNode(ctx: CanvasRenderingContext2D, node: ButtonNode): void {
+  // Background
+  ctx.beginPath();
+  roundRect(ctx, 0, 0, node.width, node.height, node.radius);
+  if (node.fill && node.fill !== 'transparent') {
+    ctx.fillStyle = node.fill;
+    ctx.fill();
+  }
+  if (node.stroke && node.stroke !== 'transparent' && node.strokeWidth > 0) {
+    ctx.strokeStyle = node.stroke;
+    ctx.lineWidth = node.strokeWidth;
+    ctx.stroke();
+  }
+
+  // Label
+  if (node.label) {
+    const family = resolveFontFamily(node.fontFamily);
+    const weight = resolveFontWeight(family, node.fontWeight);
+    ctx.font = `${weight} ${node.fontSize}px "${family}"`;
+    ctx.fillStyle = node.textColor || '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(node.label, node.width / 2, node.height / 2);
   }
 }
 

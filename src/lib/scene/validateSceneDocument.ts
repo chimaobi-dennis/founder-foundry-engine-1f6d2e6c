@@ -53,7 +53,7 @@ export function sanitizeColor(color: unknown, fallback = '#000000'): string {
 
 const BaseNodeSchema = z.object({
   id: z.string().min(1).catch('node_' + Math.random().toString(36).slice(2, 9)),
-  type: z.enum(['text', 'image', 'shape', 'group']),
+  type: z.enum(['text', 'image', 'shape', 'group', 'frame', 'stack', 'svg', 'icon', 'button']),
   x: z.number().catch(0),
   y: z.number().catch(0),
   width: z.number().positive().catch(100),
@@ -90,7 +90,54 @@ const ShapeNodeSchema = BaseNodeSchema.extend({
   radius: z.number().min(0).catch(0),
 });
 
-// Group is recursive — we define it with z.lazy
+const FrameNodeSchema = BaseNodeSchema.extend({
+  type: z.literal('frame'),
+  fill: z.string().catch('transparent'),
+  stroke: z.string().catch('transparent'),
+  strokeWidth: z.number().min(0).catch(0),
+  radius: z.number().min(0).catch(0),
+  clipContent: z.boolean().catch(true),
+});
+
+const StackNodeSchema = BaseNodeSchema.extend({
+  type: z.literal('stack'),
+  direction: z.enum(['horizontal', 'vertical']).catch('vertical'),
+  gap: z.number().min(0).catch(0),
+  align: z.enum(['start', 'center', 'end', 'stretch']).catch('start'),
+  justify: z.enum(['start', 'center', 'end', 'space-between']).catch('start'),
+  padding: z.number().min(0).catch(0),
+});
+
+const SvgNodeSchema = BaseNodeSchema.extend({
+  type: z.literal('svg'),
+  svgContent: z.string().catch(''),
+  preserveAspectRatio: z.boolean().catch(true),
+});
+
+const IconNodeSchema = BaseNodeSchema.extend({
+  type: z.literal('icon'),
+  iconName: z.string().catch('circle'),
+  iconLibrary: z.enum(['lucide', 'custom']).catch('lucide'),
+  color: z.string().catch('#000000'),
+  strokeWidth: z.number().min(0).catch(2),
+});
+
+const ButtonNodeSchema = BaseNodeSchema.extend({
+  type: z.literal('button'),
+  label: z.string().catch('Button'),
+  fontSize: z.number().positive().catch(16),
+  fontFamily: z.string().catch('Inter'),
+  fontWeight: z.number().int().min(100).max(900).catch(600),
+  textColor: z.string().catch('#ffffff'),
+  fill: z.string().catch('#333333'),
+  stroke: z.string().catch('transparent'),
+  strokeWidth: z.number().min(0).catch(0),
+  radius: z.number().min(0).catch(8),
+  iconName: z.string().optional(),
+  iconPosition: z.enum(['left', 'right']).optional(),
+});
+
+// Group/Frame/Stack are recursive — we define them with z.lazy
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SceneNodeSchema: z.ZodType<any> = z.lazy(() =>
   z.discriminatedUnion('type', [
@@ -101,8 +148,27 @@ const SceneNodeSchema: z.ZodType<any> = z.lazy(() =>
       type: z.literal('group'),
       children: z.array(SceneNodeSchema).catch([]),
     }),
+    FrameNodeSchema.extend({
+      children: z.array(SceneNodeSchema).catch([]),
+    }),
+    StackNodeSchema.extend({
+      children: z.array(SceneNodeSchema).catch([]),
+    }),
+    SvgNodeSchema,
+    IconNodeSchema,
+    ButtonNodeSchema,
   ])
 );
+
+const SceneMetadataSchema = z.object({
+  compositionStyle: z.enum(['editorial', 'minimal', 'bold', 'cinematic', 'modular']).optional(),
+  visualDensity: z.enum(['sparse', 'balanced', 'dense']).optional(),
+  focalPoints: z.array(z.object({ x: z.number(), y: z.number(), weight: z.number() })).optional(),
+  campaignIntent: z.string().optional(),
+  aiConfidence: z.number().min(0).max(1).optional(),
+  generationModel: z.string().optional(),
+  generationStrategy: z.string().optional(),
+}).optional();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SceneDocumentSchema: z.ZodType<any> = z.object({
@@ -111,6 +177,7 @@ const SceneDocumentSchema: z.ZodType<any> = z.object({
   height: z.number().positive().catch(600),
   background: z.string().catch('#ffffff'),
   nodes: z.array(SceneNodeSchema).catch([]),
+  meta: SceneMetadataSchema,
 });
 
 // ─── Validation ───────────────────────────────────────────────
@@ -252,6 +319,67 @@ export function normalizeNode(
           normalizeNode(child, canvasWidth, canvasHeight, usedIds)
         ),
       };
+    case 'frame':
+      return {
+        ...base,
+        type: 'frame' as const,
+        children: (node.children || []).map((child) =>
+          normalizeNode(child, canvasWidth, canvasHeight, usedIds)
+        ),
+        fill: sanitizeColor(node.fill, 'transparent'),
+        stroke: sanitizeColor(node.stroke, 'transparent'),
+        strokeWidth: Math.max(0, finiteOr(node.strokeWidth, 0)),
+        radius: Math.max(0, finiteOr(node.radius, 0)),
+        clipContent: node.clipContent !== false,
+      };
+    case 'stack':
+      return {
+        ...base,
+        type: 'stack' as const,
+        children: (node.children || []).map((child) =>
+          normalizeNode(child, canvasWidth, canvasHeight, usedIds)
+        ),
+        direction: (['horizontal', 'vertical'] as const).includes(node.direction) ? node.direction : 'vertical',
+        gap: Math.max(0, finiteOr(node.gap, 0)),
+        align: (['start', 'center', 'end', 'stretch'] as const).includes(node.align) ? node.align : 'start',
+        justify: (['start', 'center', 'end', 'space-between'] as const).includes(node.justify) ? node.justify : 'start',
+        padding: Math.max(0, finiteOr(node.padding, 0)),
+      };
+    case 'svg':
+      return {
+        ...base,
+        type: 'svg' as const,
+        svgContent: typeof node.svgContent === 'string' ? node.svgContent : '',
+        preserveAspectRatio: node.preserveAspectRatio !== false,
+      };
+    case 'icon':
+      return {
+        ...base,
+        type: 'icon' as const,
+        iconName: typeof node.iconName === 'string' ? node.iconName : 'circle',
+        iconLibrary: node.iconLibrary === 'custom' ? 'custom' as const : 'lucide' as const,
+        color: sanitizeColor(node.color, '#000000'),
+        strokeWidth: Math.max(0, finiteOr(node.strokeWidth, 2)),
+      };
+    case 'button': {
+      const btnFamily = resolveFontFamily(node.fontFamily || 'Inter');
+      const btnWeight = resolveFontWeight(btnFamily, finiteOr(node.fontWeight, 600));
+      return {
+        ...base,
+        type: 'button' as const,
+        label: typeof node.label === 'string' ? node.label : 'Button',
+        fontSize: Math.max(1, finiteOr(node.fontSize, 16)),
+        fontFamily: btnFamily,
+        fontWeight: btnWeight,
+        textColor: sanitizeColor(node.textColor, '#ffffff'),
+        fill: sanitizeColor(node.fill, '#333333'),
+        stroke: sanitizeColor(node.stroke, 'transparent'),
+        strokeWidth: Math.max(0, finiteOr(node.strokeWidth, 0)),
+        radius: Math.max(0, finiteOr(node.radius, 8)),
+        iconName: typeof node.iconName === 'string' ? node.iconName : undefined,
+        iconPosition: node.iconPosition === 'right' ? 'right' as const : node.iconPosition === 'left' ? 'left' as const : undefined,
+      };
+    }
     default:
       return { ...base, type: 'shape' as const, fill: '#cccccc', stroke: 'transparent', strokeWidth: 0, radius: 0 };
   }
