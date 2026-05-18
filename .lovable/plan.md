@@ -1,77 +1,85 @@
-## Kinika Mentor — Workspace Redesign
+# Scene Editor Architecture — Frontend Scaffold
 
-A pure UI/UX pass on `src/pages/Mentor.tsx`, `src/components/mentor/ChatPanel.tsx`, `src/components/mentor/BrandMilestonePanel.tsx`, and `src/components/mentor/BrandDNAPanel.tsx`. No service, AI, or state logic changes. Same props, same data flow, same handlers.
+Build a Canva/Figma-style structured editor that runs alongside the existing HTML editor. Backend contract (`render_engine`, `scene_json`, `SceneDocument`) is already in place; this is pure frontend.
 
-### Guiding shift
+## Scope of this implementation
 
-From "AI chat app with sidebars" → "founder operating workspace where understanding accumulates."
+This is a large architectural addition (~15 new files). I'll deliver a working MVP scaffold across all 12 phases — stable enough to render, edit, and persist scenes — but some advanced features land as scaffolds (history, clipboard, virtualization, multi-select, deterministic export).
 
-Three columns stay. What changes is rhythm, weight, surfaces, naming, and the visual thread connecting them.
+## What gets built
 
-### Shared visual language (applied across all three columns)
+### 1. New module: `src/components/studio/scene/`
+- **SceneCanvas.tsx** — fixed artboard, zoom/pan wrapper, pointer event capture
+- **SceneRenderer.tsx** — pure renderer (no interactions) for previews
+- **SceneNodeRenderer.tsx** — dispatches to type-specific components
+- **SceneTextNode / SceneImageNode / SceneShapeNode / SceneGroupNode** — leaf renderers, absolute positioning, transforms
+- **SceneSelectionOverlay.tsx** — selection ring + bbox
+- **SceneResizeHandles.tsx** — 8 handles + rotate handle
+- **SceneToolbar.tsx** — zoom controls, add-node buttons, delete/duplicate
+- **SceneLayersPanel.tsx** — node tree, reorder (dnd-kit already in repo), rename, visibility/lock toggles
+- **ScenePropertiesPanel.tsx** — context-aware controls per node type
 
-- **Surfaces**: replace card-heavy `bg-card` + `border` containers with calmer washes — subtle navy gradients, hairline `border-white/[0.04]` dividers instead of full borders, no rounded-xl bubble blocks.
-- **Rhythm**: increase vertical spacing scale (12 → 20, 16 → 28). Section headers get small uppercase eyebrow labels (Playfair small caps + amber dot accent) rather than bold titles + badges.
-- **Type hierarchy**: Playfair Display for section eyebrows and captured insights; DM Sans for UI chrome. Reduce competing weights — most labels move to `text-muted-foreground` at 11px tracking-wide uppercase.
-- **Amber accent**: reserved exclusively for *active state*, *captured insight markers*, and *connection cues* between panels. Removed from buttons, badges, and decorative chrome.
-- **Continuity thread**: a 1px amber-fade vertical line runs down the left edge of milestone markers in chat and continues into the Journey Record panel as the spine of captured insights — visually linking conversation → insight → memory.
+### 2. State: `src/components/studio/scene/sceneStore.ts`
+Zustand store (already a dep) holding:
+- `document: SceneDocument`
+- `selectedIds: string[]`, `hoveredId`
+- `zoom`, `pan`
+- `history` (undo/redo scaffold — capped ring buffer)
+- `clipboard` (scaffold)
+- Actions: `updateNode`, `addNode`, `deleteNodes`, `duplicateNodes`, `reorder`, `setSelection`, `setZoom`, `setPan`
 
-### Left panel — "Context Sources"
+### 3. Render-engine switching
+Add a small `<EngineSwitch>` helper used by:
+- `StudioEditor.tsx`
+- `pages/ContentStudioEditor.tsx`
+- `ProStudioEditor.tsx`
+- `ExportCanvas.tsx` flow
 
-Reframe from utility/file manager to source layer.
+Logic: `render_engine === 'scene' ? <SceneCanvas/> : <existing HTML editor/>`. HTML editor is untouched.
 
-- Rename headers: "Project Assets" → **Context Sources**, "Upload Files" → **Add Reference Material**, "Memory" → **Business Context**.
-- Brand switcher: shrink dropdown chrome, remove the heavy bordered card; use a quiet inline row with a small color dot, project name in Playfair, and "Started …" as muted micro-copy.
-- New project button: ghost text-link style ("+ New project") instead of full bordered button.
-- Context Sources list: drop file emoji icons; use a small monochrome doc/link/image glyph + filename + muted source label. Pinned items separated by a hairline divider, not a heading block.
-- Business Context summary: render as a single italic Playfair paragraph ("Building Nordform in modular furniture for design-conscious renters…") instead of a card.
-- "Add context from document/URL" button stays but restyled as a quiet text-link with a tiny upload glyph.
+### 4. Persistence
+- Autosave hook `useSceneAutosave(documentId)` — 600ms debounce, writes `scene_json` via existing service layer (no direct supabase calls). I'll add a thin `updateSceneJson` method to `contentStudioService` and `templateService` if not present, calling existing update endpoints.
 
-### Center — Working Session
+### 5. Interactions (MVP)
+- Single select on pointerdown, click empty = clear
+- Drag to move (delta applied to x/y)
+- 8-handle resize (no aspect lock for MVP, shift = aspect)
+- Rotate handle
+- Keyboard: Delete, Cmd/Ctrl+D duplicate, Cmd/Ctrl+Z undo (scaffold), arrows nudge
+- Multi-select: shift-click adds to selection; marquee = scaffold (not in MVP)
 
-Move away from messaging-app aesthetics.
+### 6. Export
+- Wire `renderSceneToCanvas` / `renderSceneToBlob` (already scaffolded) into the export modal flow when `render_engine === 'scene'`. No html2canvas path for scene mode.
+- Note clearly: existing renderer scaffolds are stubs — export will produce a background-only PNG until the node renderers are filled in. Marked as a known limitation.
 
-- Remove avatar circles and bubble backgrounds for AI messages. AI responses render as **flowing editorial text blocks** with generous line-height, Playfair-tinged first-line emphasis on strategically significant responses, and a thin amber left margin only when the response carries a save prompt.
-- Founder messages keep a subtle right-aligned bubble but with softer surface (`bg-white/[0.03]`, no border) and tighter padding — feels like a margin note rather than a chat reply.
-- **Section dividers**: when a milestone is created in the timeline, render a horizontal rule with the milestone name centered in small caps + amber dot — a visible chapter break in the working session.
-- **Save prompts**: redesigned from amber cards to inline annotations — small italic Playfair line "Capture as Positioning →" with hover-revealed Save / Edit / Dismiss text actions. No box, no fill.
-- **Choice prompts**: same restraint — question in Playfair, options as text rows separated by hairlines, amber underline on hover.
-- Top brand-context bar (h-10) absorbed into the chat header with more breathing room (24px padding) and a stage chip moved to the right edge.
-- Composer: borderless textarea on a slightly raised surface, send affordance is a quiet amber arrow glyph, attach/mic glyphs muted until hover.
+## What stays untouched
+- HTML editor (`EditableCanvas`, `CreativeRenderer`, current mobile/desktop StudioEditor HTML path)
+- All backend services / schema
+- `src/types/scene.ts` (consumed as-is)
+- `src/lib/renderers/*` (consumed; export wiring only)
 
-### Right panel — Journey Record (elevated)
+## Known limitations after this PR
+- `renderSceneToCanvas/SVG` node rendering still TODO in lib scaffolds → scene PNG export = background only
+- Undo/redo, clipboard, marquee select, snapping/guides = scaffolds
+- AI → scene_json generation prompt migration not included (call out in recommendations)
+- Group node editing is read-only render; nested editing scaffold only
+- No collaborative editing layer
 
-Treat this as the intelligence layer, not a sidebar.
+## Tech choices
+- Zustand for store (already in deps)
+- `@dnd-kit/sortable` for layers reorder (already in deps)
+- Pointer events, no react-dnd for canvas drag (lighter)
+- All semantic tokens, dark workspace, follows existing design system
 
-- Wider gutter on tablet/desktop (panel grows from current ~320px to 360px). More internal padding (24px).
-- Header reframed: small Playfair "Journey Record" with a one-line italic subtitle ("Understanding compounding over time.") — no Active badge.
-- Stage switcher: compact row at top with stage emoji + Playfair name + muted "Stage 2 of 6" — Change action is a small text-link, dropdown becomes a quiet stacked list with hairline dividers.
-- **Captured insights as Strategic Insight Cards**:
-  - Each substage with a captured value renders as a structured block: small uppercase eyebrow (field label), Playfair value at 15px line-height 1.55, muted source line ("Captured 3 days ago · from conversation").
-  - No card border. Separated by 28px vertical space and a hairline rule.
-  - Hover reveals quiet text actions: Refine · Clear.
-- Empty substages: a single muted line "Awaiting: target audience · core promise · …" instead of a checklist of empty rows. Reduces visual noise.
-- Stage progression: compact horizontal dot-rail (6 dots, current = amber filled, completed = amber outline, future = muted) at the top of the panel — replaces stacked stage cards.
-- The amber spine from the chat continues into the panel as the left edge of the insight column, reinforcing flow.
+## Files touched
+**Created (~15):** scene module above + `sceneStore.ts` + `useSceneAutosave.ts`
+**Edited (light):** `StudioEditor.tsx`, `ContentStudioEditor.tsx`, `ProStudioEditor.tsx`, `ExportCanvas.tsx`, possibly `contentStudioService.ts`/`templateService.ts` for a single persistence method
 
-### Mobile / tablet
+## After approval
+I'll implement in this order: types/store → node renderers → SceneCanvas + interactions → panels → engine switch wiring → autosave → export hook → QA. Estimated ~15 new files, ~5 edits.
 
-- Tablet (<1024): right panel collapses to a 44px rail with an amber dot per captured insight; tap expands into a sheet. Left panel collapses to a Sheet trigger (existing behaviour kept, restyled).
-- Mobile (<768): stacked workspace sections in this order — Working Session (default), Context Sources (collapsible at top), Journey Record (collapsible at bottom). The dominant view is the active session, but Journey Record gets a persistent peek strip showing the latest captured insight, not just a toggle.
-
-### What is explicitly NOT changing
-
-- All service calls, props, handlers, state, conversation orchestration, milestone detection, save-prompt parsing, AI response logic, choice-prompt flow, refining/clearing logic, stage-change warnings, and onboarding modal behaviour remain identical.
-- No DB migrations, no service edits, no `aiService` / `mentorService` / `journeyDataService` changes.
-
-### Files touched
-
-- `src/pages/Mentor.tsx` — column widths, gutter, continuity-spine wrapper, mobile stacking order. No state/handler changes.
-- `src/components/mentor/BrandMilestonePanel.tsx` — visual restyle, header renames, surface refinement.
-- `src/components/mentor/ChatPanel.tsx` — message rendering, save-prompt and choice-prompt styling, section dividers, composer restyle.
-- `src/components/mentor/BrandDNAPanel.tsx` — header, stage switcher, insight-card layout, dot-rail, empty-state line.
-- Possibly small additions to `src/index.css` for the amber spine + small-caps eyebrow utility (no token changes).
-
-### Risk
-
-Low — purely presentational. Largest risk is regressions from JSX edits in 1000+ line files; mitigated by keeping all handlers and state intact and editing in scoped passes per file.
+## Recommendations before AI prompt migration
+1. Lock the SceneDocument schema (versioning + migrations strategy)
+2. Define a JSON schema / Zod validator for AI output sanity-checking
+3. Decide font loading strategy (web fonts vs. embedded) before export work
+4. Fill in `renderSceneToCanvas` node implementations before shipping export
