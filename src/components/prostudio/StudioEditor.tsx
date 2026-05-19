@@ -991,26 +991,22 @@ export function StudioEditor({
               <Redo2 size={15} />
             </ToolbarButton>
             <div className="w-px h-5 mx-1.5 bg-border" />
-            {/* Zoom controls — hidden in scene mode (SceneCanvas handles zoom internally via Ctrl+wheel) */}
-            {!isSceneMode && (
-              <>
-                <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
-                  <ZoomOut size={15} />
-                </ToolbarButton>
-                <button
-                  className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
-                  style={{ minWidth: 56 }}
-                  onClick={() => setZoom(mode === "content-studio" ? fitScale : 0.7)}
-                  title="Fit to screen"
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-                <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
-                  <ZoomIn size={15} />
-                </ToolbarButton>
-                <div className="w-px h-5 mx-1.5 bg-border" />
-              </>
-            )}
+            {/* Zoom controls — shown in both HTML and Scene modes */}
+            <ToolbarButton title="Zoom out" onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}>
+              <ZoomOut size={15} />
+            </ToolbarButton>
+            <button
+              className="h-8 px-2.5 text-[11px] font-ui rounded-md transition-colors hover:bg-muted tabular-nums text-foreground"
+              style={{ minWidth: 56 }}
+              onClick={() => setZoom(mode === "content-studio" ? fitScale : 0.7)}
+              title="Fit to screen"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <ToolbarButton title="Zoom in" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}>
+              <ZoomIn size={15} />
+            </ToolbarButton>
+            <div className="w-px h-5 mx-1.5 bg-border" />
             <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
               {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
             </div>
@@ -1095,9 +1091,7 @@ export function StudioEditor({
 
 
         {/* Workspace — wrapped in SceneStoreProvider when in scene mode */}
-        {/* Key forces complete remount on platform switch - clears all renderer cache */}
         <SceneWorkspaceWrapper
-          key={activeCanvasId || 'no-canvas'}
           isSceneMode={isSceneMode}
           sceneDoc={effectiveSceneDoc}
           canvasId={activeCanvasId}
@@ -1428,6 +1422,7 @@ export function StudioEditor({
                       {/* Engine switch: scene mode renders full interactive SceneCanvas, html mode renders EditableCanvas */}
                       {isSceneMode && effectiveSceneDoc ? (
                         <SceneCanvas
+                          key={activeCanvasId || 'scene'}
                           className="absolute inset-0"
                         />
                       ) : (
@@ -1483,8 +1478,8 @@ export function StudioEditor({
                   ? <span>{effectiveSceneDoc?.nodes?.length ?? 0} nodes</span>
                   : <span>{elements.length} layers</span>
                 }
-                {/* Zoom display — hidden in scene mode (SceneCanvas shows zoom in debug overlay) */}
-                {!isSceneMode && <span>{Math.round(zoom * 100)}%</span>}
+                {/* Zoom display — shown in both modes */}
+                <span>{Math.round(zoom * 100)}%</span>
               </div>
             </div>
           </div>
