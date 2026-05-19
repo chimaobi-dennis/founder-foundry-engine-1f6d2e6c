@@ -40,6 +40,18 @@ export function PlatformsPanel({ canvases, activeId, onSelect }: PlatformsPanelP
                   style={{ background: canvas.platformIcon || "#8A96A3" }}
                 />
                 <span className="flex-1 truncate">{canvas.label || "Platform"}</span>
+                {canvas.renderEngine && (
+                  <span
+                    className={cn(
+                      "px-1 py-px rounded text-[8px] font-bold uppercase tracking-wider flex-shrink-0",
+                      canvas.renderEngine === 'scene'
+                        ? "bg-violet-500/15 text-violet-400"
+                        : "bg-blue-500/15 text-blue-400"
+                    )}
+                  >
+                    {canvas.renderEngine === 'scene' ? "Scene" : "HTML"}
+                  </span>
+                )}
                 {status === "generating" ? (
                   <span className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />

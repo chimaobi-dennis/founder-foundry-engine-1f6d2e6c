@@ -56,6 +56,9 @@ import { SAMPLE_TEMPLATE_HTML } from "./studio/sampleTemplate";
 import type { StudioElement } from "./studio/types";
 import { PlatformsPanel } from "./content-studio/PlatformsPanel";
 import { CopyPanel } from "./content-studio/CopyPanel";
+import { SceneRenderer } from "@/components/studio/scene/SceneRenderer";
+import type { SceneDocument } from "@/types/scene";
+import { renderSceneToCanvas } from "@/lib/renderers/renderSceneToCanvas";
 import { CanvasGenerating } from "./content-studio/CanvasGenerating";
 import { CanvasCrossfade } from "./content-studio/CanvasCrossfade";
 import { CanvasFailed } from "./content-studio/CanvasFailed";
@@ -188,10 +191,25 @@ export function StudioEditor({
     return (c?.platformConfig as PlatformConfig) || null;
   }, [mode, canvases, activeCanvasId]);
 
+  // Derive active render engine from canvases (content-studio) or default to 'html'
+  const activeRenderEngine = useMemo(() => {
+    if (!canvases || !activeCanvasId) return 'html' as const;
+    const c = canvases.find(x => x.id === activeCanvasId);
+    return (c?.renderEngine as 'html' | 'scene') || 'html';
+  }, [canvases, activeCanvasId]);
+
+  const activeSceneJson: SceneDocument | null = useMemo(() => {
+    if (activeRenderEngine !== 'scene' || !canvases || !activeCanvasId) return null;
+    const c = canvases.find(x => x.id === activeCanvasId);
+    return (c?.sceneJson as SceneDocument) || null;
+  }, [activeRenderEngine, canvases, activeCanvasId]);
+
+  const isSceneMode = activeRenderEngine === 'scene' && !!activeSceneJson;
+
   // Render the generated HTML, normalised to the platform's typography scale
   const html = useMemo(
-    () => applyTypographyNormalization(variationHtml || "", activePlatformConfig),
-    [variationHtml, activePlatformConfig],
+    () => isSceneMode ? "" : applyTypographyNormalization(variationHtml || "", activePlatformConfig),
+    [variationHtml, activePlatformConfig, isSceneMode],
   );
 
   const [elements, setElements] = useState<StudioElement[]>([]);
@@ -262,6 +280,17 @@ export function StudioEditor({
     }
     const activeCanvas = canvases.find(c => c.id === activeCanvasId);
     if (!activeCanvas) return;
+
+    // Scene mode: use scene document dimensions
+    if (activeCanvas.renderEngine === 'scene' && activeCanvas.sceneJson) {
+      const doc = activeCanvas.sceneJson as SceneDocument;
+      if (doc.width && doc.height) {
+        setCanvasSize({ width: doc.width, height: doc.height });
+        setNativeDetected(true);
+        return;
+      }
+    }
+
     const native = detectNativeHtmlDimensions(activeCanvas.html);
     if (native) {
       setCanvasSize(native);
@@ -332,7 +361,18 @@ export function StudioEditor({
    * This is used for saving to library
    */
   const captureStage = useCallback(async (scale: number): Promise<string | null> => {
-    // Use the current variation's export canvas if available
+    // Scene mode: use renderSceneToCanvas
+    if (isSceneMode && activeSceneJson) {
+      try {
+        const canvas = await renderSceneToCanvas(activeSceneJson, { pixelRatio: scale });
+        return canvas.toDataURL("image/png");
+      } catch (e) {
+        console.error("[StudioEditor] Scene capture failed:", e);
+        return null;
+      }
+    }
+
+    // HTML mode: use the current variation's export canvas if available
     const exportHandle = variationId ? exportCanvasRefs.current.get(variationId) : null;
     
     if (exportHandle) {
@@ -347,7 +387,7 @@ export function StudioEditor({
     
     console.warn("[StudioEditor] No export canvas available for capture");
     return null;
-  }, [variationId]);
+  }, [variationId, isSceneMode, activeSceneJson]);
 
 
   // ─── Export Canvas Refs ───────────────────────────────────────────────
@@ -389,7 +429,22 @@ export function StudioEditor({
     canvasId: string,
     pixelRatio = 2
   ): Promise<HTMLCanvasElement | null> => {
-    // Wait for export canvas to be available
+    // Scene mode: use renderSceneToCanvas (deterministic, no DOM)
+    if (canvases) {
+      const canvas = canvases.find(c => c.id === canvasId);
+      if (canvas?.renderEngine === 'scene' && canvas.sceneJson) {
+        try {
+          console.log(`[StudioEditor] Scene export for ${canvasId} via renderSceneToCanvas`);
+          const sceneCanvas = await renderSceneToCanvas(canvas.sceneJson as SceneDocument, { pixelRatio });
+          return sceneCanvas;
+        } catch (e) {
+          console.error(`[StudioEditor] Scene export failed for ${canvasId}:`, e);
+          return null;
+        }
+      }
+    }
+
+    // HTML mode: use ExportCanvas (html-to-image)
     let exportHandle = exportCanvasRefs.current.get(canvasId);
     
     if (!exportHandle) {
@@ -409,7 +464,7 @@ export function StudioEditor({
       console.error(`[StudioEditor] Export capture failed for ${canvasId}:`, e);
       return null;
     }
-  }, []);
+  }, [canvases]);
 
   const slugify = (s: string) => (s || "design").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -1237,7 +1292,7 @@ export function StudioEditor({
                   : null;
                 const isFailed = activeCanvas?.status === "failed";
                 const isGenerating = !isFailed && (activeCanvas?.status === "generating" || (mode === 'content-studio' && regenerating));
-                const hasHtml = !!html;
+                const hasContent = isSceneMode ? !!activeSceneJson : !!html;
 
                 if (isFailed) {
                   return (
@@ -1256,7 +1311,7 @@ export function StudioEditor({
                   <CanvasCrossfade
                     canvasId={activeCanvasId || variationId || "default"}
                     isGenerating={!!isGenerating}
-                    hasHtml={hasHtml}
+                    hasHtml={hasContent}
                     platformName={activeCanvas?.label || "Canvas"}
                     width={canvasSize.width}
                     height={canvasSize.height}
@@ -1279,20 +1334,38 @@ export function StudioEditor({
                           boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
                         }}
                       />
-                      <EditableCanvas
-                        html={html}
-                        zoom={zoom}
-                        width={canvasSize.width}
-                        height={canvasSize.height}
-                        selectedId={selectedId}
-                        onSelect={setSelectedId}
-                        onElementsParsed={setElements}
-                        onElementMutated={() => { bumpRefresh(); markDirty(); }}
-                        onIntrinsicSize={setCanvasSize}
-                        getElementState={getElementState}
-                        refreshKey={refreshKey}
-                        forceFillStage={mode === 'content-studio' && !nativeDetected}
-                      />
+                      {/* Engine switch: scene mode renders SceneRenderer, html mode renders EditableCanvas */}
+                      {isSceneMode && activeSceneJson ? (
+                        <div
+                          style={{
+                            transform: `scale(${zoom})`,
+                            transformOrigin: "top left",
+                            width: canvasSize.width,
+                            height: canvasSize.height,
+                          }}
+                        >
+                          <SceneRenderer
+                            document={activeSceneJson}
+                            preview={false}
+                            style={{ width: canvasSize.width, height: canvasSize.height }}
+                          />
+                        </div>
+                      ) : (
+                        <EditableCanvas
+                          html={html}
+                          zoom={zoom}
+                          width={canvasSize.width}
+                          height={canvasSize.height}
+                          selectedId={selectedId}
+                          onSelect={setSelectedId}
+                          onElementsParsed={setElements}
+                          onElementMutated={() => { bumpRefresh(); markDirty(); }}
+                          onIntrinsicSize={setCanvasSize}
+                          getElementState={getElementState}
+                          refreshKey={refreshKey}
+                          forceFillStage={mode === 'content-studio' && !nativeDetected}
+                        />
+                      )}
                       {mode === 'content-studio' && (
                         <PlatformOverlay
                           platform={activePlatformConfig}
@@ -1312,9 +1385,24 @@ export function StudioEditor({
               <div className="flex items-center gap-3">
                 <span>Tool: <span className="text-foreground">{tool === "select" ? "Select" : "Pan"}</span></span>
                 {selected && <span>Selected: <span className="text-foreground">{selected.name}</span></span>}
+                {mode === 'content-studio' && (
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider",
+                      isSceneMode
+                        ? "bg-violet-500/15 text-violet-400"
+                        : "bg-blue-500/15 text-blue-400"
+                    )}
+                  >
+                    {isSceneMode ? "Scene" : "HTML"}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-3 tabular-nums">
-                <span>{elements.length} layers</span>
+                {isSceneMode
+                  ? <span>{activeSceneJson?.nodes?.length ?? 0} nodes</span>
+                  : <span>{elements.length} layers</span>
+                }
                 <span>{Math.round(zoom * 100)}%</span>
               </div>
             </div>
@@ -1464,8 +1552,9 @@ export function StudioEditor({
 
         {/* Hidden Export Canvases for high-quality export
             Each canvas gets an ExportCanvas that renders the same HTML
-            but at fixed scale(1) without responsive transforms */}
-        {canvases?.map((canvas) => (
+            but at fixed scale(1) without responsive transforms.
+            Scene-mode canvases are exported via renderSceneToCanvas instead. */}
+        {canvases?.filter(c => c.renderEngine !== 'scene').map((canvas) => (
           <ExportCanvas
             key={`export-${canvas.id}`}
             ref={(el) => {

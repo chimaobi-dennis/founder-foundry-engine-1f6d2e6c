@@ -45,6 +45,10 @@ export interface CanvasItem {
   isApproved?: boolean;
   /** Full content_platforms row (for safe zones, typography, occupancy, etc.) */
   platformConfig?: any;
+  /** Render engine discriminator: 'html' | 'scene'. Defaults to 'html' when absent. */
+  renderEngine?: 'html' | 'scene' | null;
+  /** Scene JSON document (only present when renderEngine === 'scene'). */
+  sceneJson?: any;
 }
 
 interface Props {
@@ -187,7 +191,8 @@ function CanvasThumb({
   onSetMain,
 }: ThumbProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const hasContent = !!(canvas.html || canvas.thumbnailUrl);
+  const hasContent = !!(canvas.html || canvas.thumbnailUrl || canvas.sceneJson);
+  const isScene = canvas.renderEngine === 'scene' && !!canvas.sceneJson;
 
   return (
     <div className="relative group flex-shrink-0">
@@ -212,6 +217,28 @@ function CanvasThumb({
             alt={`Canvas ${index}`}
             className="w-full h-full object-cover"
           />
+        ) : isScene && canvas.sceneJson ? (
+          // Scene mode: render scene preview at small scale
+          <div
+            className="w-full h-full"
+            style={{
+              transform: `scale(${80 / (canvas.sceneJson.width || 600)})`,
+              transformOrigin: "top left",
+              width: canvas.sceneJson.width || 600,
+              height: canvas.sceneJson.height || 600,
+              pointerEvents: "none",
+              position: "relative",
+              overflow: "hidden",
+              background: canvas.sceneJson.background || "#ffffff",
+            }}
+          >
+            {/* Lightweight scene preview — just background + node count */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-[48px] font-ui text-white/20 font-bold">
+                {canvas.sceneJson.nodes?.length || 0}
+              </span>
+            </div>
+          </div>
         ) : canvas.html ? (
           // Render HTML at small scale (assumes 600x600 design surface)
           <div
@@ -248,6 +275,20 @@ function CanvasThumb({
         >
           {canvas.label || index}
         </span>
+
+        {/* Engine badge — top-right */}
+        {canvas.renderEngine && (
+          <span
+            className={cn(
+              "absolute top-1 right-1 px-1 h-3.5 rounded-[3px] text-[8px] font-ui font-bold uppercase tracking-wider flex items-center justify-center backdrop-blur-sm",
+              isScene
+                ? "bg-violet-500/80 text-white"
+                : "bg-blue-500/70 text-white"
+            )}
+          >
+            {isScene ? "Scene" : "HTML"}
+          </span>
+        )}
 
         {/* Status dot — top-left for content-studio */}
         {(canvas.status || canvas.isApproved !== undefined) && (

@@ -658,6 +658,13 @@ export async function generateContentForBrief(
       // Build visual generation prompt with AI workspace configuration
       const visualAssetInstructions = buildVisualAssetInstructions(generationSettings.visual_assets);
 
+      // Build scene prompt instructions if scene mode
+      const sceneInstructions = buildScenePromptInstructions(
+        runtimeRenderEngine,
+        platformSystem.dimensions.width,
+        platformSystem.dimensions.height
+      );
+
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
         generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nCampaign: ${brief.brief || brief.campaign_goal || brand.name}\nHeadline to feature: "${platformCopy.headline || ''}"\nCopy snippet: "${(platformCopy.copy_text || '').slice(0, 80)}"`,
         aspectRatio: platform.aspect_ratio || '1:1',
@@ -681,6 +688,8 @@ export async function generateContentForBrief(
         captured_stage_data: visualIntelligence.promptContext,
         image_width: platformSystem.dimensions.width.toString(),
         image_height: platformSystem.dimensions.height.toString(),
+        // Runtime generation mode from platform_settings
+        generation_mode: runtimeRenderEngine,
         // New AI Workspace Configuration variables
         visual_direction: generationSettings.visual_direction,
         layout_complexity: generationSettings.layout_complexity,
@@ -689,7 +698,7 @@ export async function generateContentForBrief(
         image_density: generationSettings.image_density.toString(),
         visual_assets: generationSettings.visual_assets.join(', '),
         visual_asset_instructions: visualAssetInstructions,
-      });
+      }) + sceneInstructions;
 
       const visualResult = await withTimeout(
         callAI({
@@ -699,18 +708,15 @@ export async function generateContentForBrief(
         })
       );
 
-      console.log('[ContentStudio] === Visual Generation Step ===');
-      console.log('[ContentStudio] Platform:', platform.name);
-      console.log('[ContentStudio] Task type used: template_generation');
-      console.log('[ContentStudio] Model used:', visualResult.modelUsed);
-      console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
-      console.log('[ContentStudio] FULL PROMPT SENT TO AI (template_generation):');
-      console.log('--- PROMPT START ---');
-      console.log(visualPrompt);
-      console.log('--- PROMPT END ---');
-      console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
+      const logTag = runtimeRenderEngine === 'scene' ? '[SceneGeneration]' : '[HtmlGeneration]';
+      console.log(`${logTag} === Visual Generation Step ===`);
+      console.log(`${logTag} Platform: ${platform.name}`);
+      console.log(`${logTag} Render engine: ${runtimeRenderEngine}`);
+      console.log(`${logTag} Model used: ${visualResult.modelUsed}`);
+      console.log(`${logTag} Provider used: ${visualResult.providerUsed}`);
+      console.log(`${logTag} AI response: ${visualResult.success ? 'SUCCESS' : 'FAILED'}`);
       if (visualResult.text) {
-        console.log('[ContentStudio] Visual result length:', visualResult.text.length);
+        console.log(`${logTag} Response length: ${visualResult.text.length}`);
       }
 
       // Parse + validate + repair + refine + quality gate via Scene Bridge
@@ -729,6 +735,11 @@ export async function generateContentForBrief(
       // Prepare creative payload — status driven by quality gate
       const hasContent = !!(parsedResult.visualHtml || parsedResult.sceneJson);
       const qualityStatus = parsedResult.creativeStatus;
+      // Enforce strict null separation: scene → no html, html → no scene_json
+      const persistVisualHtml = parsedResult.renderEngine === 'scene' ? null : parsedResult.visualHtml;
+      const persistSceneJson = parsedResult.renderEngine === 'html' ? null : parsedResult.sceneJson;
+      const persistSceneVersion = parsedResult.renderEngine === 'scene' ? 'v1' : null;
+
       const creativePayload: Record<string, unknown> = {
         brief_id: briefId,
         platform_id: platform.id,
@@ -737,10 +748,10 @@ export async function generateContentForBrief(
         copy_text: platformCopy.copy_text || null,
         subject_line: platformCopy.subject_line || null,
         hashtags: platformCopy.hashtags || [],
-        visual_html: parsedResult.visualHtml,
-        scene_json: parsedResult.sceneJson,
+        visual_html: persistVisualHtml,
+        scene_json: persistSceneJson,
         render_engine: parsedResult.renderEngine,
-        scene_version: 'v1',
+        scene_version: persistSceneVersion,
         generation_quality_score: parsedResult.telemetry?.qualityScore ?? null,
         generation_telemetry: parsedResult.telemetry ?? null,
         generation_fallback_reason: parsedResult.fallbackReason ?? null,
@@ -750,27 +761,33 @@ export async function generateContentForBrief(
         updated_at: new Date().toISOString()
       };
 
-      // Log scene bridge results
+      // Structured logging per engine
       if (parsedResult.renderEngine === 'scene') {
-        console.log('[ContentStudio] Scene bridge result:', {
+        console.log('[SceneValidation]', {
           platform: platform.slug,
-          renderEngine: parsedResult.renderEngine,
           qualityScore: parsedResult.telemetry?.qualityScore,
           status: qualityStatus,
           repairCount: parsedResult.telemetry?.repairCount,
-          fellBackToHtml: parsedResult.fellBackToHtml,
-          fallbackReason: parsedResult.fallbackReason,
           constraintsApplied: parsedResult.telemetry?.constraintsApplied,
+          warnings: parsedResult.telemetry?.validationWarnings?.length ?? 0,
+        });
+      } else {
+        console.log('[HtmlGeneration] Parsed result:', {
+          platform: platform.slug,
+          hasHtml: !!parsedResult.visualHtml,
+          status: qualityStatus,
         });
       }
 
-      console.log('[creative payload]', {
+      console.log('[ScenePersistence] Payload:', {
         platformId: platform.id,
         platformSlug: platform.slug,
+        renderEngine: creativePayload.render_engine,
+        sceneVersion: creativePayload.scene_version,
+        hasVisualHtml: !!creativePayload.visual_html,
+        hasSceneJson: !!creativePayload.scene_json,
         headline: creativePayload.headline,
-        copyTextLength: (creativePayload.copy_text as string | null)?.length,
-        hashtagsCount: (creativePayload.hashtags as string[] | null)?.length,
-        subjectLine: creativePayload.subject_line
+        status: creativePayload.status,
       });
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -1086,6 +1103,17 @@ export async function regenerateCreative(
     const regenPlatformSystem = buildPlatformDesignSystem(platform);
     const regenPlatformInstructions = buildPlatformRenderInstructions(regenPlatformSystem);
 
+    // Render engine from platform_settings
+    const regenSettings = await getContentStudioGenerationSettings();
+    const regenRenderEngine: RenderEngine = regenSettings.render_engine;
+
+    // Build scene prompt instructions if scene mode
+    const regenSceneInstructions = buildScenePromptInstructions(
+      regenRenderEngine,
+      regenPlatformSystem.dimensions.width,
+      regenPlatformSystem.dimensions.height
+    );
+
     // Inject all the same variables as initial generation — powered by founder + platform intelligence
     const visualPrompt = injectPromptVariables(visualSystemPrompt, {
       generation_prompt: `Platform: ${platform.name}\n\n${regenPlatformInstructions}\n\nThis is a REGENERATION — create a fresh layout variation that stays on-brand and matches the existing copy below. Vary the composition but maintain brand identity.\nHeadline to feature: "${creative.headline || ''}"\nCopy snippet: "${(creative.copy_text || '').slice(0, 80)}"`,
@@ -1110,6 +1138,8 @@ export async function regenerateCreative(
       captured_stage_data: visualIntelligence.promptContext,
       image_width: regenPlatformSystem.dimensions.width.toString(),
       image_height: regenPlatformSystem.dimensions.height.toString(),
+      // Runtime generation mode from platform_settings
+      generation_mode: regenRenderEngine,
       // AI Workspace Configuration (from brief)
       visual_direction: brief.visual_direction || 'balanced',
       layout_complexity: brief.layout_complexity || 'balanced',
@@ -1118,7 +1148,7 @@ export async function regenerateCreative(
       image_density: (brief.image_density ?? 50).toString(),
       visual_assets: (brief.visual_assets || ['product_photos', 'brand_images']).join(', '),
       visual_asset_instructions: buildVisualAssetInstructions(brief.visual_assets),
-    });
+    }) + regenSceneInstructions;
 
     const visualResult = await withTimeout(
         callAI({
@@ -1128,24 +1158,17 @@ export async function regenerateCreative(
         })
       );
 
-    console.log('[ContentStudio] === Regenerate Visual Step ===');
-    console.log('[ContentStudio] Platform:', platform.name);
-    console.log('[ContentStudio] Creative ID:', creativeId);
-    console.log('[ContentStudio] Task type used: template_generation');
-    console.log('[ContentStudio] Model used:', visualResult.modelUsed);
-    console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
-    console.log('[ContentStudio] FULL PROMPT SENT TO AI (regenerate):');
-    console.log('--- PROMPT START ---');
-    console.log(visualPrompt);
-    console.log('--- PROMPT END ---');
-    console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
+    const regenLogTag = regenRenderEngine === 'scene' ? '[SceneGeneration]' : '[HtmlGeneration]';
+    console.log(`${regenLogTag} === Regenerate Visual Step ===`);
+    console.log(`${regenLogTag} Platform: ${platform.name}`);
+    console.log(`${regenLogTag} Creative ID: ${creativeId}`);
+    console.log(`${regenLogTag} Render engine: ${regenRenderEngine}`);
+    console.log(`${regenLogTag} Model used: ${visualResult.modelUsed}`);
+    console.log(`${regenLogTag} Provider used: ${visualResult.providerUsed}`);
+    console.log(`${regenLogTag} AI response: ${visualResult.success ? 'SUCCESS' : 'FAILED'}`);
     if (visualResult.text) {
-      console.log('[ContentStudio] Visual result length:', visualResult.text.length);
+      console.log(`${regenLogTag} Response length: ${visualResult.text.length}`);
     }
-
-    // Render engine from platform_settings
-    const regenSettings = await getContentStudioGenerationSettings();
-    const regenRenderEngine: RenderEngine = regenSettings.render_engine;
 
     // Parse + validate + repair + refine + quality gate via Scene Bridge
     const parsedRegen = parseAIGenerationResult(
@@ -1157,28 +1180,40 @@ export async function regenerateCreative(
         platformHeight: regenPlatformSystem.dimensions.height,
       }
     );
-    // Fall back to existing visual_html if generation returned nothing
-    const visualHtml = parsedRegen.visualHtml || creative.visual_html;
+    // Fall back to existing visual_html if generation returned nothing (HTML mode only)
     const hasContent = !!(parsedRegen.visualHtml || parsedRegen.sceneJson);
-
     const regenQualityStatus = parsedRegen.creativeStatus;
 
-    console.log('[creative regenerate update]', {
+    // Enforce strict null separation: scene → no html, html → no scene_json
+    const regenPersistHtml = parsedRegen.renderEngine === 'scene' ? null : (parsedRegen.visualHtml || creative.visual_html);
+    const regenPersistScene = parsedRegen.renderEngine === 'html' ? null : parsedRegen.sceneJson;
+    const regenPersistVersion = parsedRegen.renderEngine === 'scene' ? 'v1' : null;
+
+    if (parsedRegen.renderEngine === 'scene') {
+      console.log('[SceneValidation] Regenerate:', {
+        creativeId,
+        qualityScore: parsedRegen.telemetry?.qualityScore,
+        status: regenQualityStatus,
+        repairCount: parsedRegen.telemetry?.repairCount,
+      });
+    }
+
+    console.log('[ScenePersistence] Regenerate:', {
       creativeId,
-      newSessionId: sessionId,
       renderEngine: parsedRegen.renderEngine,
+      sceneVersion: regenPersistVersion,
+      hasVisualHtml: !!regenPersistHtml,
+      hasSceneJson: !!regenPersistScene,
       status: hasContent ? regenQualityStatus : 'failed',
-      hasVisualHtml: !!visualHtml,
-      hasSceneJson: !!parsedRegen.sceneJson,
-      qualityScore: parsedRegen.telemetry?.qualityScore,
     });
 
     const { error: regenUpdateError } = await db
       .from('content_studio_creatives')
       .update({
-        visual_html: visualHtml,
-        scene_json: parsedRegen.sceneJson,
+        visual_html: regenPersistHtml,
+        scene_json: regenPersistScene,
         render_engine: parsedRegen.renderEngine,
+        scene_version: regenPersistVersion,
         generation_quality_score: parsedRegen.telemetry?.qualityScore ?? null,
         generation_telemetry: parsedRegen.telemetry ?? null,
         generation_fallback_reason: parsedRegen.fallbackReason ?? null,
@@ -1201,7 +1236,7 @@ export async function regenerateCreative(
       });
     }
 
-    return visualHtml;
+    return regenPersistHtml;
   } catch (error: any) {
     // Update creative status to failed on error
     await db
@@ -1319,6 +1354,17 @@ export async function retryFailedCreatives(
       const platformSystem = buildPlatformDesignSystem(platform);
       const platformInstructions = buildPlatformRenderInstructions(platformSystem);
 
+      // Render engine from platform_settings
+      const retrySettings = await getContentStudioGenerationSettings();
+      const retryRenderEngine: RenderEngine = retrySettings.render_engine;
+
+      // Build scene prompt instructions if scene mode
+      const retrySceneInstructions = buildScenePromptInstructions(
+        retryRenderEngine,
+        platformSystem.dimensions.width,
+        platformSystem.dimensions.height
+      );
+
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
         generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nRETRY GENERATION — create a fresh layout variation that stays on-brand and matches the existing copy below.\nHeadline to feature: "${creative.headline || ''}"\nCopy snippet: "${(creative.copy_text || '').slice(0, 80)}"`,
         aspectRatio: platform.aspect_ratio || '1:1',
@@ -1342,6 +1388,8 @@ export async function retryFailedCreatives(
         captured_stage_data: visualIntelligence.promptContext,
         image_width: platformSystem.dimensions.width.toString(),
         image_height: platformSystem.dimensions.height.toString(),
+        // Runtime generation mode from platform_settings
+        generation_mode: retryRenderEngine,
         // AI Workspace Configuration (from brief)
         visual_direction: brief.visual_direction || 'balanced',
         layout_complexity: brief.layout_complexity || 'balanced',
@@ -1350,7 +1398,7 @@ export async function retryFailedCreatives(
         image_density: (brief.image_density ?? 50).toString(),
         visual_assets: (brief.visual_assets || ['product_photos', 'brand_images']).join(', '),
         visual_asset_instructions: buildVisualAssetInstructions(brief.visual_assets),
-      });
+      }) + retrySceneInstructions;
 
       const visualResult = await withTimeout(
         callAI({
@@ -1360,24 +1408,17 @@ export async function retryFailedCreatives(
         })
       );
 
-      console.log('[ContentStudio] === Retry Visual Generation Step ===');
-      console.log('[ContentStudio] Platform:', platform.name);
-      console.log('[ContentStudio] Creative ID:', creative.id);
-      console.log('[ContentStudio] Task type used: template_generation');
-      console.log('[ContentStudio] Model used:', visualResult.modelUsed);
-      console.log('[ContentStudio] Provider used:', visualResult.providerUsed);
-      console.log('[ContentStudio] FULL PROMPT SENT TO AI (retry):');
-      console.log('--- PROMPT START ---');
-      console.log(visualPrompt);
-      console.log('--- PROMPT END ---');
-      console.log('[ContentStudio] AI response received:', visualResult.success ? 'SUCCESS' : 'FAILED');
+      const retryLogTag = retryRenderEngine === 'scene' ? '[SceneGeneration]' : '[HtmlGeneration]';
+      console.log(`${retryLogTag} === Retry Visual Generation Step ===`);
+      console.log(`${retryLogTag} Platform: ${platform.name}`);
+      console.log(`${retryLogTag} Creative ID: ${creative.id}`);
+      console.log(`${retryLogTag} Render engine: ${retryRenderEngine}`);
+      console.log(`${retryLogTag} Model used: ${visualResult.modelUsed}`);
+      console.log(`${retryLogTag} Provider used: ${visualResult.providerUsed}`);
+      console.log(`${retryLogTag} AI response: ${visualResult.success ? 'SUCCESS' : 'FAILED'}`);
       if (visualResult.text) {
-        console.log('[ContentStudio] Visual result length:', visualResult.text.length);
+        console.log(`${retryLogTag} Response length: ${visualResult.text.length}`);
       }
-
-      // Render engine from platform_settings
-      const retrySettings = await getContentStudioGenerationSettings();
-      const retryRenderEngine: RenderEngine = retrySettings.render_engine;
 
       // Parse + validate + repair + refine + quality gate via Scene Bridge
       const parsedRetry = parseAIGenerationResult(
@@ -1389,25 +1430,40 @@ export async function retryFailedCreatives(
           platformHeight: platformSystem.dimensions.height,
         }
       );
-      const visualHtml = parsedRetry.visualHtml;
       const retryHasContent = !!(parsedRetry.visualHtml || parsedRetry.sceneJson);
       const retryQualityStatus = parsedRetry.creativeStatus;
 
-      // Update the creative with new result
-      console.log('[creative retry update]', {
+      // Enforce strict null separation: scene → no html, html → no scene_json
+      const retryPersistHtml = parsedRetry.renderEngine === 'scene' ? null : parsedRetry.visualHtml;
+      const retryPersistScene = parsedRetry.renderEngine === 'html' ? null : parsedRetry.sceneJson;
+      const retryPersistVersion = parsedRetry.renderEngine === 'scene' ? 'v1' : null;
+
+      if (parsedRetry.renderEngine === 'scene') {
+        console.log('[SceneValidation] Retry:', {
+          creativeId: creative.id,
+          qualityScore: parsedRetry.telemetry?.qualityScore,
+          status: retryQualityStatus,
+          repairCount: parsedRetry.telemetry?.repairCount,
+        });
+      }
+
+      console.log('[ScenePersistence] Retry:', {
         creativeId: creative.id,
         platformId: platform.id,
-        newSessionId: sessionId,
         renderEngine: parsedRetry.renderEngine,
+        sceneVersion: retryPersistVersion,
+        hasVisualHtml: !!retryPersistHtml,
+        hasSceneJson: !!retryPersistScene,
         status: retryHasContent ? retryQualityStatus : 'failed',
       });
 
       const { error: retryUpdateError } = await db
         .from('content_studio_creatives')
         .update({
-          visual_html: visualHtml,
-          scene_json: parsedRetry.sceneJson,
+          visual_html: retryPersistHtml,
+          scene_json: retryPersistScene,
           render_engine: parsedRetry.renderEngine,
+          scene_version: retryPersistVersion,
           generation_quality_score: parsedRetry.telemetry?.qualityScore ?? null,
           generation_telemetry: parsedRetry.telemetry ?? null,
           generation_fallback_reason: parsedRetry.fallbackReason ?? null,
@@ -1419,19 +1475,19 @@ export async function retryFailedCreatives(
         .eq('id', creative.id);
 
       if (retryUpdateError) {
-        console.error('[creative retry update failed]', {
+        console.error('[ScenePersistence] Retry update failed:', {
           creativeId: creative.id,
           error: retryUpdateError.message
         });
       } else {
-        console.log('[creative retry update success]', {
+        console.log('[ScenePersistence] Retry update success:', {
           creativeId: creative.id,
           platformId: platform.id,
-          status: visualHtml ? 'ready' : 'failed'
+          status: retryHasContent ? retryQualityStatus : 'failed'
         });
       }
 
-      if (visualHtml) {
+      if (retryHasContent) {
         onPlatformComplete?.(platform.id, creative);
       }
     }));

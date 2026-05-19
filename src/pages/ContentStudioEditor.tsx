@@ -43,6 +43,8 @@ interface Creative {
   subject_line: string | null;
   hashtags: string[] | null;
   visual_html: string | null;
+  render_engine: 'html' | 'scene' | null;
+  scene_json: any;
   status: string | null;
   is_approved: boolean | null;
   scheduled_at: string | null;
@@ -179,7 +181,8 @@ export default function ContentStudioEditor() {
     return list.map((p: any) => {
       const c = byPlatform.get(p.id);
       if (c) {
-        const baseStatus = (!c.visual_html && (c.status === "ready" || !c.status))
+        const hasContent = !!(c.visual_html || c.scene_json);
+        const baseStatus = (!hasContent && (c.status === "ready" || !c.status))
           ? "generating"
           : (c.status || "ready");
         // If brief failed, force any non-ready/non-approved canvas into failed
@@ -201,6 +204,8 @@ export default function ContentStudioEditor() {
           status,
           isApproved: !!c.is_approved,
           platformConfig: c.content_platforms || p,
+          renderEngine: c.render_engine || 'html',
+          sceneJson: c.scene_json || null,
         };
       }
       return {
@@ -257,7 +262,7 @@ export default function ContentStudioEditor() {
   const active = creatives.find((c) => c.id === activeId) || null;
   const totalCount = brief?.selected_platform_ids?.length ?? canvases.length;
   const readyCount = creatives.filter(
-    (c) => c.status === "ready" && !!c.visual_html
+    (c) => c.status === "ready" && !!(c.visual_html || c.scene_json)
   ).length;
   const allApproved =
     creatives.length > 0 &&
@@ -282,8 +287,9 @@ export default function ContentStudioEditor() {
     const platformName = active.content_platforms?.name || "Platform";
     toast.loading(`Regenerating ${platformName} visual…`, { id: `regen-${active.id}` });
     try {
-      const html = await regenerateCreative(active.id, activeBrand.id);
-      updateCreativeLocal(active.id, { visual_html: html, status: "ready" });
+      await regenerateCreative(active.id, activeBrand.id);
+      // Reload from DB to get fresh render_engine + scene_json
+      await load();
       toast.success("✓ Visual updated", { id: `regen-${active.id}` });
     } catch (e: any) {
       toast.error(e.message || "Regeneration failed", { id: `regen-${active.id}` });
@@ -298,7 +304,7 @@ export default function ContentStudioEditor() {
     // Pre-fetch schedule info for all ready creatives so the modal can
     // mark already-scheduled platforms as ineligible.
     const ready = creatives.filter(
-      (c) => (c.status === "ready" || c.status === "approved" || c.status === "scheduled") && !!c.visual_html,
+      (c) => (c.status === "ready" || c.status === "approved" || c.status === "scheduled") && !!(c.visual_html || c.scene_json),
     );
     const missing = ready.filter((c) => schedulesByCreative[c.id] === undefined);
     if (missing.length) {
@@ -319,7 +325,7 @@ export default function ContentStudioEditor() {
   const approveAllPlatforms: ApproveSchedulePlatform[] = useMemo(() => {
     return creatives
       .filter(
-        (c) => (c.status === "ready" || c.status === "approved" || c.status === "scheduled") && !!c.visual_html,
+        (c) => (c.status === "ready" || c.status === "approved" || c.status === "scheduled") && !!(c.visual_html || c.scene_json),
       )
       .map((c) => ({
         creativeId: c.id,

@@ -24,6 +24,8 @@ import {
   getPreviewPadding,
   type PlatformConfig,
 } from "@/lib/platformRenderer";
+import { SceneRenderer } from "@/components/studio/scene/SceneRenderer";
+import type { SceneDocument } from "@/types/scene";
 
 interface ScheduleInfo {
   calendarPostId: string;
@@ -110,12 +112,15 @@ export function ContentStudioMobile(props: Props) {
   // Native creative dimensions baked into the AI HTML take priority over the
   // platform spec so the renderer adapts to whatever the model emitted
   // (1080×1350, 1080×1920, 1200×630, …) instead of stretching it.
+  const isScene = active?.renderEngine === 'scene' && !!active?.sceneJson;
+  const sceneDoc = isScene ? (active.sceneJson as SceneDocument) : null;
+
   const nativeDims = useMemo(
-    () => detectNativeHtmlDimensions(active?.html),
-    [active?.html],
+    () => isScene ? null : detectNativeHtmlDimensions(active?.html),
+    [active?.html, isScene],
   );
-  const w = nativeDims?.width || active?.canvasWidth || 600;
-  const h = nativeDims?.height || active?.canvasHeight || 600;
+  const w = sceneDoc?.width || nativeDims?.width || active?.canvasWidth || 600;
+  const h = sceneDoc?.height || nativeDims?.height || active?.canvasHeight || 600;
 
   // Recompute the stage size on resize so the preview always fills naturally.
   useEffect(() => {
@@ -182,8 +187,8 @@ export function ContentStudioMobile(props: Props) {
   }, [stageSize.w, stageSize.h, w, h, platformCfg]);
 
   const normalizedHtml = useMemo(
-    () => applyTypographyNormalization(active?.html || "", platformCfg),
-    [active?.html, platformCfg],
+    () => isScene ? "" : applyTypographyNormalization(active?.html || "", platformCfg),
+    [active?.html, platformCfg, isScene],
   );
 
   const rawStatus = active?.status || "ready";
@@ -363,15 +368,32 @@ export function ContentStudioMobile(props: Props) {
                 boxShadow: "0 30px 60px -20px rgba(0,0,0,0.45)",
               }}
             >
-              <div
-                style={{
-                  width: w,
-                  height: h,
-                  transform: `scale(${scale})`,
-                  transformOrigin: "top left",
-                }}
-                dangerouslySetInnerHTML={{ __html: normalizedHtml }}
-              />
+              {isScene && sceneDoc ? (
+                <div
+                  style={{
+                    width: w,
+                    height: h,
+                    transform: `scale(${scale})`,
+                    transformOrigin: "top left",
+                  }}
+                >
+                  <SceneRenderer
+                    document={sceneDoc}
+                    preview={true}
+                    style={{ width: w, height: h }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    width: w,
+                    height: h,
+                    transform: `scale(${scale})`,
+                    transformOrigin: "top left",
+                  }}
+                  dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+                />
+              )}
               <PlatformOverlay
                 platform={platformCfg}
                 width={w}
