@@ -1095,7 +1095,9 @@ export function StudioEditor({
 
 
         {/* Workspace — wrapped in SceneStoreProvider when in scene mode */}
+        {/* Key forces complete remount on platform switch - clears all renderer cache */}
         <SceneWorkspaceWrapper
+          key={activeCanvasId || 'no-canvas'}
           isSceneMode={isSceneMode}
           sceneDoc={effectiveSceneDoc}
           canvasId={activeCanvasId}

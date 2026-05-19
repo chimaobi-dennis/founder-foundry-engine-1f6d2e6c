@@ -293,17 +293,9 @@ export function SceneCanvas({ className, debug = false }: Props) {
         position: "relative",
         width: "100%",
         height: "100%",
-        overflow: "hidden", // Viewport is the ONLY clipping layer
-        // Neutral infinite canvas - no scene colors here
-        background: "hsl(var(--muted) / 0.3)",
-        backgroundImage: `
-          linear-gradient(45deg, hsl(var(--muted) / 0.5) 25%, transparent 25%),
-          linear-gradient(-45deg, hsl(var(--muted) / 0.5) 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, hsl(var(--muted) / 0.5) 75%),
-          linear-gradient(-45deg, transparent 75%, hsl(var(--muted) / 0.5) 75%)
-        `,
-        backgroundSize: "20px 20px",
-        backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+        overflow: "hidden",
+        // Solid neutral workspace - no semi-transparent patterns that leak through
+        background: "hsl(var(--muted))",
         cursor: isPanning ? "grabbing" : isSpacePressed ? "grab" : "default",
       }}
     >
@@ -324,8 +316,7 @@ export function SceneCanvas({ className, debug = false }: Props) {
           // No overflow, no fixed dimensions — infinite world
         }}
       >
-        {/* Scene Artboard — contains background AND all nodes */}
-        {/* overflow:hidden clips all child nodes to artboard bounds */}
+        {/* Scene Artboard Frame — exact scene dimensions, clips all content */}
         <div
           style={{
             position: "absolute",
@@ -333,15 +324,16 @@ export function SceneCanvas({ className, debug = false }: Props) {
             top: 0,
             width: document.width,
             height: document.height,
+            // MUST be opaque - workspace never leaks through
             background: document.background,
-            // Clip all nodes to artboard bounds - hide decorative bleed elements outside
+            // Strict clipping to scene bounds - no bleed outside
             overflow: "hidden",
-            // Subtle border to indicate artboard bounds against infinite canvas
-            outline: "1px solid rgba(0,0,0,0.08)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
+            // Visible boundary against workspace
+            outline: "1px solid rgba(0,0,0,0.12)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
           }}
         >
-          {/* Scene Nodes — absolutely positioned inside artboard (clipped) */}
+          {/* Scene Nodes — rendered inside clipped artboard */}
           <div
             data-scene-world
             onPointerDownCapture={onNodePointerDownCapture}
@@ -356,11 +348,13 @@ export function SceneCanvas({ className, debug = false }: Props) {
             {sorted.map((node) => (
               <SceneNodeRenderer key={node.id} node={node} />
             ))}
-            {selected.map((n) => (
-              <SceneSelectionOverlay key={`ov-${n.id}`} node={n} camera={camera} />
-            ))}
           </div>
         </div>
+
+        {/* Selection Overlays — OUTSIDE clipped artboard so handles are visible at edges */}
+        {selected.map((n) => (
+          <SceneSelectionOverlay key={`ov-${n.id}`} node={n} camera={camera} />
+        ))}
       </div>
 
       {/* Debug Overlay */}
