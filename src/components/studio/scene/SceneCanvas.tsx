@@ -55,12 +55,21 @@ export function SceneCanvas({ className, debug = false }: Props) {
   // Compute world bounds for debug
   const worldBounds = useMemo(() => getSceneBounds(document), [document]);
 
-  // ─── Center camera on artboard on mount / viewport resize ─────
-  // This ensures the design is centered like in HTML mode
+  // ─── Center camera on artboard on initial mount ────────────────
+  // This ensures the design is centered like in HTML mode on first load.
+  // Only centers if camera is at default position (0,0,1) to avoid overriding
+  // restored positions or user-set positions.
   useEffect(() => {
+    if (didInitialCenterRef.current) return;
     if (viewportSize.width === 0 || viewportSize.height === 0) return;
+    // Check if camera is at default position (not restored or user-modified)
+    const isDefaultPosition =
+      camera.x === 0 && camera.y === 0 && camera.zoom === 1;
+    if (!isDefaultPosition) {
+      didInitialCenterRef.current = true; // Mark as done even if we don't center
+      return;
+    }
     // Center the artboard (0,0) to (width,height) in the viewport
-    // Camera position to center the artboard:
     // We want world (width/2, height/2) to be at viewport center
     // screenX = viewportCenterX + cameraX + worldX * zoom
     // For center: viewportCenterX = viewportCenterX + cameraX + (width/2) * zoom
@@ -70,13 +79,9 @@ export function SceneCanvas({ className, debug = false }: Props) {
       y: -(document.height / 2) * camera.zoom,
       zoom: camera.zoom,
     };
-    // Only update if significantly different (avoid jitter on resize)
-    const dx = Math.abs(camera.x - targetCamera.x);
-    const dy = Math.abs(camera.y - targetCamera.y);
-    if (dx > 1 || dy > 1) {
-      setCamera(targetCamera);
-    }
-  }, [viewportSize.width, viewportSize.height, document.width, document.height]);
+    setCamera(targetCamera);
+    didInitialCenterRef.current = true;
+  }, [viewportSize.width, viewportSize.height, document.width, document.height, camera.x, camera.y, camera.zoom, setCamera]);
 
   // Sorted nodes by zIndex
   const sorted = useMemo(() => [...document.nodes].sort((a, b) => a.zIndex - b.zIndex), [document.nodes]);
