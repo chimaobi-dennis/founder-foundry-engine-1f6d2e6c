@@ -294,8 +294,9 @@ export function SceneCanvas({ className, debug = false }: Props) {
         width: "100%",
         height: "100%",
         overflow: "hidden",
-        // Solid neutral workspace - no semi-transparent patterns that leak through
-        background: "hsl(var(--muted))",
+        // Neutral workspace base - no tint, no backing surface
+        // Artboard floats directly on this with its own background
+        background: "hsl(var(--background))",
         cursor: isPanning ? "grabbing" : isSpacePressed ? "grab" : "default",
       }}
     >
