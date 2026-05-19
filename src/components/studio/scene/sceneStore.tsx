@@ -42,10 +42,16 @@ type Action =
   | { type: "set_focus_mode"; on: boolean }
   | { type: "set_ai_pending"; pending: boolean; message?: string | null };
 
+const CONTAINER_TYPES = new Set(["group", "frame", "stack"]);
+
+function isContainer(n: SceneNode): n is SceneNode & { children: SceneNode[] } {
+  return CONTAINER_TYPES.has(n.type) && "children" in n && Array.isArray((n as any).children);
+}
+
 function patchNode(nodes: SceneNode[], id: string, patch: Partial<SceneNode>): SceneNode[] {
   return nodes.map((n) => {
     if (n.id === id) return { ...n, ...patch } as SceneNode;
-    if (n.type === "group") {
+    if (isContainer(n)) {
       return { ...n, children: patchNode(n.children, id, patch) };
     }
     return n;
@@ -55,7 +61,7 @@ function patchNode(nodes: SceneNode[], id: string, patch: Partial<SceneNode>): S
 function removeNodes(nodes: SceneNode[], ids: Set<string>): SceneNode[] {
   return nodes
     .filter((n) => !ids.has(n.id))
-    .map((n) => (n.type === "group" ? { ...n, children: removeNodes(n.children, ids) } : n));
+    .map((n) => (isContainer(n) ? { ...n, children: removeNodes(n.children, ids) } : n));
 }
 
 function reorderNodes(
@@ -205,7 +211,7 @@ function makeId(prefix: string) {
 function findNode(nodes: SceneNode[], id: string): SceneNode | null {
   for (const n of nodes) {
     if (n.id === id) return n;
-    if (n.type === "group") {
+    if (isContainer(n)) {
       const f = findNode(n.children, id);
       if (f) return f;
     }

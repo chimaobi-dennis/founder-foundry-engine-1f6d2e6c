@@ -493,9 +493,11 @@ export function StudioEditor({
     if (canvases) {
       const canvas = canvases.find(c => c.id === canvasId);
       if (canvas?.renderEngine === 'scene' && canvas.sceneJson) {
+        // Use the live (edited) doc for the active canvas, otherwise original
+        const sceneDoc = (canvasId === activeCanvasId && effectiveSceneDoc) || canvas.sceneJson as SceneDocument;
         try {
           console.log(`[StudioEditor] Scene export for ${canvasId} via renderSceneToCanvas`);
-          const sceneCanvas = await renderSceneToCanvas(canvas.sceneJson as SceneDocument, { pixelRatio });
+          const sceneCanvas = await renderSceneToCanvas(sceneDoc, { pixelRatio });
           return sceneCanvas;
         } catch (e) {
           console.error(`[StudioEditor] Scene export failed for ${canvasId}:`, e);
@@ -524,7 +526,7 @@ export function StudioEditor({
       console.error(`[StudioEditor] Export capture failed for ${canvasId}:`, e);
       return null;
     }
-  }, [canvases]);
+  }, [canvases, activeCanvasId, effectiveSceneDoc]);
 
   const slugify = (s: string) => (s || "design").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -1465,7 +1467,7 @@ export function StudioEditor({
               </div>
               <div className="flex items-center gap-3 tabular-nums">
                 {isSceneMode
-                  ? <span>{activeSceneJson?.nodes?.length ?? 0} nodes</span>
+                  ? <span>{effectiveSceneDoc?.nodes?.length ?? 0} nodes</span>
                   : <span>{elements.length} layers</span>
                 }
                 <span>{Math.round(zoom * 100)}%</span>

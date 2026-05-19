@@ -1,5 +1,5 @@
 import { useSceneStore } from "./sceneStore";
-import { isTextNode, isImageNode, isShapeNode, type SceneNode } from "@/types/scene";
+import { isTextNode, isImageNode, isShapeNode, isButtonNode, isFrameNode, isStackNode, isIconNode, type SceneNode } from "@/types/scene";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -126,6 +126,63 @@ export function ScenePropertiesPanel() {
               <NumberField label="Stroke width" value={n.strokeWidth} onChange={(v) => set({ strokeWidth: v } as Partial<SceneNode>)} />
               <NumberField label="Radius" value={n.radius} onChange={(v) => set({ radius: v } as Partial<SceneNode>)} />
             </div>
+          </div>
+        )}
+
+        {isButtonNode(n) && (
+          <div className="space-y-2 pt-2 border-t border-border">
+            <TextField label="Label" value={n.label || ""} onChange={(v) => set({ label: v } as Partial<SceneNode>)} />
+            <ColorField label="Fill" value={n.fill || "#000000"} onChange={(v) => set({ fill: v } as Partial<SceneNode>)} />
+            <ColorField label="Text color" value={n.textColor || "#ffffff"} onChange={(v) => set({ textColor: v } as Partial<SceneNode>)} />
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Radius" value={n.radius || 0} onChange={(v) => set({ radius: v } as Partial<SceneNode>)} />
+              <NumberField label="Font size" value={n.fontSize || 16} onChange={(v) => set({ fontSize: v } as Partial<SceneNode>)} />
+            </div>
+          </div>
+        )}
+
+        {isFrameNode(n) && (
+          <div className="space-y-2 pt-2 border-t border-border">
+            <ColorField label="Fill" value={n.fill || "transparent"} onChange={(v) => set({ fill: v } as Partial<SceneNode>)} />
+            <NumberField label="Radius" value={n.radius || 0} onChange={(v) => set({ radius: v } as Partial<SceneNode>)} />
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Clip content</Label>
+              <select
+                value={n.clipContent ? "true" : "false"}
+                onChange={(e) => set({ clipContent: e.target.value === "true" } as Partial<SceneNode>)}
+                className="h-7 text-xs w-full rounded border border-input bg-background px-2"
+              >
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {isStackNode(n) && (
+          <div className="space-y-2 pt-2 border-t border-border">
+            <div className="space-y-1">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Direction</Label>
+              <select
+                value={n.direction || "vertical"}
+                onChange={(e) => set({ direction: e.target.value as "horizontal" | "vertical" } as Partial<SceneNode>)}
+                className="h-7 text-xs w-full rounded border border-input bg-background px-2"
+              >
+                <option value="vertical">Vertical</option>
+                <option value="horizontal">Horizontal</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField label="Gap" value={n.gap || 0} onChange={(v) => set({ gap: v } as Partial<SceneNode>)} />
+              <NumberField label="Padding" value={n.padding || 0} onChange={(v) => set({ padding: v } as Partial<SceneNode>)} />
+            </div>
+          </div>
+        )}
+
+        {isIconNode(n) && (
+          <div className="space-y-2 pt-2 border-t border-border">
+            <TextField label="Icon name" value={n.iconName || ""} onChange={(v) => set({ iconName: v } as Partial<SceneNode>)} />
+            <ColorField label="Color" value={n.color || "#000000"} onChange={(v) => set({ color: v } as Partial<SceneNode>)} />
           </div>
         )}
       </div>
