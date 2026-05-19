@@ -293,7 +293,16 @@ export function SceneCanvas({ className, debug = false }: Props) {
         width: "100%",
         height: "100%",
         overflow: "hidden", // Viewport is the ONLY clipping layer
-        background: "hsl(var(--background))", // Solid background, no pattern
+        // Neutral infinite canvas - no scene colors here
+        background: "hsl(var(--muted) / 0.3)",
+        backgroundImage: `
+          linear-gradient(45deg, hsl(var(--muted) / 0.5) 25%, transparent 25%),
+          linear-gradient(-45deg, hsl(var(--muted) / 0.5) 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, hsl(var(--muted) / 0.5) 75%),
+          linear-gradient(-45deg, transparent 75%, hsl(var(--muted) / 0.5) 75%)
+        `,
+        backgroundSize: "20px 20px",
+        backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
         cursor: isPanning ? "grabbing" : isSpacePressed ? "grab" : "default",
       }}
     >
@@ -314,20 +323,8 @@ export function SceneCanvas({ className, debug = false }: Props) {
           // No overflow, no fixed dimensions — infinite world
         }}
       >
-        {/* Infinite Canvas Background — moves with camera, same color as artboard */}
-        <div
-          style={{
-            position: "absolute",
-            left: -50000,
-            top: -50000,
-            width: 100000,
-            height: 100000,
-            background: document.background,
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Artboard Frame — shows the design bounds with subtle border */}
+        {/* Scene Artboard — ONLY the actual scene document background */}
+        {/* This is the SINGLE surface that renders scene.background */}
         <div
           style={{
             position: "absolute",
@@ -335,8 +332,10 @@ export function SceneCanvas({ className, debug = false }: Props) {
             top: 0,
             width: document.width,
             height: document.height,
-            border: "1px solid rgba(0,0,0,0.1)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+            background: document.background,
+            // Subtle border to indicate artboard bounds against infinite canvas
+            outline: "1px solid rgba(0,0,0,0.08)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
             pointerEvents: "none",
           }}
         />
