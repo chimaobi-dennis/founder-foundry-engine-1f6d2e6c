@@ -1296,9 +1296,12 @@ export function StudioEditor({
           <div
             className="flex-1 min-w-0 flex flex-col relative"
             style={{
-              backgroundColor: workspaceBg,
-              backgroundImage:
-                theme === "dark"
+              // Scene mode: no backing surface - SceneCanvas renders workspace
+              // HTML mode: subtle grid pattern on neutral surface
+              backgroundColor: isSceneMode ? "transparent" : workspaceBg,
+              backgroundImage: isSceneMode
+                ? "none"
+                : theme === "dark"
                   ? "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)"
                   : "radial-gradient(circle at 1px 1px, rgba(0,0,0,0.06) 1px, transparent 0)",
               backgroundSize: "22px 22px",
@@ -1332,9 +1335,12 @@ export function StudioEditor({
               className="flex-1 flex items-center justify-center relative"
               style={{
                 minHeight: 0,
-                background: theme === "dark" ? "hsl(220 14% 11%)" : "hsl(220 14% 94%)",
-                backgroundImage:
-                  theme === "dark"
+                // Scene mode: transparent - SceneCanvas handles all workspace rendering
+                // HTML mode: grid pattern on neutral surface
+                background: isSceneMode ? "transparent" : (theme === "dark" ? "hsl(220 14% 11%)" : "hsl(220 14% 94%)"),
+                backgroundImage: isSceneMode
+                  ? "none"
+                  : theme === "dark"
                     ? "radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)"
                     : "radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px)",
                 backgroundSize: "22px 22px",
