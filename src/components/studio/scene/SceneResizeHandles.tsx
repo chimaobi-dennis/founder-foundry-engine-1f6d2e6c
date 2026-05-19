@@ -1,5 +1,6 @@
 import { PointerEvent as RPE, useCallback } from "react";
-import type { SceneNode } from "@/types/scene";
+import type { SceneNode, CameraState } from "@/types/scene";
+import { screenToWorldDim } from "@/types/scene";
 import { useSceneStore } from "./sceneStore";
 
 const HANDLES: { key: string; cursor: string; x: number; y: number }[] = [
@@ -15,11 +16,17 @@ const HANDLES: { key: string; cursor: string; x: number; y: number }[] = [
 
 interface Props {
   node: SceneNode;
-  zoom: number;
+  camera: CameraState;
 }
 
-export function SceneResizeHandles({ node, zoom }: Props) {
+/**
+ * Resize handles for the selection overlay.
+ * All drag deltas are converted from screen pixels to world coordinates.
+ * Handle sizes stay constant in screen space (inverse zoom scaling).
+ */
+export function SceneResizeHandles({ node, camera }: Props) {
   const { updateNode } = useSceneStore();
+  const zoom = camera.zoom;
 
   const startResize = useCallback(
     (handle: string) => (e: RPE<HTMLDivElement>) => {
@@ -30,8 +37,12 @@ export function SceneResizeHandles({ node, zoom }: Props) {
       const start = { x: node.x, y: node.y, w: node.width, h: node.height };
 
       const move = (ev: PointerEvent) => {
-        const dx = (ev.clientX - startX) / zoom;
-        const dy = (ev.clientY - startY) / zoom;
+        // Convert screen delta to world delta
+        const screenDx = ev.clientX - startX;
+        const screenDy = ev.clientY - startY;
+        const dx = screenToWorldDim(screenDx, camera);
+        const dy = screenToWorldDim(screenDy, camera);
+
         let { x, y, w, h } = start;
         if (handle.includes("e")) w = Math.max(8, start.w + dx);
         if (handle.includes("s")) h = Math.max(8, start.h + dy);
@@ -52,7 +63,7 @@ export function SceneResizeHandles({ node, zoom }: Props) {
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
     },
-    [node, zoom, updateNode]
+    [node, camera, updateNode]
   );
 
   const startRotate = useCallback(
@@ -61,14 +72,32 @@ export function SceneResizeHandles({ node, zoom }: Props) {
       e.preventDefault();
       const cx = node.x + node.width / 2;
       const cy = node.y + node.height / 2;
-      const currentTarget = e.currentTarget as HTMLDivElement;
-      const root = currentTarget.closest("[data-scene-artboard]") as HTMLElement | null;
+
       const move = (ev: PointerEvent) => {
-        if (!root) return;
-        const rect = root.getBoundingClientRect();
-        const px = (ev.clientX - rect.left) / zoom;
-        const py = (ev.clientY - rect.top) / zoom;
-        const angle = (Math.atan2(py - cy, px - cx) * 180) / Math.PI + 90;
+        // Get pointer position in world space relative to node center
+        // Since we're in the world layer (camera transform applied), we can compute
+        // the angle directly from the mouse position relative to the node center
+        // But we need the viewport-relative mouse position converted to world
+
+        // This is tricky because we don't have viewport center here.
+        // The resize handles are inside the world layer which has the camera transform.
+        // We'll use a simpler approach: compute angle from the screen position
+        // converted to world space offset from node center.
+
+        // For now, use a simplified rotation that works at any zoom
+        const rect = (e.currentTarget as HTMLElement).ownerDocument.defaultView!.document
+          .querySelector('[data-scene-viewport]')!.getBoundingClientRect();
+
+        const screenX = ev.clientX - rect.left;
+        const screenY = ev.clientY - rect.top;
+
+        // Convert to world space
+        const viewportCenterX = rect.width / 2;
+        const viewportCenterY = rect.height / 2;
+        const worldX = (screenX - viewportCenterX - camera.x) / camera.zoom;
+        const worldY = (screenY - viewportCenterY - camera.y) / camera.zoom;
+
+        const angle = (Math.atan2(worldY - cy, worldX - cx) * 180) / Math.PI + 90;
         updateNode(node.id, { rotation: Math.round(angle) } as Partial<SceneNode>);
       };
       const up = () => {
@@ -78,9 +107,10 @@ export function SceneResizeHandles({ node, zoom }: Props) {
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
     },
-    [node, zoom, updateNode]
+    [node, camera, updateNode]
   );
 
+  // Handle size stays constant in screen space (inverse zoom scaling)
   const size = 8 / zoom;
   const offset = -size / 2;
 
@@ -97,8 +127,8 @@ export function SceneResizeHandles({ node, zoom }: Props) {
             width: size,
             height: size,
             background: "hsl(var(--background))",
-            border: `${1 / zoom}px solid hsl(var(--primary))`,
-            borderRadius: 2 / zoom,
+            border: `${1 / camera.zoom}px solid hsl(var(--primary))`,
+            borderRadius: 2 / camera.zoom,
             cursor: h.cursor,
             zIndex: 1000,
           }}
@@ -109,7 +139,7 @@ export function SceneResizeHandles({ node, zoom }: Props) {
         style={{
           position: "absolute",
           left: `calc(50% + ${offset}px)`,
-          top: -20 / zoom,
+          top: -20 / camera.zoom,
           width: size,
           height: size,
           background: "hsl(var(--primary))",

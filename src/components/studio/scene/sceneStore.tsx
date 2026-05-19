@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, ReactNode } from "react";
-import type { SceneDocument, SceneNode } from "@/types/scene";
+import type { SceneDocument, SceneNode, CameraState } from "@/types/scene";
+import { createDefaultCamera } from "@/types/scene";
 
 // ─── State ────────────────────────────────────────────────────
 
@@ -7,8 +8,8 @@ export interface SceneState {
   document: SceneDocument;
   selectedIds: string[];
   hoveredId: string | null;
-  zoom: number;
-  pan: { x: number; y: number };
+  /** Camera state (x, y, zoom) — separates viewport from world */
+  camera: CameraState;
   // scaffolds
   history: SceneDocument[];
   future: SceneDocument[];
@@ -31,6 +32,7 @@ type Action =
   | { type: "reorder"; id: string; direction: "up" | "down" | "top" | "bottom" }
   | { type: "set_selection"; ids: string[] }
   | { type: "set_hover"; id: string | null }
+  | { type: "set_camera"; camera: CameraState }
   | { type: "set_zoom"; zoom: number }
   | { type: "set_pan"; pan: { x: number; y: number } }
   | { type: "toggle_ui"; id: string; key: "hidden" | "locked" }
@@ -137,10 +139,13 @@ function reducer(state: SceneState, action: Action): SceneState {
       return { ...state, selectedIds: action.ids };
     case "set_hover":
       return { ...state, hoveredId: action.id };
+    case "set_camera":
+      return { ...state, camera: action.camera };
     case "set_zoom":
-      return { ...state, zoom: Math.max(0.1, Math.min(4, action.zoom)) };
+      // Update zoom while preserving camera position semantics
+      return { ...state, camera: { ...state.camera, zoom: Math.max(0.1, Math.min(4, action.zoom)) } };
     case "set_pan":
-      return { ...state, pan: action.pan };
+      return { ...state, camera: { ...state.camera, x: action.pan.x, y: action.pan.y } };
     case "toggle_ui":
       return {
         ...state,
@@ -194,7 +199,11 @@ interface SceneCtx extends SceneState {
   deleteSelected: () => void;
   duplicateSelected: () => void;
   reorder: (id: string, direction: "up" | "down" | "top" | "bottom") => void;
+  /** Set the full camera state (x, y, zoom) */
+  setCamera: (camera: CameraState) => void;
+  /** Legacy: set zoom only (preserves x,y) */
   setZoom: (z: number) => void;
+  /** Legacy: set pan only (preserves zoom) */
   setPan: (p: { x: number; y: number }) => void;
   undo: () => void;
   redo: () => void;
@@ -232,8 +241,7 @@ export function SceneStoreProvider({
     document: initialDocument,
     selectedIds: [],
     hoveredId: null,
-    zoom: 1,
-    pan: { x: 0, y: 0 },
+    camera: createDefaultCamera(),
     history: [],
     future: [],
     clipboard: [],
@@ -282,6 +290,7 @@ export function SceneStoreProvider({
       if (newNodes.length) dispatch({ type: "duplicate_nodes", ids: state.selectedIds, newNodes });
     }, [state.selectedIds, state.document.nodes]),
     reorder: useCallback((id, direction) => dispatch({ type: "reorder", id, direction }), []),
+    setCamera: useCallback((c) => dispatch({ type: "set_camera", camera: c }), []),
     setZoom: useCallback((z) => dispatch({ type: "set_zoom", zoom: z }), []),
     setPan: useCallback((p) => dispatch({ type: "set_pan", pan: p }), []),
     undo: useCallback(() => dispatch({ type: "undo" }), []),

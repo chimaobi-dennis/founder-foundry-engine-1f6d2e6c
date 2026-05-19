@@ -258,3 +258,175 @@ export function createEmptyScene(
     nodes: [],
   };
 }
+
+// ─── Camera State ─────────────────────────────────────────────
+
+/**
+ * Camera state for the scene editor viewport.
+ * All values are in screen/viewport space.
+ */
+export interface CameraState {
+  /** Camera X position in screen coordinates (pixels) */
+  x: number;
+  /** Camera Y position in screen coordinates (pixels) */
+  y: number;
+  /** Camera zoom level (1 = 100%, 0.5 = 50%, 2 = 200%) */
+  zoom: number;
+}
+
+/** Default camera state (centered, 100% zoom). */
+export function createDefaultCamera(): CameraState {
+  return { x: 0, y: 0, zoom: 1 };
+}
+
+// ─── World Bounds ───────────────────────────────────────────────
+
+/**
+ * Computed bounds of a scene in world space.
+ */
+export interface SceneBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Calculate the bounding box of all nodes in a scene.
+ * Returns document bounds if scene has no nodes.
+ */
+export function getSceneBounds(document: SceneDocument): SceneBounds {
+  if (document.nodes.length === 0) {
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: document.width,
+      maxY: document.height,
+      width: document.width,
+      height: document.height,
+    };
+  }
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  function traverse(nodes: SceneNode[]) {
+    for (const n of nodes) {
+      // For rotated nodes, use bounding box approximation
+      const hw = n.width / 2;
+      const hh = n.height / 2;
+      const cx = n.x + hw;
+      const cy = n.y + hh;
+
+      if (n.rotation === 0) {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + n.width);
+        maxY = Math.max(maxY, n.y + n.height);
+      } else {
+        // Approximate bounds for rotated rect (outer bounding box)
+        const rad = (n.rotation * Math.PI) / 180;
+        const cos = Math.abs(Math.cos(rad));
+        const sin = Math.abs(Math.sin(rad));
+        const rw = hw * cos + hh * sin;
+        const rh = hw * sin + hh * cos;
+        minX = Math.min(minX, cx - rw);
+        minY = Math.min(minY, cy - rh);
+        maxX = Math.max(maxX, cx + rw);
+        maxY = Math.max(maxY, cy + rh);
+      }
+
+      // Recurse into containers
+      if ((n.type === 'group' || n.type === 'frame' || n.type === 'stack') && 'children' in n) {
+        traverse((n as any).children);
+      }
+    }
+  }
+
+  traverse(document.nodes);
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+// ─── Coordinate Transforms ────────────────────────────────────
+
+/**
+ * Transform a world coordinate to a screen coordinate.
+ * World (0,0) is the center of the artboard in world space.
+ */
+export function worldToScreen(
+  worldX: number,
+  worldY: number,
+  camera: CameraState,
+  viewportCenterX: number,
+  viewportCenterY: number
+): { x: number; y: number } {
+  return {
+    x: viewportCenterX + (worldX * camera.zoom) + camera.x,
+    y: viewportCenterY + (worldY * camera.zoom) + camera.y,
+  };
+}
+
+/**
+ * Transform a screen coordinate to a world coordinate.
+ */
+export function screenToWorld(
+  screenX: number,
+  screenY: number,
+  camera: CameraState,
+  viewportCenterX: number,
+  viewportCenterY: number
+): { x: number; y: number } {
+  return {
+    x: (screenX - viewportCenterX - camera.x) / camera.zoom,
+    y: (screenY - viewportCenterY - camera.y) / camera.zoom,
+  };
+}
+
+/**
+ * Transform a world dimension to a screen dimension (just applies zoom).
+ */
+export function worldToScreenDim(worldDim: number, camera: CameraState): number {
+  return worldDim * camera.zoom;
+}
+
+/**
+ * Transform a screen dimension to a world dimension.
+ */
+export function screenToWorldDim(screenDim: number, camera: CameraState): number {
+  return screenDim / camera.zoom;
+}
+
+/**
+ * Calculate camera state to fit scene bounds into viewport.
+ */
+export function fitBoundsToCamera(
+  bounds: SceneBounds,
+  viewportWidth: number,
+  viewportHeight: number,
+  padding = 40
+): CameraState {
+  const contentWidth = bounds.width + padding * 2;
+  const contentHeight = bounds.height + padding * 2;
+
+  const scaleX = viewportWidth / contentWidth;
+  const scaleY = viewportHeight / contentHeight;
+  const zoom = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
+
+  const contentCenterX = bounds.minX + bounds.width / 2;
+  const contentCenterY = bounds.minY + bounds.height / 2;
+
+  // Center the content
+  const x = -contentCenterX * zoom;
+  const y = -contentCenterY * zoom;
+
+  return { x, y, zoom };
+}
