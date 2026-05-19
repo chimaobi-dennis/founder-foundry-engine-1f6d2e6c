@@ -55,8 +55,9 @@ export function SceneCanvas({ className, debug = false }: Props) {
   // Compute world bounds for debug
   const worldBounds = useMemo(() => getSceneBounds(document), [document]);
 
-  // ─── Center camera on artboard on initial mount ────────────────
+  // ─── Center camera on content on initial mount ─────────────────
   // This ensures the design is centered like in HTML mode on first load.
+  // Centers on the actual content bounds (all nodes), not just artboard dimensions.
   // Only centers if camera is at default position (0,0,1) to avoid overriding
   // restored positions or user-set positions.
   useEffect(() => {
@@ -69,19 +70,22 @@ export function SceneCanvas({ className, debug = false }: Props) {
       didInitialCenterRef.current = true; // Mark as done even if we don't center
       return;
     }
-    // Center the artboard (0,0) to (width,height) in the viewport
-    // We want world (width/2, height/2) to be at viewport center
+    // Center on the actual content bounds (not just artboard dimensions)
+    // Calculate center of content
+    const contentCenterX = worldBounds.minX + worldBounds.width / 2;
+    const contentCenterY = worldBounds.minY + worldBounds.height / 2;
+    // Camera position to center the content in viewport:
     // screenX = viewportCenterX + cameraX + worldX * zoom
-    // For center: viewportCenterX = viewportCenterX + cameraX + (width/2) * zoom
-    // Therefore: cameraX = -(width/2) * zoom
+    // For center: viewportCenterX = viewportCenterX + cameraX + contentCenterX * zoom
+    // Therefore: cameraX = -contentCenterX * zoom
     const targetCamera = {
-      x: -(document.width / 2) * camera.zoom,
-      y: -(document.height / 2) * camera.zoom,
+      x: -contentCenterX * camera.zoom,
+      y: -contentCenterY * camera.zoom,
       zoom: camera.zoom,
     };
     setCamera(targetCamera);
     didInitialCenterRef.current = true;
-  }, [viewportSize.width, viewportSize.height, document.width, document.height, camera.x, camera.y, camera.zoom, setCamera]);
+  }, [viewportSize.width, viewportSize.height, worldBounds, camera.x, camera.y, camera.zoom, setCamera]);
 
   // Sorted nodes by zIndex
   const sorted = useMemo(() => [...document.nodes].sort((a, b) => a.zIndex - b.zIndex), [document.nodes]);
