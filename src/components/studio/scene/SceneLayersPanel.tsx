@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, Lock, Unlock, ChevronUp, ChevronDown, Type, Image as ImageIcon, Square, Layers } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Eye, EyeOff, Lock, Unlock, ChevronUp, ChevronDown, ChevronRight, Type, Image as ImageIcon, Square, Layers, Box, AlignVerticalJustifyStart, Code, Star, MousePointer } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useSceneStore } from "./sceneStore";
 import type { SceneNode } from "@/types/scene";
@@ -12,12 +11,19 @@ function nodeIcon(n: SceneNode) {
     case "image": return <ImageIcon className="h-3.5 w-3.5" />;
     case "shape": return <Square className="h-3.5 w-3.5" />;
     case "group": return <Layers className="h-3.5 w-3.5" />;
+    case "frame": return <Box className="h-3.5 w-3.5" />;
+    case "stack": return <AlignVerticalJustifyStart className="h-3.5 w-3.5" />;
+    case "svg": return <Code className="h-3.5 w-3.5" />;
+    case "icon": return <Star className="h-3.5 w-3.5" />;
+    case "button": return <MousePointer className="h-3.5 w-3.5" />;
+    default: return <Square className="h-3.5 w-3.5" />;
   }
 }
 
 function nodeLabel(n: SceneNode) {
-  // SceneNode types in the project don't have `name` — use derived label.
   if (n.type === "text") return n.text.slice(0, 24) || "Text";
+  if (n.type === "button") return (n as any).label?.slice(0, 24) || "Button";
+  if (n.type === "icon") return (n as any).iconName || "Icon";
   return n.type.charAt(0).toUpperCase() + n.type.slice(1);
 }
 

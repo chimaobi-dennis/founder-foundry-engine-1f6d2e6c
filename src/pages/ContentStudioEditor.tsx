@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -18,6 +18,7 @@ import { deleteCalendarPost } from "@/services/calendarService";
 import { supabase } from "@/integrations/supabase/client";
 import { StudioEditor } from "@/components/prostudio/StudioEditor";
 import { ContentStudioMobile } from "@/components/prostudio/content-studio/ContentStudioMobile";
+import type { SceneDocument } from "@/types/scene";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScheduleModal } from "@/components/prostudio/content-studio/ScheduleModal";
 import { ApproveScheduleAllModal, type ApproveSchedulePlatform } from "@/components/prostudio/content-studio/ApproveScheduleAllModal";
@@ -487,6 +488,29 @@ export default function ContentStudioEditor() {
     }
   };
 
+  // Debounced scene_json autosave — fires when user edits nodes in scene mode
+  const sceneAutoSaveTimer = useRef<number | null>(null);
+  const handleSceneChange = useCallback((creativeId: string, doc: SceneDocument) => {
+    if (sceneAutoSaveTimer.current) window.clearTimeout(sceneAutoSaveTimer.current);
+    sceneAutoSaveTimer.current = window.setTimeout(async () => {
+      try {
+        await db.from("content_studio_creatives").update({
+          scene_json: doc as any,
+        }).eq("id", creativeId);
+        console.log("[SceneAutosave] Saved scene_json for creative", creativeId);
+      } catch (e: any) {
+        console.error("[SceneAutosave] Failed to save scene_json:", e);
+      }
+    }, 800);
+  }, [db]);
+
+  // Cleanup autosave timer on unmount
+  useEffect(() => {
+    return () => {
+      if (sceneAutoSaveTimer.current) window.clearTimeout(sceneAutoSaveTimer.current);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -693,6 +717,7 @@ export default function ContentStudioEditor() {
           approvingAll={approvingAll}
           allApproved={allApprovedFlash || allApproved}
           errorBanner={failedBanner}
+          onSceneChange={handleSceneChange}
         />
         )}
 

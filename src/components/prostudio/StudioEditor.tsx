@@ -420,10 +420,11 @@ export function StudioEditor({
    * This is used for saving to library
    */
   const captureStage = useCallback(async (scale: number): Promise<string | null> => {
-    // Scene mode: use renderSceneToCanvas
-    if (isSceneMode && activeSceneJson) {
+    // Scene mode: use renderSceneToCanvas with the live (edited) doc
+    const sceneDoc = effectiveSceneDoc;
+    if (isSceneMode && sceneDoc) {
       try {
-        const canvas = await renderSceneToCanvas(activeSceneJson, { pixelRatio: scale });
+        const canvas = await renderSceneToCanvas(sceneDoc, { pixelRatio: scale });
         return canvas.toDataURL("image/png");
       } catch (e) {
         console.error("[StudioEditor] Scene capture failed:", e);
@@ -446,7 +447,7 @@ export function StudioEditor({
     
     console.warn("[StudioEditor] No export canvas available for capture");
     return null;
-  }, [variationId, isSceneMode, activeSceneJson]);
+  }, [variationId, isSceneMode, effectiveSceneDoc]);
 
 
   // ─── Export Canvas Refs ───────────────────────────────────────────────
@@ -1505,6 +1506,10 @@ export function StudioEditor({
                   onReschedule={onRescheduleActive}
                   onRemoveSchedule={onRemoveScheduleActive}
                 />
+              ) : isSceneMode ? (
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  <ScenePropertiesPanel />
+                </div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto px-4 pr-4 py-4 space-y-5">
                   {!selected ? (
