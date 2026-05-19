@@ -12,9 +12,19 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { adminSupabase } from './adminServiceSupabase';
 import type { RenderEngine } from '@/types/scene';
 
 const db = supabase as any;
+
+/**
+ * Get the best available Supabase client.
+ * Prefers adminSupabase (service role, bypasses RLS) when available.
+ * Falls back to regular client (subject to RLS).
+ */
+function getClient() {
+  return (adminSupabase ?? db) as any;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -53,7 +63,8 @@ const DEFAULT_CONTENT_STUDIO_GENERATION: ContentStudioGenerationSettings = {
  * Get a single setting by key. Returns null if not found.
  */
 export async function getSetting(key: string): Promise<PlatformSetting | null> {
-  const { data, error } = await db
+  const client = getClient();
+  const { data, error } = await client
     .from('platform_settings')
     .select('*')
     .eq('setting_key', key)
@@ -74,7 +85,8 @@ export async function setSetting(
   value: Record<string, unknown>,
   description?: string
 ): Promise<PlatformSetting | null> {
-  const { data, error } = await db
+  const client = getClient();
+  const { data, error } = await client
     .from('platform_settings')
     .upsert(
       {
@@ -111,7 +123,8 @@ export async function updateSetting(
 
   const merged = { ...existing.setting_value, ...partialValue };
 
-  const { data, error } = await db
+  const client = getClient();
+  const { data, error } = await client
     .from('platform_settings')
     .update({
       setting_value: merged,
@@ -132,7 +145,8 @@ export async function updateSetting(
  * Remove a setting by key.
  */
 export async function removeSetting(key: string): Promise<boolean> {
-  const { error } = await db
+  const client = getClient();
+  const { error } = await client
     .from('platform_settings')
     .delete()
     .eq('setting_key', key);
@@ -148,7 +162,8 @@ export async function removeSetting(key: string): Promise<boolean> {
  * Get all settings.
  */
 export async function getAllSettings(): Promise<PlatformSetting[]> {
-  const { data, error } = await db
+  const client = getClient();
+  const { data, error } = await client
     .from('platform_settings')
     .select('*')
     .order('setting_key');
@@ -172,8 +187,8 @@ export async function getContentStudioGenerationSettings(): Promise<ContentStudi
   const setting = await getSetting(SETTING_KEYS.CONTENT_STUDIO_GENERATION);
 
   if (!setting) {
-    // Auto-initialize default on first read
-    await ensureDefaultSettings();
+    // No row yet — return default without blocking on write
+    // (ensureDefaultSettings can be called separately by admin UI)
     return { ...DEFAULT_CONTENT_STUDIO_GENERATION };
   }
 
@@ -199,7 +214,8 @@ export async function getContentStudioGenerationSettings(): Promise<ContentStudi
  * Safe to call multiple times — uses upsert with ignoreDuplicates.
  */
 export async function ensureDefaultSettings(): Promise<void> {
-  const { error } = await db
+  const client = getClient();
+  const { error } = await client
     .from('platform_settings')
     .upsert(
       {

@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   getSetting,
   setSetting,
+  ensureDefaultSettings,
   type PlatformSetting,
 } from "@/services/platformSettingsService";
 
@@ -83,6 +84,8 @@ function RuntimeSettingSection<T extends string>({
 
   const fetchSetting = useCallback(async () => {
     setLoading(true);
+    // Ensure default row exists (admin context, service role client)
+    await ensureDefaultSettings();
     const data = await getSetting(config.key);
     setCurrentValue(config.valueExtractor(data));
     setLoading(false);
