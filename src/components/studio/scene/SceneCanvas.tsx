@@ -254,10 +254,7 @@ export function SceneCanvas({ className, debug = false }: Props) {
         width: "100%",
         height: "100%",
         overflow: "hidden", // Viewport is the ONLY clipping layer
-        background: "hsl(var(--muted) / 0.4)",
-        backgroundImage:
-          "radial-gradient(circle at 1px 1px, hsl(var(--border)) 1px, transparent 0)",
-        backgroundSize: "22px 22px",
+        background: "hsl(var(--background))", // Solid background, no pattern
         cursor: isPanning ? "grabbing" : isSpacePressed ? "grab" : "default",
       }}
     >
