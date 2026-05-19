@@ -58,40 +58,41 @@ export function SceneCanvas({ className, debug = false }: Props) {
   // ─── Center and fit camera on content on initial mount ─────────
   // This ensures the design is centered and fully visible like in HTML mode.
   // Calculates zoom to fit content into viewport with padding.
-  // Only runs if camera is at default position (0,0,1) to avoid overriding
-  // restored positions or user-set positions.
+  // Runs once per document change (e.g., when switching platforms).
+  const docKey = useMemo(() => `${document.width}x${document.height}-${document.nodes.length}-${document.nodes[0]?.id || 'empty'}`, [document]);
+
+  // Reset centering when document changes (platform switch)
+  useEffect(() => {
+    didInitialCenterRef.current = false;
+  }, [docKey]);
+
   useEffect(() => {
     if (didInitialCenterRef.current) return;
     if (viewportSize.width === 0 || viewportSize.height === 0) return;
-    // Check if camera is at default position (not restored or user-modified)
-    const isDefaultPosition =
-      camera.x === 0 && camera.y === 0 && camera.zoom === 1;
-    if (!isDefaultPosition) {
-      didInitialCenterRef.current = true; // Mark as done even if we don't center
-      return;
-    }
+    if (worldBounds.width === 0 || worldBounds.height === 0) return;
+
     // Center on the actual content bounds
     const contentCenterX = worldBounds.minX + worldBounds.width / 2;
     const contentCenterY = worldBounds.minY + worldBounds.height / 2;
+
     // Calculate zoom to fit content into viewport with 10% padding
     const padding = 0.1; // 10% padding around content
     const availableWidth = viewportSize.width * (1 - padding * 2);
     const availableHeight = viewportSize.height * (1 - padding * 2);
-    const scaleX = availableWidth / (worldBounds.width || 1);
-    const scaleY = availableHeight / (worldBounds.height || 1);
+    const scaleX = availableWidth / worldBounds.width;
+    const scaleY = availableHeight / worldBounds.height;
     const fitZoom = Math.max(0.1, Math.min(1.5, Math.min(scaleX, scaleY)));
-    // Camera position to center the content in viewport with fit zoom:
-    // screenX = viewportCenterX + cameraX + worldX * zoom
-    // For center: viewportCenterX = viewportCenterX + cameraX + contentCenterX * zoom
-    // Therefore: cameraX = -contentCenterX * zoom
+
+    // Camera position to center the content in viewport with fit zoom
     const targetCamera = {
       x: -contentCenterX * fitZoom,
       y: -contentCenterY * fitZoom,
       zoom: fitZoom,
     };
+
     setCamera(targetCamera);
     didInitialCenterRef.current = true;
-  }, [viewportSize.width, viewportSize.height, worldBounds, camera.x, camera.y, camera.zoom, setCamera]);
+  }, [viewportSize.width, viewportSize.height, worldBounds, setCamera]);
 
   // Sorted nodes by zIndex
   const sorted = useMemo(() => [...document.nodes].sort((a, b) => a.zIndex - b.zIndex), [document.nodes]);
@@ -323,8 +324,8 @@ export function SceneCanvas({ className, debug = false }: Props) {
           // No overflow, no fixed dimensions — infinite world
         }}
       >
-        {/* Scene Artboard — ONLY the actual scene document background */}
-        {/* This is the SINGLE surface that renders scene.background */}
+        {/* Scene Artboard — contains background AND all nodes */}
+        {/* overflow:hidden clips all child nodes to artboard bounds */}
         <div
           style={{
             position: "absolute",
@@ -333,30 +334,32 @@ export function SceneCanvas({ className, debug = false }: Props) {
             width: document.width,
             height: document.height,
             background: document.background,
+            // Clip all nodes to artboard bounds - hide decorative bleed elements outside
+            overflow: "hidden",
             // Subtle border to indicate artboard bounds against infinite canvas
             outline: "1px solid rgba(0,0,0,0.08)",
             boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
-            pointerEvents: "none",
-          }}
-        />
-
-        {/* Scene Nodes — absolutely positioned in world space */}
-        <div
-          data-scene-world
-          onPointerDownCapture={onNodePointerDownCapture}
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            // No overflow, no clipping
           }}
         >
-          {sorted.map((node) => (
-            <SceneNodeRenderer key={node.id} node={node} />
-          ))}
-          {selected.map((n) => (
-            <SceneSelectionOverlay key={`ov-${n.id}`} node={n} camera={camera} />
-          ))}
+          {/* Scene Nodes — absolutely positioned inside artboard (clipped) */}
+          <div
+            data-scene-world
+            onPointerDownCapture={onNodePointerDownCapture}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            {sorted.map((node) => (
+              <SceneNodeRenderer key={node.id} node={node} />
+            ))}
+            {selected.map((n) => (
+              <SceneSelectionOverlay key={`ov-${n.id}`} node={n} camera={camera} />
+            ))}
+          </div>
         </div>
       </div>
 
