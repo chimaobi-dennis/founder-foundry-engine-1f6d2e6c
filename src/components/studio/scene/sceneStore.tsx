@@ -293,4 +293,9 @@ export function useSceneStore() {
   return c;
 }
 
+/** Safe variant — returns null when outside SceneStoreProvider (no throw). */
+export function useSceneStoreSafe(): SceneCtx | null {
+  return useContext(Ctx);
+}
+
 export const sceneHelpers = { makeId, findNode };

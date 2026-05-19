@@ -5,7 +5,7 @@ import { SceneTextNode } from "./SceneTextNode";
 import { SceneImageNode } from "./SceneImageNode";
 import { SceneShapeNode } from "./SceneShapeNode";
 import { SceneGroupNode } from "./SceneGroupNode";
-import { useSceneStore } from "./sceneStore";
+import { useSceneStoreSafe } from "./sceneStore";
 
 interface Props {
   node: SceneNode;
@@ -14,7 +14,8 @@ interface Props {
 }
 
 function SceneNodeRendererImpl({ node, interactive = true }: Props) {
-  const store = interactive ? useSceneStore() : null;
+  const store = useSceneStoreSafe();
+  const canInteract = interactive && !!store;
   const selected = store?.selectedIds.includes(node.id) ?? false;
   const ui = store?.ui[node.id] ?? {};
 
@@ -45,7 +46,7 @@ function SceneNodeRendererImpl({ node, interactive = true }: Props) {
     transformOrigin: "center center",
     opacity: node.opacity,
     zIndex: node.zIndex,
-    cursor: interactive ? (ui.locked ? "not-allowed" : "move") : "default",
+    cursor: canInteract ? (ui.locked ? "not-allowed" : "move") : "default",
     outline: selected ? "1.5px solid hsl(var(--primary))" : "none",
     outlineOffset: 1,
   };
@@ -54,7 +55,7 @@ function SceneNodeRendererImpl({ node, interactive = true }: Props) {
     <div
       data-scene-node={node.id}
       style={style}
-      onPointerDown={interactive ? onPointerDown : undefined}
+      onPointerDown={canInteract ? onPointerDown : undefined}
     >
       {isTextNode(node) && <SceneTextNode node={node} />}
       {isImageNode(node) && <SceneImageNode node={node} />}
