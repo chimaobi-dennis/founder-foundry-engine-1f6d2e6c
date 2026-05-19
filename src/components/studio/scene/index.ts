@@ -9,6 +9,12 @@ export { EngineSwitch } from "./EngineSwitch";
 export { SceneStoreProvider, useSceneStore, useSceneStoreSafe, sceneHelpers } from "./sceneStore";
 export { useSceneAutosave } from "./useSceneAutosave";
 export { useSceneExport } from "./useSceneExport";
+export { SceneDebugOverlay } from "./SceneDebugOverlay";
+export { SceneFrameNode } from "./SceneFrameNode";
+export { SceneStackNode } from "./SceneStackNode";
+export { SceneSvgNode } from "./SceneSvgNode";
+export { SceneIconNode } from "./SceneIconNode";
+export { SceneButtonNode } from "./SceneButtonNode";
 
 // Phase 5 — Experience Layer
 export { AiCopilotPanel } from "./AiCopilotPanel";
