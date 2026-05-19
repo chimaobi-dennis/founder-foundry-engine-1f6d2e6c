@@ -1,10 +1,18 @@
 import { memo, useCallback, PointerEvent as RPE } from "react";
 import type { SceneNode } from "@/types/scene";
-import { isGroupNode, isImageNode, isShapeNode, isTextNode } from "@/types/scene";
+import {
+  isGroupNode, isImageNode, isShapeNode, isTextNode,
+  isFrameNode, isStackNode, isSvgNode, isIconNode, isButtonNode,
+} from "@/types/scene";
 import { SceneTextNode } from "./SceneTextNode";
 import { SceneImageNode } from "./SceneImageNode";
 import { SceneShapeNode } from "./SceneShapeNode";
 import { SceneGroupNode } from "./SceneGroupNode";
+import { SceneFrameNode } from "./SceneFrameNode";
+import { SceneStackNode } from "./SceneStackNode";
+import { SceneSvgNode } from "./SceneSvgNode";
+import { SceneIconNode } from "./SceneIconNode";
+import { SceneButtonNode } from "./SceneButtonNode";
 import { useSceneStoreSafe } from "./sceneStore";
 
 interface Props {
@@ -61,6 +69,11 @@ function SceneNodeRendererImpl({ node, interactive = true }: Props) {
       {isImageNode(node) && <SceneImageNode node={node} />}
       {isShapeNode(node) && <SceneShapeNode node={node} />}
       {isGroupNode(node) && <SceneGroupNode node={node} />}
+      {isFrameNode(node) && <SceneFrameNode node={node} />}
+      {isStackNode(node) && <SceneStackNode node={node} />}
+      {isSvgNode(node) && <SceneSvgNode node={node} />}
+      {isIconNode(node) && <SceneIconNode node={node} />}
+      {isButtonNode(node) && <SceneButtonNode node={node} />}
     </div>
   );
 }

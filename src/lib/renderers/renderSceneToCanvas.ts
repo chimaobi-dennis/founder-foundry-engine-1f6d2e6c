@@ -2,26 +2,33 @@
  * renderSceneToCanvas.ts
  *
  * Deterministic Canvas2D renderer for SceneDocument.
- * This is the SINGLE SOURCE OF TRUTH for scene rendering — both
- * the editor preview and all exports (PNG/JPEG/PDF) use this pipeline.
+ * Consumes RenderInstruction[] from the canonical sceneRenderPipeline.
+ * Does NOT independently interpret scene geometry.
  *
  * No DOM measurement, no html2canvas, no browser-dependent layout.
  */
 
-import type {
-  SceneDocument,
-  SceneNode,
-  TextNode,
-  ImageNode,
-  ShapeNode,
-  GroupNode,
-  FrameNode,
-  StackNode,
-  SvgNode,
-  IconNode,
-  ButtonNode,
-} from '@/types/scene';
-import { loadSceneFonts, waitForFontsReady, resolveFontFamily, resolveFontWeight } from '@/lib/fonts/fontRegistry';
+import type { SceneDocument, SceneNode } from '@/types/scene';
+import { loadSceneFonts, waitForFontsReady } from '@/lib/fonts/fontRegistry';
+import {
+  compileScene,
+  type RenderInstruction,
+  type RenderTransform,
+  type RenderRadius,
+  type RenderFill,
+  type RenderStroke,
+  type RenderFont,
+  type RenderText,
+  type ShapeRenderInstruction,
+  type TextRenderInstruction,
+  type ImageRenderInstruction,
+  type GroupRenderInstruction,
+  type FrameRenderInstruction,
+  type StackRenderInstruction,
+  type SvgRenderInstruction,
+  type IconRenderInstruction,
+  type ButtonRenderInstruction,
+} from './sceneRenderPipeline';
 
 // ─── Options ──────────────────────────────────────────────────
 
@@ -69,7 +76,6 @@ function renderBackground(
   height: number,
   background: string
 ): void {
-  // Gradient support: linear-gradient(deg, #color1, #color2)
   const gradientMatch = background.match(
     /^linear-gradient\(\s*([\d.]+)deg\s*,\s*(.+)\s*\)$/i
   );
@@ -99,6 +105,7 @@ function renderBackground(
 
 /**
  * Render a SceneDocument to an HTMLCanvasElement.
+ * Uses the canonical sceneRenderPipeline for all geometry.
  * Deterministic — no DOM measurement, shared by editor + export.
  */
 export async function renderSceneToCanvas(
@@ -116,9 +123,12 @@ export async function renderSceneToCanvas(
   // Preload all images in parallel
   await preloadSceneImages(scene.nodes);
 
+  // Compile scene through canonical pipeline
+  const compiled = compileScene(scene, 'export');
+
   const canvas = document.createElement('canvas');
-  canvas.width = scene.width * pixelRatio;
-  canvas.height = scene.height * pixelRatio;
+  canvas.width = compiled.width * pixelRatio;
+  canvas.height = compiled.height * pixelRatio;
 
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2d context');
@@ -126,12 +136,11 @@ export async function renderSceneToCanvas(
   ctx.scale(pixelRatio, pixelRatio);
 
   // Background
-  renderBackground(ctx, scene.width, scene.height, background || scene.background || '#ffffff');
+  renderBackground(ctx, compiled.width, compiled.height, background || compiled.background);
 
-  // Render nodes sorted by zIndex
-  const sortedNodes = [...scene.nodes].sort((a, b) => a.zIndex - b.zIndex);
-  for (const node of sortedNodes) {
-    await safeRenderNode(ctx, node);
+  // Render compiled instructions
+  for (const instr of compiled.instructions) {
+    await safeRenderInstruction(ctx, instr);
   }
 
   return canvas;
@@ -153,106 +162,96 @@ async function preloadSceneImages(nodes: SceneNode[]): Promise<void> {
 
 // ─── Safe Wrapper ─────────────────────────────────────────────
 
-/**
- * Render a single node. If it fails, log a warning and continue.
- * The renderer must NEVER blank entire exports due to one bad node.
- */
-async function safeRenderNode(ctx: CanvasRenderingContext2D, node: SceneNode): Promise<void> {
+async function safeRenderInstruction(ctx: CanvasRenderingContext2D, instr: RenderInstruction): Promise<void> {
   try {
-    await renderNode(ctx, node);
+    await renderInstruction(ctx, instr);
   } catch (err) {
-    console.warn(`[renderSceneToCanvas] Failed to render node ${node.id} (${node.type}):`, err);
+    console.warn(`[renderSceneToCanvas] Failed to render ${instr.id} (${instr.type}):`, err);
   }
 }
 
-// ─── Node Dispatcher ──────────────────────────────────────────
+// ─── Instruction Dispatcher ──────────────────────────────────
 
-async function renderNode(ctx: CanvasRenderingContext2D, node: SceneNode): Promise<void> {
+async function renderInstruction(ctx: CanvasRenderingContext2D, instr: RenderInstruction): Promise<void> {
   ctx.save();
-  applyTransforms(ctx, node);
+  applyTransform(ctx, instr.transform);
 
-  switch (node.type) {
+  switch (instr.type) {
     case 'text':
-      renderTextNode(ctx, node);
+      renderTextInstr(ctx, instr);
       break;
     case 'image':
-      await renderImageNode(ctx, node);
+      await renderImageInstr(ctx, instr);
       break;
     case 'shape':
-      renderShapeNode(ctx, node);
+      renderShapeInstr(ctx, instr);
       break;
     case 'group':
-      await renderGroupNode(ctx, node);
+      await renderGroupInstr(ctx, instr);
       break;
     case 'frame':
-      await renderFrameNode(ctx, node);
+      await renderFrameInstr(ctx, instr);
       break;
     case 'stack':
-      await renderStackNode(ctx, node);
+      await renderStackInstr(ctx, instr);
       break;
     case 'svg':
-      await renderSvgNode(ctx, node);
+      await renderSvgInstr(ctx, instr);
       break;
     case 'icon':
-      renderIconNode(ctx, node);
+      renderIconInstr(ctx, instr);
       break;
     case 'button':
-      renderButtonNode(ctx, node);
+      renderButtonInstr(ctx, instr);
       break;
   }
 
   ctx.restore();
 }
 
-// ─── Common Transforms ───────────────────────────────────────
+// ─── Transform Application ──────────────────────────────────
 
-function applyTransforms(ctx: CanvasRenderingContext2D, node: SceneNode): void {
-  ctx.translate(node.x + node.width / 2, node.y + node.height / 2);
-  if (node.rotation !== 0) {
-    ctx.rotate((node.rotation * Math.PI) / 180);
+function applyTransform(ctx: CanvasRenderingContext2D, t: RenderTransform): void {
+  ctx.translate(t.x + t.width / 2, t.y + t.height / 2);
+  if (t.rotation !== 0) {
+    ctx.rotate((t.rotation * Math.PI) / 180);
   }
-  ctx.globalAlpha *= node.opacity;
-  ctx.translate(-node.width / 2, -node.height / 2);
+  ctx.globalAlpha *= t.opacity;
+  ctx.translate(-t.width / 2, -t.height / 2);
 }
 
 // ─── Text Rendering ──────────────────────────────────────────
 
-function renderTextNode(ctx: CanvasRenderingContext2D, node: TextNode): void {
-  if (!node.text) return;
+function renderTextInstr(ctx: CanvasRenderingContext2D, instr: TextRenderInstruction): void {
+  const { text } = instr;
+  if (!text.content) return;
 
-  const family = resolveFontFamily(node.fontFamily);
-  const weight = resolveFontWeight(family, node.fontWeight);
-  const fontSize = Math.max(1, node.fontSize);
-  const lineHeight = Math.max(0.5, node.lineHeight);
-  const lineHeightPx = fontSize * lineHeight;
-  const letterSpacing = node.letterSpacing || 0;
+  const { font } = text;
+  const lineHeightPx = font.size * font.lineHeight;
 
-  ctx.font = `${weight} ${fontSize}px "${family}"`;
-  ctx.fillStyle = node.color || '#000000';
+  ctx.font = font.cssFont;
+  ctx.fillStyle = text.color;
   ctx.textBaseline = 'top';
 
-  // Text alignment
   let textAlign: CanvasTextAlign = 'left';
   let xOffset = 0;
-  if (node.align === 'center') {
+  if (text.align === 'center') {
     textAlign = 'center';
-    xOffset = node.width / 2;
-  } else if (node.align === 'right') {
+    xOffset = instr.transform.width / 2;
+  } else if (text.align === 'right') {
     textAlign = 'right';
-    xOffset = node.width;
+    xOffset = instr.transform.width;
   }
   ctx.textAlign = textAlign;
 
-  // Word-wrap text to fit within node.width
-  const lines = wrapText(ctx, node.text, node.width, letterSpacing);
+  const lines = wrapText(ctx, text.content, instr.transform.width, font.letterSpacing);
 
-  // Render each line
   for (let i = 0; i < lines.length; i++) {
     const y = i * lineHeightPx;
-    if (y > node.height) break; // Don't render past the node box
+    if (y > instr.transform.height) break;
 
-    if (letterSpacing !== 0) {
-      drawTextWithSpacing(ctx, lines[i], xOffset, y, letterSpacing);
+    if (font.letterSpacing !== 0) {
+      drawTextWithSpacing(ctx, lines[i], xOffset, y, font.letterSpacing);
     } else {
       ctx.fillText(lines[i], xOffset, y);
     }
@@ -333,50 +332,51 @@ function drawTextWithSpacing(
 
 // ─── Image Rendering ─────────────────────────────────────────
 
-async function renderImageNode(ctx: CanvasRenderingContext2D, node: ImageNode): Promise<void> {
-  if (!node.src) return;
+async function renderImageInstr(ctx: CanvasRenderingContext2D, instr: ImageRenderInstruction): Promise<void> {
+  if (!instr.src) return;
+  const { width, height } = instr.transform;
+  const r = instr.radius.radius;
 
   let img: HTMLImageElement;
   try {
-    img = await loadImage(node.src);
+    img = await loadImage(instr.src);
   } catch {
-    // Draw a placeholder rectangle if image fails to load
     ctx.fillStyle = '#eeeeee';
-    roundRect(ctx, 0, 0, node.width, node.height, node.borderRadius);
+    ctx.beginPath();
+    drawRoundedRectPath(ctx, 0, 0, width, height, r);
     ctx.fill();
     return;
   }
 
-  // Clip to border radius
-  if (node.borderRadius > 0) {
+  if (r > 0) {
     ctx.beginPath();
-    roundRect(ctx, 0, 0, node.width, node.height, node.borderRadius);
+    drawRoundedRectPath(ctx, 0, 0, width, height, r);
     ctx.clip();
   }
 
   const imgW = img.naturalWidth;
   const imgH = img.naturalHeight;
 
-  switch (node.objectFit) {
+  switch (instr.objectFit) {
     case 'fill':
-      ctx.drawImage(img, 0, 0, node.width, node.height);
+      ctx.drawImage(img, 0, 0, width, height);
       break;
     case 'contain': {
-      const scale = Math.min(node.width / imgW, node.height / imgH);
+      const scale = Math.min(width / imgW, height / imgH);
       const w = imgW * scale;
       const h = imgH * scale;
-      ctx.drawImage(img, (node.width - w) / 2, (node.height - h) / 2, w, h);
+      ctx.drawImage(img, (width - w) / 2, (height - h) / 2, w, h);
       break;
     }
     case 'none':
-      ctx.drawImage(img, (node.width - imgW) / 2, (node.height - imgH) / 2);
+      ctx.drawImage(img, (width - imgW) / 2, (height - imgH) / 2);
       break;
     case 'cover':
     default: {
-      const scaleC = Math.max(node.width / imgW, node.height / imgH);
+      const scaleC = Math.max(width / imgW, height / imgH);
       const wC = imgW * scaleC;
       const hC = imgH * scaleC;
-      ctx.drawImage(img, (node.width - wC) / 2, (node.height - hC) / 2, wC, hC);
+      ctx.drawImage(img, (width - wC) / 2, (height - hC) / 2, wC, hC);
       break;
     }
   }
@@ -384,167 +384,168 @@ async function renderImageNode(ctx: CanvasRenderingContext2D, node: ImageNode): 
 
 // ─── Shape Rendering ──────────────────────────────────────────
 
-function renderShapeNode(ctx: CanvasRenderingContext2D, node: ShapeNode): void {
-  ctx.beginPath();
-  roundRect(ctx, 0, 0, node.width, node.height, node.radius);
+function renderShapeInstr(ctx: CanvasRenderingContext2D, instr: ShapeRenderInstruction): void {
+  const { width, height } = instr.transform;
+  const r = instr.radius.radius;
 
-  // Fill — support gradients
-  if (node.fill && node.fill !== 'transparent') {
-    const gradient = parseGradient(ctx, node.fill, node.width, node.height);
-    ctx.fillStyle = gradient || node.fill;
+  ctx.beginPath();
+  drawRoundedRectPath(ctx, 0, 0, width, height, r);
+
+  if (!instr.fill.isTransparent) {
+    const gradient = parseGradient(ctx, instr.fill.fill, width, height);
+    ctx.fillStyle = gradient || instr.fill.fill;
     ctx.fill();
   }
 
-  // Stroke
-  if (node.stroke && node.stroke !== 'transparent' && node.strokeWidth > 0) {
-    ctx.strokeStyle = node.stroke;
-    ctx.lineWidth = node.strokeWidth;
+  if (instr.stroke.isVisible) {
+    ctx.strokeStyle = instr.stroke.color;
+    ctx.lineWidth = instr.stroke.width;
     ctx.stroke();
   }
 }
 
 // ─── Group Rendering ──────────────────────────────────────────
 
-async function renderGroupNode(ctx: CanvasRenderingContext2D, node: GroupNode): Promise<void> {
-  const sortedChildren = [...node.children].sort((a, b) => a.zIndex - b.zIndex);
-  for (const child of sortedChildren) {
-    await safeRenderNode(ctx, child);
+async function renderGroupInstr(ctx: CanvasRenderingContext2D, instr: GroupRenderInstruction): Promise<void> {
+  for (const child of instr.children) {
+    await safeRenderInstruction(ctx, child);
   }
 }
 
 // ─── Frame Rendering ───────────────────────────────────────
 
-async function renderFrameNode(ctx: CanvasRenderingContext2D, node: FrameNode): Promise<void> {
-  // Draw frame background
+async function renderFrameInstr(ctx: CanvasRenderingContext2D, instr: FrameRenderInstruction): Promise<void> {
+  const { width, height } = instr.transform;
+  const r = instr.radius.radius;
+
   ctx.beginPath();
-  roundRect(ctx, 0, 0, node.width, node.height, node.radius);
-  if (node.fill && node.fill !== 'transparent') {
-    const gradient = parseGradient(ctx, node.fill, node.width, node.height);
-    ctx.fillStyle = gradient || node.fill;
+  drawRoundedRectPath(ctx, 0, 0, width, height, r);
+  if (!instr.fill.isTransparent) {
+    const gradient = parseGradient(ctx, instr.fill.fill, width, height);
+    ctx.fillStyle = gradient || instr.fill.fill;
     ctx.fill();
   }
-  if (node.stroke && node.stroke !== 'transparent' && node.strokeWidth > 0) {
-    ctx.strokeStyle = node.stroke;
-    ctx.lineWidth = node.strokeWidth;
+  if (instr.stroke.isVisible) {
+    ctx.strokeStyle = instr.stroke.color;
+    ctx.lineWidth = instr.stroke.width;
     ctx.stroke();
   }
 
-  // Clip children if needed
-  if (node.clipContent) {
+  if (instr.clipContent) {
     ctx.save();
     ctx.beginPath();
-    roundRect(ctx, 0, 0, node.width, node.height, node.radius);
+    drawRoundedRectPath(ctx, 0, 0, width, height, r);
     ctx.clip();
   }
 
-  const sorted = [...node.children].sort((a, b) => a.zIndex - b.zIndex);
-  for (const child of sorted) {
-    await safeRenderNode(ctx, child);
+  for (const child of instr.children) {
+    await safeRenderInstruction(ctx, child);
   }
 
-  if (node.clipContent) {
+  if (instr.clipContent) {
     ctx.restore();
   }
 }
 
 // ─── Stack Rendering ───────────────────────────────────────
 
-async function renderStackNode(ctx: CanvasRenderingContext2D, node: StackNode): Promise<void> {
-  const isH = node.direction === 'horizontal';
-  const pad = node.padding || 0;
+async function renderStackInstr(ctx: CanvasRenderingContext2D, instr: StackRenderInstruction): Promise<void> {
+  const isH = instr.direction === 'horizontal';
+  const pad = instr.padding;
   let cursor = pad;
 
-  const sorted = [...node.children].sort((a, b) => a.zIndex - b.zIndex);
-
-  for (const child of sorted) {
+  for (const child of instr.children) {
     ctx.save();
     if (isH) {
       ctx.translate(cursor, pad);
     } else {
       ctx.translate(pad, cursor);
     }
-    await safeRenderNode(ctx, child);
+    await safeRenderInstruction(ctx, child);
     ctx.restore();
 
-    cursor += (isH ? child.width : child.height) + (node.gap || 0);
+    cursor += (isH ? child.transform.width : child.transform.height) + instr.gap;
   }
 }
 
-// ─── SVG Node Rendering ─────────────────────────────────────
+// ─── SVG Rendering ───────────────────────────────────────────
 
-async function renderSvgNode(ctx: CanvasRenderingContext2D, node: SvgNode): Promise<void> {
-  if (!node.svgContent) return;
+async function renderSvgInstr(ctx: CanvasRenderingContext2D, instr: SvgRenderInstruction): Promise<void> {
+  if (!instr.svgContent) return;
+  const { width, height } = instr.transform;
 
   let dataUri: string;
-  if (node.svgContent.startsWith('data:')) {
-    dataUri = node.svgContent;
+  if (instr.svgContent.startsWith('data:')) {
+    dataUri = instr.svgContent;
   } else {
-    dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(node.svgContent)))}`;
+    dataUri = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(instr.svgContent)))}`;
   }
 
   try {
     const img = await loadImage(dataUri);
-    ctx.drawImage(img, 0, 0, node.width, node.height);
+    ctx.drawImage(img, 0, 0, width, height);
   } catch {
     ctx.fillStyle = '#f0f0f0';
-    ctx.fillRect(0, 0, node.width, node.height);
+    ctx.fillRect(0, 0, width, height);
   }
 }
 
-// ─── Icon Node Rendering ─────────────────────────────────────
+// ─── Icon Rendering ──────────────────────────────────────────
 
-function renderIconNode(ctx: CanvasRenderingContext2D, node: IconNode): void {
-  // Render placeholder — actual icon SVG resolution will be handled by sceneAssetResolver
-  const size = Math.min(node.width, node.height);
-  const cx = node.width / 2;
-  const cy = node.height / 2;
+function renderIconInstr(ctx: CanvasRenderingContext2D, instr: IconRenderInstruction): void {
+  const { width, height } = instr.transform;
+  const size = Math.min(width, height);
+  const cx = width / 2;
+  const cy = height / 2;
 
-  ctx.strokeStyle = node.color || '#000000';
-  ctx.lineWidth = node.strokeWidth || 2;
+  ctx.strokeStyle = instr.color;
+  ctx.lineWidth = instr.strokeWidth;
   ctx.beginPath();
   ctx.arc(cx, cy, size / 2 - 4, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Draw icon name as text fallback
-  ctx.fillStyle = node.color || '#000000';
+  ctx.fillStyle = instr.color;
   ctx.font = `${Math.max(8, size * 0.2)}px "Inter"`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(node.iconName || '?', cx, cy);
+  ctx.fillText(instr.iconName, cx, cy);
 }
 
-// ─── Button Node Rendering ───────────────────────────────────
+// ─── Button Rendering ────────────────────────────────────────
 
-function renderButtonNode(ctx: CanvasRenderingContext2D, node: ButtonNode): void {
-  // Background
+function renderButtonInstr(ctx: CanvasRenderingContext2D, instr: ButtonRenderInstruction): void {
+  const { width, height } = instr.transform;
+  const r = instr.radius.radius;
+
   ctx.beginPath();
-  roundRect(ctx, 0, 0, node.width, node.height, node.radius);
-  if (node.fill && node.fill !== 'transparent') {
-    ctx.fillStyle = node.fill;
+  drawRoundedRectPath(ctx, 0, 0, width, height, r);
+  if (!instr.fill.isTransparent) {
+    ctx.fillStyle = instr.fill.fill;
     ctx.fill();
   }
-  if (node.stroke && node.stroke !== 'transparent' && node.strokeWidth > 0) {
-    ctx.strokeStyle = node.stroke;
-    ctx.lineWidth = node.strokeWidth;
+  if (instr.stroke.isVisible) {
+    ctx.strokeStyle = instr.stroke.color;
+    ctx.lineWidth = instr.stroke.width;
     ctx.stroke();
   }
 
-  // Label
-  if (node.label) {
-    const family = resolveFontFamily(node.fontFamily);
-    const weight = resolveFontWeight(family, node.fontWeight);
-    ctx.font = `${weight} ${node.fontSize}px "${family}"`;
-    ctx.fillStyle = node.textColor || '#ffffff';
+  if (instr.label) {
+    ctx.font = instr.font.cssFont;
+    ctx.fillStyle = instr.textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.label, node.width / 2, node.height / 2);
+    ctx.fillText(instr.label, width / 2, height / 2);
   }
 }
 
-// ─── Geometry Helpers ─────────────────────────────────────────
+// ─── Geometry Helpers (CANONICAL) ─────────────────────────────
 
-/** Draw a rounded rectangle path. Works on all modern browsers. */
-function roundRect(
+/**
+ * Draw a rounded rectangle path using arc() for CSS-parity.
+ * Uses circular arcs (not quadraticCurveTo) to match CSS border-radius exactly.
+ * The radius MUST be pre-clamped via clampRadius() from the pipeline.
+ */
+export function drawRoundedRectPath(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -552,20 +553,20 @@ function roundRect(
   h: number,
   r: number
 ): void {
-  const radius = Math.min(r, w / 2, h / 2);
-  if (radius <= 0) {
+  if (r <= 0) {
     ctx.rect(x, y, w, h);
     return;
   }
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
+  // Use arc() instead of quadraticCurveTo() for exact CSS border-radius parity
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+  ctx.lineTo(x + r, y + h);
+  ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+  ctx.lineTo(x, y + r);
+  ctx.arc(x + r, y + r, r, Math.PI, (3 * Math.PI) / 2);
   ctx.closePath();
 }
 

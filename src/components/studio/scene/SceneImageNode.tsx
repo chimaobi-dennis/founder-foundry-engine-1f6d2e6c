@@ -1,11 +1,14 @@
 import { memo } from "react";
 import type { ImageNode } from "@/types/scene";
+import { clampRadius } from "@/lib/renderers/sceneRenderPipeline";
 
 interface Props {
   node: ImageNode;
 }
 
 function SceneImageNodeImpl({ node }: Props) {
+  const r = clampRadius(node.borderRadius, node.width, node.height);
+
   return (
     <img
       src={node.src}
@@ -15,7 +18,7 @@ function SceneImageNodeImpl({ node }: Props) {
         width: "100%",
         height: "100%",
         objectFit: node.objectFit,
-        borderRadius: node.borderRadius,
+        borderRadius: r.radius,
         display: "block",
         userSelect: "none",
         pointerEvents: "none",
