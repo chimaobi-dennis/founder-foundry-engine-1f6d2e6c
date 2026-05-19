@@ -275,7 +275,20 @@ export function SceneCanvas({ className, debug = false }: Props) {
           // No overflow, no fixed dimensions — infinite world
         }}
       >
-        {/* Artboard Background — positioned in world space at (0,0) */}
+        {/* Infinite Canvas Background — moves with camera, same color as artboard */}
+        <div
+          style={{
+            position: "absolute",
+            left: -50000,
+            top: -50000,
+            width: 100000,
+            height: 100000,
+            background: document.background,
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Artboard Frame — shows the design bounds with subtle border */}
         <div
           style={{
             position: "absolute",
@@ -283,9 +296,9 @@ export function SceneCanvas({ className, debug = false }: Props) {
             top: 0,
             width: document.width,
             height: document.height,
-            background: document.background,
+            border: "1px solid rgba(0,0,0,0.1)",
             boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
-            pointerEvents: "none", // Let clicks pass through to nodes
+            pointerEvents: "none",
           }}
         />
 
