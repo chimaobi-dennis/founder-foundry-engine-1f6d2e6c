@@ -55,10 +55,10 @@ export function SceneCanvas({ className, debug = false }: Props) {
   // Compute world bounds for debug
   const worldBounds = useMemo(() => getSceneBounds(document), [document]);
 
-  // ─── Center camera on content on initial mount ─────────────────
-  // This ensures the design is centered like in HTML mode on first load.
-  // Centers on the actual content bounds (all nodes), not just artboard dimensions.
-  // Only centers if camera is at default position (0,0,1) to avoid overriding
+  // ─── Center and fit camera on content on initial mount ─────────
+  // This ensures the design is centered and fully visible like in HTML mode.
+  // Calculates zoom to fit content into viewport with padding.
+  // Only runs if camera is at default position (0,0,1) to avoid overriding
   // restored positions or user-set positions.
   useEffect(() => {
     if (didInitialCenterRef.current) return;
@@ -70,18 +70,24 @@ export function SceneCanvas({ className, debug = false }: Props) {
       didInitialCenterRef.current = true; // Mark as done even if we don't center
       return;
     }
-    // Center on the actual content bounds (not just artboard dimensions)
-    // Calculate center of content
+    // Center on the actual content bounds
     const contentCenterX = worldBounds.minX + worldBounds.width / 2;
     const contentCenterY = worldBounds.minY + worldBounds.height / 2;
-    // Camera position to center the content in viewport:
+    // Calculate zoom to fit content into viewport with 10% padding
+    const padding = 0.1; // 10% padding around content
+    const availableWidth = viewportSize.width * (1 - padding * 2);
+    const availableHeight = viewportSize.height * (1 - padding * 2);
+    const scaleX = availableWidth / (worldBounds.width || 1);
+    const scaleY = availableHeight / (worldBounds.height || 1);
+    const fitZoom = Math.max(0.1, Math.min(1.5, Math.min(scaleX, scaleY)));
+    // Camera position to center the content in viewport with fit zoom:
     // screenX = viewportCenterX + cameraX + worldX * zoom
     // For center: viewportCenterX = viewportCenterX + cameraX + contentCenterX * zoom
     // Therefore: cameraX = -contentCenterX * zoom
     const targetCamera = {
-      x: -contentCenterX * camera.zoom,
-      y: -contentCenterY * camera.zoom,
-      zoom: camera.zoom,
+      x: -contentCenterX * fitZoom,
+      y: -contentCenterY * fitZoom,
+      zoom: fitZoom,
     };
     setCamera(targetCamera);
     didInitialCenterRef.current = true;
