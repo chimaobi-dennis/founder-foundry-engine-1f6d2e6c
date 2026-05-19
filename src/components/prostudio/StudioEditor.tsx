@@ -57,6 +57,11 @@ import type { StudioElement } from "./studio/types";
 import { PlatformsPanel } from "./content-studio/PlatformsPanel";
 import { CopyPanel } from "./content-studio/CopyPanel";
 import { SceneRenderer } from "@/components/studio/scene/SceneRenderer";
+import { SceneStoreProvider } from "@/components/studio/scene/sceneStore";
+import { SceneCanvas } from "@/components/studio/scene/SceneCanvas";
+import { SceneLayersPanel } from "@/components/studio/scene/SceneLayersPanel";
+import { ScenePropertiesPanel } from "@/components/studio/scene/ScenePropertiesPanel";
+import { useSceneAutosave } from "@/components/studio/scene/useSceneAutosave";
 import type { SceneDocument } from "@/types/scene";
 import { renderSceneToCanvas } from "@/lib/renderers/renderSceneToCanvas";
 import { CanvasGenerating } from "./content-studio/CanvasGenerating";
@@ -134,6 +139,8 @@ interface Props {
   briefId?: string;
   /** Optional error banner rendered between the toolbar and the canvas (content-studio mode). */
   errorBanner?: React.ReactNode;
+  /** Callback when scene JSON is edited (content-studio scene mode). */
+  onSceneChange?: (creativeId: string, doc: SceneDocument) => void;
 }
 
 const ICON_FOR_TYPE = {
@@ -142,6 +149,38 @@ const ICON_FOR_TYPE = {
   text: Type,
   shape: CircleIcon,
 } as const;
+
+/**
+ * Conditionally wraps children in SceneStoreProvider when in scene mode.
+ * This allows SceneCanvas, SceneLayersPanel, and ScenePropertiesPanel
+ * to access the shared scene store from the same provider instance.
+ */
+function SceneWorkspaceWrapper({
+  isSceneMode,
+  sceneDoc,
+  canvasId,
+  onSceneDocChange,
+  children,
+}: {
+  isSceneMode: boolean;
+  sceneDoc: SceneDocument | null;
+  canvasId: string | null | undefined;
+  onSceneDocChange: (doc: SceneDocument) => void;
+  children: React.ReactNode;
+}) {
+  if (isSceneMode && sceneDoc) {
+    return (
+      <SceneStoreProvider
+        key={canvasId || 'scene'}
+        initialDocument={sceneDoc}
+        onChange={onSceneDocChange}
+      >
+        {children}
+      </SceneStoreProvider>
+    );
+  }
+  return <>{children}</>;
+}
 
 export function StudioEditor({
   open,
@@ -181,6 +220,7 @@ export function StudioEditor({
   approvingAll,
   allApproved,
   errorBanner,
+  onSceneChange,
 }: Props) {
   const { theme } = useTheme();
   // Active platform config (content-studio mode) — drives safe-zones, typography
@@ -205,6 +245,25 @@ export function StudioEditor({
   }, [activeRenderEngine, canvases, activeCanvasId]);
 
   const isSceneMode = activeRenderEngine === 'scene' && !!activeSceneJson;
+
+  // Live scene document — starts from activeSceneJson but tracks edits
+  const [liveSceneDoc, setLiveSceneDoc] = useState<SceneDocument | null>(null);
+
+  // Reset live doc when active canvas changes
+  useEffect(() => {
+    setLiveSceneDoc(activeSceneJson);
+  }, [activeSceneJson]);
+
+  // Scene change handler — debounced autosave via onSceneChange prop
+  const handleSceneDocChange = useCallback((doc: SceneDocument) => {
+    setLiveSceneDoc(doc);
+    if (activeCanvasId && onSceneChange) {
+      onSceneChange(activeCanvasId, doc);
+    }
+  }, [activeCanvasId, onSceneChange]);
+
+  // The effective scene doc for rendering (live edits take priority)
+  const effectiveSceneDoc = liveSceneDoc || activeSceneJson;
 
   // Render the generated HTML, normalised to the platform's typography scale
   const html = useMemo(
@@ -1027,7 +1086,13 @@ export function StudioEditor({
         </div>
 
 
-        {/* Workspace */}
+        {/* Workspace — wrapped in SceneStoreProvider when in scene mode */}
+        <SceneWorkspaceWrapper
+          isSceneMode={isSceneMode}
+          sceneDoc={effectiveSceneDoc}
+          canvasId={activeCanvasId}
+          onSceneDocChange={handleSceneDocChange}
+        >
         <div className="flex-1 flex min-h-0">
           {/* Left panel: Content Studio Platforms/Layers or ProStudio Layers/Elements */}
           {mode === 'content-studio' && canvases ? (
@@ -1057,6 +1122,10 @@ export function StudioEditor({
                   activeId={activeCanvasId}
                   onSelect={onSelectCanvas || (() => {})}
                 />
+              ) : isSceneMode ? (
+                <div className="flex-1 overflow-hidden">
+                  <SceneLayersPanel />
+                </div>
               ) : (
                 <>
                   <div className="flex items-center justify-between px-3 py-1.5 border-b border-border flex-shrink-0">
@@ -1140,6 +1209,11 @@ export function StudioEditor({
               </div>
 
               {leftTab === "layers" ? (
+                isSceneMode ? (
+                  <div className="flex-1 overflow-hidden">
+                    <SceneLayersPanel />
+                  </div>
+                ) : (
                 <>
                   <div className="flex items-center justify-between px-3 py-1.5 border-b border-border flex-shrink-0">
                     <span className="text-[10px] font-ui text-muted-foreground">{elements.length} layers</span>
@@ -1201,6 +1275,7 @@ export function StudioEditor({
                     <span className="text-[10px] font-ui px-1.5 py-0.5 rounded bg-primary/10 text-primary">Beta</span>
                   </div>
                 </>
+                )
               ) : (
                 <ElementsPanel onInsert={insertElement} />
               )}
@@ -1334,22 +1409,11 @@ export function StudioEditor({
                           boxShadow: "0 30px 80px -20px rgba(0,0,0,0.4), 0 0 0 1px hsl(var(--primary) / 0.15)",
                         }}
                       />
-                      {/* Engine switch: scene mode renders SceneRenderer, html mode renders EditableCanvas */}
-                      {isSceneMode && activeSceneJson ? (
-                        <div
-                          style={{
-                            transform: `scale(${zoom})`,
-                            transformOrigin: "top left",
-                            width: canvasSize.width,
-                            height: canvasSize.height,
-                          }}
-                        >
-                          <SceneRenderer
-                            document={activeSceneJson}
-                            preview={false}
-                            style={{ width: canvasSize.width, height: canvasSize.height }}
-                          />
-                        </div>
+                      {/* Engine switch: scene mode renders full interactive SceneCanvas, html mode renders EditableCanvas */}
+                      {isSceneMode && effectiveSceneDoc ? (
+                        <SceneCanvas
+                          className="absolute inset-0"
+                        />
                       ) : (
                         <EditableCanvas
                           html={html}
@@ -1535,6 +1599,7 @@ export function StudioEditor({
             </div>
           )}
         </div>
+        </SceneWorkspaceWrapper>
 
         {/* Canvas switcher */}
         {canvases && canvases.length > 0 && activeCanvasId && onSelectCanvas && (
