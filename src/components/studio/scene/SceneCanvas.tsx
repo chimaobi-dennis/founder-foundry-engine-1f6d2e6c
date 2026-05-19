@@ -30,6 +30,7 @@ export function SceneCanvas({ className, debug = false }: Props) {
   const store = useSceneStore();
   const { document, selectedIds, camera, setSelection, setCamera, dispatch } = store;
   const viewportRef = useRef<HTMLDivElement>(null);
+  const didInitialCenterRef = useRef(false);
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
 
@@ -53,6 +54,29 @@ export function SceneCanvas({ className, debug = false }: Props) {
 
   // Compute world bounds for debug
   const worldBounds = useMemo(() => getSceneBounds(document), [document]);
+
+  // ─── Center camera on artboard on mount / viewport resize ─────
+  // This ensures the design is centered like in HTML mode
+  useEffect(() => {
+    if (viewportSize.width === 0 || viewportSize.height === 0) return;
+    // Center the artboard (0,0) to (width,height) in the viewport
+    // Camera position to center the artboard:
+    // We want world (width/2, height/2) to be at viewport center
+    // screenX = viewportCenterX + cameraX + worldX * zoom
+    // For center: viewportCenterX = viewportCenterX + cameraX + (width/2) * zoom
+    // Therefore: cameraX = -(width/2) * zoom
+    const targetCamera = {
+      x: -(document.width / 2) * camera.zoom,
+      y: -(document.height / 2) * camera.zoom,
+      zoom: camera.zoom,
+    };
+    // Only update if significantly different (avoid jitter on resize)
+    const dx = Math.abs(camera.x - targetCamera.x);
+    const dy = Math.abs(camera.y - targetCamera.y);
+    if (dx > 1 || dy > 1) {
+      setCamera(targetCamera);
+    }
+  }, [viewportSize.width, viewportSize.height, document.width, document.height]);
 
   // Sorted nodes by zIndex
   const sorted = useMemo(() => [...document.nodes].sort((a, b) => a.zIndex - b.zIndex), [document.nodes]);
