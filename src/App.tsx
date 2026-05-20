@@ -51,6 +51,8 @@ import AdminKnowledgeBase from "./pages/admin/AdminKnowledgeBase";
 import AdminJourneyStages from "./pages/admin/AdminJourneyStages";
 import AdminErrorLogs from "./pages/admin/AdminErrorLogs";
 import AdminRuntimeSettings from "./pages/admin/AdminRuntimeSettings";
+import AdminBilling from "./pages/admin/AdminBilling";
+import Billing from "./pages/Billing";
 
 const queryClient = new QueryClient();
 
@@ -127,6 +129,7 @@ const App = () => (
                         <Route path="journey-stages" element={<AdminJourneyStages />} />
                         <Route path="errors" element={<AdminErrorLogs />} />
                         <Route path="settings" element={<AdminRuntimeSettings />} />
+                        <Route path="billing" element={<AdminBilling />} />
                       </Route>
                       {/* Main app shell */}
                       <Route element={<Layout />}>
@@ -153,6 +156,7 @@ const App = () => (
                         <Route path="/brand-dna" element={<BrandDNA />} />
                         <Route path="/brand-dna/:brandId" element={<BrandDNA />} />
                         <Route path="/settings/ai-models" element={<SettingsAIModels />} />
+                        <Route path="/billing" element={<Billing />} />
                         <Route path="/creator/apply" element={<CreatorApply />} />
                         <Route path="/creator" element={<CreatorStudio />} />
                         <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />

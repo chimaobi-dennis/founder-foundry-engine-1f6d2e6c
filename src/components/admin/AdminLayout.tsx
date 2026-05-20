@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
 import { useEffect } from "react";
 import {
-  LayoutGrid, Users, User, Star, Layers, Clock, Inbox, Tag, Award, Settings, LogOut, Cpu, Book, Bug, Map,
+  LayoutGrid, Users, User, Star, Layers, Clock, Inbox, Tag, Award, Settings, LogOut, Cpu, Book, Bug, Map, Coins,
 } from "lucide-react";
 
 const sections = [
@@ -32,6 +32,7 @@ const sections = [
   {
     label: "SYSTEM",
     items: [
+      { label: "Billing", icon: Coins, path: "/admin/billing" },
       { label: "Runtime Settings", icon: Settings, path: "/admin/settings" },
     ],
   },
