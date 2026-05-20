@@ -34,19 +34,19 @@ export function Layout() {
     return false;
   }) && !isEditorRoute;
   
-  const isFullHeight = fullHeightPaths.includes(location.pathname) || isEditorRoute;
+  const isFullHeight = fullHeightPaths.some(p => location.pathname === p || location.pathname.startsWith(p + "/")) || isEditorRoute;
 
   return (
     <div className={`${isFullHeight ? "h-screen overflow-hidden" : "min-h-screen"} flex flex-col bg-background`}>
       <NavigationProgress />
       <TopBar />
-      <div className={`flex-1 flex ${isFullHeight ? "overflow-hidden" : ""}`}>
+      <div className={`flex-1 flex min-h-0 ${isFullHeight ? "overflow-hidden" : ""}`}>
         <AppSidebar />
         <main
-          className={`flex-1 min-w-0 overflow-x-hidden ${isFullHeight ? "h-full min-h-0 overflow-hidden flex flex-col pb-0" : "pb-16 md:pb-0"} ${showBrandBar ? "pt-[96px]" : "pt-14"} md:!pt-0`}
+          className={`flex-1 min-w-0 min-h-0 overflow-x-hidden ${isFullHeight ? "overflow-hidden flex flex-col" : "pb-16 md:pb-0"} ${isFullHeight ? "pt-14 md:!pt-0" : showBrandBar ? "pt-[96px]" : "pt-14"} md:!pt-0`}
         >
           {showBrandBar && (
-            <div className="fixed md:sticky top-14 md:top-0 inset-x-0 md:inset-x-auto z-[49] md:z-10">
+            <div className={`${isFullHeight ? "sticky top-0 z-10 flex-shrink-0" : "fixed md:sticky top-14 md:top-0 inset-x-0 md:inset-x-auto z-[49] md:z-10"}`}>
               <BrandContextBar />
             </div>
           )}

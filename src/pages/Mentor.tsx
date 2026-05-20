@@ -1947,9 +1947,9 @@ Be selective — only mark significant shifts, not minor tangents.`,
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full h-full" style={{ minWidth: 0 }}>
+    <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
       {showLeftInline ? (
-        <aside className="w-[260px] flex-shrink-0 min-w-0 border-r border-white/[0.04] bg-background/40 overflow-y-auto h-full">
+        <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 border-r border-white/[0.04] bg-background/40 overflow-y-auto">
           <BrandMilestonePanel
             brands={brands}
             activeBrand={currentActiveBrand}
@@ -1991,7 +1991,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         </Sheet>
       )}
 
-      <div className="flex-1 min-w-0 max-w-full flex flex-col overflow-hidden relative h-full" style={{ boxSizing: "border-box" }}>
+      <div className="flex-1 min-w-0 min-h-0 max-w-full flex flex-col overflow-hidden relative" style={{ boxSizing: "border-box" }}>
         {isMobile && (
           <div className="h-10 flex items-center px-3 gap-2 border-b border-border flex-shrink-0">
             <button onClick={() => setLeftOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
@@ -2068,7 +2068,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
       </div>
 
       {showRightInline ? (
-        <aside className="w-[360px] flex-shrink-0 min-w-0 border-l border-white/[0.04] bg-background/40 overflow-y-auto h-full">
+        <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 border-l border-white/[0.04] bg-background/40 overflow-y-auto">
           <BrandDNAPanel
             fields={activeBrandData?.dnaFields || emptyDNAFields}
             highlightField={highlightDNAField}

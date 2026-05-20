@@ -687,3 +687,42 @@ BEGIN
   RETURN v_count;
 END;
 $$;
+
+
+-- ─── RLS Policies ──────────────────────────────────────────────────────────
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'credit_packages' AND policyname = 'Anyone can read active credit packages') THEN
+    CREATE POLICY "Anyone can read active credit packages" ON public.credit_packages FOR SELECT USING (active = true);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'wallets' AND policyname = 'Users read own wallet') THEN
+    CREATE POLICY "Users read own wallet" ON public.wallets FOR SELECT TO authenticated USING (user_id = auth.uid());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'wallet_transactions' AND policyname = 'Users read own transactions') THEN
+    CREATE POLICY "Users read own transactions" ON public.wallet_transactions FOR SELECT TO authenticated USING (user_id = auth.uid());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'credit_purchases' AND policyname = 'Users read own purchases') THEN
+    CREATE POLICY "Users read own purchases" ON public.credit_purchases FOR SELECT TO authenticated USING (user_id = auth.uid());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'stripe_customers' AND policyname = 'Users read own stripe customer') THEN
+    CREATE POLICY "Users read own stripe customer" ON public.stripe_customers FOR SELECT TO authenticated USING (user_id = auth.uid());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'generations' AND policyname = 'Users read own generations') THEN
+    CREATE POLICY "Users read own generations" ON public.generations FOR SELECT TO authenticated USING (user_id = auth.uid());
+  END IF;
+END $$;
