@@ -346,7 +346,7 @@ export function BrandMilestonePanel({
         }
       `}</style>
       {/* Fixed top section — brand switcher and New project button */}
-      <div className="p-4 space-y-3 flex-shrink-0">
+      <div className="p-4 space-y-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--color-border-tertiary)' }}>
         <div className="relative">
           <div
             className="group w-full h-11 rounded-lg px-2.5 flex items-center gap-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer"
@@ -520,14 +520,14 @@ export function BrandMilestonePanel({
         }}
       >
         {/* Context Sources — first section */}
-        <div className="px-4" style={{ marginTop: '16px' }}>
+        <div className="px-4" style={{ marginTop: '0', paddingTop: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--color-border-tertiary)' }}>
           <p style={{
             fontSize: '10px',
             textTransform: 'uppercase',
-            letterSpacing: '0.16em',
-            color: 'var(--color-text-secondary)',
+            letterSpacing: '0.12em',
+            color: 'var(--color-text-tertiary)',
             marginBottom: '12px',
-            fontWeight: 500
+            fontWeight: 600
           }}>
             Context Sources
           </p>
@@ -704,21 +704,15 @@ export function BrandMilestonePanel({
             </div>
           )}
 
-          <div style={{
-            height: '0.5px',
-            background: 'var(--color-border-tertiary)',
-            margin: '12px 0'
-          }} />
         </div>
 
         {/* Compact stage status — read only */}
-        <div className="px-4">
+        <div className="px-4" style={{ paddingTop: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--color-border-tertiary)' }}>
           <div style={{
             padding: '10px 12px',
             borderRadius: '8px',
             background: 'rgba(212,160,23,0.05)',
-            border: '0.5px solid rgba(212,160,23,0.15)',
-            margin: '0 0 12px'
+            border: '0.5px solid rgba(212,160,23,0.15)'
           }}>
             <div style={{
               display: 'flex',
@@ -763,16 +757,17 @@ export function BrandMilestonePanel({
               {stageInfo.description?.split('.')[0]}
             </div>
           </div>
-          <div style={{
-            height: '0.5px',
-            background: 'var(--color-border-tertiary)',
-            margin: '0 0 12px'
-          }} />
         </div>
 
-        <div className="px-4">
-          <div className="h-px bg-white/[0.04] mb-4" />
-          <p className="text-[10px] font-ui uppercase tracking-[0.16em] text-muted-foreground/80 mb-3" style={{ fontWeight: 500 }}>
+        <div className="px-4" style={{ paddingTop: '14px' }}>
+          <p style={{
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.12em',
+            color: 'var(--color-text-tertiary)',
+            marginBottom: '10px',
+            fontWeight: 600
+          }}>
             Captured Moments
           </p>
         </div>
@@ -897,20 +892,16 @@ export function BrandMilestonePanel({
         </div>
 
         {/* Memory — last section before footer */}
-        <div className="px-4 pt-2">
-          <div style={{
-            height: '0.5px',
-            background: 'var(--color-border-tertiary)',
-            margin: '0 0 12px'
-          }} />
+        <div className="px-4" style={{ paddingTop: '14px', borderTop: '1px solid var(--color-border-tertiary)' }}>
           <p style={{
             fontSize: '10px',
             textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--color-text-secondary)',
-            marginBottom: '8px'
+            letterSpacing: '0.12em',
+            color: 'var(--color-text-tertiary)',
+            marginBottom: '8px',
+            fontWeight: 600
           }}>
-            MEMORY
+            Memory
           </p>
           <p style={{
             fontSize: '12px',
