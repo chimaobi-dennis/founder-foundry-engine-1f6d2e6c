@@ -550,19 +550,48 @@ export function BrandMilestonePanel({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '6px 0',
-                background: 'transparent',
-                border: 'none',
-                color: '#D4A017',
+                gap: '8px',
+                width: '100%',
+                padding: '10px 12px',
+                background: 'rgba(212,160,23,0.06)',
+                border: '1px dashed rgba(212,160,23,0.3)',
+                borderRadius: '8px',
+                color: 'var(--color-text-primary)',
                 fontSize: '12px',
                 fontFamily: 'inherit',
                 cursor: 'pointer',
                 marginBottom: '10px',
+                transition: 'background 150ms, border-color 150ms',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(212,160,23,0.12)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.5)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(212,160,23,0.06)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212,160,23,0.3)';
               }}
             >
-              <Upload size={12} />
-              + Add context from document / URL
+              <div style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '6px',
+                background: 'rgba(212,160,23,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Upload size={13} style={{ color: '#D4A017' }} />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                  Add context
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-tertiary)', marginTop: '1px' }}>
+                  Document, URL, or brief
+                </div>
+              </div>
             </button>
           )}
 

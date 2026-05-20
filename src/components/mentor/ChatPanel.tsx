@@ -482,26 +482,6 @@ export function ChatPanel({
 
   return (
     <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden max-w-full" style={{ boxSizing: "border-box" }}>
-      {/* Working session header — quiet, editorial */}
-      <div className="h-12 flex items-center gap-3 px-6 border-b border-white/[0.04] flex-shrink-0 min-w-0">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span
-            className="font-display text-[14px] text-foreground truncate tracking-tight"
-            style={{ fontStyle: 'italic' }}
-          >
-            Working session
-          </span>
-          <span className="text-[11px] font-ui text-muted-foreground/70 truncate">
-            · {brand.name}
-          </span>
-        </div>
-        {stageName && (
-          <span className="text-[10px] font-ui uppercase tracking-[0.12em] text-muted-foreground flex-shrink-0">
-            {stageName}
-          </span>
-        )}
-      </div>
-
       {/* Chat messages — only scrollable region */}
       <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
         <div className={cn(

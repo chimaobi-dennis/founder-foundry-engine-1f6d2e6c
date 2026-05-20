@@ -5,7 +5,7 @@ import { BrandContextBar } from "./BrandContextBar";
 import { NavigationProgress } from "./NavigationProgress";
 import { Analytics } from "@vercel/analytics/react";
 
-const modulePaths = ["/mentor", "/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
+const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
 const fullHeightPaths = ["/mentor", "/content-calendar"];
 
