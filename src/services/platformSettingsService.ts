@@ -47,6 +47,7 @@ export interface ContentStudioGenerationSettings {
 
 export const SETTING_KEYS = {
   CONTENT_STUDIO_GENERATION: 'content_studio_generation',
+  BILLING: 'billing',
 } as const;
 
 // ─── Defaults ──────────────────────────────────────────────
