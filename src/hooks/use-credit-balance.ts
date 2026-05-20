@@ -55,12 +55,12 @@ export function useCreditBalance(): UseCreditBalanceReturn {
   }, [user?.id, fetchBalance]);
 
   const hasSufficientCredits = useCallback(
-    (cost: number) => (wallet?.balance ?? 0) >= cost,
-    [wallet?.balance]
+    (cost: number) => (wallet?.availableBalance ?? 0) >= cost,
+    [wallet?.availableBalance]
   );
 
   return {
-    balance: wallet?.balance ?? 0,
+    balance: wallet?.availableBalance ?? 0,
     wallet,
     loading,
     error,

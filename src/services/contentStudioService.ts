@@ -10,7 +10,12 @@ import {
   chargeGenerationCredits,
   refundGenerationCredits,
   completeGenerationBilling,
+  reserveGenerationCredits,
+  captureReservedCredits,
+  releaseReservedCredits,
+  finalizeGenerationBilling,
   type ChargeResult,
+  type ReserveResult,
 } from './generationCreditService';
 import type { SceneDocument, RenderEngine } from '@/types/scene';
 import {
@@ -371,6 +376,7 @@ export async function generateContentForBrief(
 ) {
   let billingEventId: string | undefined;
   let chargeCreditsAmount: number | undefined;
+  let aiCalled = false; // tracks whether AI inference has begun (irreversible billing moment)
   try {
     // Fetch brief with brand context
     const { data: brief } = await db
@@ -452,7 +458,7 @@ export async function generateContentForBrief(
       image_density: brief.image_density,
     });
 
-    // ─── BILLING: Atomic credit charge before generation ──
+    // ─── BILLING: Reserve credits before generation ──
     const billingInput: CreditCalculationInput = {
       platformCount: platforms.length,
       complexityLevel: generationSettings.layout_complexity,
@@ -462,7 +468,7 @@ export async function generateContentForBrief(
       variationCount: 1,
     };
 
-    const chargeResult = await chargeGenerationCredits({
+    const reserveResult = await reserveGenerationCredits({
       userId: brief.user_id,
       briefId,
       sessionId,
@@ -471,32 +477,32 @@ export async function generateContentForBrief(
       calculationInput: billingInput,
     });
 
-    if (!chargeResult.success) {
+    if (!reserveResult.success) {
       // Insufficient balance or duplicate — abort before any AI calls
       await db
         .from('content_studio_briefs')
         .update({ status: 'failed' })
         .eq('id', briefId);
 
-      const errorMsg = chargeResult.error === 'INSUFFICIENT_BALANCE'
-        ? `Insufficient credits. Required: ${chargeResult.creditsCharged}, Available: ${chargeResult.balanceBefore}`
-        : chargeResult.message || 'Credit charge failed';
+      const errorMsg = reserveResult.error === 'INSUFFICIENT_BALANCE'
+        ? `Insufficient credits. Required: ${reserveResult.creditsReserved}, Available: ${reserveResult.balance}`
+        : reserveResult.message || 'Credit reservation failed';
 
       throw new Error(errorMsg);
     }
 
-    billingEventId = chargeResult.billingEventId!;
-    chargeCreditsAmount = chargeResult.creditsCharged;
-    console.log('[CreditBilling] Generation charged:', {
+    billingEventId = reserveResult.billingEventId!;
+    chargeCreditsAmount = reserveResult.creditsReserved;
+    console.log('[CreditBilling] Credits reserved:', {
       billingEventId,
-      creditsCharged: chargeResult.creditsCharged,
-      balanceAfter: chargeResult.balanceAfter,
+      creditsReserved: reserveResult.creditsReserved,
+      availableAfter: reserveResult.availableAfter,
     });
 
     // Update brief with actual credits used
     await db
       .from('content_studio_briefs')
-      .update({ actual_credits_used: chargeResult.creditsCharged })
+      .update({ actual_credits_used: reserveResult.creditsReserved })
       .eq('id', briefId);
 
     // Build visual asset instructions for copy generation context
@@ -533,6 +539,17 @@ export async function generateContentForBrief(
       'Start your response with { and end with }\n' +
       'CRITICAL: Use EXACTLY these JSON keys (platform slugs): ' + slugList + '. ' +
       'Do not use platform display names as keys. Use the slug values above.';
+
+    // ─── BILLING: Capture reservation → irreversible billing moment ──
+    // After this point, credits remain consumed regardless of generation outcome.
+    if (billingEventId) {
+      await captureReservedCredits({
+        billingEventId,
+        aiProvider: 'anthropic',
+        aiModel: 'claude-sonnet',
+      });
+    }
+    aiCalled = true;
 
     const copyResult = await withTimeout(
       callAI({
@@ -919,34 +936,15 @@ export async function generateContentForBrief(
       })
       .eq('id', briefId);
 
-    // ─── BILLING: Complete or partial-refund based on results ──
-    if (failedCount === 0) {
-      await completeGenerationBilling({
+    // ─── BILLING: Finalize billing — release any uncaptured remainder ──
+    // After AI was called, credits stay captured (no refund for post-cost failures).
+    // Finalize sets final status and releases any uncaptured reservation remainder.
+    if (billingEventId) {
+      await finalizeGenerationBilling({
         billingEventId,
         platformsSucceeded: readyCount,
-        platformsFailed: 0,
-      });
-    } else if (readyCount === 0) {
-      // Total failure → full refund
-      await refundGenerationCredits({
-        billingEventId,
-        reason: 'All platform generations failed',
-        platformsSucceeded: 0,
         platformsFailed: failedCount,
       });
-    } else {
-      // Partial failure → proportional refund + complete
-      const perPlatformCost = (chargeCreditsAmount || 0) / totalPlatforms;
-      const partialRefund = Math.ceil(perPlatformCost * failedCount * 100) / 100;
-      if (partialRefund > 0) {
-        await refundGenerationCredits({
-          billingEventId,
-          refundAmount: partialRefund,
-          reason: `${failedCount}/${totalPlatforms} platforms failed`,
-          platformsSucceeded: readyCount,
-          platformsFailed: failedCount,
-        });
-      }
     }
 
     console.log('[ContentStudio] === Generation Complete ===');
@@ -966,16 +964,26 @@ export async function generateContentForBrief(
 
     return creatives;
   } catch (error: any) {
-    // ─── BILLING: Auto-refund on unrecoverable error ──
+    // ─── BILLING: Release or finalize on error ──
     if (billingEventId) {
-      await refundGenerationCredits({
-        billingEventId,
-        reason: error.message || 'Generation failed with unrecoverable error',
-        platformsSucceeded: 0,
-        platformsFailed: 0,
-      }).catch(refundErr => {
-        console.error('[CreditBilling] Auto-refund failed:', refundErr.message);
-      });
+      if (!aiCalled) {
+        // Pre-cost failure: release reservation (credits return to available)
+        await releaseReservedCredits({
+          billingEventId,
+          reason: error.message || 'Generation failed before AI inference',
+        }).catch(releaseErr => {
+          console.error('[CreditBilling] Reservation release failed:', releaseErr.message);
+        });
+      } else {
+        // Post-cost failure: AI was called, credits stay captured
+        await finalizeGenerationBilling({
+          billingEventId,
+          platformsSucceeded: 0,
+          platformsFailed: 0,
+        }).catch(finalizeErr => {
+          console.error('[CreditBilling] Post-cost finalize failed:', finalizeErr.message);
+        });
+      }
     }
 
     // Update brief status to failed on error
@@ -1144,6 +1152,7 @@ export async function regenerateCreative(
   brandId: string
 ) {
   let regenBillingEventId: string | undefined;
+  let regenAiCalled = false;
   try {
     // Fetch the creative with full context
     const { data: creative } = await db
@@ -1188,7 +1197,7 @@ export async function regenerateCreative(
     const regenSettings = await getContentStudioGenerationSettings();
     const regenRenderEngine: RenderEngine = regenSettings.render_engine;
 
-    // ─── BILLING: Charge 1-platform regeneration ──
+    // ─── BILLING: Reserve 1-platform regeneration credits ──
     const regenBillingInput: CreditCalculationInput = {
       platformCount: 1,
       complexityLevel: brief.layout_complexity || 'balanced',
@@ -1198,7 +1207,7 @@ export async function regenerateCreative(
       variationCount: 1,
     };
 
-    const regenChargeResult = await chargeGenerationCredits({
+    const regenReserveResult = await reserveGenerationCredits({
       userId: brief.user_id,
       briefId: brief.id,
       sessionId,
@@ -1207,17 +1216,17 @@ export async function regenerateCreative(
       calculationInput: regenBillingInput,
     });
 
-    if (!regenChargeResult.success) {
-      const errorMsg = regenChargeResult.error === 'INSUFFICIENT_BALANCE'
-        ? `Insufficient credits for regeneration. Required: ${regenChargeResult.creditsCharged}, Available: ${regenChargeResult.balanceBefore}`
-        : regenChargeResult.message || 'Credit charge failed';
+    if (!regenReserveResult.success) {
+      const errorMsg = regenReserveResult.error === 'INSUFFICIENT_BALANCE'
+        ? `Insufficient credits for regeneration. Required: ${regenReserveResult.creditsReserved}, Available: ${regenReserveResult.balance}`
+        : regenReserveResult.message || 'Credit reservation failed';
       throw new Error(errorMsg);
     }
 
-    regenBillingEventId = regenChargeResult.billingEventId!;
-    console.log('[CreditBilling] Regeneration charged:', {
+    regenBillingEventId = regenReserveResult.billingEventId!;
+    console.log('[CreditBilling] Regeneration reserved:', {
       billingEventId: regenBillingEventId,
-      creditsCharged: regenChargeResult.creditsCharged,
+      creditsReserved: regenReserveResult.creditsReserved,
     });
 
     // Get the same system prompt used in initial generation — no fallback allowed
@@ -1279,6 +1288,16 @@ export async function regenerateCreative(
       visual_assets: (brief.visual_assets || ['product_photos', 'brand_images']).join(', '),
       visual_asset_instructions: buildVisualAssetInstructions(brief.visual_assets),
     }) + regenSceneInstructions;
+
+    // ─── BILLING: Capture reservation → irreversible billing moment ──
+    if (regenBillingEventId) {
+      await captureReservedCredits({
+        billingEventId: regenBillingEventId,
+        aiProvider: 'anthropic',
+        aiModel: 'claude-sonnet',
+      });
+    }
+    regenAiCalled = true;
 
     const visualResult = await withTimeout(
         callAI({
@@ -1366,34 +1385,35 @@ export async function regenerateCreative(
       });
     }
 
-    // ─── BILLING: Complete regeneration billing ──
-    if (regenBillingEventId && hasContent) {
-      await completeGenerationBilling({
+    // ─── BILLING: Finalize regeneration billing ──
+    if (regenBillingEventId) {
+      await finalizeGenerationBilling({
         billingEventId: regenBillingEventId,
-        platformsSucceeded: 1,
-        platformsFailed: 0,
-      });
-    } else if (regenBillingEventId) {
-      await refundGenerationCredits({
-        billingEventId: regenBillingEventId,
-        reason: 'Regeneration produced no content',
-        platformsSucceeded: 0,
-        platformsFailed: 1,
+        platformsSucceeded: hasContent ? 1 : 0,
+        platformsFailed: hasContent ? 0 : 1,
       });
     }
 
     return regenPersistHtml;
   } catch (error: any) {
-    // ─── BILLING: Auto-refund on error ──
+    // ─── BILLING: Release or finalize on error ──
     if (regenBillingEventId) {
-      await refundGenerationCredits({
-        billingEventId: regenBillingEventId,
-        reason: error.message || 'Regeneration failed',
-        platformsSucceeded: 0,
-        platformsFailed: 1,
-      }).catch(refundErr => {
-        console.error('[CreditBilling] Regen auto-refund failed:', refundErr.message);
-      });
+      if (!regenAiCalled) {
+        await releaseReservedCredits({
+          billingEventId: regenBillingEventId,
+          reason: error.message || 'Regeneration failed before AI inference',
+        }).catch(releaseErr => {
+          console.error('[CreditBilling] Regen release failed:', releaseErr.message);
+        });
+      } else {
+        await finalizeGenerationBilling({
+          billingEventId: regenBillingEventId,
+          platformsSucceeded: 0,
+          platformsFailed: 1,
+        }).catch(finalizeErr => {
+          console.error('[CreditBilling] Regen post-cost finalize failed:', finalizeErr.message);
+        });
+      }
     }
 
     // Update creative status to failed on error
@@ -1441,6 +1461,7 @@ export async function retryFailedCreatives(
   onPlatformComplete?: (platformId: string, creative: any) => void
 ): Promise<void> {
   let retryBillingEventId: string | undefined;
+  let retryAiCalled = false;
   try {
     // Fetch brief with brand and DNA
     const { data: brief, error: briefError } = await db
@@ -1483,7 +1504,7 @@ export async function retryFailedCreatives(
     const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     const sessionId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 
-    // ─── BILLING: Charge credits for retry batch ──
+    // ─── BILLING: Reserve credits for retry batch ──
     const retryBillingInput: CreditCalculationInput = {
       platformCount: failedCreatives.length,
       complexityLevel: brief.layout_complexity || 'balanced',
@@ -1493,7 +1514,7 @@ export async function retryFailedCreatives(
       variationCount: 1,
     };
 
-    const retryChargeResult = await chargeGenerationCredits({
+    const retryReserveResult = await reserveGenerationCredits({
       userId: brief.user_id,
       briefId,
       sessionId,
@@ -1502,17 +1523,17 @@ export async function retryFailedCreatives(
       calculationInput: retryBillingInput,
     });
 
-    if (!retryChargeResult.success) {
-      const errorMsg = retryChargeResult.error === 'INSUFFICIENT_BALANCE'
-        ? `Insufficient credits for retry. Required: ${retryChargeResult.creditsCharged}, Available: ${retryChargeResult.balanceBefore}`
-        : retryChargeResult.message || 'Credit charge failed';
+    if (!retryReserveResult.success) {
+      const errorMsg = retryReserveResult.error === 'INSUFFICIENT_BALANCE'
+        ? `Insufficient credits for retry. Required: ${retryReserveResult.creditsReserved}, Available: ${retryReserveResult.balance}`
+        : retryReserveResult.message || 'Credit reservation failed';
       throw new Error(errorMsg);
     }
 
-    retryBillingEventId = retryChargeResult.billingEventId!;
-    console.log('[CreditBilling] Retry batch charged:', {
+    retryBillingEventId = retryReserveResult.billingEventId!;
+    console.log('[CreditBilling] Retry batch reserved:', {
       billingEventId: retryBillingEventId,
-      creditsCharged: retryChargeResult.creditsCharged,
+      creditsReserved: retryReserveResult.creditsReserved,
       failedPlatforms: failedCreatives.length,
     });
 
@@ -1531,6 +1552,16 @@ export async function retryFailedCreatives(
     if (!visualSystemPrompt) {
       throw new Error('template_generation system prompt not found');
     }
+
+    // ─── BILLING: Capture reservation → irreversible billing moment ──
+    if (retryBillingEventId) {
+      await captureReservedCredits({
+        billingEventId: retryBillingEventId,
+        aiProvider: 'anthropic',
+        aiModel: 'claude-sonnet',
+      });
+    }
+    retryAiCalled = true;
 
     // Retry each failed creative in parallel
     await Promise.all(failedCreatives.map(async (creative) => {
@@ -1709,34 +1740,13 @@ export async function retryFailedCreatives(
         .update({ status: briefStatus })
         .eq('id', briefId);
 
-      // ─── BILLING: Complete or refund retry batch ──
+      // ─── BILLING: Finalize retry batch billing ──
       if (retryBillingEventId) {
-        if (failedCount === 0) {
-          await completeGenerationBilling({
-            billingEventId: retryBillingEventId,
-            platformsSucceeded: readyCount,
-            platformsFailed: 0,
-          });
-        } else if (readyCount === 0) {
-          await refundGenerationCredits({
-            billingEventId: retryBillingEventId,
-            reason: 'All retry generations failed',
-            platformsSucceeded: 0,
-            platformsFailed: failedCount,
-          });
-        } else {
-          const perPlatCost = (retryChargeResult.creditsCharged || 0) / failedCreatives.length;
-          const partialRefund = Math.ceil(perPlatCost * failedCount * 100) / 100;
-          if (partialRefund > 0) {
-            await refundGenerationCredits({
-              billingEventId: retryBillingEventId,
-              refundAmount: partialRefund,
-              reason: `${failedCount} retry platforms still failed`,
-              platformsSucceeded: readyCount,
-              platformsFailed: failedCount,
-            });
-          }
-        }
+        await finalizeGenerationBilling({
+          billingEventId: retryBillingEventId,
+          platformsSucceeded: readyCount,
+          platformsFailed: failedCount,
+        });
       }
 
       console.log('[ContentStudio] === Retry Complete ===');
@@ -1745,16 +1755,24 @@ export async function retryFailedCreatives(
       console.log('[ContentStudio] Platforms failed:', failedCount, '/', total);
     }
   } catch (error: any) {
-    // ─── BILLING: Auto-refund retry on error ──
+    // ─── BILLING: Release or finalize on error ──
     if (retryBillingEventId) {
-      await refundGenerationCredits({
-        billingEventId: retryBillingEventId,
-        reason: error.message || 'Retry failed',
-        platformsSucceeded: 0,
-        platformsFailed: 0,
-      }).catch(refundErr => {
-        console.error('[CreditBilling] Retry auto-refund failed:', refundErr.message);
-      });
+      if (!retryAiCalled) {
+        await releaseReservedCredits({
+          billingEventId: retryBillingEventId,
+          reason: error.message || 'Retry failed before AI inference',
+        }).catch(releaseErr => {
+          console.error('[CreditBilling] Retry release failed:', releaseErr.message);
+        });
+      } else {
+        await finalizeGenerationBilling({
+          billingEventId: retryBillingEventId,
+          platformsSucceeded: 0,
+          platformsFailed: 0,
+        }).catch(finalizeErr => {
+          console.error('[CreditBilling] Retry post-cost finalize failed:', finalizeErr.message);
+        });
+      }
     }
 
     await logError({
