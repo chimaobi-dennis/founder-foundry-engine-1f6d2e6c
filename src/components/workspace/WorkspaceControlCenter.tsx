@@ -12,7 +12,7 @@ import { useBrand } from '@/hooks/use-brand';
 import { useCreatorApplication } from '@/hooks/use-creator-application';
 import { useCreditBalance } from '@/hooks/use-credit-balance';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { PricingModal } from '@/components/billing/PricingModal';
+import { usePricingModal } from '@/contexts/PricingModalContext';
 import { WalletHeroCard } from './WalletHeroCard';
 import { WorkspaceSwitcherCompact } from './WorkspaceSwitcherCompact';
 import { UsageAnalyticsCard } from './UsageAnalyticsCard';
@@ -60,7 +60,7 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
     const { application: creatorApp } = useCreatorApplication();
     const { balance, wallet, loading: walletLoading } = useCreditBalance();
     const isMobile = useIsMobile();
-    const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+    const { openPricingModal } = usePricingModal();
     const [showBillingHub, setShowBillingHub] = useState(false);
 
     const fullName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
@@ -96,7 +96,7 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
         items: [
           { label: 'Usage & Transactions', icon: BarChart3, action: 'callback', callback: handleOpenBillingHub },
           { label: 'Billing History', icon: Receipt, action: 'navigate', path: '/billing' },
-          { label: 'Buy Credits', icon: CreditCard, action: 'callback', callback: () => setShowPurchaseModal(true) },
+          { label: 'Buy Credits', icon: CreditCard, action: 'callback', callback: () => { onClose(); openPricingModal({ currentBalance: balance }); } },
         ],
       },
       {
@@ -165,7 +165,7 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
             <WalletHeroCard
               wallet={wallet}
               loading={walletLoading}
-              onBuyCredits={() => setShowPurchaseModal(true)}
+              onBuyCredits={() => { onClose(); openPricingModal({ currentBalance: balance }); }}
               onViewBilling={handleOpenBillingHub}
             />
           </div>
@@ -245,12 +245,6 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
           </button>
         </div>
 
-        {/* Purchase modal */}
-        <PricingModal
-          open={showPurchaseModal}
-          onClose={() => setShowPurchaseModal(false)}
-          currentBalance={balance}
-        />
       </>
     );
 

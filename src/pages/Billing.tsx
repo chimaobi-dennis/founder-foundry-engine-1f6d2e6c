@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCreditBalance } from '@/hooks/use-credit-balance';
 import { getPurchaseHistory, type CreditPurchase } from '@/services/stripeService';
 import { getTransactionHistory, type CreditTransaction } from '@/services/generationCreditService';
-import { PricingModal } from '@/components/billing/PricingModal';
+import { usePricingModal } from '@/contexts/PricingModalContext';
 
 // ═══════════════════════════════════════════════════════════════
 // BILLING PAGE
@@ -26,7 +26,7 @@ export default function Billing() {
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [loadingPurchases, setLoadingPurchases] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const { openPricingModal } = usePricingModal();
   const [activeTab, setActiveTab] = useState<'transactions' | 'purchases'>('transactions');
 
   // Handle Stripe return
@@ -60,13 +60,16 @@ export default function Billing() {
       .finally(() => setLoadingTransactions(false));
   }, [user?.id]);
 
-  // Refresh after purchase
-  const handlePurchaseModalClose = () => {
-    setShowPurchaseModal(false);
-    refreshBalance();
-    if (!user?.id) return;
-    getPurchaseHistory({ limit: 20 }).then(setPurchases);
-    getTransactionHistory(user.id, { limit: 50 }).then(setTransactions);
+  const handleOpenPurchase = () => {
+    openPricingModal({
+      currentBalance: balance,
+      onAfterClose: () => {
+        refreshBalance();
+        if (!user?.id) return;
+        getPurchaseHistory({ limit: 20 }).then(setPurchases);
+        getTransactionHistory(user.id, { limit: 50 }).then(setTransactions);
+      },
+    });
   };
 
   return (
@@ -81,7 +84,7 @@ export default function Billing() {
             </p>
           </div>
           <button
-            onClick={() => setShowPurchaseModal(true)}
+            onClick={handleOpenPurchase}
             className="h-10 px-5 rounded-xl bg-primary text-primary-foreground font-ui text-[13px] font-semibold flex items-center gap-2 hover:bg-primary/90 transition-colors"
           >
             <CreditCard size={15} />
@@ -216,7 +219,7 @@ export default function Billing() {
                 <ShoppingBag size={32} className="mx-auto text-muted-foreground/30 mb-3" />
                 <p className="text-[13px] font-ui text-muted-foreground">No purchases yet</p>
                 <button
-                  onClick={() => setShowPurchaseModal(true)}
+                  onClick={handleOpenPurchase}
                   className="mt-3 text-[12px] font-ui text-primary hover:underline"
                 >
                   Buy your first credits
@@ -233,12 +236,6 @@ export default function Billing() {
         )}
       </div>
 
-      {/* Purchase Modal */}
-      <PricingModal
-        open={showPurchaseModal}
-        onClose={handlePurchaseModalClose}
-        currentBalance={balance}
-      />
     </FadeIn>
   );
 }

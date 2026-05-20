@@ -3,7 +3,7 @@ export { GenerationCostPreview } from './GenerationCostPreview';
 export { InsufficientCreditsModal } from './InsufficientCreditsModal';
 export { BillingStatusToast } from './BillingStatusToast';
 export { CreditPurchaseModal } from './CreditPurchaseModal';
-export { PricingModal } from './PricingModal';
+export { PricingModal, PricingModalPortal } from './PricingModal';
 export { PricingCard } from './PricingCard';
 export { FeatureComparison } from './FeatureComparison';
 export { StripeCheckoutButton } from './StripeCheckoutButton';

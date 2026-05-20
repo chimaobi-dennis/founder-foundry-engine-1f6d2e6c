@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCreditBalance } from '@/hooks/use-credit-balance';
 import { getTransactionHistory, type CreditTransaction } from '@/services/generationCreditService';
 import { getPurchaseHistory, type CreditPurchase } from '@/services/stripeService';
-import { PricingModal } from '@/components/billing/PricingModal';
+import { usePricingModal } from '@/contexts/PricingModalContext';
 import { TransactionTimeline } from './TransactionTimeline';
 import { CreditUsageGraph } from './CreditUsageGraph';
 import { useNavigate } from 'react-router-dom';
@@ -28,7 +28,7 @@ export function BillingHubDrawer({ open, onClose }: BillingHubDrawerProps) {
   const [purchases, setPurchases] = useState<CreditPurchase[]>([]);
   const [loadingTx, setLoadingTx] = useState(true);
   const [loadingPurchases, setLoadingPurchases] = useState(true);
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const { openPricingModal } = usePricingModal();
   const [activeTab, setActiveTab] = useState<'activity' | 'purchases'>('activity');
 
   useEffect(() => {
@@ -55,14 +55,17 @@ export function BillingHubDrawer({ open, onClose }: BillingHubDrawerProps) {
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  const handleBuyCredits = () => setShowPurchaseModal(true);
-  const handlePurchaseClose = () => {
-    setShowPurchaseModal(false);
-    refreshBalance();
-    if (user?.id) {
-      getTransactionHistory(user.id, { limit: 30 }).then(setTransactions);
-      getPurchaseHistory({ limit: 10 }).then(setPurchases);
-    }
+  const handleBuyCredits = () => {
+    openPricingModal({
+      currentBalance: balance,
+      onAfterClose: () => {
+        refreshBalance();
+        if (user?.id) {
+          getTransactionHistory(user.id, { limit: 30 }).then(setTransactions);
+          getPurchaseHistory({ limit: 10 }).then(setPurchases);
+        }
+      },
+    });
   };
 
   if (!open) return null;
@@ -230,12 +233,6 @@ export function BillingHubDrawer({ open, onClose }: BillingHubDrawerProps) {
           </button>
         </div>
 
-        {/* Purchase modal */}
-        <PricingModal
-          open={showPurchaseModal}
-          onClose={handlePurchaseClose}
-          currentBalance={balance}
-        />
       </div>
     </>,
     document.body

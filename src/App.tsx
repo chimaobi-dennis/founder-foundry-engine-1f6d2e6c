@@ -10,6 +10,8 @@ import { ProductImagesProvider } from "@/hooks/use-product-images";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ProfileProvider, useProfile } from "@/hooks/use-profile";
 import { StudioSessionProvider } from "@/contexts/StudioSessionContext";
+import { PricingModalProvider } from "@/contexts/PricingModalContext";
+import { PricingModalPortal } from "@/components/billing/PricingModal";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/admin/AdminLayout";
 import Home from "./pages/Home";
@@ -101,6 +103,7 @@ const App = () => (
           <BrandProvider>
             <ProductImagesProvider>
               <StudioSessionProvider>
+              <PricingModalProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -165,8 +168,10 @@ const App = () => (
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AuthGuard>
+                  <PricingModalPortal />
                 </BrowserRouter>
               </TooltipProvider>
+              </PricingModalProvider>
               </StudioSessionProvider>
             </ProductImagesProvider>
           </BrandProvider>
