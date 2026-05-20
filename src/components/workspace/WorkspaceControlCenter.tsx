@@ -4,7 +4,7 @@ import { useState, forwardRef } from 'react';
 import {
   LogOut, Shield, ChevronRight, Sparkles, Clock,
   Settings, Receipt, CreditCard, Headphones,
-  FileText, Lock as LockIcon, Cpu, User,
+  FileText, Cpu, BarChart3, Palette, Sliders,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/use-profile';
@@ -15,6 +15,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { CreditPurchaseModal } from '@/components/billing/CreditPurchaseModal';
 import { WalletHeroCard } from './WalletHeroCard';
 import { WorkspaceSwitcherCompact } from './WorkspaceSwitcherCompact';
+import { UsageAnalyticsCard } from './UsageAnalyticsCard';
+import { BillingHubDrawer } from './BillingHubDrawer';
 
 // ═══════════════════════════════════════════════════════════════
 // SECTION CONFIG
@@ -27,8 +29,6 @@ interface MenuItem {
   path?: string;
   callback?: () => void;
   badge?: string;
-  destructive?: boolean;
-  condition?: boolean;
 }
 
 interface Section {
@@ -61,6 +61,7 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
     const { balance, wallet, loading: walletLoading } = useCreditBalance();
     const isMobile = useIsMobile();
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+    const [showBillingHub, setShowBillingHub] = useState(false);
 
     const fullName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
     const initials = fullName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -69,6 +70,11 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
     const handleNav = (path: string) => {
       onClose();
       navigate(path);
+    };
+
+    const handleOpenBillingHub = () => {
+      onClose();
+      setShowBillingHub(true);
     };
 
     const handleBrandSwitch = async (brandId: string) => {
@@ -88,7 +94,8 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
       {
         label: 'BILLING',
         items: [
-          { label: 'Transaction History', icon: Receipt, action: 'navigate', path: '/billing' },
+          { label: 'Usage & Transactions', icon: BarChart3, action: 'callback', callback: handleOpenBillingHub },
+          { label: 'Billing History', icon: Receipt, action: 'navigate', path: '/billing' },
           { label: 'Buy Credits', icon: CreditCard, action: 'callback', callback: () => setShowPurchaseModal(true) },
         ],
       },
@@ -96,6 +103,8 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
         label: 'STUDIO',
         items: [
           { label: 'AI Configuration', icon: Cpu, action: 'navigate', path: '/settings/ai-models' },
+          { label: 'Brand DNA', icon: Palette, action: 'navigate', path: '/brand-dna' },
+          { label: 'Preferences', icon: Sliders, action: 'navigate', path: '/settings/ai-models' },
         ],
       },
       {
@@ -103,7 +112,7 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
         items: [
           { label: 'Account Settings', icon: Settings, action: 'navigate', path: '/settings/ai-models' },
           ...(profile?.role === 'admin' ? [{
-            label: 'Switch to Admin', icon: Shield, action: 'navigate' as const, path: '/admin',
+            label: 'Admin Panel', icon: Shield, action: 'navigate' as const, path: '/admin',
           }] : []),
           ...(profile?.role === 'founder' && !creatorApp ? [{
             label: 'Become a Creator', icon: Sparkles, action: 'navigate' as const, path: '/creator/apply',
@@ -125,14 +134,24 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
 
     const body = (
       <>
-        {/* Identity */}
+        {/* Identity header */}
         <div className="sticky top-0 z-10 bg-card px-4 pt-4 pb-3 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-ui font-semibold flex-shrink-0">
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-display text-[14px] text-foreground leading-tight">{fullName}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-display text-[14px] text-foreground leading-tight">{fullName}</p>
+                {profile?.role && (
+                  <span
+                    className="text-[9px] font-ui font-semibold uppercase tracking-wider px-1.5 py-[1px] rounded-full"
+                    style={{ background: 'hsl(var(--primary) / 0.12)', color: 'hsl(var(--primary))' }}
+                  >
+                    {profile.role === 'admin' ? 'Admin' : 'Pro'}
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] font-ui text-muted-foreground truncate">{email}</p>
             </div>
           </div>
@@ -142,27 +161,37 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
           <style>{`div[style*="scrollbar-width: none"]::-webkit-scrollbar { display: none; }`}</style>
 
           {/* Wallet Hero */}
-          <div className="py-3">
+          <div className="pt-3 pb-2">
             <WalletHeroCard
               wallet={wallet}
               loading={walletLoading}
               onBuyCredits={() => setShowPurchaseModal(true)}
-              onViewBilling={() => handleNav('/billing')}
+              onViewBilling={handleOpenBillingHub}
             />
           </div>
 
+          {/* Usage Analytics */}
+          {!walletLoading && (
+            <div className="pb-2">
+              <UsageAnalyticsCard wallet={wallet} />
+            </div>
+          )}
+
           {/* Workspace Switcher */}
           {brands.length > 0 && (
-            <div className="pb-2">
-              <p className="text-[10px] font-ui uppercase tracking-[0.1em] text-muted-foreground px-6 mb-1">
-                Workspace
-              </p>
-              <WorkspaceSwitcherCompact
-                brands={brands}
-                activeBrandId={activeBrand?.id ?? null}
-                onSwitch={handleBrandSwitch}
-              />
-            </div>
+            <>
+              <div className="border-t border-border" />
+              <div className="py-2">
+                <p className="text-[10px] font-ui uppercase tracking-[0.1em] text-muted-foreground px-6 mb-1">
+                  Workspace
+                </p>
+                <WorkspaceSwitcherCompact
+                  brands={brands}
+                  activeBrandId={activeBrand?.id ?? null}
+                  onSwitch={handleBrandSwitch}
+                />
+              </div>
+            </>
           )}
 
           <div className="border-t border-border" />
@@ -184,16 +213,17 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
                         item.callback();
                       }
                     }}
-                    className="w-full flex items-center gap-2.5 px-5 py-2 text-[13px] font-ui text-foreground hover:bg-muted/40 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-5 py-2 text-[13px] font-ui text-foreground hover:bg-muted/30 transition-colors duration-150"
                   >
                     <item.icon size={14} className="text-muted-foreground flex-shrink-0" />
                     <span className="flex-1 text-left">{item.label}</span>
                     {item.badge && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-muted text-[9px] font-ui font-medium text-muted-foreground">
+                      <span className="px-1.5 py-0.5 rounded-md text-[9px] font-ui font-medium"
+                            style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}>
                         {item.badge}
                       </span>
                     )}
-                    <ChevronRight size={12} className="text-muted-foreground/50" />
+                    <ChevronRight size={11} className="text-muted-foreground/40" />
                   </button>
                 ))}
               </div>
@@ -208,7 +238,7 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
               await signOut();
               navigate('/sign-in');
             }}
-            className="w-full flex items-center gap-2.5 px-5 py-3 text-[13px] font-ui text-destructive hover:bg-destructive/10 transition-colors"
+            className="w-full flex items-center gap-2.5 px-5 py-3 text-[13px] font-ui text-destructive hover:bg-destructive/10 transition-colors duration-150"
           >
             <LogOut size={14} />
             <span>Sign out</span>
@@ -224,39 +254,51 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
       </>
     );
 
-    if (!open) return null;
+    const panel = (() => {
+      if (!open) return null;
 
-    if (isMobile) {
-      return createPortal(
-        <>
-          <div
-            className="fixed inset-0 bg-black/50"
-            style={{ zIndex: 99 }}
-            onClick={onClose}
-          />
-          <div
-            className="fixed left-0 right-0 bottom-0 bg-card border-t border-card-border shadow-xl flex flex-col rounded-t-[20px] overflow-hidden"
-            style={{ maxHeight: '90vh', zIndex: 100, animation: 'slideUpSheet 300ms ease-out' }}
-          >
-            <style>{`@keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
-            <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
-              <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
+      if (isMobile) {
+        return createPortal(
+          <>
+            <div
+              className="fixed inset-0 bg-black/40 backdrop-blur-[2px]"
+              style={{ zIndex: 99 }}
+              onClick={onClose}
+            />
+            <div
+              className="fixed left-0 right-0 bottom-0 bg-card border-t border-card-border shadow-xl flex flex-col rounded-t-[20px] overflow-hidden"
+              style={{ maxHeight: '90vh', zIndex: 100, animation: 'slideUpSheet 300ms ease-out' }}
+            >
+              <style>{`@keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+              <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
+              </div>
+              {body}
             </div>
-            {body}
-          </div>
-        </>,
-        document.body
+          </>,
+          document.body
+        );
+      }
+
+      return (
+        <div
+          ref={ref}
+          className="absolute z-50 bg-card border border-card-border shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 top-12 right-0 w-[320px] rounded-2xl flex flex-col"
+          style={{ maxHeight: '85vh' }}
+        >
+          {body}
+        </div>
       );
-    }
+    })();
 
     return (
-      <div
-        ref={ref}
-        className="absolute z-50 bg-card border border-card-border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 top-12 right-0 w-[300px] rounded-2xl flex flex-col"
-        style={{ maxHeight: '85vh' }}
-      >
-        {body}
-      </div>
+      <>
+        {panel}
+        <BillingHubDrawer
+          open={showBillingHub}
+          onClose={() => setShowBillingHub(false)}
+        />
+      </>
     );
   }
 );
