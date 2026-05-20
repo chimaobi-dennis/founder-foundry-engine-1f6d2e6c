@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCreditBalance } from '@/hooks/use-credit-balance';
 import { getPurchaseHistory, type CreditPurchase } from '@/services/stripeService';
 import { getTransactionHistory, type CreditTransaction } from '@/services/generationCreditService';
-import { CreditPurchaseModal } from '@/components/billing/CreditPurchaseModal';
+import { PricingModal } from '@/components/billing/PricingModal';
 
 // ═══════════════════════════════════════════════════════════════
 // BILLING PAGE
@@ -234,7 +234,7 @@ export default function Billing() {
       </div>
 
       {/* Purchase Modal */}
-      <CreditPurchaseModal
+      <PricingModal
         open={showPurchaseModal}
         onClose={handlePurchaseModalClose}
         currentBalance={balance}
