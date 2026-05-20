@@ -332,21 +332,21 @@ export async function getBillingAnalytics(): Promise<BillingAnalytics> {
     // Purchase stats
     admin
       .from('credit_purchases')
-      .select('status, price_usd, credits_granted')
+      .select('status, amount_usd, credits')
       .then(({ data }: any) => {
         const purchases = data || [];
         const completed = purchases.filter((p: any) => p.status === 'completed');
         return {
           totalPurchases: purchases.length,
           completedPurchases: completed.length,
-          totalRevenue: completed.reduce((sum: number, p: any) => sum + Number(p.price_usd || 0), 0),
-          totalCreditsGranted: completed.reduce((sum: number, p: any) => sum + Number(p.credits_granted || 0), 0),
+          totalRevenue: completed.reduce((sum: number, p: any) => sum + Number(p.amount_usd || 0), 0),
+          totalCreditsGranted: completed.reduce((sum: number, p: any) => sum + Number(p.credits || 0), 0),
         };
       }),
 
     // Wallet stats
     admin
-      .from('user_credit_wallets')
+      .from('wallets')
       .select('balance, lifetime_spent')
       .then(({ data }: any) => {
         const wallets = data || [];
@@ -413,7 +413,7 @@ export async function getAllWallets(options?: {
   const offset = options?.offset ?? 0;
 
   const { data, error } = await admin
-    .from('user_credit_wallets')
+    .from('wallets')
     .select('*')
     .order('updated_at', { ascending: false })
     .range(offset, offset + limit - 1);

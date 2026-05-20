@@ -324,7 +324,7 @@ function PurchaseRow({ purchase }: { purchase: CreditPurchase }) {
         <ShoppingBag size={14} className="text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-ui text-foreground">{purchase.packageName}</p>
+        <p className="text-[13px] font-ui text-foreground">Credit Purchase</p>
         <p className="text-[11px] font-ui text-muted-foreground">
           {new Date(purchase.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
           {' · '}${purchase.priceUsd.toFixed(2)}
@@ -333,7 +333,7 @@ function PurchaseRow({ purchase }: { purchase: CreditPurchase }) {
       <div className="text-right flex items-center gap-3">
         <div>
           <p className="text-[14px] font-display font-semibold text-foreground">
-            {purchase.creditsGranted > 0 ? `+${purchase.creditsGranted.toLocaleString()}` : purchase.creditsAmount.toLocaleString()}
+            +{purchase.creditsAmount.toLocaleString()}
           </p>
           <p className="text-[10px] font-ui text-muted-foreground">credits</p>
         </div>

@@ -101,7 +101,6 @@ serve(async (req) => {
         .upsert({
           user_id: user.id,
           stripe_customer_id: stripeCustomerId,
-          email: user.email,
         }, { onConflict: "user_id" });
     }
 
@@ -110,12 +109,11 @@ serve(async (req) => {
       .from("credit_purchases")
       .insert({
         user_id: user.id,
-        stripe_customer_id: stripeCustomerId,
         package_id: pkg.id,
-        package_name: pkg.name,
-        credits_amount: pkg.credits,
-        price_usd: pkg.price_usd,
+        credits: pkg.credits,
+        amount_usd: pkg.price_usd,
         status: "pending",
+        metadata: { stripe_customer_id: stripeCustomerId, package_name: pkg.name },
       })
       .select("id")
       .single();
@@ -150,7 +148,7 @@ serve(async (req) => {
         purchase_id: purchase.id,
         user_id: user.id,
         package_id: pkg.id,
-        credits_amount: pkg.credits.toString(),
+        credits_amount: pkg.credits.toString(),  // used by webhook to fulfill
       },
       success_url: successUrl || `${origin}/billing?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: cancelUrl || `${origin}/billing?purchase=cancelled`,
@@ -160,8 +158,7 @@ serve(async (req) => {
     await supabaseAdmin
       .from("credit_purchases")
       .update({
-        stripe_checkout_session_id: session.id,
-        updated_at: new Date().toISOString(),
+        stripe_session_id: session.id,
       })
       .eq("id", purchase.id);
 

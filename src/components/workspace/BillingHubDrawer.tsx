@@ -198,7 +198,7 @@ export function BillingHubDrawer({ open, onClose }: BillingHubDrawerProps) {
                         <CreditCard size={11} className="text-emerald-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-ui text-foreground">{p.packageName}</p>
+                        <p className="text-[12px] font-ui text-foreground">Credit Purchase</p>
                         <p className="text-[10px] font-ui text-muted-foreground">
                           ${p.priceUsd.toFixed(2)} · {p.creditsAmount} credits
                         </p>

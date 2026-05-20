@@ -234,16 +234,11 @@ export async function chargeGenerationCredits(params: {
       idempotencyKey,
     });
 
-    const { data, error } = await db.rpc('charge_generation_credits', {
+    const { data, error } = await db.rpc('reserve_generation_credits', {
       p_user_id: userId,
-      p_brief_id: briefId,
-      p_session_id: sessionId,
       p_credits: estimatedCredits,
-      p_platform_count: platformCount,
-      p_render_engine: renderEngine,
-      p_pricing_snapshot: { source: 'calculateGenerationCredits', version: '1.0' },
-      p_credit_breakdown: breakdown as any,
-      p_idempotency_key: idempotencyKey,
+      p_platform: renderEngine,
+      p_metadata: { brief_id: briefId, session_id: sessionId, platform_count: platformCount, pricing: { source: 'calculateGenerationCredits', version: '1.0' }, breakdown: breakdown },
     });
 
     if (error) {
@@ -338,12 +333,10 @@ export async function refundGenerationCredits(params: {
       reason,
     });
 
-    const { data, error } = await db.rpc('refund_generation_credits', {
-      p_billing_event_id: billingEventId,
-      p_refund_amount: refundAmount ?? null,
+    const { data, error } = await db.rpc('release_reserved_credits', {
+      p_generation_id: billingEventId,
       p_reason: reason,
-      p_platforms_succeeded: platformsSucceeded,
-      p_platforms_failed: platformsFailed,
+      p_release_amount: refundAmount ?? null,
     });
 
     if (error) {
@@ -411,10 +404,9 @@ export async function completeGenerationBilling(params: {
   const { billingEventId, platformsSucceeded, platformsFailed } = params;
 
   try {
-    const { data, error } = await db.rpc('complete_generation_billing', {
-      p_billing_event_id: billingEventId,
-      p_platforms_succeeded: platformsSucceeded,
-      p_platforms_failed: platformsFailed,
+    const { data, error } = await db.rpc('finalize_generation_billing', {
+      p_generation_id: billingEventId,
+      p_status: platformsFailed === 0 && platformsSucceeded > 0 ? 'completed' : 'partially_completed',
     });
 
     if (error) {
@@ -567,14 +559,14 @@ export async function getTransactionHistory(
 ): Promise<CreditTransaction[]> {
   try {
     let query = db
-      .from('credit_transactions')
-      .select('id, type, amount, balance_before, balance_after, description, reference_id, reference_type, created_at')
+      .from('wallet_transactions')
+      .select('id, transaction_type, amount, balance_before, balance_after, reference_id, reference_type, metadata, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .range(options?.offset ?? 0, (options?.offset ?? 0) + (options?.limit ?? 50) - 1);
 
     if (options?.type) {
-      query = query.eq('type', options.type);
+      query = query.eq('transaction_type', options.type);
     }
 
     const { data, error } = await query;
@@ -586,11 +578,11 @@ export async function getTransactionHistory(
 
     return (data || []).map((row: any) => ({
       id: row.id,
-      type: row.type,
+      type: row.transaction_type,
       amount: Number(row.amount),
       balanceBefore: Number(row.balance_before),
       balanceAfter: Number(row.balance_after),
-      description: row.description,
+      description: row.metadata?.description || null,
       referenceId: row.reference_id,
       referenceType: row.reference_type,
       createdAt: row.created_at,
@@ -606,34 +598,35 @@ export async function getTransactionHistory(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function mapBillingEvent(row: any): BillingEvent {
+  const meta = row.metadata || {};
   return {
     id: row.id,
     userId: row.user_id,
-    briefId: row.brief_id,
-    generationSessionId: row.generation_session_id,
-    creditsCharged: Number(row.credits_charged) || 0,
-    creditsRefunded: Number(row.credits_refunded) || 0,
+    briefId: meta.brief_id || null,
+    generationSessionId: meta.session_id || null,
+    creditsCharged: Number(row.credits_captured) || 0,
+    creditsRefunded: 0,
     creditsReserved: Number(row.credits_reserved) || 0,
     creditsCaptured: Number(row.credits_captured) || 0,
-    creditsReleased: Number(row.credits_released) || 0,
-    netCost: Number(row.net_cost) || 0,
+    creditsReleased: 0,
+    netCost: Number(row.credits_captured) || 0,
     status: row.status,
-    platformCount: row.platform_count,
-    platformsSucceeded: row.platforms_succeeded,
-    platformsFailed: row.platforms_failed,
-    renderEngine: row.render_engine,
-    pricingSnapshot: row.pricing_snapshot || {},
-    creditBreakdown: row.credit_breakdown || {},
-    errorMessage: row.error_message,
+    platformCount: meta.platform_count || 0,
+    platformsSucceeded: meta.platforms_succeeded || 0,
+    platformsFailed: meta.platforms_failed || 0,
+    renderEngine: row.platform || null,
+    pricingSnapshot: meta.pricing || {},
+    creditBreakdown: meta.breakdown || {},
+    errorMessage: meta.release_reason || null,
     providerCostUsd: row.provider_cost_usd != null ? Number(row.provider_cost_usd) : null,
     aiStartedAt: row.ai_started_at,
     aiCompletedAt: row.ai_completed_at,
-    aiProvider: row.ai_provider,
-    aiModel: row.ai_model,
-    aiTokensUsed: row.ai_tokens_used != null ? Number(row.ai_tokens_used) : null,
-    chargedAt: row.charged_at,
+    aiProvider: row.provider,
+    aiModel: row.provider_model,
+    aiTokensUsed: meta.ai_tokens_used != null ? Number(meta.ai_tokens_used) : null,
+    chargedAt: row.started_at,
     completedAt: row.completed_at,
-    refundedAt: row.refunded_at,
+    refundedAt: null,
     createdAt: row.created_at,
   };
 }
@@ -648,7 +641,7 @@ function mapBillingEvent(row: any): BillingEvent {
 export async function getBillingEvent(billingEventId: string): Promise<BillingEvent | null> {
   try {
     const { data, error } = await db
-      .from('generation_billing_events')
+      .from('generations')
       .select('*')
       .eq('id', billingEventId)
       .maybeSingle();
@@ -668,9 +661,9 @@ export async function getBillingEvent(billingEventId: string): Promise<BillingEv
 export async function getBillingEventsForBrief(briefId: string): Promise<BillingEvent[]> {
   try {
     const { data, error } = await db
-      .from('generation_billing_events')
+      .from('generations')
       .select('*')
-      .eq('brief_id', briefId)
+      .eq('metadata->>brief_id', briefId)
       .order('created_at', { ascending: false });
 
     if (error || !data) return [];
@@ -715,15 +708,16 @@ export async function reserveGenerationCredits(params: {
 
     const { data, error } = await db.rpc('reserve_generation_credits', {
       p_user_id: userId,
-      p_brief_id: briefId,
-      p_session_id: sessionId,
       p_credits: estimatedCredits,
-      p_platform_count: platformCount,
-      p_render_engine: renderEngine,
-      p_pricing_snapshot: { source: 'calculateGenerationCredits', version: '2.0' },
-      p_credit_breakdown: breakdown as any,
-      p_idempotency_key: idempotencyKey,
-      p_reservation_ttl_minutes: reservationTtlMinutes,
+      p_platform: renderEngine,
+      p_metadata: {
+        brief_id: briefId,
+        session_id: sessionId,
+        platform_count: platformCount,
+        idempotency_key: idempotencyKey,
+        pricing: { source: 'calculateGenerationCredits', version: '2.0' },
+        breakdown: breakdown,
+      },
     });
 
     if (error) {
@@ -761,7 +755,7 @@ export async function reserveGenerationCredits(params: {
 
     return {
       success: true,
-      billingEventId: result.billing_event_id,
+      billingEventId: result.generation_id,
       transactionId: result.transaction_id,
       creditsReserved: result.credits_reserved,
       balance: result.balance,
@@ -804,7 +798,7 @@ export async function captureReservedCredits(params: {
     });
 
     const { data, error } = await db.rpc('capture_reserved_credits', {
-      p_billing_event_id: billingEventId,
+      p_generation_id: billingEventId,
       p_capture_amount: captureAmount ?? null,
       p_ai_provider: aiProvider ?? null,
       p_ai_model: aiModel ?? null,
@@ -879,7 +873,7 @@ export async function releaseReservedCredits(params: {
     });
 
     const { data, error } = await db.rpc('release_reserved_credits', {
-      p_billing_event_id: billingEventId,
+      p_generation_id: billingEventId,
       p_reason: reason,
       p_release_amount: releaseAmount ?? null,
     });
@@ -961,11 +955,10 @@ export async function finalizeGenerationBilling(params: {
     });
 
     const { data, error } = await db.rpc('finalize_generation_billing', {
-      p_billing_event_id: billingEventId,
-      p_platforms_succeeded: platformsSucceeded,
-      p_platforms_failed: platformsFailed,
+      p_generation_id: billingEventId,
+      p_status: platformsFailed === 0 && platformsSucceeded > 0 ? 'completed' : (platformsSucceeded > 0 ? 'partially_completed' : (providerCostUsd != null ? 'failed_post_cost' : 'failed_pre_cost')),
       p_provider_cost_usd: providerCostUsd ?? null,
-      p_ai_tokens_used: aiTokensUsed ?? null,
+      p_metadata: aiTokensUsed != null ? { ai_tokens_used: aiTokensUsed, platforms_succeeded: platformsSucceeded, platforms_failed: platformsFailed } : { platforms_succeeded: platformsSucceeded, platforms_failed: platformsFailed },
     });
 
     if (error) {
@@ -1006,8 +999,8 @@ export async function updateBillingStatus(
   newStatus: 'queued' | 'processing'
 ): Promise<void> {
   try {
-    await db.rpc('update_billing_status', {
-      p_billing_event_id: billingEventId,
+    await db.rpc('update_generation_status', {
+      p_generation_id: billingEventId,
       p_new_status: newStatus,
     });
   } catch (err: any) {

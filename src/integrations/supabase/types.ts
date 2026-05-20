@@ -1428,27 +1428,110 @@ export type Database = {
           active: boolean
           created_at: string | null
           credits: number
+          description: string | null
           id: string
+          is_subscription: boolean
+          max_workspaces: number | null
+          monthly_credits: number | null
           name: string
           price_usd: number
+          priority_generation: boolean
+          rollover_days: number | null
+          rollover_enabled: boolean
+          slug: string | null
+          sort_order: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          watermark_exports: boolean
         }
         Insert: {
           active?: boolean
           created_at?: string | null
           credits: number
+          description?: string | null
           id?: string
+          is_subscription?: boolean
+          max_workspaces?: number | null
+          monthly_credits?: number | null
           name: string
           price_usd: number
+          priority_generation?: boolean
+          rollover_days?: number | null
+          rollover_enabled?: boolean
+          slug?: string | null
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          watermark_exports?: boolean
         }
         Update: {
           active?: boolean
           created_at?: string | null
           credits?: number
+          description?: string | null
           id?: string
+          is_subscription?: boolean
+          max_workspaces?: number | null
+          monthly_credits?: number | null
           name?: string
           price_usd?: number
+          priority_generation?: boolean
+          rollover_days?: number | null
+          rollover_enabled?: boolean
+          slug?: string | null
+          sort_order?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          watermark_exports?: boolean
         }
         Relationships: []
+      }
+      credit_purchases: {
+        Row: {
+          amount_usd: number
+          created_at: string | null
+          credits: number
+          id: string
+          metadata: Json | null
+          package_id: string | null
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_usd: number
+          created_at?: string | null
+          credits: number
+          id?: string
+          metadata?: Json | null
+          package_id?: string | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string | null
+          credits?: number
+          id?: string
+          metadata?: Json | null
+          package_id?: string | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_purchases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "credit_packages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documents: {
         Row: {
@@ -1566,31 +1649,67 @@ export type Database = {
       }
       generation_billing_events: {
         Row: {
+          billing_status: string | null
+          completed_at: string | null
           created_at: string | null
           credits: number | null
+          credits_captured: number | null
+          credits_refunded: number | null
+          credits_reserved: number | null
           event_type: string
           generation_id: string
+          generation_session_id: string | null
           id: string
+          idempotency_key: string | null
           metadata: Json | null
+          pricing_snapshot: Json | null
           provider_cost_usd: number | null
+          refunded_at: string | null
+          render_engine: string | null
+          user_id: string | null
+          wallet_id: string | null
         }
         Insert: {
+          billing_status?: string | null
+          completed_at?: string | null
           created_at?: string | null
           credits?: number | null
+          credits_captured?: number | null
+          credits_refunded?: number | null
+          credits_reserved?: number | null
           event_type: string
           generation_id: string
+          generation_session_id?: string | null
           id?: string
+          idempotency_key?: string | null
           metadata?: Json | null
+          pricing_snapshot?: Json | null
           provider_cost_usd?: number | null
+          refunded_at?: string | null
+          render_engine?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
         }
         Update: {
+          billing_status?: string | null
+          completed_at?: string | null
           created_at?: string | null
           credits?: number | null
+          credits_captured?: number | null
+          credits_refunded?: number | null
+          credits_reserved?: number | null
           event_type?: string
           generation_id?: string
+          generation_session_id?: string | null
           id?: string
+          idempotency_key?: string | null
           metadata?: Json | null
+          pricing_snapshot?: Json | null
           provider_cost_usd?: number | null
+          refunded_at?: string | null
+          render_engine?: string | null
+          user_id?: string | null
+          wallet_id?: string | null
         }
         Relationships: [
           {
@@ -1598,6 +1717,20 @@ export type Database = {
             columns: ["generation_id"]
             isOneToOne: false
             referencedRelation: "generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_billing_events_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_balances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_billing_events_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
             referencedColumns: ["id"]
           },
         ]
@@ -2341,6 +2474,27 @@ export type Database = {
           },
         ]
       }
+      stripe_customers: {
+        Row: {
+          created_at: string | null
+          id: string
+          stripe_customer_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          stripe_customer_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          stripe_customer_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       studio_elements: {
         Row: {
           brand_id: string | null
@@ -2770,6 +2924,9 @@ export type Database = {
           balance: number
           created_at: string
           id: string
+          lifetime_earned: number
+          lifetime_refunded: number
+          lifetime_spent: number
           reserved_balance: number
           updated_at: string
           user_id: string
@@ -2778,6 +2935,9 @@ export type Database = {
           balance?: number
           created_at?: string
           id?: string
+          lifetime_earned?: number
+          lifetime_refunded?: number
+          lifetime_spent?: number
           reserved_balance?: number
           updated_at?: string
           user_id: string
@@ -2786,6 +2946,9 @@ export type Database = {
           balance?: number
           created_at?: string
           id?: string
+          lifetime_earned?: number
+          lifetime_refunded?: number
+          lifetime_spent?: number
           reserved_balance?: number
           updated_at?: string
           user_id?: string

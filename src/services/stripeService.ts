@@ -27,14 +27,12 @@ export interface CreditPackage {
 
 export interface CreditPurchase {
   id: string;
-  packageName: string;
+  packageId: string | null;
   creditsAmount: number;
-  creditsGranted: number;
   priceUsd: number;
   status: 'pending' | 'completed' | 'failed' | 'refunded';
-  paidAt: string | null;
-  fulfilledAt: string | null;
   createdAt: string;
+  metadata: Record<string, any> | null;
 }
 
 export interface CheckoutResult {
@@ -144,7 +142,7 @@ export async function getPurchaseHistory(options?: {
 
   const { data, error } = await (supabase as any)
     .from('credit_purchases')
-    .select('id, package_name, credits_amount, credits_granted, price_usd, status, paid_at, fulfilled_at, created_at')
+    .select('id, package_id, credits, amount_usd, status, metadata, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
@@ -156,13 +154,11 @@ export async function getPurchaseHistory(options?: {
 
   return (data || []).map((row: any) => ({
     id: row.id,
-    packageName: row.package_name,
-    creditsAmount: Number(row.credits_amount),
-    creditsGranted: Number(row.credits_granted),
-    priceUsd: Number(row.price_usd),
+    packageId: row.package_id,
+    creditsAmount: Number(row.credits),
+    priceUsd: Number(row.amount_usd),
     status: row.status,
-    paidAt: row.paid_at,
-    fulfilledAt: row.fulfilled_at,
     createdAt: row.created_at,
+    metadata: row.metadata,
   }));
 }

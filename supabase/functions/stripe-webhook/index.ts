@@ -86,7 +86,6 @@ serve(async (req) => {
             p_user_id: userId,
             p_credits_amount: creditsAmount,
             p_stripe_payment_intent_id: session.payment_intent as string,
-            p_fulfillment_key: fulfillmentKey,
           }
         );
 
@@ -119,7 +118,6 @@ serve(async (req) => {
             .from("credit_purchases")
             .update({
               status: "failed",
-              updated_at: new Date().toISOString(),
               metadata: { expired_event_id: event.id },
             })
             .eq("id", purchaseId)
@@ -138,7 +136,7 @@ serve(async (req) => {
           // Find the purchase by payment intent
           const { data: purchase } = await supabaseAdmin
             .from("credit_purchases")
-            .select("id, user_id, credits_granted")
+            .select("id, user_id, credits")
             .eq("stripe_payment_intent_id", paymentIntentId)
             .eq("status", "completed")
             .maybeSingle();
@@ -149,8 +147,7 @@ serve(async (req) => {
               .from("credit_purchases")
               .update({
                 status: "refunded",
-                refunded_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
+                metadata: { refunded_at: new Date().toISOString(), refund_event_id: event.id },
               })
               .eq("id", purchase.id);
 
