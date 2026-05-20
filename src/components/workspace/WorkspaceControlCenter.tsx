@@ -12,7 +12,7 @@ import { useBrand } from '@/hooks/use-brand';
 import { useCreatorApplication } from '@/hooks/use-creator-application';
 import { useCreditBalance } from '@/hooks/use-credit-balance';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { CreditPurchaseModal } from '@/components/billing/CreditPurchaseModal';
+import { PricingModal } from '@/components/billing/PricingModal';
 import { WalletHeroCard } from './WalletHeroCard';
 import { WorkspaceSwitcherCompact } from './WorkspaceSwitcherCompact';
 import { UsageAnalyticsCard } from './UsageAnalyticsCard';
@@ -246,7 +246,7 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
         </div>
 
         {/* Purchase modal */}
-        <CreditPurchaseModal
+        <PricingModal
           open={showPurchaseModal}
           onClose={() => setShowPurchaseModal(false)}
           currentBalance={balance}

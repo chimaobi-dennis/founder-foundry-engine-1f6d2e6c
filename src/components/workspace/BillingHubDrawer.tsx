@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCreditBalance } from '@/hooks/use-credit-balance';
 import { getTransactionHistory, type CreditTransaction } from '@/services/generationCreditService';
 import { getPurchaseHistory, type CreditPurchase } from '@/services/stripeService';
-import { CreditPurchaseModal } from '@/components/billing/CreditPurchaseModal';
+import { PricingModal } from '@/components/billing/PricingModal';
 import { TransactionTimeline } from './TransactionTimeline';
 import { CreditUsageGraph } from './CreditUsageGraph';
 import { useNavigate } from 'react-router-dom';
@@ -231,7 +231,7 @@ export function BillingHubDrawer({ open, onClose }: BillingHubDrawerProps) {
         </div>
 
         {/* Purchase modal */}
-        <CreditPurchaseModal
+        <PricingModal
           open={showPurchaseModal}
           onClose={handlePurchaseClose}
           currentBalance={balance}

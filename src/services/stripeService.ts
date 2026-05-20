@@ -17,12 +17,23 @@ import { supabase } from '@/integrations/supabase/client';
 export interface CreditPackage {
   id: string;
   name: string;
+  slug: string | null;
   credits: number;
   priceUsd: number;
   description: string | null;
   badge: string | null;
   active: boolean;
   sortOrder: number;
+  // Subscription metadata (optional — present when backend supports it)
+  isSubscription: boolean;
+  monthlyCredits: number | null;
+  watermarkExports: boolean;
+  priorityGeneration: boolean;
+  maxWorkspaces: number | null;
+  rolloverEnabled: boolean;
+  rolloverDays: number | null;
+  stripePriceId: string | null;
+  stripeProductId: string | null;
 }
 
 export interface CreditPurchase {
@@ -47,11 +58,12 @@ export interface CheckoutResult {
 
 /**
  * Fetch all active credit packages, sorted by sort_order.
+ * Selects '*' so newer subscription columns surface automatically.
  */
 export async function getCreditPackages(): Promise<CreditPackage[]> {
   const { data, error } = await (supabase as any)
     .from('credit_packages')
-    .select('id, name, credits, price_usd, description, badge, active, sort_order')
+    .select('*')
     .eq('active', true)
     .order('sort_order', { ascending: true });
 
@@ -63,12 +75,22 @@ export async function getCreditPackages(): Promise<CreditPackage[]> {
   return (data || []).map((row: any) => ({
     id: row.id,
     name: row.name,
-    credits: Number(row.credits),
-    priceUsd: Number(row.price_usd),
-    description: row.description,
-    badge: row.badge,
-    active: row.active,
-    sortOrder: row.sort_order,
+    slug: row.slug ?? null,
+    credits: Number(row.credits ?? 0),
+    priceUsd: Number(row.price_usd ?? 0),
+    description: row.description ?? null,
+    badge: row.badge ?? null,
+    active: !!row.active,
+    sortOrder: Number(row.sort_order ?? 0),
+    isSubscription: !!row.is_subscription,
+    monthlyCredits: row.monthly_credits != null ? Number(row.monthly_credits) : null,
+    watermarkExports: !!row.watermark_exports,
+    priorityGeneration: !!row.priority_generation,
+    maxWorkspaces: row.max_workspaces != null ? Number(row.max_workspaces) : null,
+    rolloverEnabled: !!row.rollover_enabled,
+    rolloverDays: row.rollover_days != null ? Number(row.rollover_days) : null,
+    stripePriceId: row.stripe_price_id ?? null,
+    stripeProductId: row.stripe_product_id ?? null,
   }));
 }
 
