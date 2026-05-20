@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { Sparkles, Pencil } from "lucide-react";
+import { Sparkles, Pencil, Coins } from "lucide-react";
 import { BriefData, campaignGoals, toneOptions } from "./types";
 import { Input } from "@/components/ui/input";
 import { prefillCampaignBrief } from "@/services/campaignService";
 import { useBrand } from "@/hooks/use-brand";
+import { useCreditBalance } from "@/hooks/use-credit-balance";
+import { CreditBalanceBadge } from "@/components/billing/CreditBalanceBadge";
 
 interface Props {
   brief: BriefData;
@@ -12,11 +14,15 @@ interface Props {
   onCampaignNameChange?: (name: string) => void;
   fieldErrors?: Record<string, string>;
   campaignName: string;
+  estimatedCredits?: number;
+  isGenerating?: boolean;
 }
 
-export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, fieldErrors = {}, campaignName }: Props) {
+export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, fieldErrors = {}, campaignName, estimatedCredits, isGenerating }: Props) {
   const { activeBrand } = useBrand();
+  const { balance, loading: balanceLoading, hasSufficientCredits } = useCreditBalance();
   const [prefilling, setPrefilling] = useState(false);
+  const insufficient = estimatedCredits !== undefined && !balanceLoading && !hasSufficientCredits(estimatedCredits);
 
   const set = (key: keyof BriefData, val: string) => onChange({ ...brief, [key]: val });
 
@@ -142,17 +148,36 @@ export function BriefForm({ brief, onChange, onGenerate, onCampaignNameChange, f
         </div>
       </div>
 
+      {/* Balance indicator */}
+      <div className="mt-5 mb-2">
+        <CreditBalanceBadge balance={balance} loading={balanceLoading} variant="compact" />
+      </div>
+
       <button
         onClick={onGenerate}
-        disabled={prefilling}
-        className="w-full h-12 mt-6 rounded-lg bg-primary text-primary-foreground font-ui text-[14px] font-medium flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={prefilling || isGenerating || insufficient}
+        className={`w-full h-12 mt-2 rounded-lg font-ui text-[14px] font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          insufficient
+            ? 'bg-destructive/80 text-destructive-foreground'
+            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+        }`}
       >
         {prefilling ? (
           <span className="inline-block h-3 w-32 rounded bg-primary-foreground/30 animate-pulse" />
+        ) : isGenerating ? (
+          <>
+            <Sparkles size={16} className="animate-pulse" />
+            Generating…
+          </>
+        ) : insufficient ? (
+          <>
+            <Coins size={16} />
+            Insufficient Credits
+          </>
         ) : (
           <>
             <Sparkles size={16} />
-            Generate Campaign
+            Generate Campaign{estimatedCredits !== undefined ? ` • ${estimatedCredits} Credits` : ''}
           </>
         )}
       </button>

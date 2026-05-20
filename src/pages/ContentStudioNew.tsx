@@ -27,6 +27,14 @@ import {
 } from "@/services/contentStudioService";
 import { calculateGenerationCredits } from "@/utils/calculateGenerationCredits";
 import { cn } from "@/lib/utils";
+import { useCreditBalance } from "@/hooks/use-credit-balance";
+import {
+  CreditBalanceBadge,
+  GenerationCostPreview,
+  InsufficientCreditsModal,
+  BillingStatusToast,
+  type BillingStatus,
+} from "@/components/billing";
 
 const goals = [
   "Build awareness",
@@ -111,6 +119,13 @@ export default function ContentStudioNew() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Billing UI state
+  const { balance, loading: balanceLoading, refresh: refreshBalance, hasSufficientCredits } = useCreditBalance();
+  const [billingStatus, setBillingStatus] = useState<BillingStatus>(null);
+  const [billingCreditsCharged, setBillingCreditsCharged] = useState<number>(0);
+  const [billingBalanceAfter, setBillingBalanceAfter] = useState<number>(0);
+  const [showInsufficientModal, setShowInsufficientModal] = useState(false);
+
   // Pre-fill from brand
   useEffect(() => {
     (async () => {
@@ -155,6 +170,8 @@ export default function ContentStudioNew() {
     );
   };
 
+  const insufficientCredits = !balanceLoading && !hasSufficientCredits(credits);
+
   const handleGenerate = async () => {
     if (!activeBrand?.id || !user?.id) return;
     if (!name.trim()) {
@@ -165,8 +182,16 @@ export default function ContentStudioNew() {
       setError("Select at least one platform");
       return;
     }
+
+    // Pre-flight credit check (informational — server enforces atomically)
+    if (insufficientCredits) {
+      setShowInsufficientModal(true);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
+    setBillingStatus('charging');
     try {
       const briefId = await createBrief(activeBrand.id, user.id, {
         name: name.trim(),
@@ -183,6 +208,12 @@ export default function ContentStudioNew() {
         ai_freedom: aiFreedom,
         image_density: imageDensity,
       });
+
+      // Show charged status
+      setBillingStatus('charged');
+      setBillingCreditsCharged(credits);
+      setBillingBalanceAfter(balance - credits);
+
       // Trigger generation in background — editor page will poll
       try {
         sessionStorage.setItem(`content-studio:autogen:${briefId}`, "1");
@@ -190,11 +221,24 @@ export default function ContentStudioNew() {
       generateContentForBrief(briefId).catch((e) =>
         console.error("Generation error", e)
       );
+
+      // Refresh balance after charge
+      refreshBalance();
+
       navigate(`/content-studio/${briefId}`);
     } catch (e: any) {
       console.error(e);
+      const isInsufficientError = e.message?.includes('Insufficient credits');
+      if (isInsufficientError) {
+        setBillingStatus('failed');
+        setShowInsufficientModal(true);
+      } else {
+        setBillingStatus('failed');
+      }
       setError(e.message || "Failed to create brief");
       setSubmitting(false);
+      // Refresh balance on error (might have been refunded)
+      refreshBalance();
     }
   };
 
@@ -553,55 +597,21 @@ export default function ContentStudioNew() {
 
         {/* RIGHT — Credit Display + Asset + Generate */}
         <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          {/* User Balance */}
+          <CreditBalanceBadge balance={balance} loading={balanceLoading} />
+
           {/* Real-time Credit Calculation */}
-          <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Coins size={16} className="text-primary" />
-              <h3 className="font-ui text-[13px] font-medium text-foreground">Credit Estimate</h3>
-            </div>
-            <div className="space-y-2 text-[12px] font-ui">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Platforms ({selectedPlatformIds.length})</span>
-                <span className="text-foreground">{selectedPlatformIds.length} credits</span>
-              </div>
-              {layoutComplexityLevel !== 'balanced' && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Complexity ({layoutComplexityLevel})</span>
-                  <span className="text-foreground">×{layoutComplexityLevel === 'simple' ? '0.75' : layoutComplexityLevel === 'advanced' ? '1.5' : '2'}</span>
-                </div>
-              )}
-              {selectedAssets.includes('ai_generated') && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">AI visuals</span>
-                  <span className="text-foreground">×1.5</span>
-                </div>
-              )}
-              {selectedAssets.includes('svg_graphics') && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">SVG generation</span>
-                  <span className="text-foreground">+{selectedPlatformIds.length * 0.5}</span>
-                </div>
-              )}
-              {creativeMode === 'experimental' && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Experimental mode</span>
-                  <span className="text-foreground">×1.3</span>
-                </div>
-              )}
-              {aiFreedom > 70 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">High AI freedom</span>
-                  <span className="text-foreground">×1.2</span>
-                </div>
-              )}
-              <div className="border-t border-primary/20 pt-2 mt-2">
-                <div className="flex justify-between">
-                  <span className="font-medium text-foreground">Total</span>
-                  <span className="font-display text-xl text-primary">{credits} credits</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <GenerationCostPreview
+            credits={credits}
+            breakdown={creditBreakdown}
+            balance={balance}
+            balanceLoading={balanceLoading}
+            selectedPlatformCount={selectedPlatformIds.length}
+            layoutComplexity={layoutComplexityLevel}
+            creativeMode={creativeMode}
+            aiFreedom={aiFreedom}
+            selectedAssets={selectedAssets}
+          />
 
           {/* Asset Picker */}
           <div className="rounded-xl border border-border bg-card p-4">
@@ -629,24 +639,49 @@ export default function ContentStudioNew() {
             <span>Using your brand context from Founder Intelligence</span>
           </div>
 
+          {/* Billing Status */}
+          <BillingStatusToast
+            status={billingStatus}
+            creditsCharged={billingCreditsCharged}
+            balanceAfter={billingBalanceAfter}
+          />
+
           {/* Generate Button */}
           <button
             onClick={handleGenerate}
-            disabled={submitting || selectedPlatformIds.length === 0}
-            className="w-full h-14 rounded-xl bg-primary text-primary-foreground font-ui text-[15px] font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+            disabled={submitting || selectedPlatformIds.length === 0 || insufficientCredits}
+            className={cn(
+              "w-full h-14 rounded-xl font-ui text-[15px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg",
+              insufficientCredits
+                ? "bg-destructive/80 text-destructive-foreground shadow-destructive/10 cursor-not-allowed"
+                : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20"
+            )}
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">
                 <Sparkles size={16} className="animate-pulse" />
                 Creating AI brief…
               </span>
+            ) : insufficientCredits ? (
+              <span className="flex items-center justify-center gap-2">
+                <Coins size={16} />
+                Insufficient Credits
+              </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
                 <Wand2 size={16} />
-                Generate Content
+                Generate Campaign • {credits} Credits
               </span>
             )}
           </button>
+
+          {/* Insufficient Credits Modal */}
+          <InsufficientCreditsModal
+            open={showInsufficientModal}
+            onClose={() => setShowInsufficientModal(false)}
+            balance={balance}
+            required={credits}
+          />
         </div>
       </div>
     </div>
