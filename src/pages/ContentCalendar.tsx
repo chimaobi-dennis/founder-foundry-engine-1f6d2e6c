@@ -196,13 +196,11 @@ export default function ContentCalendar() {
                   className="mx-auto mb-2 text-muted-foreground/60"
                 />
                 <p className="text-[13px] font-ui text-muted-foreground">
-                  No content scheduled for {monthName}
                 </p>
                 <Link
                   to="/content-studio"
                   className="mt-2 inline-block text-[12px] font-ui text-primary hover:underline"
                 >
-                  Create content in ContentStudio →
                 </Link>
               </div>
             </div>
