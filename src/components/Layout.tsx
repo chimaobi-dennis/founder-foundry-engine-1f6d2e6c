@@ -43,10 +43,10 @@ export function Layout() {
       <div className={`flex-1 flex min-h-0 ${isFullHeight ? "overflow-hidden" : ""}`}>
         <AppSidebar />
         <main
-          className={`flex-1 min-w-0 min-h-0 overflow-x-hidden ${isFullHeight ? "overflow-hidden flex flex-col" : "pb-16 md:pb-0"} ${isFullHeight ? "pt-14 md:!pt-0" : showBrandBar ? "pt-[96px]" : "pt-14"} md:!pt-0`}
+          className={`flex-1 min-w-0 min-h-0 overflow-x-hidden ${isFullHeight ? "overflow-hidden flex flex-col" : "pb-16 md:pb-0"} pt-14 md:!pt-0`}
         >
           {showBrandBar && (
-            <div className={`${isFullHeight ? "sticky top-0 z-10 flex-shrink-0" : "fixed md:sticky top-14 md:top-0 inset-x-0 md:inset-x-auto z-[49] md:z-10"}`}>
+            <div className="sticky top-0 z-10 flex-shrink-0">
               <BrandContextBar />
             </div>
           )}
