@@ -37,7 +37,7 @@ export function Layout() {
   const isFullHeight = fullHeightPaths.some(p => location.pathname === p || location.pathname.startsWith(p + "/")) || isEditorRoute;
 
   return (
-    <div className={`${isFullHeight ? "h-screen overflow-hidden" : "min-h-screen"} flex flex-col bg-background`}>
+    <div className={`${isFullHeight ? "h-screen h-dvh overflow-hidden" : "min-h-screen"} flex flex-col bg-background`}>
       <NavigationProgress />
       <TopBar />
       <div className={`flex-1 flex min-h-0 ${isFullHeight ? "overflow-hidden" : ""}`}>

@@ -486,7 +486,7 @@ export function ChatPanel({
       <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
         <div className={cn(
           "px-6 md:px-10 py-8 space-y-1 w-full max-w-[760px] mx-auto",
-          isMobile && "pb-16 px-4"
+          isMobile && "pb-4 px-4"
         )} style={{ overflowX: "hidden", boxSizing: "border-box" }}>
           <p className="text-[10px] font-ui uppercase tracking-[0.15em] text-muted-foreground/60 text-center py-3">Today · 14:23</p>
 
@@ -1015,7 +1015,8 @@ export function ChatPanel({
 
       {/* Input bar — anchored bottom of working session */}
       <div className={cn(
-        "flex-shrink-0 border-t border-white/[0.06] bg-background z-10"
+        "flex-shrink-0 border-t border-white/[0.06] bg-background z-10",
+        isMobile && "pb-14"
       )}>
         {/* Pre-fill indicator when retrying a message */}
         {unansweredMessageId && inputValue && (
