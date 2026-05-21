@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useCreditBalance } from "@/hooks/use-credit-balance";
 import { createPortal } from "react-dom";
 import { useState, useRef, useEffect } from "react";
+import { MobileBottomSheet } from "@/components/ui/MobileBottomSheet";
 import {
   getNotifications,
   getUnreadCount,
@@ -186,21 +187,8 @@ export function TopBar() {
               </span>
             )}
           </button>
-          {notifOpen && (isMobile ? createPortal(
-            <>
-              <div
-                className="fixed inset-0 bg-black/50"
-                style={{ zIndex: 99 }}
-                onClick={() => setNotifOpen(false)}
-              />
-              <div
-                className="fixed left-0 right-0 bottom-0 bg-card border-t border-card-border shadow-xl flex flex-col rounded-t-[20px] overflow-hidden"
-                style={{ maxHeight: '85vh', zIndex: 100, animation: 'slideUpSheet 300ms ease-out' }}
-              >
-                <style>{`@keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
-                <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
-                  <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
-                </div>
+          {notifOpen && (isMobile ? (
+            <MobileBottomSheet open={notifOpen} onClose={() => setNotifOpen(false)} maxHeight="85vh">
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
                   <p className="font-ui text-[13px] font-semibold text-foreground">Notifications</p>
                   {unreadCount > 0 && (
@@ -229,9 +217,7 @@ export function TopBar() {
                     ))
                   )}
                 </div>
-              </div>
-            </>,
-            document.body
+            </MobileBottomSheet>
           ) : (
             <div
               className="absolute z-50 bg-card border border-card-border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 top-12 right-0 w-[360px] rounded-2xl flex flex-col"

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { createPortal } from 'react-dom';
+import { MobileBottomSheet } from '@/components/ui/MobileBottomSheet';
 import { useState, forwardRef } from 'react';
 import {
   LogOut, Shield, ChevronRight, Sparkles, Clock,
@@ -252,25 +252,10 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
       if (!open) return null;
 
       if (isMobile) {
-        return createPortal(
-          <>
-            <div
-              className="fixed inset-0 bg-black/40 backdrop-blur-[2px]"
-              style={{ zIndex: 99 }}
-              onClick={onClose}
-            />
-            <div
-              className="fixed left-0 right-0 bottom-0 bg-card border-t border-card-border shadow-xl flex flex-col rounded-t-[20px] overflow-hidden"
-              style={{ maxHeight: '90vh', zIndex: 100, animation: 'slideUpSheet 300ms ease-out' }}
-            >
-              <style>{`@keyframes slideUpSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
-              <div className="flex justify-center pt-2.5 pb-1 flex-shrink-0">
-                <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />
-              </div>
-              {body}
-            </div>
-          </>,
-          document.body
+        return (
+          <MobileBottomSheet open={open} onClose={onClose}>
+            {body}
+          </MobileBottomSheet>
         );
       }
 
