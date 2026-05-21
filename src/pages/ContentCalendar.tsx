@@ -190,19 +190,7 @@ export default function ContentCalendar() {
 
           {!loading && slots.length === 0 && (
             <div className="absolute inset-0 top-24 flex items-center justify-center pointer-events-none">
-              <div className="text-center pointer-events-auto">
-                <CalendarDays
-                  size={28}
-                  className="mx-auto mb-2 text-muted-foreground/60"
-                />
-                <p className="text-[13px] font-ui text-muted-foreground">
-                </p>
-                <Link
-                  to="/content-studio"
-                  className="mt-2 inline-block text-[12px] font-ui text-primary hover:underline"
-                >
-                </Link>
-              </div>
+              
             </div>
           )}
         </div>
