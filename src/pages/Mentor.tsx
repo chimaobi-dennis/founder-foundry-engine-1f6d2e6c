@@ -1992,17 +1992,16 @@ Be selective — only mark significant shifts, not minor tangents.`,
       )}
 
       <div className="flex-1 min-w-0 min-h-0 max-w-full flex flex-col overflow-hidden relative" style={{ boxSizing: "border-box" }}>
-        {isMobile && (
-          <div className="h-10 flex items-center px-3 gap-2 border-b border-border flex-shrink-0">
-            <button onClick={() => setLeftOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
-              <Menu size={18} />
-            </button>
-            <span className="text-[13px] font-ui text-foreground flex-1">Kinika</span>
-            <button onClick={() => setRightOpen(!rightOpen)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
-              {rightOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
-            </button>
-          </div>
-        )}
+        {/* Mobile toolbar — visible below md breakpoint, matches AppSidebar's mobile nav */}
+        <div className="flex md:hidden h-10 items-center px-3 gap-2 border-b border-border flex-shrink-0">
+          <button onClick={() => setLeftOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+            <Menu size={18} />
+          </button>
+          <span className="text-[13px] font-ui text-foreground flex-1">Kinika</span>
+          <button onClick={() => setRightOpen(!rightOpen)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+            {rightOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+          </button>
+        </div>
 
         {isTablet && !isMobile && (
           <button onClick={() => setRightOpen(!rightOpen)} className="absolute top-2 right-2 z-10 w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
