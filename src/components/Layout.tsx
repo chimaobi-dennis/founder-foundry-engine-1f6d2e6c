@@ -33,7 +33,7 @@ export function Layout() {
   ) || isEditorRoute;
 
   return (
-    <div className="h-screen h-dvh flex flex-col overflow-hidden bg-background">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background">
       <NavigationProgress />
       <TopBar />
       <div className="flex-1 flex min-h-0 overflow-hidden">
