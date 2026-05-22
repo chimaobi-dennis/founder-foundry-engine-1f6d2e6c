@@ -2,6 +2,17 @@ import { useState } from "react";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Shimmer animation for skeleton loading
+const shimmerStyles = `
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+`;
+
 export type MentorMode = "idea" | "brand" | "new" | null;
 
 const openingMessages: Record<string, string> = {
@@ -34,17 +45,28 @@ export function MentorEmptyState({ mode, onSubmit }: MentorEmptyStateProps) {
   };
 
   return (
-    <div className="flex-1 min-h-0 flex items-center justify-center px-4">
-      <div
-        className={cn(
-          "w-[90%] max-w-[560px] rounded-2xl p-8 transition-opacity duration-200",
-          "bg-card dark:bg-[#1A2A3A] border-[0.5px]",
-          "border-[#E8E2D9] dark:border-[#2A3A4A]",
-          fadingOut && "opacity-0"
-        )}
-      >
-        {/* Pulsing dot */}
-        <div className="w-2 h-2 rounded-full bg-primary animate-amber-pulse mb-4" />
+    <>
+      <style>{shimmerStyles}</style>
+      <div className="flex-1 min-h-0 flex items-center justify-center px-4">
+        <div
+          className={cn(
+            "w-[90%] max-w-[560px] rounded-2xl p-8 transition-opacity duration-200",
+            "bg-card dark:bg-[#1A2A3A] border-[0.5px]",
+            "border-[#E8E2D9] dark:border-[#2A3A4A]",
+            fadingOut && "opacity-0"
+          )}
+        >
+        {/* Skeleton bounce fade header */}
+        <div className="flex items-center gap-3 mb-4 animate-in fade-in duration-500">
+          <div className="relative">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" />
+            <div className="absolute inset-0 w-10 h-10 rounded-xl bg-primary/10 animate-pulse" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="h-3 w-24 bg-muted/60 rounded animate-shimmer" />
+            <div className="h-2.5 w-16 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+          </div>
+        </div>
 
         {/* Opening message */}
         <p
@@ -81,5 +103,6 @@ export function MentorEmptyState({ mode, onSubmit }: MentorEmptyStateProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }
