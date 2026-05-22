@@ -37,49 +37,71 @@ export function Layout() {
       {/* NavigationProgress at top level */}
       <NavigationProgress />
 
-      {/* TopBar - fixed z-50, safe area for notch */}
-      <div className="z-50 flex-shrink-0 safe-top">
-        <TopBar />
-      </div>
-
-      {/* BrandContextBar - sits below TopBar in natural flex flow */}
-      {showBrandBar && (
-        <div className="flex-shrink-0 relative">
-          <BrandContextBar />
-        </div>
-      )}
-
-      {/* Main app area - flex row with sidebar and content */}
-      <div className="flex-1 flex min-h-0 overflow-hidden relative z-0">
-        {/* Desktop/Tablet Sidebar - hidden on mobile */}
-        <div className="hidden md:block">
-          <AppSidebar />
+      {/* ── Mobile Layout (< md): Stacked with natural scroll ── */}
+      <div className="md:hidden flex flex-col h-full">
+        {/* TopBar - sticky at top */}
+        <div className="flex-shrink-0 safe-top z-50">
+          <TopBar />
         </div>
 
-        {/* Main content area - single scroll container for regular pages */}
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
+        {/* BrandContextBar - below TopBar */}
+        {showBrandBar && (
+          <div className="flex-shrink-0 z-40">
+            <BrandContextBar />
+          </div>
+        )}
+
+        {/* Scrollable content area - fills remaining space */}
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative z-0" style={{ WebkitOverflowScrolling: "touch" }}>
           {isSelfScrolling ? (
-            // Self-scrolling pages: Layout provides fixed container, page handles internal scroll
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="h-full overflow-hidden">
               <Outlet />
             </div>
           ) : (
-            // Regular pages: Layout handles ALL scrolling
-            // Pages should NOT have their own overflow containers
-            <div
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-16 md:pb-0"
-              style={{ WebkitOverflowScrolling: "touch" }}
-            >
+            <div className="pb-16">
               <Outlet />
             </div>
           )}
         </main>
+
+        {/* Mobile bottom nav - fixed at bottom */}
+        <div className="flex-shrink-0 safe-bottom z-50">
+          <AppSidebar />
+        </div>
       </div>
 
-      {/* Mobile bottom nav spacer - ensures content doesn't get hidden behind fixed nav */}
-      <div className="flex-shrink-0 md:hidden safe-bottom">
-        {/* AppSidebar renders its fixed nav at bottom with z-40 */}
-        <AppSidebar />
+      {/* ── Desktop Layout (>= md): Sidebar + content ── */}
+      <div className="hidden md:flex flex-col h-full">
+        {/* TopBar */}
+        <div className="flex-shrink-0 safe-top z-50">
+          <TopBar />
+        </div>
+
+        {/* BrandContextBar */}
+        {showBrandBar && (
+          <div className="flex-shrink-0 relative z-40">
+            <BrandContextBar />
+          </div>
+        )}
+
+        {/* Main area with sidebar */}
+        <div className="flex-1 flex min-h-0 overflow-hidden relative z-0">
+          <AppSidebar />
+          <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
+            {isSelfScrolling ? (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <Outlet />
+              </div>
+            ) : (
+              <div
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+                style={{ WebkitOverflowScrolling: "touch" }}
+              >
+                <Outlet />
+              </div>
+            )}
+          </main>
+        </div>
       </div>
 
       <Analytics />
