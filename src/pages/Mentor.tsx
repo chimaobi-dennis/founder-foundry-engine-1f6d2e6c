@@ -2000,32 +2000,61 @@ Be selective — only mark significant shifts, not minor tangents.`,
               <div className="flex-1" />
               <div className="w-8 h-8 rounded-lg bg-muted/40 animate-shimmer" style={{ animationDelay: '0.2s' }} />
             </div>
-            {/* Chat messages skeleton */}
-            <div className="flex-1 p-6 md:p-10 space-y-6 overflow-hidden">
-              {/* AI message skeleton */}
-              <div className="flex items-start gap-3 max-w-[80%]">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" />
-                  <div className="h-4 w-[90%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
-                  <div className="h-4 w-[75%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+            {/* Chat messages skeleton — conversation layout */}
+            <div className="flex-1 p-6 md:p-10 space-y-6 overflow-hidden max-w-[760px] mx-auto">
+              {/* AI message skeleton — left aligned with editorial border */}
+              <div className="flex items-start gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce flex-shrink-0" />
+                <div className="py-1 pl-4 border-l border-white/[0.06] w-full max-w-[85%]">
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" />
+                    <div className="h-4 w-[92%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+                    <div className="h-4 w-[75%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+                  </div>
                 </div>
               </div>
-              {/* User message skeleton */}
-              <div className="flex items-start gap-3 max-w-[70%] ml-auto flex-row-reverse">
-                <div className="w-8 h-8 rounded-xl bg-muted/40 animate-pulse" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-full bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.3s' }} />
-                  <div className="h-4 w-[80%] bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.4s' }} />
+
+              {/* Founder message skeleton — right aligned bubble */}
+              <div className="flex items-start gap-2 flex-row-reverse">
+                <div className="w-8 h-8 rounded-xl bg-muted/40 animate-pulse flex-shrink-0" />
+                <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] max-w-[78%]">
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.3s' }} />
+                    <div className="h-4 w-[80%] bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.4s' }} />
+                  </div>
                 </div>
               </div>
-              {/* Another AI message skeleton */}
-              <div className="flex items-start gap-3 max-w-[80%]">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" style={{ animationDelay: '0.5s' }} />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.5s' }} />
-                  <div className="h-4 w-[85%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.6s' }} />
-                  <div className="h-4 w-[60%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.7s' }} />
+
+              {/* AI message skeleton — longer response */}
+              <div className="flex items-start gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }} />
+                <div className="py-1 pl-4 border-l border-white/[0.06] w-full max-w-[85%]">
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.5s' }} />
+                    <div className="h-4 w-[95%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.6s' }} />
+                    <div className="h-4 w-[88%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.7s' }} />
+                    <div className="h-4 w-[65%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.8s' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Founder message skeleton — short reply */}
+              <div className="flex items-start gap-2 flex-row-reverse">
+                <div className="w-8 h-8 rounded-xl bg-muted/40 animate-pulse flex-shrink-0" style={{ animationDelay: '0.9s' }} />
+                <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] max-w-[50%]">
+                  <div className="h-4 w-full bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.9s' }} />
+                </div>
+              </div>
+
+              {/* AI message skeleton — final response */}
+              <div className="flex items-start gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce flex-shrink-0" style={{ animationDelay: '1s' }} />
+                <div className="py-1 pl-4 border-l border-white/[0.06] w-full max-w-[85%]">
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '1s' }} />
+                    <div className="h-4 w-[90%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '1.1s' }} />
+                    <div className="h-4 w-[70%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '1.2s' }} />
+                  </div>
                 </div>
               </div>
             </div>

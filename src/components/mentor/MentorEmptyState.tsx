@@ -56,32 +56,62 @@ export function MentorEmptyState({ mode, onSubmit }: MentorEmptyStateProps) {
             fadingOut && "opacity-0"
           )}
         >
-        {/* Skeleton bounce fade — shown until content loads */}
-        <div className="animate-in fade-in duration-500">
-          {/* Mentor avatar + name skeleton */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" />
-            <div className="flex flex-col gap-1.5">
-              <div className="h-3.5 w-20 bg-muted/60 rounded animate-shimmer" />
-              <div className="h-2.5 w-12 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+        {/* Skeleton bounce fade — conversation layout */}
+        <div className="animate-in fade-in duration-500 space-y-6">
+          {/* AI message skeleton — left aligned with editorial border */}
+          <div className="flex items-start gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce flex-shrink-0" />
+            <div className="py-1 pl-4 border-l border-white/[0.06] w-full max-w-[85%]">
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" />
+                <div className="h-4 w-[92%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+                <div className="h-4 w-[75%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+              </div>
             </div>
           </div>
 
-          {/* Opening message skeleton */}
-          <div className="space-y-3 mb-6">
-            <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
-            <div className="h-4 w-[92%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
-            <div className="h-4 w-[85%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.3s' }} />
-            <div className="h-4 w-[60%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.4s' }} />
+          {/* Founder message skeleton — right aligned bubble */}
+          <div className="flex items-start gap-2 flex-row-reverse">
+            <div className="w-8 h-8 rounded-xl bg-muted/40 animate-pulse flex-shrink-0" />
+            <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] max-w-[78%]">
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.3s' }} />
+                <div className="h-4 w-[80%] bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.4s' }} />
+              </div>
+            </div>
           </div>
 
-          {/* Divider skeleton */}
-          <div className="my-6 h-px bg-muted/40 w-full animate-pulse" />
+          {/* AI message skeleton — longer response */}
+          <div className="flex items-start gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce flex-shrink-0" style={{ animationDelay: '0.5s' }} />
+            <div className="py-1 pl-4 border-l border-white/[0.06] w-full max-w-[85%]">
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.5s' }} />
+                <div className="h-4 w-[95%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.6s' }} />
+                <div className="h-4 w-[88%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.7s' }} />
+                <div className="h-4 w-[65%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.8s' }} />
+              </div>
+            </div>
+          </div>
 
-          {/* Input field skeleton */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-12 rounded-lg bg-muted/40 animate-shimmer" />
-            <div className="w-12 h-12 rounded-lg bg-primary/20 animate-pulse" />
+          {/* Founder message skeleton — short reply */}
+          <div className="flex items-start gap-2 flex-row-reverse">
+            <div className="w-8 h-8 rounded-xl bg-muted/40 animate-pulse flex-shrink-0" style={{ animationDelay: '0.9s' }} />
+            <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] max-w-[50%]">
+              <div className="h-4 w-full bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.9s' }} />
+            </div>
+          </div>
+
+          {/* AI message skeleton — final response */}
+          <div className="flex items-start gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce flex-shrink-0" style={{ animationDelay: '1s' }} />
+            <div className="py-1 pl-4 border-l border-white/[0.06] w-full max-w-[85%]">
+              <div className="space-y-2">
+                <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '1s' }} />
+                <div className="h-4 w-[90%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '1.1s' }} />
+                <div className="h-4 w-[70%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '1.2s' }} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
