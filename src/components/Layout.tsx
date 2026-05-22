@@ -43,8 +43,8 @@ export function Layout() {
       <div className={`flex-1 flex min-h-0 ${isFullHeight ? "overflow-hidden" : ""}`}>
         <AppSidebar />
         <main
-          className={`flex-1 min-w-0 min-h-0 overflow-x-hidden overflow-y-auto ${isFullHeight ? "flex flex-col" : "pb-16 md:pb-0"} pt-14 md:!pt-0`}
-          style={{ WebkitOverflowScrolling: "touch" }}
+          className={`flex-1 min-w-0 min-h-0 overflow-x-hidden ${isFullHeight ? "overflow-hidden flex flex-col" : "overflow-y-auto pb-16 md:pb-0"} pt-14 md:!pt-0`}
+          style={{ WebkitOverflowScrolling: isFullHeight ? undefined : "touch" }}
         >
           {showBrandBar && (
             <div className="sticky top-0 z-10 flex-shrink-0">
