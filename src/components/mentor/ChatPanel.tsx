@@ -40,6 +40,61 @@ interface MilestonePromptState {
   suggestedName?: string;
 }
 
+// Skeleton message placeholder for loading state
+function SkeletonMessage({ role, lines = 2 }: { role: "ai" | "founder"; lines?: number }) {
+  return (
+    <div className={cn("w-full flex flex-col mb-5 animate-pulse", role === "founder" ? "items-end" : "items-start")}>
+      <div
+        className={cn(
+          "flex items-start gap-2",
+          role === "founder" ? "flex-row-reverse max-w-[78%]" : "flex-row w-full"
+        )}
+      >
+        <div
+          className={cn(
+            "min-w-0",
+            role === "founder"
+              ? "rounded-2xl px-4 py-2.5 bg-white/[0.04] w-full"
+              : "py-1 pl-4 border-l border-white/[0.06] w-full"
+          )}
+        >
+          <div className="space-y-2">
+            {Array.from({ length: lines }).map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "h-4 bg-muted/60 rounded animate-shimmer",
+                  i === lines - 1 && role === "ai" ? "w-3/4" : "w-full"
+                )}
+                style={{
+                  backgroundImage: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+                  backgroundSize: "200% 100%",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Skeleton loading view with multiple placeholder messages
+function ChatSkeleton() {
+  return (
+    <div className="space-y-1 animate-in fade-in duration-500">
+      <p className="text-[10px] font-ui uppercase tracking-[0.15em] text-muted-foreground/60 text-center py-3">
+        Loading conversation...
+      </p>
+      <SkeletonMessage role="ai" lines={3} />
+      <SkeletonMessage role="founder" lines={1} />
+      <SkeletonMessage role="ai" lines={4} />
+      <SkeletonMessage role="ai" lines={2} />
+      <SkeletonMessage role="founder" lines={2} />
+    </div>
+  );
+}
+
 interface ChatPanelProps {
   brand: MentorBrand;
   stageName?: string;
@@ -56,6 +111,7 @@ interface ChatPanelProps {
   error?: string | null;
   onRetry?: () => void;
   slowThinking?: boolean;
+  isLoading?: boolean;
   // Unanswered message handling
   unansweredMessageId?: string | null;
   inputValue?: string;
@@ -200,6 +256,7 @@ export function ChatPanel({
   error,
   onRetry,
   slowThinking,
+  isLoading = false,
   unansweredMessageId,
   inputValue: externalInputValue,
   onInputValueChange,
@@ -488,9 +545,13 @@ export function ChatPanel({
           "px-6 md:px-10 py-8 space-y-1 w-full max-w-[760px] mx-auto",
           isMobile && "pb-4 px-4"
         )} style={{ overflowX: "hidden", boxSizing: "border-box" }}>
-          <p className="text-[10px] font-ui uppercase tracking-[0.15em] text-muted-foreground/60 text-center py-3">Today · 14:23</p>
+          {isLoading ? (
+            <ChatSkeleton />
+          ) : (
+            <>
+              <p className="text-[10px] font-ui uppercase tracking-[0.15em] text-muted-foreground/60 text-center py-3 animate-in fade-in duration-500">Today · 14:23</p>
 
-          {dedupedMessages.map((msg, i) => {
+              {dedupedMessages.map((msg, i) => {
             const marker = markersByMessage[msg.id];
             const milestone = marker ? milestoneMap[marker.milestoneId] : null;
             const prompt = promptsByMessage[msg.id];
@@ -1007,9 +1068,20 @@ export function ChatPanel({
               0%, 100% { opacity: 1; }
               50% { opacity: 0; }
             }
+
+            @keyframes shimmer {
+              0% { background-position: -200% 0; }
+              100% { background-position: 200% 0; }
+            }
+
+            .animate-shimmer {
+              animation: shimmer 1.5s ease-in-out infinite;
+            }
           `}</style>
 
           <div ref={bottomRef} />
+            </>
+          )}
         </div>
       </div>
 
