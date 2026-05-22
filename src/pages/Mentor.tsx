@@ -53,6 +53,17 @@ import {
   MilestoneMarker,
   MilestoneCategory,
 } from "@/components/mentor/types";
+
+// Shimmer animation for skeleton loading
+const shimmerStyles = `
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+`;
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
@@ -1941,7 +1952,24 @@ Be selective — only mark significant shifts, not minor tangents.`,
   if (!currentActiveBrand) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Loading brand...</div>
+        <>
+          <style>{shimmerStyles}</style>
+          <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
+            {/* Brand logo placeholder with bounce animation */}
+            <div className="relative">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" />
+              <div className="absolute inset-0 w-16 h-16 rounded-2xl bg-primary/10 animate-pulse" />
+            </div>
+            {/* Loading text with shimmer */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-4 w-32 bg-muted/60 rounded animate-shimmer" style={{
+                backgroundImage: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
+                backgroundSize: "200% 100%",
+              }} />
+              <p className="text-muted-foreground/60 text-xs font-ui animate-pulse">Loading brand...</p>
+            </div>
+          </div>
+        </>
       </div>
     );
   }
