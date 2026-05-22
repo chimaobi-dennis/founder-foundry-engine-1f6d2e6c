@@ -8,7 +8,8 @@ function newId(prefix: string) {
 }
 
 export function SceneToolbar() {
-  const { addNode, deleteSelected, duplicateSelected, undo, redo, zoom, setZoom, setPan, selectedIds } = useSceneStore();
+  const { addNode, deleteSelected, duplicateSelected, undo, redo, camera, setZoom, setPan, selectedIds } = useSceneStore();
+  const zoom = camera.zoom;
 
   const addText = () => {
     const node: SceneNode = {
