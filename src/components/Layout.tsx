@@ -7,7 +7,7 @@ import { Analytics } from "@vercel/analytics/react";
 
 const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
-const fullHeightPaths = ["/mentor", "/content-calendar"];
+const fullHeightPaths = ["/mentor", "/content-calendar", "/pro-studio", "/content-studio", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
 export function Layout() {
   const location = useLocation();
