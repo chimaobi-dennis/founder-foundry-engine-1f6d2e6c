@@ -2221,9 +2221,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
           }
 
           return (
-            <div className="flex flex-col h-full w-full items-center justify-center">
-              <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
-            </div>
+            <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
           );
         })()}
       </div>
