@@ -38,16 +38,14 @@ export function Layout() {
       <TopBar />
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <AppSidebar />
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col pt-14 md:!pt-0">
+        <main className={`flex-1 min-w-0 min-h-0 flex flex-col pt-14 md:!pt-0 ${isSelfScrolling ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`} style={{ WebkitOverflowScrolling: isSelfScrolling ? undefined : "touch" }}>
           {showBrandBar && (
             <div className="flex-shrink-0">
               <BrandContextBar />
             </div>
           )}
           {isSelfScrolling ? (
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Outlet />
-            </div>
+            <Outlet />
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: "touch" }}>
               <Outlet />
