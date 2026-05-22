@@ -28,8 +28,9 @@ interface Props {
 export function UnifiedToolbar({ activePanel, onPanelChange, className }: Props) {
   const {
     addNode, deleteSelected, duplicateSelected,
-    undo, redo, zoom, setZoom, setPan, selectedIds
+    undo, redo, camera, setZoom, setPan, selectedIds
   } = useSceneStore();
+  const zoom = camera.zoom;
 
   const addText = () => {
     const node: SceneNode = {
