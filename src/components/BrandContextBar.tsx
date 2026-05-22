@@ -24,12 +24,15 @@ export function BrandContextBar() {
     }
   }, [open]);
 
-  // Close on click outside
+  // Close on click outside - but not when clicking inside the portal dropdown
+  const dropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      // Don't close if clicking inside the bar or inside the portal dropdown
+      if (ref.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setOpen(false);
     };
     if (open) {
       document.addEventListener("mousedown", handler);
@@ -123,6 +126,7 @@ export function BrandContextBar() {
       {/* Portal dropdown - renders at document root to escape all containers */}
       {open && createPortal(
         <div
+          ref={dropdownRef}
           className="fixed z-[1000] w-[220px] rounded-xl bg-card border border-card-border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
           style={{
             top: dropdownPos.top,

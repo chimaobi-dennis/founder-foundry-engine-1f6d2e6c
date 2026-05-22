@@ -42,20 +42,20 @@ export function Layout() {
         <TopBar />
       </div>
 
+      {/* BrandContextBar - at root level with high z-index to escape all stacking contexts */}
+      {showBrandBar && (
+        <div className="flex-shrink-0 z-[100] relative">
+          <BrandContextBar />
+        </div>
+      )}
+
       {/* Main app area - flex row with sidebar and content */}
-      <div className="flex-1 flex min-h-0 overflow-hidden relative z-10">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative z-0">
         {/* Desktop/Tablet Sidebar - not rendered on mobile */}
         <AppSidebar />
 
-        {/* Main content area - no overflow here, content scrolls internally */}
+        {/* Main content area - scrolls internally */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
-          {/* BrandContextBar - z-50 to float above content */}
-          {showBrandBar && (
-            <div className="flex-shrink-0 z-50 relative">
-              <BrandContextBar />
-            </div>
-          )}
-
           {/* Scrollable content region */}
           {isSelfScrolling ? (
             // Self-scrolling pages handle their own scroll (Mentor, ContentCalendar)
