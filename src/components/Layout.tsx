@@ -51,21 +51,23 @@ export function Layout() {
 
       {/* Main app area - flex row with sidebar and content */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative z-0">
-        {/* Desktop/Tablet Sidebar - not rendered on mobile */}
-        <AppSidebar />
+        {/* Desktop/Tablet Sidebar - hidden on mobile */}
+        <div className="hidden md:block">
+          <AppSidebar />
+        </div>
 
-        {/* Main content area - scrolls internally */}
+        {/* Main content area - single scroll container for regular pages */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
-          {/* Scrollable content region */}
           {isSelfScrolling ? (
-            // Self-scrolling pages handle their own scroll (Mentor, ContentCalendar)
+            // Self-scrolling pages: Layout provides fixed container, page handles internal scroll
             <div className="flex-1 min-h-0 overflow-hidden">
               <Outlet />
             </div>
           ) : (
-            // Regular pages scroll in this single container
+            // Regular pages: Layout handles ALL scrolling
+            // Pages should NOT have their own overflow containers
             <div
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-16 md:pb-0"
               style={{ WebkitOverflowScrolling: "touch" }}
             >
               <Outlet />
@@ -74,9 +76,10 @@ export function Layout() {
         </main>
       </div>
 
-      {/* Mobile bottom nav - fixed at bottom with z-40 */}
-      <div className="z-40 flex-shrink-0 md:hidden safe-bottom">
-        {/* Spacer handled by AppSidebar positioning */}
+      {/* Mobile bottom nav spacer - ensures content doesn't get hidden behind fixed nav */}
+      <div className="flex-shrink-0 md:hidden safe-bottom">
+        {/* AppSidebar renders its fixed nav at bottom with z-40 */}
+        <AppSidebar />
       </div>
 
       <Analytics />
