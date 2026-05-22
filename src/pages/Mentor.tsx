@@ -77,9 +77,14 @@ function useIsTablet() {
   const [isTablet, setIsTablet] = useState(
     typeof window !== "undefined" ? window.innerWidth < TABLET_MAX : false
   );
-  if (typeof window !== "undefined") {
-    window.addEventListener("resize", () => setIsTablet(window.innerWidth < TABLET_MAX));
-  }
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia(`(max-width: ${TABLET_MAX - 1}px)`);
+    const onChange = () => setIsTablet(window.innerWidth < TABLET_MAX);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
   return isTablet;
 }
 
