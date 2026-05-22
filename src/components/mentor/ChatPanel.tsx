@@ -555,9 +555,9 @@ export function ChatPanel({
   );
 
   return (
-    <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden max-w-full" style={{ boxSizing: "border-box" }}>
+    <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden max-w-full relative" style={{ boxSizing: "border-box" }}>
       {/* Chat messages — only scrollable region */}
-      <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden relative")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
+      <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
         <div className={cn(
           "px-6 md:px-10 py-8 space-y-1 w-full max-w-[760px] mx-auto",
           isMobile && "pb-4 px-4"
@@ -1110,17 +1110,18 @@ export function ChatPanel({
           )}
         </div>
 
-        {/* Scroll to bottom button - clean white style */}
-        <button
-          onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
-          className={`absolute bottom-24 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white dark:bg-[#1e293b] text-gray-700 dark:text-gray-300 shadow-md border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-[#252f47] transition-all duration-300 z-20 ${
-            showScrollButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
-          }`}
-          aria-label="Scroll to bottom"
-        >
-          <ArrowDown size={18} />
-        </button>
       </div>
+
+      {/* Scroll to bottom button - floats fixed above content */}
+      <button
+        onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+        className={`absolute bottom-20 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white dark:bg-[#1e293b] text-gray-700 dark:text-gray-300 shadow-md border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-[#252f47] transition-all duration-300 z-30 ${
+          showScrollButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        }`}
+        aria-label="Scroll to bottom"
+      >
+        <ArrowDown size={18} />
+      </button>
 
       {/* Input bar — anchored bottom of working session */}
       <div className="flex-shrink-0 border-t border-white/[0.06] bg-background z-10 pb-14 md:pb-0">
