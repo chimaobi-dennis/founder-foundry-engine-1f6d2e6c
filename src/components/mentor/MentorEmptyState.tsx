@@ -56,50 +56,33 @@ export function MentorEmptyState({ mode, onSubmit }: MentorEmptyStateProps) {
             fadingOut && "opacity-0"
           )}
         >
-        {/* Skeleton bounce fade header */}
-        <div className="flex items-center gap-3 mb-4 animate-in fade-in duration-500">
-          <div className="relative">
+        {/* Skeleton bounce fade — shown until content loads */}
+        <div className="animate-in fade-in duration-500">
+          {/* Mentor avatar + name skeleton */}
+          <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" />
-            <div className="absolute inset-0 w-10 h-10 rounded-xl bg-primary/10 animate-pulse" />
+            <div className="flex flex-col gap-1.5">
+              <div className="h-3.5 w-20 bg-muted/60 rounded animate-shimmer" />
+              <div className="h-2.5 w-12 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="h-3 w-24 bg-muted/60 rounded animate-shimmer" />
-            <div className="h-2.5 w-16 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+
+          {/* Opening message skeleton */}
+          <div className="space-y-3 mb-6">
+            <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+            <div className="h-4 w-[92%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+            <div className="h-4 w-[85%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.3s' }} />
+            <div className="h-4 w-[60%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.4s' }} />
           </div>
-        </div>
 
-        {/* Opening message */}
-        <p
-          className="font-display text-[18px] leading-[1.7] text-foreground"
-        >
-          {openingMessages[mode]}
-        </p>
+          {/* Divider skeleton */}
+          <div className="my-6 h-px bg-muted/40 w-full animate-pulse" />
 
-        {/* Divider */}
-        <div className="my-6 h-px bg-border dark:border-[#2A3A4A] w-full" style={{ height: "0.5px" }} />
-
-        {/* Input + send */}
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your answer..."
-            className={cn(
-              "flex-1 min-w-0 h-12 rounded-lg px-4 py-3",
-              "bg-muted/30 dark:bg-[#1E3040]",
-              "border-[0.5px] border-border dark:border-[#2A3A4A]",
-              "text-[14px] font-ui text-foreground placeholder:text-muted-foreground",
-              "outline-none focus:ring-1 focus:ring-primary/40"
-            )}
-          />
-          <button
-            onClick={handleSubmit}
-            className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
-          >
-            <Send size={18} />
-          </button>
+          {/* Input field skeleton */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-12 rounded-lg bg-muted/40 animate-shimmer" />
+            <div className="w-12 h-12 rounded-lg bg-primary/20 animate-pulse" />
+          </div>
         </div>
       </div>
     </div>

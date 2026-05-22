@@ -1951,26 +1951,124 @@ Be selective — only mark significant shifts, not minor tangents.`,
 
   if (!currentActiveBrand) {
     return (
-      <div className="flex-1 min-h-0 flex items-center justify-center">
-        <>
-          <style>{shimmerStyles}</style>
-          <div className="flex flex-col items-center gap-4 animate-in fade-in duration-500">
-            {/* Brand logo placeholder with bounce animation */}
-            <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" />
-              <div className="absolute inset-0 w-16 h-16 rounded-2xl bg-primary/10 animate-pulse" />
+      <>
+        <style>{shimmerStyles}</style>
+        <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full animate-in fade-in duration-500">
+          {/* Left sidebar skeleton - BrandMilestonePanel */}
+          <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 border-r border-border bg-background/40 p-4 space-y-4 hidden md:block">
+            {/* Brand selector skeleton */}
+            <div className="flex items-center gap-2 p-2">
+              <div className="w-8 h-8 rounded-lg bg-muted/50 animate-shimmer" />
+              <div className="flex-1 h-4 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+              <div className="w-6 h-6 rounded bg-muted/30 animate-pulse" />
             </div>
-            {/* Loading text with shimmer */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="h-4 w-32 bg-muted/60 rounded animate-shimmer" style={{
-                backgroundImage: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)",
-                backgroundSize: "200% 100%",
-              }} />
-              <p className="text-muted-foreground/60 text-xs font-ui animate-pulse">Loading brand...</p>
+            {/* New project button skeleton */}
+            <div className="h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.2s' }} />
+            {/* Content sources skeleton */}
+            <div className="space-y-2 pt-4">
+              <div className="h-3 w-24 bg-muted/30 rounded animate-shimmer" style={{ animationDelay: '0.3s' }} />
+              <div className="h-20 bg-muted/30 rounded-lg animate-shimmer" style={{ animationDelay: '0.4s' }} />
+            </div>
+            {/* Files section skeleton */}
+            <div className="space-y-2 pt-4">
+              <div className="h-3 w-16 bg-muted/30 rounded animate-shimmer" style={{ animationDelay: '0.5s' }} />
+              <div className="h-24 bg-muted/30 rounded-lg animate-shimmer" style={{ animationDelay: '0.6s' }} />
+            </div>
+            {/* Stages section skeleton */}
+            <div className="space-y-2 pt-4">
+              <div className="h-3 w-20 bg-muted/30 rounded animate-shimmer" style={{ animationDelay: '0.7s' }} />
+              <div className="h-12 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.8s' }} />
+            </div>
+            {/* Milestones skeleton */}
+            <div className="space-y-2 pt-4">
+              <div className="h-3 w-24 bg-muted/30 rounded animate-shimmer" style={{ animationDelay: '0.9s' }} />
+              <div className="h-16 bg-muted/30 rounded-lg animate-shimmer" style={{ animationDelay: '1s' }} />
+            </div>
+            {/* Memory section skeleton */}
+            <div className="space-y-2 pt-4">
+              <div className="h-3 w-16 bg-muted/30 rounded animate-shimmer" style={{ animationDelay: '1.1s' }} />
+              <div className="h-20 bg-muted/30 rounded-lg animate-shimmer" style={{ animationDelay: '1.2s' }} />
+            </div>
+          </aside>
+
+          {/* Center chat area skeleton */}
+          <div className="flex-1 min-w-0 min-h-0 max-w-full flex flex-col overflow-hidden relative">
+            {/* Mobile toolbar skeleton */}
+            <div className="flex md:hidden h-10 items-center px-3 gap-2 border-b border-border flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-muted/40 animate-shimmer" />
+              <div className="h-4 w-16 bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+              <div className="flex-1" />
+              <div className="w-8 h-8 rounded-lg bg-muted/40 animate-shimmer" style={{ animationDelay: '0.2s' }} />
+            </div>
+            {/* Chat messages skeleton */}
+            <div className="flex-1 p-6 md:p-10 space-y-6 overflow-hidden">
+              {/* AI message skeleton */}
+              <div className="flex items-start gap-3 max-w-[80%]">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" />
+                  <div className="h-4 w-[90%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.1s' }} />
+                  <div className="h-4 w-[75%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.2s' }} />
+                </div>
+              </div>
+              {/* User message skeleton */}
+              <div className="flex items-start gap-3 max-w-[70%] ml-auto flex-row-reverse">
+                <div className="w-8 h-8 rounded-xl bg-muted/40 animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-full bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.3s' }} />
+                  <div className="h-4 w-[80%] bg-muted/40 rounded animate-shimmer" style={{ animationDelay: '0.4s' }} />
+                </div>
+              </div>
+              {/* Another AI message skeleton */}
+              <div className="flex items-start gap-3 max-w-[80%]">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 animate-bounce" style={{ animationDelay: '0.5s' }} />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-full bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.5s' }} />
+                  <div className="h-4 w-[85%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.6s' }} />
+                  <div className="h-4 w-[60%] bg-muted/50 rounded animate-shimmer" style={{ animationDelay: '0.7s' }} />
+                </div>
+              </div>
+            </div>
+            {/* Input bar skeleton */}
+            <div className="flex-shrink-0 border-t border-border p-4">
+              <div className="flex items-center gap-2 max-w-[760px] mx-auto">
+                <div className="w-9 h-9 rounded-lg bg-muted/40 animate-shimmer" />
+                <div className="w-9 h-9 rounded-lg bg-muted/40 animate-shimmer" style={{ animationDelay: '0.1s' }} />
+                <div className="flex-1 h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.2s' }} />
+                <div className="w-9 h-9 rounded-lg bg-primary/20 animate-pulse" />
+              </div>
             </div>
           </div>
-        </>
-      </div>
+
+          {/* Right sidebar skeleton - BrandDNAPanel */}
+          <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 border-l border-border bg-background/40 p-4 space-y-4 hidden lg:block">
+            {/* Header skeleton */}
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div className="h-4 w-32 bg-muted/50 rounded animate-shimmer" />
+              <div className="w-6 h-6 rounded bg-muted/30 animate-pulse" />
+            </div>
+            {/* DNA fields skeleton */}
+            <div className="space-y-3">
+              <div className="h-20 bg-muted/30 rounded-lg animate-shimmer" />
+              <div className="h-16 bg-muted/30 rounded-lg animate-shimmer" style={{ animationDelay: '0.1s' }} />
+              <div className="h-24 bg-muted/30 rounded-lg animate-shimmer" style={{ animationDelay: '0.2s' }} />
+              <div className="h-16 bg-muted/30 rounded-lg animate-shimmer" style={{ animationDelay: '0.3s' }} />
+            </div>
+            {/* Stages list skeleton */}
+            <div className="space-y-2 pt-4">
+              <div className="h-3 w-24 bg-muted/30 rounded animate-shimmer" style={{ animationDelay: '0.4s' }} />
+              <div className="space-y-2">
+                <div className="h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.5s' }} />
+                <div className="h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.6s' }} />
+                <div className="h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.7s' }} />
+                <div className="h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.8s' }} />
+                <div className="h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '0.9s' }} />
+                <div className="h-10 bg-muted/40 rounded-lg animate-shimmer" style={{ animationDelay: '1s' }} />
+              </div>
+            </div>
+          </aside>
+        </div>
+      </>
     );
   }
 
