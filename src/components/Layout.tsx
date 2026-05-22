@@ -33,26 +33,52 @@ export function Layout() {
   ) || isEditorRoute;
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background relative">
+      {/* NavigationProgress at top level */}
       <NavigationProgress />
-      <TopBar />
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+
+      {/* TopBar - fixed z-50, safe area for notch */}
+      <div className="z-50 flex-shrink-0 safe-top">
+        <TopBar />
+      </div>
+
+      {/* Main app area - flex row with sidebar and content */}
+      <div className="flex-1 flex min-h-0 overflow-hidden relative z-10">
+        {/* Desktop/Tablet Sidebar - not rendered on mobile */}
         <AppSidebar />
-        <main className={`flex-1 min-w-0 min-h-0 flex flex-col pt-14 md:!pt-0 ${isSelfScrolling ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`} style={{ WebkitOverflowScrolling: isSelfScrolling ? undefined : "touch" }}>
+
+        {/* Main content area - no overflow here, content scrolls internally */}
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
+          {/* BrandContextBar - z-50 to float above content */}
           {showBrandBar && (
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 z-50 relative">
               <BrandContextBar />
             </div>
           )}
+
+          {/* Scrollable content region */}
           {isSelfScrolling ? (
-            <Outlet />
+            // Self-scrolling pages handle their own scroll (Mentor, ContentCalendar)
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Outlet />
+            </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: "touch" }}>
+            // Regular pages scroll in this single container
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
               <Outlet />
             </div>
           )}
         </main>
       </div>
+
+      {/* Mobile bottom nav - fixed at bottom with z-40 */}
+      <div className="z-40 flex-shrink-0 md:hidden safe-bottom">
+        {/* Spacer handled by AppSidebar positioning */}
+      </div>
+
       <Analytics />
     </div>
   );

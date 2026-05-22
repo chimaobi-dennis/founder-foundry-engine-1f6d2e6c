@@ -157,7 +157,7 @@ export function AppSidebar() {
       </aside>
 
       {/* ── Mobile bottom nav (<768px) ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t border-border flex items-center justify-around px-2 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-background border-t border-border flex items-center justify-around px-2 py-2 safe-bottom">
         {mobileVisibleItems.map((item) => {
           const active = isActive(item.path);
           return (

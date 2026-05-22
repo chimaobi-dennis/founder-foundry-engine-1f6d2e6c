@@ -269,3 +269,27 @@
   animation: name-fade-in 300ms ease;
 }
 
+/* ── Mobile App Shell: Global Scroll Lock ───────── */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  -webkit-overflow-scrolling: auto;
+}
+
+/* Safe area utilities for iOS notch and home indicator */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Z-index scale for consistent layering */
+.z-dropdown { z-index: 1000; }
+.z-modal { z-index: 2000; }
+.z-topbar { z-index: 50; }
+.z-mobilenav { z-index: 40; }
+
