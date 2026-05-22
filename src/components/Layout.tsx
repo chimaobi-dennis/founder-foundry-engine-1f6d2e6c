@@ -42,9 +42,9 @@ export function Layout() {
         <TopBar />
       </div>
 
-      {/* BrandContextBar - at root level with high z-index to escape all stacking contexts */}
+      {/* BrandContextBar - sits below TopBar in natural flex flow */}
       {showBrandBar && (
-        <div className="flex-shrink-0 z-[100] relative">
+        <div className="flex-shrink-0 relative">
           <BrandContextBar />
         </div>
       )}

@@ -1960,7 +1960,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         <style>{shimmerStyles}</style>
         <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full animate-in fade-in duration-500">
           {/* Left sidebar skeleton - BrandMilestonePanel */}
-          <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 border-r border-border bg-background/40 p-4 space-y-4 hidden md:block">
+          <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 h-full border-r border-border bg-background/40 p-4 space-y-4 hidden md:block overflow-hidden">
             {/* Brand selector skeleton */}
             <div className="flex items-center gap-2 p-2">
               <div className="w-8 h-8 rounded-lg bg-muted/50 animate-shimmer" />
@@ -2082,7 +2082,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
           </div>
 
           {/* Right sidebar skeleton - BrandDNAPanel */}
-          <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 border-l border-border bg-background/40 p-4 space-y-4 hidden lg:block">
+          <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 h-full border-l border-border bg-background/40 p-4 space-y-4 hidden lg:block overflow-hidden">
             {/* Header skeleton */}
             <div className="flex items-center justify-between pb-4 border-b border-border">
               <div className="h-4 w-32 bg-muted/50 rounded animate-shimmer" />
@@ -2116,7 +2116,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
   return (
     <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
       {showLeftInline ? (
-        <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 border-r border-border bg-background/40 overflow-y-auto">
+        <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 h-full border-r border-border bg-background/40 overflow-hidden">
           <BrandMilestonePanel
             brands={brands}
             activeBrand={currentActiveBrand}
@@ -2232,7 +2232,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
       </div>
 
       {showRightInline ? (
-        <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 border-l border-border bg-background/40 overflow-y-auto">
+        <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 h-full border-l border-border bg-background/40 overflow-hidden">
           <BrandDNAPanel
             fields={activeBrandData?.dnaFields || emptyDNAFields}
             highlightField={highlightDNAField}
