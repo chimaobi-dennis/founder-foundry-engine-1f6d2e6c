@@ -1,4 +1,4 @@
-import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil, MoreHorizontal, Copy, RotateCcw, Trash2 } from "lucide-react";
+import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil, MoreHorizontal, Copy, RotateCcw, Trash2, ArrowDown } from "lucide-react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
@@ -287,6 +287,7 @@ export function ChatPanel({
   const milestoneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Milestone creation prompt state
   const [milestonePrompt, setMilestonePrompt] = useState<MilestonePromptState | null>(null);
@@ -374,6 +375,22 @@ export function ChatPanel({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, isTyping, streamingText, thinkingState?.isThinking]);
+
+  // Track scroll position to show/hide scroll-to-bottom button
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollArea;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      setShowScrollButton(!isNearBottom);
+    };
+
+    scrollArea.addEventListener("scroll", handleScroll);
+    handleScroll(); // Check initial position
+    return () => scrollArea.removeEventListener("scroll", handleScroll);
+  }, [messages.length]);
 
   // Check for milestone opportunities on new AI messages (outside map loop)
   useEffect(() => {
@@ -540,7 +557,7 @@ export function ChatPanel({
   return (
     <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden max-w-full" style={{ boxSizing: "border-box" }}>
       {/* Chat messages — only scrollable region */}
-      <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
+      <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden relative")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
         <div className={cn(
           "px-6 md:px-10 py-8 space-y-1 w-full max-w-[760px] mx-auto",
           isMobile && "pb-4 px-4"
@@ -1092,6 +1109,17 @@ export function ChatPanel({
             </>
           )}
         </div>
+
+        {/* Scroll to bottom button */}
+        {showScrollButton && (
+          <button
+            onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary transition-colors z-20"
+            aria-label="Scroll to bottom"
+          >
+            <ArrowDown size={18} />
+          </button>
+        )}
       </div>
 
       {/* Input bar — anchored bottom of working session */}
