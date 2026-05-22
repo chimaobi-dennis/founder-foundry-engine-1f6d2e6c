@@ -7,6 +7,9 @@ import { Analytics } from "@vercel/analytics/react";
 
 const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
+// These pages handle their own scrolling internally (3-panel layout)
+const selfScrollingPaths = ["/mentor", "/content-calendar"];
+
 export function Layout() {
   const location = useLocation();
   const isEditorRoute =
@@ -17,14 +20,17 @@ export function Layout() {
   const showBrandBar = modulePaths.some(path => {
     if (location.pathname === path) return true;
     if (location.pathname.startsWith(path + "/")) {
-      // Check if the next segment is a brandId (not a sub-route like "editor")
       const remainingPath = location.pathname.slice(path.length + 1);
-      // Don't show for known sub-routes
       const knownSubRoutes = ["editor", "new"];
       return !knownSubRoutes.some(sub => remainingPath.startsWith(sub));
     }
     return false;
   }) && !isEditorRoute;
+
+  // Check if this page handles its own scrolling (3-panel layout)
+  const isSelfScrolling = selfScrollingPaths.some(p =>
+    location.pathname === p || location.pathname.startsWith(p + "/")
+  ) || isEditorRoute;
 
   return (
     <div className="h-screen h-dvh flex flex-col overflow-hidden bg-background">
@@ -32,15 +38,19 @@ export function Layout() {
       <TopBar />
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <AppSidebar />
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden pt-14 md:!pt-0">
+        <main className={`flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden pt-14 md:!pt-0 ${isSelfScrolling ? "" : "overflow-y-auto overflow-x-hidden"}`} style={{ WebkitOverflowScrolling: isSelfScrolling ? undefined : "touch" }}>
           {showBrandBar && (
             <div className="flex-shrink-0">
               <BrandContextBar />
             </div>
           )}
-          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: "touch" }}>
+          {isSelfScrolling ? (
             <Outlet />
-          </div>
+          ) : (
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: "touch" }}>
+              <Outlet />
+            </div>
+          )}
         </main>
       </div>
       <Analytics />

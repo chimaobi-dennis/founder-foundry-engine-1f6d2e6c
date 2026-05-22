@@ -1110,16 +1110,16 @@ export function ChatPanel({
           )}
         </div>
 
-        {/* Scroll to bottom button */}
-        {showScrollButton && (
-          <button
-            onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary transition-colors z-20"
-            aria-label="Scroll to bottom"
-          >
-            <ArrowDown size={18} />
-          </button>
-        )}
+        {/* Scroll to bottom button - positioned above input bar */}
+        <button
+          onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+          className={`absolute bottom-20 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-all duration-300 z-20 ${
+            showScrollButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+          }`}
+          aria-label="Scroll to bottom"
+        >
+          <ArrowDown size={18} />
+        </button>
       </div>
 
       {/* Input bar — anchored bottom of working session */}
