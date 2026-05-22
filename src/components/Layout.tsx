@@ -2,21 +2,28 @@ import { Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
+import { useViewport } from "@/hooks/use-viewport";
 import { NavigationProgress } from "./NavigationProgress";
 import { Analytics } from "@vercel/analytics/react";
 
 const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
-// These pages handle their own scrolling internally (3-panel layout)
-const selfScrollingPaths = ["/mentor", "/content-calendar"];
+// Workspace pages handle their own internal layout (Mentor, ContentCalendar)
+const workspacePaths = ["/mentor", "/content-calendar"];
 
+/**
+ * Layout - Main application layout using shell architecture
+ * Clean separation: no viewport mixing, no conditional overflow hacks
+ */
 export function Layout() {
   const location = useLocation();
+  const { isMobile } = useViewport();
+
+  // Determine which UI elements to show
   const isEditorRoute =
     location.pathname === "/pro-studio/editor" ||
     (location.pathname.startsWith("/content-studio/") && location.pathname !== "/content-studio/new");
 
-  // Check if current path matches any module path (with or without brandId suffix)
   const showBrandBar = modulePaths.some(path => {
     if (location.pathname === path) return true;
     if (location.pathname.startsWith(path + "/")) {
@@ -27,84 +34,122 @@ export function Layout() {
     return false;
   }) && !isEditorRoute;
 
-  // Check if this page handles its own scrolling (3-panel layout)
-  const isSelfScrolling = selfScrollingPaths.some(p =>
+  const isWorkspace = workspacePaths.some(p =>
     location.pathname === p || location.pathname.startsWith(p + "/")
-  ) || isEditorRoute;
+  );
 
   return (
-    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background relative">
-      {/* NavigationProgress at top level */}
+    <>
       <NavigationProgress />
 
-      {/* ── Mobile Layout (< md): Stacked with natural scroll ── */}
-      <div className="md:hidden flex flex-col h-full">
-        {/* TopBar - sticky at top */}
-        <div className="flex-shrink-0 safe-top z-50">
-          <TopBar />
-        </div>
+      {isMobile ? (
+        <MobileLayout showBrandBar={showBrandBar} isWorkspace={isWorkspace} />
+      ) : (
+        <DesktopLayout showBrandBar={showBrandBar} isWorkspace={isWorkspace} />
+      )}
 
-        {/* BrandContextBar - below TopBar */}
-        {showBrandBar && (
-          <div className="flex-shrink-0 z-40">
-            <BrandContextBar />
+      <Analytics />
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOBILE LAYOUT - Independent mobile shell
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface MobileLayoutProps {
+  showBrandBar: boolean;
+  isWorkspace: boolean;
+}
+
+function MobileLayout({ showBrandBar, isWorkspace }: MobileLayoutProps) {
+  return (
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background">
+      {/* TopBar - sticky at top */}
+      <div className="flex-shrink-0 safe-top">
+        <TopBar />
+      </div>
+
+      {/* BrandBar - sits below TopBar */}
+      {showBrandBar && (
+        <div className="flex-shrink-0">
+          <BrandContextBar />
+        </div>
+      )}
+
+      {/* Content area - single scroll container */}
+      <main
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {isWorkspace ? (
+          // Workspace pages handle their own internal scroll
+          <div className="h-full overflow-hidden">
+            <Outlet />
+          </div>
+        ) : (
+          // Regular pages scroll naturally
+          <div className="pb-20">
+            <Outlet />
           </div>
         )}
+      </main>
 
-        {/* Scrollable content area - fills remaining space */}
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative z-0" style={{ WebkitOverflowScrolling: "touch" }}>
-          {isSelfScrolling ? (
-            <div className="h-full overflow-hidden">
+      {/* Bottom nav - at bottom of flex flow */}
+      <div className="flex-shrink-0 safe-bottom">
+        <AppSidebar />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DESKTOP LAYOUT - Independent desktop shell
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface DesktopLayoutProps {
+  showBrandBar: boolean;
+  isWorkspace: boolean;
+}
+
+function DesktopLayout({ showBrandBar, isWorkspace }: DesktopLayoutProps) {
+  return (
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-background">
+      {/* TopBar */}
+      <div className="flex-shrink-0 safe-top">
+        <TopBar />
+      </div>
+
+      {/* BrandBar */}
+      {showBrandBar && (
+        <div className="flex-shrink-0">
+          <BrandContextBar />
+        </div>
+      )}
+
+      {/* Main area: Sidebar + Content */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* Desktop Sidebar */}
+        <AppSidebar />
+
+        {/* Content */}
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
+          {isWorkspace ? (
+            // Workspace: Page handles internal layout (3-panel)
+            <div className="flex-1 min-h-0 overflow-hidden">
               <Outlet />
             </div>
           ) : (
-            <div className="pb-16">
+            // Regular: Single scroll container
+            <div
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
               <Outlet />
             </div>
           )}
         </main>
-
-        {/* Mobile bottom nav - fixed at bottom */}
-        <div className="flex-shrink-0 safe-bottom z-50">
-          <AppSidebar />
-        </div>
       </div>
-
-      {/* ── Desktop Layout (>= md): Sidebar + content ── */}
-      <div className="hidden md:flex flex-col h-full">
-        {/* TopBar */}
-        <div className="flex-shrink-0 safe-top z-50">
-          <TopBar />
-        </div>
-
-        {/* BrandContextBar */}
-        {showBrandBar && (
-          <div className="flex-shrink-0 relative z-40">
-            <BrandContextBar />
-          </div>
-        )}
-
-        {/* Main area with sidebar */}
-        <div className="flex-1 flex min-h-0 overflow-hidden relative z-0">
-          <AppSidebar />
-          <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
-            {isSelfScrolling ? (
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <Outlet />
-              </div>
-            ) : (
-              <div
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
-                style={{ WebkitOverflowScrolling: "touch" }}
-              >
-                <Outlet />
-              </div>
-            )}
-          </main>
-        </div>
-      </div>
-
-      <Analytics />
     </div>
   );
 }
