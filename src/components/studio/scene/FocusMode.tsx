@@ -10,7 +10,8 @@ import { useSceneStore } from "./sceneStore";
  * immersive canvas, escape to exit.
  */
 export function FocusModeControls() {
-  const { focusMode, toggleFocusMode, zoom, setZoom, setPan } = useSceneStore();
+  const { focusMode, toggleFocusMode, camera, setZoom, setPan } = useSceneStore();
+  const zoom = camera.zoom;
 
   // Escape to exit focus mode
   useEffect(() => {
