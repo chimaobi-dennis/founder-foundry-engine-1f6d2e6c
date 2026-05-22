@@ -1110,10 +1110,10 @@ export function ChatPanel({
           )}
         </div>
 
-        {/* Scroll to bottom button - positioned above input bar */}
+        {/* Scroll to bottom button - clean white style */}
         <button
           onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
-          className={`absolute bottom-20 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-all duration-300 z-20 ${
+          className={`absolute bottom-24 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white dark:bg-[#1e293b] text-gray-700 dark:text-gray-300 shadow-md border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-[#252f47] transition-all duration-300 z-20 ${
             showScrollButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
           }`}
           aria-label="Scroll to bottom"
