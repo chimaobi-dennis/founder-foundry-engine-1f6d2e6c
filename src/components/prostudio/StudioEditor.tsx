@@ -252,7 +252,7 @@ export function StudioEditor({
   // Reset live doc when active canvas changes
   useEffect(() => {
     setLiveSceneDoc(activeSceneJson);
-  }, [activeSceneJson]);
+  }, [activeSceneJson, activeCanvasId]);
 
   // Scene change handler — debounced autosave via onSceneChange prop
   const handleSceneDocChange = useCallback((doc: SceneDocument) => {
@@ -298,7 +298,7 @@ export function StudioEditor({
   const [fitScale, setFitScale] = useState(0.7);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   // Left panel tab (LAYERS | ELEMENTS) for prostudio, (PLATFORMS | LAYERS) for content-studio
-  const [leftTab, setLeftTab] = useState<"layers" | "elements" | "platforms">("layers");
+  const [leftTab, setLeftTab] = useState<"layers" | "elements" | "platforms">("platforms");
   // Right panel tab (COPY | DESIGN) for content-studio mode
   const [rightTab, setRightTab] = useState<"copy" | "design">("copy");
 
@@ -328,9 +328,8 @@ export function StudioEditor({
   }, []);
 
   // Update canvas size per platform in content-studio mode.
-  // Priority: NATIVE dimensions baked into the AI HTML > platform spec > default.
-  // This makes the renderer adapt to whatever the model emitted (1080×1350,
-  // 1080×1920, 1200×630, …) instead of stretching to platform spec.
+  // Priority: PLATFORM dimensions (canvasWidth/canvasHeight) > NATIVE dimensions > default.
+  // Platform spec is source of truth for the canvas container; scene/HTML content fills it.
   const [nativeDetected, setNativeDetected] = useState(false);
   useEffect(() => {
     if (mode !== 'content-studio' || !canvases || !activeCanvasId) {
@@ -340,7 +339,25 @@ export function StudioEditor({
     const activeCanvas = canvases.find(c => c.id === activeCanvasId);
     if (!activeCanvas) return;
 
-    // Scene mode: use scene document dimensions
+    // Platform dimensions are the source of truth for canvas size
+    if (activeCanvas.canvasWidth && activeCanvas.canvasHeight) {
+      setCanvasSize({
+        width: activeCanvas.canvasWidth,
+        height: activeCanvas.canvasHeight,
+      });
+      // nativeDetected = true when content matches platform size
+      // For scene: check if doc dimensions match platform
+      if (activeCanvas.renderEngine === 'scene' && activeCanvas.sceneJson) {
+        const doc = activeCanvas.sceneJson as SceneDocument;
+        setNativeDetected(doc.width === activeCanvas.canvasWidth && doc.height === activeCanvas.canvasHeight);
+      } else {
+        const native = detectNativeHtmlDimensions(activeCanvas.html);
+        setNativeDetected(!!native && native.width === activeCanvas.canvasWidth && native.height === activeCanvas.canvasHeight);
+      }
+      return;
+    }
+
+    // Fallback: use native dimensions if no platform spec
     if (activeCanvas.renderEngine === 'scene' && activeCanvas.sceneJson) {
       const doc = activeCanvas.sceneJson as SceneDocument;
       if (doc.width && doc.height) {
@@ -354,12 +371,6 @@ export function StudioEditor({
     if (native) {
       setCanvasSize(native);
       setNativeDetected(true);
-    } else if (activeCanvas.canvasWidth && activeCanvas.canvasHeight) {
-      setCanvasSize({
-        width: activeCanvas.canvasWidth,
-        height: activeCanvas.canvasHeight,
-      });
-      setNativeDetected(false);
     }
   }, [mode, canvases, activeCanvasId]);
 
@@ -1330,9 +1341,14 @@ export function StudioEditor({
               style={{
                 minHeight: 0,
                 // Scene mode: transparent - SceneCanvas handles all workspace rendering
-                // HTML mode: grid pattern on neutral surface
-                background: isSceneMode ? "transparent" : (theme === "dark" ? "hsl(220 14% 11%)" : "hsl(220 14% 94%)"),
-                backgroundImage: isSceneMode
+                // Content-studio HTML mode: use same bg as thumbnails for seamless transition
+                // ProStudio HTML mode: grid pattern on neutral surface
+                background: isSceneMode
+                  ? "transparent"
+                  : mode === 'content-studio'
+                    ? (theme === "dark" ? "hsl(var(--card))" : "hsl(var(--card))")
+                    : (theme === "dark" ? "hsl(220 14% 11%)" : "hsl(220 14% 94%)"),
+                backgroundImage: isSceneMode || mode === 'content-studio'
                   ? "none"
                   : theme === "dark"
                     ? "radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)"
@@ -1424,6 +1440,10 @@ export function StudioEditor({
                         <SceneCanvas
                           key={activeCanvasId || 'scene'}
                           className="absolute inset-0"
+                          zoom={zoom}
+                          width={canvasSize.width}
+                          height={canvasSize.height}
+                          forceFillStage={mode === 'content-studio'}
                         />
                       ) : (
                         <EditableCanvas
@@ -1438,7 +1458,7 @@ export function StudioEditor({
                           onIntrinsicSize={setCanvasSize}
                           getElementState={getElementState}
                           refreshKey={refreshKey}
-                          forceFillStage={mode === 'content-studio' && !nativeDetected}
+                          forceFillStage={mode === 'content-studio'}
                         />
                       )}
                       {mode === 'content-studio' && (
@@ -1456,7 +1476,7 @@ export function StudioEditor({
               </div>
             </div>
 
-            <div className="h-7 flex items-center justify-between px-3 border-t border-border text-[10px] font-ui flex-shrink-0 text-muted-foreground bg-card">
+            <div className="h-7 flex items-center justify-between px-3 border-t border-border/30 text-[10px] font-ui flex-shrink-0 text-muted-foreground bg-card/50">
               <div className="flex items-center gap-3">
                 <span>Tool: <span className="text-foreground">{tool === "select" ? "Select" : "Pan"}</span></span>
                 {selected && <span>Selected: <span className="text-foreground">{selected.name}</span></span>}
@@ -1474,10 +1494,7 @@ export function StudioEditor({
                 )}
               </div>
               <div className="flex items-center gap-3 tabular-nums">
-                {isSceneMode
-                  ? <span>{effectiveSceneDoc?.nodes?.length ?? 0} nodes</span>
-                  : <span>{elements.length} layers</span>
-                }
+                <span>{isSceneMode ? (effectiveSceneDoc?.nodes?.length ?? 0) : elements.length} elements</span>
                 {/* Zoom display — shown in both modes */}
                 <span>{Math.round(zoom * 100)}%</span>
               </div>

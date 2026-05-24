@@ -14,9 +14,9 @@ const ProStudio = () => {
   const { activeBrand } = useBrand();
 
   return (
-    <div className="flex flex-col min-h-0 flex-1">
+    <div className="flex flex-col min-h-full">
       {/* Sticky tab bar */}
-      <div className="sticky top-[96px] md:top-10 z-[9] bg-background border-b border-border flex-shrink-0">
+      <div className="sticky top-0 z-10 bg-background border-b border-border flex-shrink-0">
         <div className="flex">
           {tabs.map((tab) => (
             <button
@@ -38,15 +38,13 @@ const ProStudio = () => {
         </div>
       </div>
 
-      {/* Tab content — scrollable region */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6">
-          {activeTab === "Physical Product" ? (
-            <PhysicalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.primary_color || "bg-primary"} />
-          ) : (
-            <DigitalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.primary_color || "bg-primary"} />
-          )}
-        </div>
+      {/* Tab content — Layout handles scrolling */}
+      <div className="px-4 md:px-6 py-6 w-full">
+        {activeTab === "Physical Product" ? (
+          <PhysicalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.primary_color || "bg-primary"} />
+        ) : (
+          <DigitalProductTab brandId={activeBrand?.id || "1"} brandName={activeBrand?.name || ""} brandColor={activeBrand?.primary_color || "bg-primary"} />
+        )}
       </div>
     </div>
   );

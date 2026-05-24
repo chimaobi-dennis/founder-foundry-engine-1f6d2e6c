@@ -40,29 +40,27 @@ const DocStudio = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-0 flex-1">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {state === "home" ? (
-          <DocHome
-            brandName={activeBrand?.name || "Roast & Co"}
-            onSelectType={handleSelectType}
-            onOpenRecent={handleOpenRecent}
-          />
-        ) : state === "brief" ? (
-          <DocBrief
-            docType={selectedType}
-            onBack={() => setState("home")}
-            onGenerate={handleGenerate}
-            loading={loading}
-          />
-        ) : (
-          <DocPreview
-            docType={selectedType}
-            onBackToHome={() => setState("home")}
-            onEditBrief={() => setState("brief")}
-          />
-        )}
-      </div>
+    <div className="min-h-full">
+      {state === "home" ? (
+        <DocHome
+          brandName={activeBrand?.name || "Roast & Co"}
+          onSelectType={handleSelectType}
+          onOpenRecent={handleOpenRecent}
+        />
+      ) : state === "brief" ? (
+        <DocBrief
+          docType={selectedType}
+          onBack={() => setState("home")}
+          onGenerate={handleGenerate}
+          loading={loading}
+        />
+      ) : (
+        <DocPreview
+          docType={selectedType}
+          onBackToHome={() => setState("home")}
+          onEditBrief={() => setState("brief")}
+        />
+      )}
     </div>
   );
 };

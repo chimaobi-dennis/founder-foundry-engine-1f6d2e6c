@@ -1285,7 +1285,7 @@ export default function Landing() {
   ];
 
   return (
-    <div className="min-h-screen w-full" style={{ background: C.bg, color: C.text, fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="h-[100dvh] w-full overflow-y-auto overflow-x-hidden" style={{ background: C.bg, color: C.text, fontFamily: "'DM Sans', sans-serif", WebkitOverflowScrolling: 'touch' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@400;500;600&display=swap');
         .pf { font-family: 'Playfair Display', serif; }

@@ -47,11 +47,12 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   return (
     <div
-      className="min-h-screen w-full"
+      className="h-[100dvh] w-full overflow-y-auto overflow-x-hidden"
       style={{
         background: L.paper,
         color: L.ink,
         fontFamily: uiFont,
+        WebkitOverflowScrolling: 'touch',
       }}
     >
       {/* Top hairline brand bar */}

@@ -83,7 +83,7 @@ export function CanvasSwitcher({
 
   return (
     <div
-      className="h-[100px] flex-shrink-0 border-t border-border flex items-center"
+      className="h-[100px] flex-shrink-0 border-t border-border/50 flex items-center"
       style={{
         backgroundColor: backgroundColor || "hsl(var(--card))",
       }}
@@ -232,12 +232,66 @@ function CanvasThumb({
               background: canvas.sceneJson.background || "#ffffff",
             }}
           >
-            {/* Lightweight scene preview — just background + node count */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[48px] font-ui text-white/20 font-bold">
-                {canvas.sceneJson.nodes?.length || 0}
-              </span>
-            </div>
+            {/* Render scene nodes as simple preview */}
+            {canvas.sceneJson.nodes?.map((node: any) => {
+              if (node.type === 'text') {
+                return (
+                  <div
+                    key={node.id}
+                    style={{
+                      position: 'absolute',
+                      left: node.x,
+                      top: node.y,
+                      width: node.width,
+                      height: node.height,
+                      fontSize: node.fontSize,
+                      fontFamily: node.fontFamily,
+                      color: node.color,
+                      fontWeight: node.fontWeight,
+                      display: 'flex',
+                      alignItems: 'center',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {node.text?.slice(0, 20)}
+                  </div>
+                );
+              }
+              if (node.type === 'shape' || node.type === 'rect') {
+                return (
+                  <div
+                    key={node.id}
+                    style={{
+                      position: 'absolute',
+                      left: node.x,
+                      top: node.y,
+                      width: node.width,
+                      height: node.height,
+                      backgroundColor: node.fill || node.backgroundColor,
+                      borderRadius: node.borderRadius,
+                    }}
+                  />
+                );
+              }
+              if (node.type === 'image') {
+                return (
+                  <div
+                    key={node.id}
+                    style={{
+                      position: 'absolute',
+                      left: node.x,
+                      top: node.y,
+                      width: node.width,
+                      height: node.height,
+                      backgroundColor: '#e5e5e5',
+                      backgroundImage: node.src ? `url(${node.src})` : undefined,
+                      backgroundSize: 'cover',
+                    }}
+                  />
+                );
+              }
+              return null;
+            })}
           </div>
         ) : canvas.html ? (
           // Render HTML at small scale (assumes 600x600 design surface)

@@ -206,8 +206,8 @@ export function EditorialShell({ children }: { children: ReactNode }) {
   }, [pathname]);
   return (
     <div
-      className="min-h-screen w-full"
-      style={{ background: L.paper, color: L.ink, fontFamily: "'DM Sans', sans-serif" }}
+      className="h-[100dvh] w-full overflow-y-auto overflow-x-hidden"
+      style={{ background: L.paper, color: L.ink, fontFamily: "'DM Sans', sans-serif", WebkitOverflowScrolling: 'touch' }}
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap');

@@ -141,11 +141,9 @@ export default function Onboarding() {
 
   return (
     <div
-      className="fixed inset-0 flex flex-col items-center"
+      className="h-[100dvh] flex flex-col items-center overflow-y-auto overflow-x-hidden"
       style={{
         background: "radial-gradient(ellipse at top, #1A2A3A 0%, #0D1B2A 60%)",
-        overflowY: "auto",
-        overflowX: "hidden",
         touchAction: "pan-y",
         overscrollBehavior: "none",
         WebkitOverflowScrolling: "touch",

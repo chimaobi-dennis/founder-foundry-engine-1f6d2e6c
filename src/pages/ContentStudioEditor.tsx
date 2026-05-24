@@ -232,15 +232,15 @@ export default function ContentStudioEditor() {
   useEffect(() => {
     if (!canvases.length) return;
     if (!activeId) {
-      setActiveId(canvases[0].id);
+      setActiveIdWithFlush(canvases[0].id);
       return;
     }
     if (activeId.startsWith(PLACEHOLDER_PREFIX)) {
       const platformId = activeId.slice(PLACEHOLDER_PREFIX.length);
       const real = creatives.find((c) => c.platform_id === platformId);
-      if (real) setActiveId(real.id);
+      if (real) setActiveIdWithFlush(real.id);
     } else if (!canvases.find((c) => c.id === activeId)) {
-      setActiveId(canvases[0].id);
+      setActiveIdWithFlush(canvases[0].id);
     }
   }, [canvases, activeId, creatives]);
 
@@ -490,19 +490,33 @@ export default function ContentStudioEditor() {
 
   // Debounced scene_json autosave — fires when user edits nodes in scene mode
   const sceneAutoSaveTimer = useRef<number | null>(null);
+  const pendingSceneChange = useRef<{ creativeId: string; doc: SceneDocument } | null>(null);
+
+  const flushSceneChanges = useCallback(async () => {
+    if (!pendingSceneChange.current) return;
+    const { creativeId, doc } = pendingSceneChange.current;
+    try {
+      await db.from("content_studio_creatives").update({
+        scene_json: doc as any,
+      }).eq("id", creativeId);
+      console.log("[SceneAutosave] Flushed scene_json for creative", creativeId);
+    } catch (e: any) {
+      console.error("[SceneAutosave] Failed to flush scene_json:", e);
+    }
+    pendingSceneChange.current = null;
+    if (sceneAutoSaveTimer.current) {
+      window.clearTimeout(sceneAutoSaveTimer.current);
+      sceneAutoSaveTimer.current = null;
+    }
+  }, [db]);
+
   const handleSceneChange = useCallback((creativeId: string, doc: SceneDocument) => {
+    pendingSceneChange.current = { creativeId, doc };
     if (sceneAutoSaveTimer.current) window.clearTimeout(sceneAutoSaveTimer.current);
     sceneAutoSaveTimer.current = window.setTimeout(async () => {
-      try {
-        await db.from("content_studio_creatives").update({
-          scene_json: doc as any,
-        }).eq("id", creativeId);
-        console.log("[SceneAutosave] Saved scene_json for creative", creativeId);
-      } catch (e: any) {
-        console.error("[SceneAutosave] Failed to save scene_json:", e);
-      }
+      await flushSceneChanges();
     }, 800);
-  }, [db]);
+  }, [flushSceneChanges]);
 
   // Cleanup autosave timer on unmount
   useEffect(() => {
@@ -510,6 +524,12 @@ export default function ContentStudioEditor() {
       if (sceneAutoSaveTimer.current) window.clearTimeout(sceneAutoSaveTimer.current);
     };
   }, []);
+
+  // Wrap setActiveId to flush scene changes before switching
+  const setActiveIdWithFlush = useCallback(async (id: string | null) => {
+    await flushSceneChanges();
+    setActiveId(id);
+  }, [flushSceneChanges]);
 
   if (loading) {
     return (
@@ -658,7 +678,7 @@ export default function ContentStudioEditor() {
 
   return (
     <>
-      <div className="flex-1 min-h-0 flex flex-col relative">
+      <div className="h-full flex flex-col relative overflow-hidden">
         {isMobile ? (
           <ContentStudioMobile
             briefName={brief.name}
@@ -666,7 +686,7 @@ export default function ContentStudioEditor() {
             totalCount={totalCount}
             canvases={canvases}
             activeCanvasId={activeId}
-            onSelectCanvas={setActiveId}
+            onSelectCanvas={setActiveIdWithFlush}
             onClose={() => navigate("/content-studio")}
             onChangeCopy={handleMobileCopyChange}
             onSaveCopy={handleMobileCopySave}
@@ -696,19 +716,19 @@ export default function ContentStudioEditor() {
           totalCount={totalCount}
           canvases={canvases}
           activeCanvasId={activeId}
-          onSelectCanvas={setActiveId}
+          onSelectCanvas={setActiveIdWithFlush}
           onSaveCreative={handleSaveCreative}
           onRegenerateVisual={handleRegenerateVisual}
           regenerating={regenerating}
           onApproveActive={handleApproveActive}
-          onSkipActive={() => {
+          onSkipActive={async () => {
             // Move focus to next non-failed canvas
             if (!activeId) return;
             const idx = canvases.findIndex((c) => c.id === activeId);
             const next =
               canvases.slice(idx + 1).find((c) => c.status !== "failed") ||
               canvases.find((c) => c.status !== "failed" && c.id !== activeId);
-            if (next) setActiveId(next.id);
+            if (next) await setActiveIdWithFlush(next.id);
           }}
           activeSchedule={activeSchedule}
           onRescheduleActive={handleReschedule}

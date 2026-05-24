@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MobileBottomSheet } from '@/components/ui/MobileBottomSheet';
 import { useState, forwardRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   LogOut, Shield, ChevronRight, Sparkles, Clock,
   Settings, Receipt, CreditCard, Headphones,
@@ -48,10 +49,11 @@ const BRAND_SCOPED_BASES = new Set([
 interface WorkspaceControlCenterProps {
   open: boolean;
   onClose: () => void;
+  dropdownRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceControlCenterProps>(
-  function WorkspaceControlCenter({ open, onClose }, ref) {
+  function WorkspaceControlCenter({ open, onClose, dropdownRef }, ref) {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, signOut } = useAuth();
@@ -259,14 +261,20 @@ export const WorkspaceControlCenter = forwardRef<HTMLDivElement, WorkspaceContro
         );
       }
 
-      return (
+      return createPortal(
         <div
-          ref={ref}
-          className="absolute z-50 bg-card border border-card-border shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 top-12 right-0 w-[320px] rounded-2xl flex flex-col"
-          style={{ maxHeight: '85vh' }}
+          ref={(el) => {
+            // Set both the forwarded ref and the dropdown ref for outside click detection
+            if (typeof ref === 'function') ref(el);
+            else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el;
+            if (dropdownRef) dropdownRef.current = el;
+          }}
+          className="fixed z-[100] bg-background border border-border shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 rounded-2xl flex flex-col"
+          style={{ maxHeight: '85vh', backgroundColor: 'hsl(var(--background))', top: '3.5rem', right: '1rem', width: '320px' }}
         >
           {body}
-        </div>
+        </div>,
+        document.body
       );
     })();
 

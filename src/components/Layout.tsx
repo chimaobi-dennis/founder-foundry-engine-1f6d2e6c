@@ -8,9 +8,6 @@ import { Analytics } from "@vercel/analytics/react";
 
 const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/library", "/doc-studio", "/reel-builder", "/brand-dna"];
 
-// Workspace pages handle their own internal layout (Mentor, ContentCalendar)
-const workspacePaths = ["/mentor", "/content-calendar"];
-
 /**
  * Layout - Main application layout using shell architecture
  * Clean separation: no viewport mixing, no conditional overflow hacks
@@ -34,18 +31,14 @@ export function Layout() {
     return false;
   }) && !isEditorRoute;
 
-  const isWorkspace = workspacePaths.some(p =>
-    location.pathname === p || location.pathname.startsWith(p + "/")
-  );
-
   return (
     <>
       <NavigationProgress />
 
       {isMobile ? (
-        <MobileLayout showBrandBar={showBrandBar} isWorkspace={isWorkspace} />
+        <MobileLayout showBrandBar={showBrandBar} isEditor={isEditorRoute} />
       ) : (
-        <DesktopLayout showBrandBar={showBrandBar} isWorkspace={isWorkspace} />
+        <DesktopLayout showBrandBar={showBrandBar} isEditor={isEditorRoute} />
       )}
 
       <Analytics />
@@ -59,10 +52,10 @@ export function Layout() {
 
 interface MobileLayoutProps {
   showBrandBar: boolean;
-  isWorkspace: boolean;
+  isEditor?: boolean;
 }
 
-function MobileLayout({ showBrandBar, isWorkspace }: MobileLayoutProps) {
+function MobileLayout({ showBrandBar, isEditor }: MobileLayoutProps) {
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden bg-background">
       {/* TopBar - sticky at top */}
@@ -77,19 +70,13 @@ function MobileLayout({ showBrandBar, isWorkspace }: MobileLayoutProps) {
         </div>
       )}
 
-      {/* Content area - single scroll container */}
+      {/* Content area - single scroll container (disabled for editors) */}
       <main
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative"
+        className={`flex-1 min-h-0 ${isEditor ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative`}
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {isWorkspace ? (
-          // Workspace pages handle their own internal scroll
-          <div className="h-full overflow-hidden">
-            <Outlet />
-          </div>
-        ) : (
-          // Regular pages scroll naturally
-          <div className="pb-20">
+        {isEditor ? <Outlet /> : (
+          <div className="min-h-full pb-20">
             <Outlet />
           </div>
         )}
@@ -109,10 +96,10 @@ function MobileLayout({ showBrandBar, isWorkspace }: MobileLayoutProps) {
 
 interface DesktopLayoutProps {
   showBrandBar: boolean;
-  isWorkspace: boolean;
+  isEditor?: boolean;
 }
 
-function DesktopLayout({ showBrandBar, isWorkspace }: DesktopLayoutProps) {
+function DesktopLayout({ showBrandBar, isEditor }: DesktopLayoutProps) {
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden bg-background">
       {/* TopBar */}
@@ -132,22 +119,12 @@ function DesktopLayout({ showBrandBar, isWorkspace }: DesktopLayoutProps) {
         {/* Desktop Sidebar */}
         <AppSidebar />
 
-        {/* Content */}
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col relative">
-          {isWorkspace ? (
-            // Workspace: Page handles internal layout (3-panel)
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <Outlet />
-            </div>
-          ) : (
-            // Regular: Single scroll container
-            <div
-              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
-              style={{ WebkitOverflowScrolling: "touch" }}
-            >
-              <Outlet />
-            </div>
-          )}
+        {/* Content - scroll container (disabled for editors) */}
+        <main
+          className={`flex-1 min-w-0 min-h-0 ${isEditor ? 'overflow-hidden' : 'overflow-y-auto'} overflow-x-hidden relative`}
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          <Outlet />
         </main>
       </div>
     </div>

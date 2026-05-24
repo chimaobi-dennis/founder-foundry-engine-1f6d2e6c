@@ -261,6 +261,15 @@ export function SceneStoreProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.document]);
 
+  // Update document when initialDocument changes (canvas switch)
+  const prevDocRef = useRef(initialDocument);
+  useEffect(() => {
+    if (initialDocument !== prevDocRef.current) {
+      prevDocRef.current = initialDocument;
+      dispatch({ type: 'apply_scene', document: initialDocument });
+    }
+  }, [initialDocument]);
+
   const selectedNode = useMemo(
     () => (state.selectedIds[0] ? findNode(state.document.nodes, state.selectedIds[0]) : null),
     [state.selectedIds, state.document.nodes]

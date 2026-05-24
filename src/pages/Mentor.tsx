@@ -1958,9 +1958,9 @@ Be selective — only mark significant shifts, not minor tangents.`,
     return (
       <>
         <style>{shimmerStyles}</style>
-        <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full animate-in fade-in duration-500">
+        <div className="h-full flex flex-row overflow-hidden w-full max-w-full animate-in fade-in duration-500">
           {/* Left sidebar skeleton - BrandMilestonePanel */}
-          <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 h-full border-r border-border bg-background/40 p-4 space-y-4 hidden md:block overflow-y-auto overflow-x-hidden">
+          <aside className="w-[260px] flex-shrink-0 min-w-0 h-full border-r border-border bg-background/40 p-4 space-y-4 hidden md:block overflow-y-auto overflow-x-hidden">
             {/* Brand selector skeleton */}
             <div className="flex items-center gap-2 p-2">
               <div className="w-8 h-8 rounded-lg bg-muted/50 animate-shimmer" />
@@ -2082,7 +2082,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
           </div>
 
           {/* Right sidebar skeleton - BrandDNAPanel */}
-          <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 h-full border-l border-border bg-background/40 p-4 space-y-4 hidden lg:block overflow-y-auto overflow-x-hidden">
+          <aside className="w-[360px] flex-shrink-0 min-w-0 h-full border-l border-border bg-background/40 p-4 space-y-4 hidden lg:block overflow-y-auto overflow-x-hidden">
             {/* Header skeleton */}
             <div className="flex items-center justify-between pb-4 border-b border-border">
               <div className="h-4 w-32 bg-muted/50 rounded animate-shimmer" />
@@ -2114,9 +2114,9 @@ Be selective — only mark significant shifts, not minor tangents.`,
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
+    <div className="h-full flex flex-row overflow-hidden w-full max-w-full" style={{ minWidth: 0 }}>
       {showLeftInline ? (
-        <aside className="w-[260px] flex-shrink-0 min-w-0 min-h-0 h-full border-r border-border bg-background/40 overflow-y-auto overflow-x-hidden">
+        <aside className="w-[260px] flex-shrink-0 min-w-0 h-full border-r border-border bg-background/40 overflow-y-auto overflow-x-hidden">
           <BrandMilestonePanel
             brands={brands}
             activeBrand={currentActiveBrand}
@@ -2158,7 +2158,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
         </Sheet>
       )}
 
-      <div className="flex-1 min-w-0 min-h-0 max-w-full flex flex-col overflow-hidden relative" style={{ boxSizing: "border-box" }}>
+      <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden relative" style={{ boxSizing: "border-box" }}>
         {/* Mobile toolbar — visible below md breakpoint, matches AppSidebar's mobile nav */}
         <div className="flex md:hidden h-10 items-center px-3 gap-2 border-b border-border flex-shrink-0">
           <button onClick={() => setLeftOpen(true)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
@@ -2232,7 +2232,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
       </div>
 
       {showRightInline ? (
-        <aside className="w-[360px] flex-shrink-0 min-w-0 min-h-0 h-full border-l border-border bg-background/40 overflow-y-auto overflow-x-hidden">
+        <aside className="w-[360px] flex-shrink-0 min-w-0 h-full border-l border-border bg-background/40 overflow-y-auto overflow-x-hidden">
           <BrandDNAPanel
             fields={activeBrandData?.dnaFields || emptyDNAFields}
             highlightField={highlightDNAField}

@@ -1,6 +1,7 @@
 import { PointerEvent as RPE, useCallback, useEffect, useMemo, useRef, useState, WheelEvent as RWE } from "react";
+import { cn } from "@/lib/utils";
 import type { SceneNode, CameraState, SceneBounds } from "@/types/scene";
-import { screenToWorld, screenToWorldDim, worldToScreen, worldToScreenDim, getSceneBounds } from "@/types/scene";
+import { worldToScreen, worldToScreenDim, getSceneBounds } from "@/types/scene";
 import { useSceneStore, sceneHelpers } from "./sceneStore";
 import { SceneNodeRenderer } from "./SceneNodeRenderer";
 import { SceneSelectionOverlay } from "./SceneSelectionOverlay";
@@ -9,6 +10,14 @@ interface Props {
   className?: string;
   /** Show debug overlay with viewport/world bounds */
   debug?: boolean;
+  /** External zoom control (e.g., from toolbar) */
+  zoom?: number;
+  /** Canvas width in pixels (like EditableCanvas) */
+  width?: number;
+  /** Canvas height in pixels (like EditableCanvas) */
+  height?: number;
+  /** When true, scene artboard fills the provided width/height exactly (like HTML forceFillStage) */
+  forceFillStage?: boolean;
 }
 
 /**
@@ -26,9 +35,22 @@ interface Props {
  * - World coordinates of nodes never change
  * - Camera offset adjusted to maintain cursor world position
  */
-export function SceneCanvas({ className, debug = false }: Props) {
+export function SceneCanvas({ className, debug = false, zoom: externalZoom, width, height, forceFillStage }: Props) {
   const store = useSceneStore();
   const { document, selectedIds, camera, setSelection, setCamera, dispatch } = store;
+
+  // Use provided dimensions if forceFillStage or if explicitly provided
+  // Otherwise fall back to document dimensions
+  const canvasWidth = (forceFillStage && width) ? width : (width ?? document.width);
+  const canvasHeight = (forceFillStage && height) ? height : (height ?? document.height);
+  const zoom = externalZoom ?? 1;
+
+  // Artboard dimensions - when forceFillStage, artboard fills the canvas exactly
+  const artboardWidth = forceFillStage ? canvasWidth : document.width;
+  const artboardHeight = forceFillStage ? canvasHeight : document.height;
+
+  // CSS transform approach like EditableCanvas - no camera zoom needed
+  // Camera only handles pan (x, y), zoom is applied via CSS transform
   const viewportRef = useRef<HTMLDivElement>(null);
   const didInitialCenterRef = useRef(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -55,11 +77,11 @@ export function SceneCanvas({ className, debug = false }: Props) {
   // Compute world bounds for debug
   const worldBounds = useMemo(() => getSceneBounds(document), [document]);
 
-  // ─── Center and fit camera on content on initial mount ─────────
-  // This ensures the design is centered and fully visible like in HTML mode.
-  // Calculates zoom to fit content into viewport with padding.
-  // Runs once per document change (e.g., when switching platforms).
-  const docKey = useMemo(() => `${document.width}x${document.height}-${document.nodes.length}-${document.nodes[0]?.id || 'empty'}`, [document]);
+  // ─── Center content on initial mount ─────────
+  // Centers the artboard in the viewport at zoom 1 (like HTML mode).
+  // The external zoom prop controls scale via CSS transform.
+  // Include canvas dimensions in key so centering resets when platform changes
+  const docKey = useMemo(() => `${canvasWidth}x${canvasHeight}-${document.width}x${document.height}-${document.nodes.length}`, [canvasWidth, canvasHeight, document.width, document.height, document.nodes.length]);
 
   // Reset centering when document changes (platform switch)
   useEffect(() => {
@@ -69,30 +91,24 @@ export function SceneCanvas({ className, debug = false }: Props) {
   useEffect(() => {
     if (didInitialCenterRef.current) return;
     if (viewportSize.width === 0 || viewportSize.height === 0) return;
-    if (worldBounds.width === 0 || worldBounds.height === 0) return;
 
-    // Center on the actual content bounds
-    const contentCenterX = worldBounds.minX + worldBounds.width / 2;
-    const contentCenterY = worldBounds.minY + worldBounds.height / 2;
+    // Determine artboard dimensions
+    const boardW = forceFillStage ? canvasWidth : document.width;
+    const boardH = forceFillStage ? canvasHeight : document.height;
 
-    // Calculate zoom to fit content into viewport with 10% padding
-    const padding = 0.1; // 10% padding around content
-    const availableWidth = viewportSize.width * (1 - padding * 2);
-    const availableHeight = viewportSize.height * (1 - padding * 2);
-    const scaleX = availableWidth / worldBounds.width;
-    const scaleY = availableHeight / worldBounds.height;
-    const fitZoom = Math.max(0.1, Math.min(1.5, Math.min(scaleX, scaleY)));
-
-    // Camera position to center the content in viewport with fit zoom
-    const targetCamera = {
-      x: -contentCenterX * fitZoom,
-      y: -contentCenterY * fitZoom,
-      zoom: fitZoom,
-    };
+    // Camera position: when forceFillStage, artboard fills viewport from (0,0)
+    // Otherwise center the artboard in the viewport
+    const targetCamera = forceFillStage
+      ? { x: 0, y: 0, zoom: 1 } // Top-left aligned, fills viewport
+      : {
+          x: (viewportSize.width - boardW) / 2,
+          y: (viewportSize.height - boardH) / 2,
+          zoom: 1,
+        };
 
     setCamera(targetCamera);
     didInitialCenterRef.current = true;
-  }, [viewportSize.width, viewportSize.height, worldBounds, setCamera]);
+  }, [viewportSize.width, viewportSize.height, canvasWidth, canvasHeight, document.width, document.height, forceFillStage, setCamera]);
 
   // Sorted nodes by zIndex
   const sorted = useMemo(() => [...document.nodes].sort((a, b) => a.zIndex - b.zIndex), [document.nodes]);
@@ -187,43 +203,14 @@ export function SceneCanvas({ className, debug = false }: Props) {
     }
   }, [isSpacePressed, startPan, setSelection]);
 
-  // ─── Zoom with cursor focus preservation ─────────────────────
+  // ─── Pan with wheel ─────────────────────
+  // Zoom is handled externally via CSS transform (like HTML mode)
   const onWheel = useCallback((e: RWE<HTMLDivElement>) => {
-    if (!viewportRef.current) return;
-
-    // Ctrl/Cmd + wheel = zoom
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-
-      // Get cursor position in viewport
-      const rect = viewportRef.current.getBoundingClientRect();
-      const cursorScreenX = e.clientX - rect.left;
-      const cursorScreenY = e.clientY - rect.top;
-
-      // Convert cursor position to world before zoom
-      const cursorWorldBefore = screenToWorld(cursorScreenX, cursorScreenY, camera, viewportCenter.x, viewportCenter.y);
-
-      // Calculate new zoom
-      const delta = -e.deltaY * 0.002;
-      const newZoom = Math.max(0.1, Math.min(5, camera.zoom * (1 + delta)));
-
-      // Adjust camera so that cursor world position stays the same
-      // worldX = (screenX - viewportCenterX - cameraX) / zoom
-      // Solve for new cameraX:
-      // cursorWorldBefore.x = (cursorScreenX - viewportCenterX - newCameraX) / newZoom
-      // newCameraX = cursorScreenX - viewportCenterX - cursorWorldBefore.x * newZoom
-      const newCameraX = cursorScreenX - viewportCenter.x - cursorWorldBefore.x * newZoom;
-      const newCameraY = cursorScreenY - viewportCenter.y - cursorWorldBefore.y * newZoom;
-
-      setCamera({ x: newCameraX, y: newCameraY, zoom: newZoom });
-      return;
-    }
-
-    // Regular wheel = pan (unless shift for horizontal)
+    // Wheel = pan (shift for horizontal)
     const dx = e.shiftKey ? -e.deltaY : -e.deltaX;
     const dy = e.shiftKey ? 0 : -e.deltaY;
     setCamera({ ...camera, x: camera.x + dx, y: camera.y + dy });
-  }, [camera, setCamera, viewportCenter]);
+  }, [camera, setCamera]);
 
   // ─── Node Dragging ───────────────────────────────────────────
   const onNodePointerDownCapture = useCallback((e: RPE<HTMLDivElement>) => {
@@ -283,90 +270,95 @@ export function SceneCanvas({ className, debug = false }: Props) {
 
   // ─── Render ─────────────────────────────────────────────────
   return (
+    // CSS transform approach like EditableCanvas
+    // Outer container sized at scaled dimensions, clips the scaled content
     <div
-      ref={viewportRef}
-      data-scene-viewport
-      onWheel={onWheel}
-      onPointerDown={onViewportPointerDown}
-      className={className}
+      className={cn("overflow-hidden rounded-sm relative bg-white", className)}
       style={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
-        // Neutral workspace base - no tint, no backing surface
-        // Artboard floats directly on this with its own background
-        background: "hsl(var(--background))",
-        cursor: isPanning ? "grabbing" : isSpacePressed ? "grab" : "default",
+        width: canvasWidth * zoom,
+        height: canvasHeight * zoom,
       }}
     >
-      {/* World Layer — NO overflow clipping, infinite extent */}
+      {/* Viewport — actual scene at native size, scaled via transform */}
       <div
+        ref={viewportRef}
+        data-scene-viewport
+        onWheel={onWheel}
+        onPointerDown={onViewportPointerDown}
         style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: 0,
-          height: 0,
-          // Camera transform: viewport center + camera offset, then scale
-          transform: `
-            translate(${viewportCenter.x + camera.x}px, ${viewportCenter.y + camera.y}px)
-            scale(${camera.zoom})
-          `,
-          transformOrigin: "0 0",
-          // No overflow, no fixed dimensions — infinite world
+          position: "relative",
+          width: canvasWidth,
+          height: canvasHeight,
+          background: "hsl(var(--background))",
+          cursor: isPanning ? "grabbing" : isSpacePressed ? "grab" : "default",
+          transform: `scale(${zoom})`,
+          transformOrigin: "top left",
         }}
       >
-        {/* Scene Artboard Frame — exact scene dimensions, clips all content */}
+        {/* World Layer — NO overflow clipping, infinite extent */}
         <div
           style={{
             position: "absolute",
             left: 0,
             top: 0,
-            width: document.width,
-            height: document.height,
-            // MUST be opaque - workspace never leaks through
-            background: document.background,
-            // Strict clipping to scene bounds - no bleed outside
-            overflow: "hidden",
-            // Visible boundary against workspace
-            outline: "1px solid rgba(0,0,0,0.12)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+            width: 0,
+            height: 0,
+            // Camera transform: viewport center + camera offset (zoom is 1, handled by CSS)
+            transform: `
+              translate(${viewportCenter.x + camera.x}px, ${viewportCenter.y + camera.y}px)
+              scale(1)
+            `,
+            transformOrigin: "0 0",
           }}
         >
-          {/* Scene Nodes — rendered inside clipped artboard */}
+          {/* Scene Artboard Frame — exact scene dimensions (or canvas size if forceFillStage) */}
           <div
-            data-scene-world
-            onPointerDownCapture={onNodePointerDownCapture}
             style={{
               position: "absolute",
               left: 0,
               top: 0,
-              width: "100%",
-              height: "100%",
+              width: artboardWidth,
+              height: artboardHeight,
+              background: document.background,
+              overflow: "hidden",
+              outline: "1px solid rgba(0,0,0,0.12)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
           >
-            {sorted.map((node) => (
-              <SceneNodeRenderer key={node.id} node={node} />
-            ))}
+            {/* Scene Nodes — rendered inside clipped artboard */}
+            <div
+              data-scene-world
+              onPointerDownCapture={onNodePointerDownCapture}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "100%",
+                height: "100%",
+              }}
+            >
+              {sorted.map((node) => (
+                <SceneNodeRenderer key={node.id} node={node} />
+              ))}
+            </div>
           </div>
+
+          {/* Selection Overlays — OUTSIDE clipped artboard so handles are visible at edges */}
+          {selected.map((n) => (
+            <SceneSelectionOverlay key={`ov-${n.id}`} node={n} camera={{ ...camera, zoom: 1 }} />
+          ))}
         </div>
 
-        {/* Selection Overlays — OUTSIDE clipped artboard so handles are visible at edges */}
-        {selected.map((n) => (
-          <SceneSelectionOverlay key={`ov-${n.id}`} node={n} camera={camera} />
-        ))}
+        {/* Debug Overlay */}
+        {debug && (
+          <SceneCameraDebugOverlay
+            camera={{ ...camera, zoom: 1 }}
+            viewportSize={viewportSize}
+            viewportCenter={viewportCenter}
+            worldBounds={worldBounds}
+          />
+        )}
       </div>
-
-      {/* Debug Overlay */}
-      {debug && (
-        <SceneCameraDebugOverlay
-          camera={camera}
-          viewportSize={viewportSize}
-          viewportCenter={viewportCenter}
-          worldBounds={worldBounds}
-        />
-      )}
     </div>
   );
 }

@@ -35,30 +35,28 @@ const ReelBuilder = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-0 flex-1">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
-        {state === "home" ? (
-          <ReelHome
-            brandName={activeBrand?.name || "Roast & Co"}
-            onNewReel={handleNewReel}
-            onOpenRecent={handleOpenRecent}
-            onUseTemplate={handleUseTemplate}
-          />
-        ) : state === "brief" ? (
-          <ReelBrief
-            onBack={() => setState("home")}
-            onBuild={handleBuild}
-            loading={loading}
-            initialTopic={briefPrefill.topic}
-            initialTone={briefPrefill.tone}
-          />
-        ) : (
-          <ReelStoryboard
-            onBackToHome={() => setState("home")}
-            onEditBrief={() => setState("brief")}
-          />
-        )}
-      </div>
+    <div className="min-h-full">
+      {state === "home" ? (
+        <ReelHome
+          brandName={activeBrand?.name || "Roast & Co"}
+          onNewReel={handleNewReel}
+          onOpenRecent={handleOpenRecent}
+          onUseTemplate={handleUseTemplate}
+        />
+      ) : state === "brief" ? (
+        <ReelBrief
+          onBack={() => setState("home")}
+          onBuild={handleBuild}
+          loading={loading}
+          initialTopic={briefPrefill.topic}
+          initialTone={briefPrefill.tone}
+        />
+      ) : (
+        <ReelStoryboard
+          onBackToHome={() => setState("home")}
+          onEditBrief={() => setState("brief")}
+        />
+      )}
     </div>
   );
 };

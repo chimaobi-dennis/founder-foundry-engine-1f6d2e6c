@@ -58,6 +58,7 @@ export function TopBar() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const controlCenterRef = useRef<HTMLDivElement>(null);
+  const controlCenterDropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const fullName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
@@ -125,7 +126,9 @@ export function TopBar() {
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       if (isMobile) return;
-      if (controlCenterRef.current && !controlCenterRef.current.contains(target)) {
+      const insideControlCenterButton = controlCenterRef.current?.contains(target);
+      const insideControlCenterDropdown = controlCenterDropdownRef.current?.contains(target);
+      if (!insideControlCenterButton && !insideControlCenterDropdown) {
         setControlCenterOpen(false);
       }
       if (notifRef.current && !notifRef.current.contains(target)) {
@@ -278,6 +281,7 @@ export function TopBar() {
           <WorkspaceControlCenter
             open={controlCenterOpen}
             onClose={() => setControlCenterOpen(false)}
+            dropdownRef={controlCenterDropdownRef}
           />
         </div>
       </div>

@@ -555,7 +555,7 @@ export function ChatPanel({
   );
 
   return (
-    <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden max-w-full relative" style={{ boxSizing: "border-box" }}>
+    <div className="flex-1 min-h-0 min-w-0 flex flex-col max-w-full relative" style={{ boxSizing: "border-box" }}>
       {/* Chat messages — only scrollable region */}
       <div className={cn("flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden")} ref={scrollAreaRef} style={{ minWidth: 0 }}>
         <div className={cn(
@@ -1123,8 +1123,8 @@ export function ChatPanel({
         <ArrowDown size={18} />
       </button>
 
-      {/* Input bar — anchored bottom of working session */}
-      <div className="flex-shrink-0 border-t border-white/[0.06] bg-background z-10 pb-14 md:pb-0">
+      {/* Input bar — fixed at bottom */}
+      <div className="sticky bottom-0 border-t border-white/[0.06] bg-background z-10 pb-14 md:pb-0">
         {/* Pre-fill indicator when retrying a message */}
         {unansweredMessageId && inputValue && (
           <div style={{ 

@@ -209,29 +209,30 @@ export function PhysicalProductTab({ brandName }: Props) {
         </button>
       </div>
 
-      <div className="flex gap-0 overflow-hidden" style={{ minHeight: 0 }}>
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
-          <TemplateGrid 
-            templates={templates} 
-            categories={categories} 
-            onSelect={handleTemplateSelect} 
-            brandName={brandName} 
-            templateType="physical" 
-            loading={loading}
-          />
-        </div>
+      {/* Main content */}
+      <TemplateGrid 
+        templates={templates} 
+        categories={categories} 
+        onSelect={handleTemplateSelect} 
+        brandName={brandName} 
+        templateType="physical" 
+        loading={loading}
+      />
 
-        {/* Right sidebar */}
-        <div
-          className="flex-shrink-0 overflow-hidden transition-all duration-200 ease-in-out"
-          style={{ width: sidebarOpen ? 240 : 0, borderLeft: sidebarOpen ? "0.5px solid hsl(var(--border))" : "none" }}
-        >
-          <div className="w-[240px] h-full">
+      {/* Overlay sidebar - slides in from right */}
+      {sidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/20 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
+          {/* Sidebar panel */}
+          <div className="fixed top-[100px] right-4 h-[calc(100vh-120px)] w-[280px] bg-background border border-border rounded-xl shadow-2xl z-50 animate-in slide-in-from-right duration-200 overflow-hidden">
             <ProductImagesSidebar onClose={() => setSidebarOpen(false)} />
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       <CreatorBanner />
 
