@@ -1,7 +1,7 @@
 import { PointerEvent as RPE, useCallback, useEffect, useMemo, useRef, useState, WheelEvent as RWE } from "react";
 import { cn } from "@/lib/utils";
 import type { SceneNode, CameraState, SceneBounds } from "@/types/scene";
-import { worldToScreen, worldToScreenDim, getSceneBounds } from "@/types/scene";
+import { worldToScreen, worldToScreenDim, screenToWorldDim, getSceneBounds } from "@/types/scene";
 import { useSceneStore, sceneHelpers } from "./sceneStore";
 import { SceneNodeRenderer } from "./SceneNodeRenderer";
 import { SceneSelectionOverlay } from "./SceneSelectionOverlay";

@@ -5,6 +5,7 @@ import { SceneCanvas } from "./SceneCanvas";
 import { SceneToolbar } from "./SceneToolbar";
 import { SceneLayersPanel } from "./SceneLayersPanel";
 import { ScenePropertiesPanel } from "./ScenePropertiesPanel";
+import { FitToViewport } from "./FitToViewport";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -45,7 +46,7 @@ function SceneEditorInner({
   rightPanel?: ReactNode;
   copilotPanel?: ReactNode;
 }) {
-  const { focusMode, aiPending, aiMessage } = useSceneStore();
+  const { focusMode, aiPending, aiMessage, document: doc, camera } = useSceneStore();
 
   return (
     <div className="flex flex-col h-full w-full bg-background text-foreground">
@@ -70,9 +71,22 @@ function SceneEditorInner({
           {leftPanel ?? <SceneLayersPanel />}
         </aside>
 
-        {/* Main canvas */}
-        <main className="flex-1 min-w-0 relative">
-          <SceneCanvas />
+        {/* Main canvas — auto-fits to available viewport */}
+        <main className="flex-1 min-w-0 relative overflow-hidden">
+          <FitToViewport
+            sceneWidth={doc.width}
+            sceneHeight={doc.height}
+            userZoom={camera.zoom || 1}
+          >
+            {({ finalScale }) => (
+              <SceneCanvas
+                width={doc.width}
+                height={doc.height}
+                zoom={finalScale}
+                forceFillStage
+              />
+            )}
+          </FitToViewport>
 
           {/* AI status indicator */}
           {aiPending && (
