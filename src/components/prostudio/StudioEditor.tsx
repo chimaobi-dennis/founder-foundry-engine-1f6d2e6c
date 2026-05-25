@@ -376,30 +376,50 @@ export function StudioEditor({
 
   // Calculate fit-to-screen scale — recompute on container resize so the
   // canvas always shrinks to fit with no extra white space below.
+  //
+  // Measurements run inside requestAnimationFrame so we read sizes AFTER
+  // layout has settled. Without this, sibling panels still transitioning
+  // in could yield a tiny pre-layout container size, pinning the editor
+  // to ~14% zoom on Content Studio mode.
   useEffect(() => {
     const container = canvasContainerRef.current;
     if (!container) return;
+    let rafId = 0;
     const recalc = () => {
-      const availableWidth = container.clientWidth || 800;
-      const availableHeight = container.clientHeight || 600;
-      // Platform-aware padding: occupancy_target dictates breathing room.
-      const pad = getPreviewPadding(activePlatformConfig);
-      const padding = mode === 'content-studio' ? Math.max(24, pad.x + pad.y + 16) : 64;
-      const next = Math.min(
-        (availableWidth - padding) / canvasSize.width,
-        (availableHeight - padding) / canvasSize.height,
-      );
-      const clamped = Math.max(0.1, Math.min(2, next));
-      setFitScale(clamped);
-      // Auto-fit zoom in content-studio mode (resizable). For prostudio, only
-      // set initial fit on first measurement so user zoom is preserved.
-      if (mode === "content-studio") setZoom(clamped);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const rect = container.getBoundingClientRect();
+        const availableWidth = rect.width || container.clientWidth || 800;
+        const availableHeight = rect.height || container.clientHeight || 600;
+        // Guard: ignore pre-layout / collapsed measurements. A later
+        // ResizeObserver tick will fire with real dimensions.
+        if (availableWidth < 80 || availableHeight < 80) return;
+
+        const pad = getPreviewPadding(activePlatformConfig);
+        const padding = mode === 'content-studio' ? Math.max(24, pad.x + pad.y + 16) : 64;
+        const next = Math.min(
+          (availableWidth - padding) / canvasSize.width,
+          (availableHeight - padding) / canvasSize.height,
+        );
+        const clamped = Math.max(0.1, Math.min(2, next));
+        setFitScale(clamped);
+        // Auto-fit zoom in content-studio mode (resizable). For prostudio, only
+        // set initial fit on first measurement so user zoom is preserved.
+        if (mode === "content-studio") setZoom(clamped);
+      });
     };
     recalc();
     const ro = new ResizeObserver(recalc);
     ro.observe(container);
-    return () => ro.disconnect();
-  }, [mode, canvasSize.width, canvasSize.height, activePlatformConfig]);
+    window.addEventListener("resize", recalc);
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      window.removeEventListener("resize", recalc);
+    };
+    // Re-run when active canvas changes — a switched platform may have
+    // new dims AND the surrounding panels may have reflowed.
+  }, [mode, canvasSize.width, canvasSize.height, activePlatformConfig, activeCanvasId]);
 
   // ─── Export / Save to Library — internal (html2canvas + storage) ────────
   const stageHostElRef = useRef<HTMLDivElement | null>(null);
