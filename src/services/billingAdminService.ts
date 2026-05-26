@@ -236,7 +236,19 @@ export async function getBillingSettings(): Promise<BillingSettings> {
     return { ...DEFAULT_BILLING_SETTINGS };
   }
 
-  const value = data.setting_value as Partial<BillingSettings>;
+  // Parse JSON string from setting_value
+  let value: Partial<BillingSettings> = {};
+  try {
+    if (typeof data.setting_value === 'string') {
+      value = JSON.parse(data.setting_value) as Partial<BillingSettings>;
+    } else if (data.setting_value && typeof data.setting_value === 'object') {
+      value = data.setting_value as Partial<BillingSettings>;
+    }
+  } catch (parseError) {
+    console.error('[BillingAdmin] Failed to parse billing settings JSON:', parseError);
+    return { ...DEFAULT_BILLING_SETTINGS };
+  }
+
   return {
     stripe_live_mode: value.stripe_live_mode ?? DEFAULT_BILLING_SETTINGS.stripe_live_mode,
     free_trial_credits: value.free_trial_credits ?? DEFAULT_BILLING_SETTINGS.free_trial_credits,

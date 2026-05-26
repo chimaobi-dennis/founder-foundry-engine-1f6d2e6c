@@ -93,6 +93,8 @@ export default function Onboarding() {
       console.log(`Granted ${creditResult.amount} free trial credits to user ${user.id}`);
     } else if (!creditResult.success) {
       console.error("Failed to grant free trial credits:", creditResult.error);
+    } else if (creditResult.success && creditResult.amount === 0) {
+      console.warn("Free trial credits not configured or set to 0. User did not receive welcome credits.");
     }
 
     await refetch();
@@ -145,6 +147,8 @@ export default function Onboarding() {
         console.log(`Granted ${creditResult.amount} free trial credits to user ${user.id} (skipped onboarding)`);
       } else if (!creditResult.success) {
         console.error("Failed to grant free trial credits (skip flow):", creditResult.error);
+      } else if (creditResult.success && creditResult.amount === 0) {
+        console.warn("Free trial credits not configured or set to 0. User did not receive welcome credits (skip flow).");
       }
     }
     navigate("/home");
