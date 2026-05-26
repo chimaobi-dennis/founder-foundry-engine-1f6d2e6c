@@ -3,6 +3,8 @@ export interface MentorBrand {
   name: string;
   colorClass: string; // tailwind bg class
   startedDate: string;
+  onboarding_completed?: boolean;
+  onboarding_skipped?: boolean;
 }
 
 export type MilestoneCategory =

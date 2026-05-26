@@ -239,6 +239,8 @@ const Mentor = () => {
     name: brand.name,
     colorClass: "",
     startedDate: new Date(brand.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    onboarding_completed: brand.onboarding_completed,
+    onboarding_skipped: brand.onboarding_skipped,
   }));
 
   const activeBrandId = activeBrand?.id || "";
@@ -249,6 +251,8 @@ const Mentor = () => {
         name: activeBrand.name,
         colorClass: "",
         startedDate: new Date(activeBrand.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        onboarding_completed: activeBrand.onboarding_completed,
+        onboarding_skipped: activeBrand.onboarding_skipped,
       }
     : null;
 
@@ -393,6 +397,8 @@ const Mentor = () => {
         name: activeBrand.name,
         colorClass: "",
         startedDate: new Date(activeBrand.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        onboarding_completed: activeBrand.onboarding_completed,
+        onboarding_skipped: activeBrand.onboarding_skipped,
       };
 
       setBrandDataMap(prev => ({
@@ -453,12 +459,15 @@ const Mentor = () => {
     const checkOnboarding = async () => {
       const { data } = await (supabase as any)
         .from('brands')
-        .select('onboarding_completed')
+        .select('onboarding_completed, onboarding_skipped')
         .eq('id', activeBrandId)
         .single();
 
       setOnboardingCheckedFor(prev => new Set(prev).add(activeBrandId));
-      if (data && data.onboarding_completed === false) {
+      // Show onboarding if neither completed nor skipped
+      const isComplete = data?.onboarding_completed === true;
+      const isSkipped = data?.onboarding_skipped === true;
+      if (!isComplete && !isSkipped) {
         setShowOnboarding(true);
       }
     };
@@ -1593,6 +1602,9 @@ Be selective — only mark significant shifts, not minor tangents.`,
       };
     });
 
+    // Immediately mark as generating first message so ChatPanel with thinking UI shows
+    setFirstMessageBrands(prev => new Set(prev).add(brandId));
+
     setEmptyBrands(prev => {
       const next = { ...prev };
       delete next[brandId];
@@ -1600,7 +1612,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
     });
 
     handleAIResponse(brandId, [founderMsg]);
-  }, [activeBrandId, currentActiveBrand, handleAIResponse]);
+  }, [activeBrandId, currentActiveBrand, handleAIResponse, setFirstMessageBrands]);
 
   // ─── Milestone handlers ───────────────────────────────────────────────────
 
@@ -2158,7 +2170,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             return (
               <MentorEmptyState 
                 mode={activeEmptyMode} 
-                onboardingCompleted={currentActiveBrand?.onboarding_completed ?? true}
+                onboardingCompleted={currentActiveBrand?.onboarding_completed ?? false}
                 brandName={currentActiveBrand?.name}
                 onSubmit={handleEmptySubmit}
                 onStartSetup={() => setShowOnboarding(true)}
@@ -2208,7 +2220,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
           return (
             <MentorEmptyState 
               mode={activeEmptyMode || "new"} 
-              onboardingCompleted={currentActiveBrand?.onboarding_completed ?? true}
+              onboardingCompleted={currentActiveBrand?.onboarding_completed ?? false}
               brandName={currentActiveBrand?.name}
               onSubmit={handleEmptySubmit}
               onStartSetup={() => setShowOnboarding(true)}

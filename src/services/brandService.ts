@@ -165,6 +165,9 @@ export interface Brand {
   active_product_image_id?: string;
   journey_stage?: JourneyStage | null;
   journey_stage_updated_at?: string | null;
+  onboarding_completed?: boolean;
+  onboarding_skipped?: boolean;
+  context_source?: string;
   created_at: string;
 }
 

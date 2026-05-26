@@ -420,12 +420,12 @@ export const saveExtractedContext = async (
   }
 };
 
-// Mark fresh start (no prior context)
+// Mark fresh start (no prior context) — user skipped onboarding, track separately
 export const markFreshStart = async (brandId: string): Promise<void> => {
   await (supabase as any)
     .from('brands')
     .update({
-      onboarding_completed: true,
+      onboarding_skipped: true,
       context_source: 'fresh_start',
       updated_at: new Date().toISOString()
     })
