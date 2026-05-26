@@ -45,16 +45,23 @@ export function SceneCanvas({ className, debug = false, zoom: externalZoom, widt
   const canvasHeight = (forceFillStage && height) ? height : (height ?? document.height);
   const zoom = externalZoom ?? 1;
 
-  // Artboard dimensions - when forceFillStage, artboard fills the canvas exactly
-  const artboardWidth = forceFillStage ? canvasWidth : document.width;
-  const artboardHeight = forceFillStage ? canvasHeight : document.height;
-
   // CSS transform approach like EditableCanvas - no camera zoom needed
   // Camera only handles pan (x, y), zoom is applied via CSS transform
   const viewportRef = useRef<HTMLDivElement>(null);
-  const didInitialCenterRef = useRef(false);
+  const cameraRef = useRef(camera);
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+
+  // Mirror camera to ref to avoid stale closure in effects
+  useEffect(() => {
+    cameraRef.current = camera;
+  }, [camera]);
+
+  // ─── Center content on initial mount ─────────
+  // Centers the artboard in the viewport at zoom 1 (like HTML mode).
+  // The external zoom prop controls scale via CSS transform.
+  // Include canvas dimensions in key so centering resets when platform changes
+  const docKey = useMemo(() => `${canvasWidth}x${canvasHeight}-${document.width}x${document.height}-${document.nodes.length}`, [canvasWidth, canvasHeight, document.width, document.height, document.nodes.length]);
 
   // Viewport dimensions
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -67,48 +74,42 @@ export function SceneCanvas({ className, debug = false, zoom: externalZoom, widt
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [docKey]);
 
+  // Artboard always uses document dimensions (coordinate system)
+  // CSS transform handles fitting it to viewport when forceFillStage
+  const artboardWidth = document.width;
+  const artboardHeight = document.height;
+
+  // Viewport center for camera positioning
+  // When forceFillStage: use canvas dimensions (document size)
+  // Otherwise: use measured viewport size
   const viewportCenter = useMemo(() => ({
-    x: viewportSize.width / 2,
-    y: viewportSize.height / 2,
-  }), [viewportSize]);
+    x: forceFillStage ? canvasWidth / 2 : viewportSize.width / 2,
+    y: forceFillStage ? canvasHeight / 2 : viewportSize.height / 2,
+  }), [forceFillStage, canvasWidth, canvasHeight, viewportSize]);
 
   // Compute world bounds for debug
   const worldBounds = useMemo(() => getSceneBounds(document), [document]);
 
-  // ─── Center content on initial mount ─────────
-  // Centers the artboard in the viewport at zoom 1 (like HTML mode).
-  // The external zoom prop controls scale via CSS transform.
-  // Include canvas dimensions in key so centering resets when platform changes
-  const docKey = useMemo(() => `${canvasWidth}x${canvasHeight}-${document.width}x${document.height}-${document.nodes.length}`, [canvasWidth, canvasHeight, document.width, document.height, document.nodes.length]);
-
-  // Reset centering when document changes (platform switch)
+  // Camera positioning effect - runs when camera is at default (after store remount)
+  // Use ref to avoid stale closure issues when store remounts
   useEffect(() => {
-    didInitialCenterRef.current = false;
-  }, [docKey]);
-
-  useEffect(() => {
-    if (didInitialCenterRef.current) return;
+    const currentCamera = cameraRef.current;
+    if (!(currentCamera.x === 0 && currentCamera.y === 0 && currentCamera.zoom === 1)) return;
     if (viewportSize.width === 0 || viewportSize.height === 0) return;
 
-    // Determine artboard dimensions
-    const boardW = forceFillStage ? canvasWidth : document.width;
-    const boardH = forceFillStage ? canvasHeight : document.height;
-
-    // Camera position: when forceFillStage, artboard fills viewport from (0,0)
-    // Otherwise center the artboard in the viewport
     const targetCamera = forceFillStage
-      ? { x: 0, y: 0, zoom: 1 } // Top-left aligned, fills viewport
-      : {
-          x: (viewportSize.width - boardW) / 2,
-          y: (viewportSize.height - boardH) / 2,
-          zoom: 1,
-        };
+      // When filling stage: position camera so artboard fills viewport
+      // World origin (0,0) should map to viewport top-left corner
+      // Camera offset = -viewportCenter (in world coordinates)
+      ? { x: -canvasWidth / 2, y: -canvasHeight / 2, zoom: 1 }
+      // When not filling: center the artboard in the viewport
+      : { x: (viewportSize.width - document.width) / 2 - viewportSize.width / 2, y: (viewportSize.height - document.height) / 2 - viewportSize.height / 2, zoom: 1 };
 
     setCamera(targetCamera);
-    didInitialCenterRef.current = true;
-  }, [viewportSize.width, viewportSize.height, canvasWidth, canvasHeight, document.width, document.height, forceFillStage, setCamera]);
+  }, [viewportSize.width, viewportSize.height, document.width, document.height, forceFillStage, setCamera, canvasWidth, canvasHeight]);
+
 
   // Sorted nodes by zIndex
   const sorted = useMemo(() => [...document.nodes].sort((a, b) => a.zIndex - b.zIndex), [document.nodes]);
@@ -189,8 +190,8 @@ export function SceneCanvas({ className, debug = false, zoom: externalZoom, widt
   }, [camera, setCamera]);
 
   const onViewportPointerDown = useCallback((e: RPE<HTMLDivElement>) => {
-    // Middle mouse or space key triggers pan
-    if (e.button === 1 || isSpacePressed) {
+    // Middle mouse or space key triggers pan (but not in fill mode)
+    if ((e.button === 1 || isSpacePressed) && !forceFillStage) {
       e.preventDefault();
       startPan(e.clientX, e.clientY);
       return;
@@ -201,16 +202,20 @@ export function SceneCanvas({ className, debug = false, zoom: externalZoom, widt
     if (target.hasAttribute("data-scene-viewport")) {
       setSelection([]);
     }
-  }, [isSpacePressed, startPan, setSelection]);
+  }, [isSpacePressed, startPan, setSelection, forceFillStage]);
 
   // ─── Pan with wheel ─────────────────────
   // Zoom is handled externally via CSS transform (like HTML mode)
   const onWheel = useCallback((e: RWE<HTMLDivElement>) => {
+    if (forceFillStage) {
+      // In fill mode, don't pan - artboard fills viewport exactly
+      return;
+    }
     // Wheel = pan (shift for horizontal)
     const dx = e.shiftKey ? -e.deltaY : -e.deltaX;
     const dy = e.shiftKey ? 0 : -e.deltaY;
     setCamera({ ...camera, x: camera.x + dx, y: camera.y + dy });
-  }, [camera, setCamera]);
+  }, [camera, setCamera, forceFillStage]);
 
   // ─── Node Dragging ───────────────────────────────────────────
   const onNodePointerDownCapture = useCallback((e: RPE<HTMLDivElement>) => {
@@ -287,10 +292,11 @@ export function SceneCanvas({ className, debug = false, zoom: externalZoom, widt
         onPointerDown={onViewportPointerDown}
         style={{
           position: "relative",
+          // Viewport is always at document dimensions, CSS transform handles scaling
           width: canvasWidth,
           height: canvasHeight,
           background: "hsl(var(--background))",
-          cursor: isPanning ? "grabbing" : isSpacePressed ? "grab" : "default",
+          cursor: isPanning ? "grabbing" : (isSpacePressed && !forceFillStage) ? "grab" : "default",
           transform: `scale(${zoom})`,
           transformOrigin: "top left",
         }}
@@ -303,11 +309,8 @@ export function SceneCanvas({ className, debug = false, zoom: externalZoom, widt
             top: 0,
             width: 0,
             height: 0,
-            // Camera transform: viewport center + camera offset (zoom is 1, handled by CSS)
-            transform: `
-              translate(${viewportCenter.x + camera.x}px, ${viewportCenter.y + camera.y}px)
-              scale(1)
-            `,
+            // Camera transform: viewport center + camera offset
+            transform: `translate(${viewportCenter.x + camera.x}px, ${viewportCenter.y + camera.y}px) scale(1)`,
             transformOrigin: "0 0",
           }}
         >

@@ -250,6 +250,7 @@ export function SceneStoreProvider({
     aiPending: false,
     aiMessage: null,
   });
+  
 
   const firstRun = useRef(true);
   useEffect(() => {

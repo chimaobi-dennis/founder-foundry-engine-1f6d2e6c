@@ -16,6 +16,7 @@ import {
 } from "@/services/contentStudioService";
 import { deleteCalendarPost } from "@/services/calendarService";
 import { supabase } from "@/integrations/supabase/client";
+import { createVersion } from "@/services/versionService";
 import { StudioEditor } from "@/components/prostudio/StudioEditor";
 import { ContentStudioMobile } from "@/components/prostudio/content-studio/ContentStudioMobile";
 import type { SceneDocument } from "@/types/scene";
@@ -107,6 +108,7 @@ export default function ContentStudioEditor() {
           (b.content_platforms?.sort_order ?? 0)
       );
       setCreatives(cs);
+      
     } catch (e) {
       console.error(e);
       navigate('/content-studio');
@@ -243,6 +245,7 @@ export default function ContentStudioEditor() {
       setActiveIdWithFlush(canvases[0].id);
     }
   }, [canvases, activeId, creatives]);
+
 
   // Fetch schedule info for the active creative when it changes.
   useEffect(() => {
@@ -488,35 +491,74 @@ export default function ContentStudioEditor() {
     }
   };
 
+  // Save state tracking: 'saved' | 'saving' | 'unsaved'
+  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+
   // Debounced scene_json autosave — fires when user edits nodes in scene mode
   const sceneAutoSaveTimer = useRef<number | null>(null);
   const pendingSceneChange = useRef<{ creativeId: string; doc: SceneDocument } | null>(null);
 
   const flushSceneChanges = useCallback(async () => {
-    if (!pendingSceneChange.current) return;
+    if (!pendingSceneChange.current || !user || !brief) return;
     const { creativeId, doc } = pendingSceneChange.current;
+    setSaveState('saving');
     try {
       await db.from("content_studio_creatives").update({
         scene_json: doc as any,
       }).eq("id", creativeId);
       console.log("[SceneAutosave] Flushed scene_json for creative", creativeId);
+      
+      // Create a version snapshot after successful save
+      try {
+        console.log('[ContentStudioEditor] Creating version after save...');
+        const { versionId } = await createVersion(
+          {
+            creativeId,
+            briefId: brief.id,
+            sceneJson: doc,
+            sourceType: 'auto_snapshot',
+            sourceAction: 'autosave',
+          },
+          user.id
+        );
+        console.log('[ContentStudioEditor] Version created:', versionId);
+      } catch (versionErr) {
+        console.error('[ContentStudioEditor] Version creation failed:', versionErr);
+      }
+      
+      setSaveState('saved');
     } catch (e: any) {
       console.error("[SceneAutosave] Failed to flush scene_json:", e);
+      setSaveState('unsaved');
     }
     pendingSceneChange.current = null;
     if (sceneAutoSaveTimer.current) {
       window.clearTimeout(sceneAutoSaveTimer.current);
       sceneAutoSaveTimer.current = null;
     }
-  }, [db]);
+  }, [db, user, brief]);
 
   const handleSceneChange = useCallback((creativeId: string, doc: SceneDocument) => {
     pendingSceneChange.current = { creativeId, doc };
+    setSaveState('unsaved');
     if (sceneAutoSaveTimer.current) window.clearTimeout(sceneAutoSaveTimer.current);
     sceneAutoSaveTimer.current = window.setTimeout(async () => {
       await flushSceneChanges();
     }, 800);
   }, [flushSceneChanges]);
+
+  // Warn before unload if there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (saveState === 'unsaved' || saveState === 'saving' || pendingSceneChange.current) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [saveState]);
 
   // Cleanup autosave timer on unmount
   useEffect(() => {
@@ -529,7 +571,7 @@ export default function ContentStudioEditor() {
   const setActiveIdWithFlush = useCallback(async (id: string | null) => {
     await flushSceneChanges();
     setActiveId(id);
-  }, [flushSceneChanges]);
+  }, [flushSceneChanges, canvases, activeId]);
 
   if (loading) {
     return (
@@ -711,6 +753,7 @@ export default function ContentStudioEditor() {
           variationId={activeId || ""}
           brandId={activeBrand?.id}
           mode="content-studio"
+          briefId={brief.id}
           briefName={brief.name}
           readyCount={readyCount}
           totalCount={totalCount}
@@ -720,6 +763,7 @@ export default function ContentStudioEditor() {
           onSaveCreative={handleSaveCreative}
           onRegenerateVisual={handleRegenerateVisual}
           regenerating={regenerating}
+          saveState={saveState}
           onApproveActive={handleApproveActive}
           onSkipActive={async () => {
             // Move focus to next non-failed canvas

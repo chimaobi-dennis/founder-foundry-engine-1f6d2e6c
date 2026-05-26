@@ -10,6 +10,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   onElementsParsed: (els: StudioElement[]) => void;
   onElementMutated: () => void;
+  /** Called when a drag/resize operation starts (capture undo state here) */
+  onElementDragStart?: () => void;
   /** Reports the intrinsic size detected from the injected HTML root. */
   onIntrinsicSize?: (size: { width: number; height: number }) => void;
   // Lookup so canvas knows which elements are visible/locked from layers panel
@@ -215,6 +217,8 @@ export function EditableCanvas({
       `[data-studio-id="${CSS.escape(selectedId)}"]`,
     );
     if (!el) return;
+    // Capture undo state before any changes
+    onElementDragStart?.();
     const cs = window.getComputedStyle(el);
     dragRef.current = {
       mode,

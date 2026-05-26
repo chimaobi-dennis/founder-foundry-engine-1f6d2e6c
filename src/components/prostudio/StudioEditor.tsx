@@ -21,6 +21,7 @@ import {
   Maximize2,
   GripVertical,
   Check,
+  Clock,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import JSZip from "jszip";
@@ -31,6 +32,9 @@ import { CreativeData } from "./CreativeRenderer";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { SaveFormatModal, type SaveFormat } from "./SaveFormatModal";
+import { SaveStatusIndicator } from "@/components/prostudio/content-studio/SaveStatusIndicator";
+import { VersionHistoryPanel } from "@/components/prostudio/content-studio/VersionHistoryPanel";
+import { useVersionHistory } from "@/hooks/useVersionHistory";
 import { ExportModal, type ExportPlatform } from "./ExportModal";
 import {
   AlertDialog,
@@ -107,6 +111,8 @@ interface Props {
   onSetMainCanvas?: (id: string) => void;
   /** Mode: 'prostudio' (default) or 'content-studio' */
   mode?: 'prostudio' | 'content-studio';
+  /** Brief id for content-studio mode (required for versioning) */
+  briefId?: string;
   /** Brief name for content-studio mode */
   briefName?: string;
   /** Ready count for content-studio mode */
@@ -123,6 +129,8 @@ interface Props {
   onRegenerateVisual?: () => void;
   /** Whether the active canvas is currently regenerating */
   regenerating?: boolean;
+  /** Save state from parent: 'saved' | 'saving' | 'unsaved' */
+  saveState?: 'saved' | 'saving' | 'unsaved';
   /** Approve the active canvas (content-studio mode) */
   onApproveActive?: () => void;
   /** Skip active failed canvas (content-studio mode) — moves selection to next platform */
@@ -204,6 +212,7 @@ export function StudioEditor({
   onDeleteCanvas,
   onSetMainCanvas,
   mode = 'prostudio',
+  briefId,
   briefName,
   readyCount,
   totalCount,
@@ -212,6 +221,7 @@ export function StudioEditor({
   onSaveCreative,
   onRegenerateVisual,
   regenerating,
+  saveState,
   onApproveActive,
   onSkipActive,
   activeSchedule,
@@ -288,6 +298,7 @@ export function StudioEditor({
   const [exportProgress, setExportProgress] = useState<Record<string, number>>({});
   const [refreshKey, setRefreshKey] = useState(0);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+  
   // Intrinsic canvas size — detected from injected HTML so the stage matches
   // exactly what the AI generated (no stretching).
   const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({
@@ -301,15 +312,14 @@ export function StudioEditor({
   const [leftTab, setLeftTab] = useState<"layers" | "elements" | "platforms">("platforms");
   // Right panel tab (COPY | DESIGN) for content-studio mode
   const [rightTab, setRightTab] = useState<"copy" | "design">("copy");
+  // Version history panel
+  const [versionPanelOpen, setVersionPanelOpen] = useState(false);
 
-  // Unsaved changes
+  // Unsaved changes - only cleared on actual save, not by timer
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const autoSaveTimerRef = useRef<number | null>(null);
   const markDirty = useCallback(() => {
     setHasUnsavedChanges(true);
-    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = window.setTimeout(() => setHasUnsavedChanges(false), 1200);
   }, []);
 
   // Reset on reopen
@@ -319,13 +329,8 @@ export function StudioEditor({
       setZoom(0.7);
       setFitScale(0.7);
       setHasUnsavedChanges(false);
-      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
     }
   }, [open, variationId]);
-
-  useEffect(() => () => {
-    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current);
-  }, []);
 
   // Update canvas size per platform in content-studio mode.
   // Priority: PLATFORM dimensions (canvasWidth/canvasHeight) > NATIVE dimensions > default.
@@ -527,7 +532,6 @@ export function StudioEditor({
         // Use the live (edited) doc for the active canvas, otherwise original
         const sceneDoc = (canvasId === activeCanvasId && effectiveSceneDoc) || canvas.sceneJson as SceneDocument;
         try {
-          console.log(`[StudioEditor] Scene export for ${canvasId} via renderSceneToCanvas`);
           const sceneCanvas = await renderSceneToCanvas(sceneDoc, { pixelRatio });
           return sceneCanvas;
         } catch (e) {
@@ -852,10 +856,9 @@ export function StudioEditor({
         if (v == null) return;
         (el.style as unknown as Record<string, string>)[k] = v as string;
       });
-      bumpRefresh();
       markDirty();
     },
-    [selectedId, queryEl, bumpRefresh, markDirty, pushUndo],
+    [selectedId, queryEl, markDirty, pushUndo],
   );
 
   const applyAttr = useCallback(
@@ -865,10 +868,9 @@ export function StudioEditor({
       if (!el) return;
       pushUndo();
       Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
-      bumpRefresh();
       markDirty();
     },
-    [selectedId, queryEl, bumpRefresh, markDirty, pushUndo],
+    [selectedId, queryEl, markDirty, pushUndo],
   );
 
   const read = useCallback(
@@ -896,10 +898,12 @@ export function StudioEditor({
 
   // Layer ops
   const toggleVisibility = (id: string) => {
+    pushUndo();
     setElements((prev) => prev.map((e) => (e.id === id ? { ...e, visible: !e.visible } : e)));
     markDirty();
   };
   const toggleLock = (id: string) => {
+    pushUndo();
     setElements((prev) => prev.map((e) => (e.id === id ? { ...e, locked: !e.locked } : e)));
     markDirty();
   };
@@ -912,6 +916,7 @@ export function StudioEditor({
     const from = dragIdx.current;
     dragIdx.current = null;
     if (from == null || from === idx) return;
+    pushUndo();
     setElements((prev) => {
       const next = [...prev];
       const [m] = next.splice(from, 1);
@@ -923,7 +928,6 @@ export function StudioEditor({
       });
       return next;
     });
-    bumpRefresh();
     markDirty();
   };
 
@@ -963,10 +967,9 @@ export function StudioEditor({
         ...prev,
       ]);
       setSelectedId(studioId);
-      bumpRefresh();
       markDirty();
     },
-    [canvasSize, bumpRefresh, markDirty],
+    [canvasSize, markDirty],
   );
 
   if (!open) return null;
@@ -1041,6 +1044,25 @@ export function StudioEditor({
             <div className="h-8 px-3 flex items-center text-[11px] font-ui rounded-md tabular-nums text-muted-foreground bg-muted/40">
               {Math.round(canvasSize.width)} × {Math.round(canvasSize.height)} px
             </div>
+            {/* Save status indicator - shows saving/saved/unsaved state */}
+            {mode === "content-studio" && saveState && (
+              <SaveStatusIndicator
+                status={saveState}
+                className="ml-1"
+              />
+            )}
+            {/* Version history button */}
+            {mode === "content-studio" && activeCanvasId && (
+              <>
+                <div className="w-px h-5 mx-1.5 bg-border" />
+                <ToolbarButton
+                  title="Version History"
+                  onClick={() => setVersionPanelOpen(true)}
+                >
+                  <Clock size={15} />
+                </ToolbarButton>
+              </>
+            )}
             {mode === "content-studio" && onApproveAll && (
               <>
                 <div className="w-px h-5 mx-1.5 bg-border" />
@@ -1124,7 +1146,7 @@ export function StudioEditor({
         {/* Workspace — wrapped in SceneStoreProvider when in scene mode */}
         <SceneWorkspaceWrapper
           isSceneMode={isSceneMode}
-          sceneDoc={effectiveSceneDoc}
+          sceneDoc={activeSceneJson}
           canvasId={activeCanvasId}
           onSceneDocChange={handleSceneDocChange}
         >
@@ -1474,8 +1496,15 @@ export function StudioEditor({
                           selectedId={selectedId}
                           onSelect={setSelectedId}
                           onElementsParsed={setElements}
-                          onElementMutated={() => { bumpRefresh(); markDirty(); }}
-                          onIntrinsicSize={setCanvasSize}
+                          onElementMutated={() => { markDirty(); }}
+                          onElementDragStart={() => { pushUndo(); }}
+                          onIntrinsicSize={(size) => {
+                            // Only update canvasSize from HTML intrinsic size when NOT in scene mode
+                            // Scene mode uses platform dimensions exclusively
+                            if (!isSceneMode) {
+                              setCanvasSize(size);
+                            }
+                          }}
                           getElementState={getElementState}
                           refreshKey={refreshKey}
                           forceFillStage={mode === 'content-studio'}
@@ -1763,6 +1792,16 @@ export function StudioEditor({
         progress={exportProgress}
         variantMode={mode !== "content-studio"}
       />
+
+      {/* Version History Panel */}
+      {mode === "content-studio" && activeCanvasId && briefId && (
+        <VersionHistoryPanelWrapper
+          creativeId={activeCanvasId}
+          briefId={briefId}
+          isOpen={versionPanelOpen}
+          onClose={() => setVersionPanelOpen(false)}
+        />
+      )}
     </>
   );
 }
@@ -1814,5 +1853,65 @@ function ToolButton({
     >
       {children}
     </button>
+  );
+}
+
+// Wrapper component that connects VersionHistoryPanel to useVersionHistory hook
+function VersionHistoryPanelWrapper({
+  creativeId,
+  briefId,
+  isOpen,
+  onClose,
+}: {
+  creativeId: string;
+  briefId: string;
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  const {
+    versions,
+    currentVersion,
+    isLoading,
+    isRestoring,
+    hasMore,
+    refresh,
+    loadMore,
+    restore,
+    rename,
+    saveVersion,
+  } = useVersionHistory({
+    creativeId,
+    briefId,
+    sceneJson: null,
+    enableAutosave: false,
+  });
+
+  // Load data when panel opens - only once per open
+  const hasLoadedRef = useRef(false);
+  useEffect(() => {
+    if (isOpen && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      refresh();
+    }
+    if (!isOpen) {
+      hasLoadedRef.current = false;
+    }
+  }, [isOpen, refresh]);
+
+  return (
+    <VersionHistoryPanel
+      isOpen={isOpen}
+      onClose={onClose}
+      versions={versions}
+      currentVersionId={currentVersion?.id || null}
+      isLoading={isLoading}
+      isRestoring={isRestoring}
+      hasMore={hasMore}
+      onLoadMore={loadMore}
+      onRestore={restore}
+      onRename={rename}
+      onRefresh={refresh}
+      onSaveNamedVersion={(name) => saveVersion(name)}
+    />
   );
 }

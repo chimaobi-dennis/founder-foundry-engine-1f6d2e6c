@@ -28,6 +28,7 @@ import {
 import { calculateGenerationCredits } from "@/utils/calculateGenerationCredits";
 import { cn } from "@/lib/utils";
 import { useCreditBalance } from "@/hooks/use-credit-balance";
+import { usePricingModal } from "@/contexts/PricingModalContext";
 import {
   CreditBalanceBadge,
   GenerationCostPreview,
@@ -125,6 +126,7 @@ export default function ContentStudioNew() {
   const [billingCreditsCharged, setBillingCreditsCharged] = useState<number>(0);
   const [billingBalanceAfter, setBillingBalanceAfter] = useState<number>(0);
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
+  const { openPricingModal } = usePricingModal();
 
   // Pre-fill from brand
   useEffect(() => {
@@ -183,9 +185,9 @@ export default function ContentStudioNew() {
       return;
     }
 
-    // Pre-flight credit check (informational — server enforces atomically)
+    // Pre-flight credit check — if insufficient, show pricing modal
     if (insufficientCredits) {
-      setShowInsufficientModal(true);
+      openPricingModal({ currentBalance: balance });
       return;
     }
 
@@ -646,14 +648,14 @@ export default function ContentStudioNew() {
             balanceAfter={billingBalanceAfter}
           />
 
-          {/* Generate Button */}
+          {/* Generate / Top Up Button */}
           <button
             onClick={handleGenerate}
-            disabled={submitting || selectedPlatformIds.length === 0 || insufficientCredits}
+            disabled={submitting || selectedPlatformIds.length === 0}
             className={cn(
               "w-full h-14 rounded-xl font-ui text-[15px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg",
               insufficientCredits
-                ? "bg-destructive/80 text-destructive-foreground shadow-destructive/10 cursor-not-allowed"
+                ? "bg-destructive/80 text-destructive-foreground hover:bg-destructive shadow-destructive/10 cursor-pointer"
                 : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20"
             )}
           >
@@ -665,7 +667,7 @@ export default function ContentStudioNew() {
             ) : insufficientCredits ? (
               <span className="flex items-center justify-center gap-2">
                 <Coins size={16} />
-                Insufficient Credits
+                Top Up Credits
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
@@ -681,6 +683,7 @@ export default function ContentStudioNew() {
             onClose={() => setShowInsufficientModal(false)}
             balance={balance}
             required={credits}
+            onBuyCredits={() => openPricingModal({ currentBalance: balance })}
           />
         </div>
       </div>
