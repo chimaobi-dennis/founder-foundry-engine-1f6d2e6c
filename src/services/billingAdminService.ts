@@ -277,6 +277,66 @@ export async function updateBillingSettings(
 // MANUAL CREDIT GRANTS
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Grant free trial credits to a new user after onboarding completion.
+ * Reads free_trial_credits from billing settings and grants them as a bonus.
+ * Prevents duplicate grants by checking for existing free trial transactions.
+ */
+export async function grantFreeTrialCredits(userId: string): Promise<{ success: boolean; error?: string; amount?: number; transactionId?: string; balanceAfter?: number; alreadyGranted?: boolean }> {
+  try {
+    // Check if user already received free trial credits
+    const admin = getAdmin();
+    const { data: existingTransactions, error: checkError } = await admin
+      .from('wallet_transactions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('transaction_type', 'topup')
+      .filter('metadata->>description', 'ilike', '%free trial%')
+      .limit(1);
+
+    if (checkError) {
+      console.error('[BillingAdmin] Error checking for existing free trial:', checkError.message);
+    }
+
+    if (existingTransactions && existingTransactions.length > 0) {
+      console.log('[BillingAdmin] Free trial credits already granted to user:', userId);
+      return { success: true, amount: 0, alreadyGranted: true };
+    }
+
+    // Get the free trial credits amount from settings
+    const billingSettings = await getBillingSettings();
+    const freeTrialCredits = billingSettings.free_trial_credits ?? DEFAULT_BILLING_SETTINGS.free_trial_credits;
+
+    if (freeTrialCredits <= 0) {
+      return { success: true, amount: 0 }; // No free trial configured
+    }
+
+    // Grant the credits as a bonus
+    const result = await grantCreditsToUser({
+      userId,
+      amount: freeTrialCredits,
+      type: 'bonus',
+      description: `Free trial credits (${freeTrialCredits} credits)`,
+    });
+
+    if (result.success) {
+      console.log('[BillingAdmin] Free trial credits granted:', { userId, amount: freeTrialCredits, transactionId: result.transactionId });
+      return {
+        success: true,
+        amount: freeTrialCredits,
+        transactionId: result.transactionId,
+        balanceAfter: result.balanceAfter,
+      };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[BillingAdmin] grantFreeTrialCredits error:', message);
+    return { success: false, error: message };
+  }
+}
+
 export async function grantCreditsToUser(params: {
   userId: string;
   amount: number;

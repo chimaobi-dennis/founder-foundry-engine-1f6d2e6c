@@ -4,6 +4,7 @@ import { ChevronLeft, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
+import { grantFreeTrialCredits } from "@/services/billingAdminService";
 
 type Step = {
   question: string;
@@ -86,15 +87,20 @@ export default function Onboarding() {
       return;
     }
 
+    // Grant free trial credits after onboarding completion
+    const creditResult = await grantFreeTrialCredits(user.id);
+    if (creditResult.success && creditResult.amount && creditResult.amount > 0) {
+      console.log(`Granted ${creditResult.amount} free trial credits to user ${user.id}`);
+    } else if (!creditResult.success) {
+      console.error("Failed to grant free trial credits:", creditResult.error);
+    }
+
     await refetch();
     setCompleted(true);
     setTimeout(() => {
-      const bs = finalAnswers[1];
-      if (bs === "have_idea" || bs === "exploring") {
-        navigate("/mentor?mode=idea", { replace: true });
-      } else {
-        navigate("/mentor?mode=brand", { replace: true });
-      }
+      // Redirect to Home instead of auto-opening mentor
+      // User will click "Open Kinika" to start their first project
+      navigate("/home", { replace: true });
     }, 1500);
   };
 
@@ -132,6 +138,14 @@ export default function Onboarding() {
         .from("profiles")
         .update({ onboarding_completed: true, updated_at: new Date().toISOString() })
         .eq("id", user.id);
+      
+      // Grant free trial credits for skip flow too
+      const creditResult = await grantFreeTrialCredits(user.id);
+      if (creditResult.success && creditResult.amount && creditResult.amount > 0) {
+        console.log(`Granted ${creditResult.amount} free trial credits to user ${user.id} (skipped onboarding)`);
+      } else if (!creditResult.success) {
+        console.error("Failed to grant free trial credits (skip flow):", creditResult.error);
+      }
     }
     navigate("/home");
   };

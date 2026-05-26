@@ -80,7 +80,7 @@ const Home = () => {
   const navigate = useNavigate();
   const { profile, loading: profileLoading } = useProfile();
   const {
-    activeBrand, activeBrandDNA, brands, journeyStages, currentStageData, isLoading: brandLoading,
+    activeBrand, activeBrandDNA, brands, journeyStages, currentStageData, isLoading: brandLoading, createNewBrand, switchBrand,
   } = useBrand();
 
   const [lastMentorMsg, setLastMentorMsg] = useState<{ content: string; created_at: string } | null>(null);
@@ -96,6 +96,21 @@ const Home = () => {
   const brandCount = brands?.length ?? 0;
   const hasBrand = !!activeBrand;
   const hasDNA = !!(activeBrandDNA && (activeBrandDNA.brand_voice || activeBrandDNA.positioning_statement || activeBrandDNA.core_promise));
+
+  // Handle "Open Kinika" click - creates project if needed
+  const handleOpenKinika = async () => {
+    if (brands.length === 0) {
+      // Create "Untitled Project" for first-time users
+      const newBrand = await createNewBrand("Untitled Project");
+      if (newBrand) {
+        await switchBrand(newBrand.id);
+        navigate("/mentor");
+      }
+    } else {
+      // User has projects, just go to mentor
+      navigate("/mentor");
+    }
+  };
 
   useEffect(() => {
     if (!activeBrand?.id) {
@@ -234,7 +249,7 @@ const Home = () => {
                   the rest of your workspace — campaigns, visuals, documents — will form around it.
                 </p>
                 <Button
-                  onClick={() => navigate("/mentor")}
+                  onClick={handleOpenKinika}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-6"
                 >
                   Open Kinika
@@ -258,7 +273,7 @@ const Home = () => {
                 return (
                   <button
                     key={b.id}
-                    onClick={() => navigate("/mentor")}
+                    onClick={handleOpenKinika}
                     className={`text-left rounded-xl border bg-card hover:border-primary/40 transition-all p-5 group ${
                       isActive ? "border-primary/60" : "border-card-border"
                     }`}
@@ -369,7 +384,7 @@ const Home = () => {
               {/* Last conversation */}
               {lastMentorMsg && (
                 <button
-                  onClick={() => navigate("/mentor")}
+                  onClick={handleOpenKinika}
                   className="text-left rounded-xl border border-card-border bg-card/50 hover:border-primary/40 transition-all p-5 flex flex-col group"
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -455,7 +470,7 @@ const Home = () => {
 
           {/* Kinika — primary */}
           <button
-            onClick={() => navigate("/mentor")}
+            onClick={handleOpenKinika}
             className="w-full text-left rounded-xl border border-card-border bg-card/60 hover:border-primary/50 transition-all p-6 md:p-7 group flex items-start gap-5 mb-3"
           >
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">

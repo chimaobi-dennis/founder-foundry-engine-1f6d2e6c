@@ -518,48 +518,20 @@ const Mentor = () => {
   // on what they answered in onboarding. We never show the cold empty state
   // to a brand-new user who just completed onboarding.
 
+  // Auto-init effect - just handles URL cleanup
+  // Projects are now created via Home.tsx handleOpenKinika
   useEffect(() => {
     if (autoInitDone) return;
     if (isLoading) return;
     if (!profile) return;
-    if (realBrands.length > 0) {
-      // User already has projects — let the standard flow handle it.
-      // Clear any stale ?mode= from the URL so it does not retrigger.
-      if (searchParams.get("mode")) setSearchParams({}, { replace: true });
-      setAutoInitDone(true);
-      return;
+    
+    // Clear any stale ?mode= from the URL
+    if (searchParams.get("mode")) {
+      setSearchParams({}, { replace: true });
     }
-
-    const status = profile.brand_status;
-    setAutoInitBrandStatus(status);
+    
+    setAutoInitBrandStatus(profile.brand_status);
     setAutoInitDone(true);
-    // Clear ?mode= param — we use brand_status instead
-    if (searchParams.get("mode")) setSearchParams({}, { replace: true });
-
-    const run = async () => {
-      if (status === "multiple_projects") {
-        // Show name-input prompt before creating
-        setShowMultiProjectPrompt(true);
-        return;
-      }
-
-      const newBrand = await createNewBrand("Untitled Project");
-      if (!newBrand) return;
-
-      if (status === "in_progress") {
-        // Show the stage picker modal — picks up where they left off
-        setShowOnboarding(true);
-      } else {
-        // 'have_idea', 'exploring' or null — skip stage picker entirely.
-        // Auto-set the project to 'spark' via markFreshStart and drop straight
-        // into the Mentor conversation.
-        await markFreshStart(newBrand.id);
-        const mode: MentorMode = status === "have_idea" ? "idea" : "new";
-        setEmptyBrands(prev => ({ ...prev, [newBrand.id]: mode }));
-        await refreshBrands();
-      }
-    };
-    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, profile, realBrands.length, autoInitDone]);
 
@@ -2183,7 +2155,15 @@ Be selective — only mark significant shifts, not minor tangents.`,
           // suppress the empty-state greeting and show the ChatPanel with
           // its thinking/streaming UI instead.
           if (!isGeneratingFirstMessage && activeEmptyMode) {
-            return <MentorEmptyState mode={activeEmptyMode} onSubmit={handleEmptySubmit} />;
+            return (
+              <MentorEmptyState 
+                mode={activeEmptyMode} 
+                onboardingCompleted={currentActiveBrand?.onboarding_completed ?? true}
+                brandName={currentActiveBrand?.name}
+                onSubmit={handleEmptySubmit}
+                onStartSetup={() => setShowOnboarding(true)}
+              />
+            );
           }
 
           if (
@@ -2226,7 +2206,13 @@ Be selective — only mark significant shifts, not minor tangents.`,
           }
 
           return (
-            <MentorEmptyState mode={activeEmptyMode || "new"} onSubmit={handleEmptySubmit} />
+            <MentorEmptyState 
+              mode={activeEmptyMode || "new"} 
+              onboardingCompleted={currentActiveBrand?.onboarding_completed ?? true}
+              brandName={currentActiveBrand?.name}
+              onSubmit={handleEmptySubmit}
+              onStartSetup={() => setShowOnboarding(true)}
+            />
           );
         })()}
       </div>
