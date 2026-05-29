@@ -3,6 +3,11 @@ export type Json =
   | number
   | boolean
   | null
+  | { [key: stexport type Json =
+  | string
+  | number
+  | boolean
+  | null
   | { [key: string]: Json | undefined }
   | Json[]
 
@@ -1187,6 +1192,7 @@ export type Database = {
           name: string
           next_generation_at: string | null
           output_id: string | null
+          selected_library_assets: Json | null
           selected_platform_ids: string[] | null
           series_active: boolean | null
           series_interval: string | null
@@ -1215,6 +1221,7 @@ export type Database = {
           name: string
           next_generation_at?: string | null
           output_id?: string | null
+          selected_library_assets?: Json | null
           selected_platform_ids?: string[] | null
           series_active?: boolean | null
           series_interval?: string | null
@@ -1243,6 +1250,7 @@ export type Database = {
           name?: string
           next_generation_at?: string | null
           output_id?: string | null
+          selected_library_assets?: Json | null
           selected_platform_ids?: string[] | null
           series_active?: boolean | null
           series_interval?: string | null
@@ -3425,15 +3433,26 @@ export type Database = {
         Args: { p_max_age_minutes?: number }
         Returns: number
       }
-      finalize_generation_billing: {
-        Args: {
-          p_generation_id: string
-          p_metadata?: Json
-          p_provider_cost_usd?: number
-          p_status?: string
-        }
-        Returns: Json
-      }
+      finalize_generation_billing:
+        | {
+            Args: {
+              p_ai_metadata?: Json
+              p_credits_finalized?: number
+              p_generation_id: string
+              p_provider_cost_usd?: number
+              p_status?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_generation_id: string
+              p_metadata?: Json
+              p_provider_cost_usd?: number
+              p_status?: string
+            }
+            Returns: Json
+          }
       fulfill_credit_purchase: {
         Args: {
           p_credits_amount: number

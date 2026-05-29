@@ -680,6 +680,7 @@ export async function generateContentForBrief(
     const productImageUrl = primaryImage?.file_url || '';
 
     console.log('[ContentStudio] Copy parsed successfully, platforms:', Object.keys(copyData).join(', '));
+    console.log('[ContentStudio] RAW AI OUTPUT (copyData):', JSON.stringify(copyData, null, 2));
 
     // Fuzzy matcher for AI-returned copy keys (handles slug vs name mismatches)
     function findCopyForPlatform(
@@ -741,14 +742,20 @@ export async function generateContentForBrief(
       const platformName = platform.name || platform.slug;
       const briefText = brief.brief || brief.name || brief.campaign_goal || '';
 
+      console.log('[validateCopyFields] RAW platform copy input:', JSON.stringify(copy, null, 2));
+
+      // Handle scene format where copy is nested under 'copy' key
+      // Format: { "render_engine": "scene", "copy": { "headline": "...", "caption": "...", "hashtags": [], "cta": "" } }
+      const copyContainer = copy.copy || copy;
+
       // Ensure headline exists and is meaningful
-      let headline = copy.headline?.trim();
+      let headline = copyContainer.headline?.trim() || copy.headline?.trim();
       if (!headline || headline.length < 3) {
         headline = `${platformName} Campaign`;
       }
 
-      // Ensure copy_text exists and is meaningful
-      let copyText = copy.copy_text?.trim();
+      // Ensure copy_text exists and is meaningful (check both 'copy_text' and 'caption')
+      let copyText = copyContainer.copy_text?.trim() || copyContainer.caption?.trim() || copy.copy_text?.trim() || copy.caption?.trim();
       if (!copyText || copyText.length < 10) {
         copyText = briefText || `Discover our ${platformName} content designed for your audience.`;
       }
@@ -761,8 +768,8 @@ export async function generateContentForBrief(
         }
       }
 
-      // Ensure hashtags exist
-      let hashtags: string[] = copy.hashtags || [];
+      // Ensure hashtags exist (check both copyContainer and copy for scene format)
+      let hashtags: string[] = copyContainer.hashtags || copy.hashtags || [];
       if (!Array.isArray(hashtags) || hashtags.length === 0) {
         // Generate default hashtags based on campaign/brief
         const brandName = brief.brand?.name || 'Brand';
@@ -780,7 +787,8 @@ export async function generateContentForBrief(
         copyTextLength: copyText.length,
         subjectLine: subjectLine ? 'present' : 'null',
         hashtagCount: hashtags.length,
-        wasValidated: !copy.headline || !copy.copy_text || !copy.hashtags
+        wasValidated: !copyContainer.headline || !(copyContainer.copy_text || copyContainer.caption) || !copyContainer.hashtags,
+        extractedFrom: copy.copy ? 'copy.copy (scene format)' : 'direct (legacy format)'
       });
 
       return { headline, copy_text: copyText, subject_line: subjectLine, hashtags };
