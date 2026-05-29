@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
-import { AssetPicker } from "@/components/campaignkit/AssetPicker";
+import { AssetPicker, type SelectedAsset } from "@/components/campaignkit/AssetPicker";
 import {
   getActivePlatforms,
   prefillBriefFromBrand,
@@ -113,10 +113,7 @@ export default function ContentStudioNew() {
 
   // UI State
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [asset, setAsset] = useState<{ id: string | null; type: "output" | "product_image" | null }>({
-    id: null,
-    type: null,
-  });
+  const [selectedLibraryAssets, setSelectedLibraryAssets] = useState<SelectedAsset[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -209,6 +206,8 @@ export default function ContentStudioNew() {
         creative_mode: creativeMode,
         ai_freedom: aiFreedom,
         image_density: imageDensity,
+        // Selected library assets for visual context
+        selected_library_assets: selectedLibraryAssets.length > 0 ? selectedLibraryAssets : undefined,
       });
 
       // Show charged status
@@ -621,18 +620,10 @@ export default function ContentStudioNew() {
               Select an asset (optional)
             </p>
             <AssetPicker
-              selectedId={asset.id}
-              selectedType={asset.type}
-              onSelect={(id, type) => setAsset({ id, type })}
-              onSkip={() => setAsset({ id: null, type: null })}
+              selectedAssets={selectedLibraryAssets}
+              onSelect={setSelectedLibraryAssets}
+              onSkip={() => setSelectedLibraryAssets([])}
             />
-            <button
-              type="button"
-              onClick={() => setAsset({ id: null, type: null })}
-              className="text-[12px] font-ui text-muted-foreground hover:text-primary mt-2 transition-colors"
-            >
-              Skip — use brand context only
-            </button>
           </div>
 
           {/* Brand Context Indicator */}

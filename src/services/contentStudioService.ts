@@ -224,6 +224,8 @@ export async function createBrief(brandId: string, userId: string, brief: {
   creative_mode?: string;
   ai_freedom?: number;
   image_density?: number;
+  // Selected library assets for visual context
+  selected_library_assets?: { id: string; type: string; imageUrl: string | null }[];
 }) {
   const nextGenAt = brief.is_series
     ? calculateNextGenerationTime(brief.series_interval || 'weekly')
@@ -270,7 +272,9 @@ export async function createBrief(brandId: string, userId: string, brief: {
     actual_credits_used: null, // Will be updated after generation
     series_active: brief.is_series || false,
     next_generation_at: nextGenAt,
-    status: 'draft'
+    status: 'draft',
+    // Selected library assets for visual context
+    selected_library_assets: brief.selected_library_assets || null,
   };
 
   console.log('[ContentStudio] DEBUG: Inserting brief with values:', insertPayload);
@@ -507,6 +511,7 @@ export async function generateContentForBrief(
 
     // Build visual asset instructions for copy generation context
     const visualAssetInstructions = buildVisualAssetInstructions(generationSettings.visual_assets);
+    const selectedAssetsInstructions = buildSelectedAssetsInstructions(brief.selected_library_assets);
 
     const copyPrompt = injectPromptVariables(copySystemPrompt, {
       brand_name: brand.name,
@@ -529,6 +534,8 @@ export async function generateContentForBrief(
       image_density: generationSettings.image_density.toString(),
       visual_assets: generationSettings.visual_assets.join(', '),
       visual_asset_instructions: visualAssetInstructions,
+      // Selected library assets from Content Studio
+      selected_assets_context: selectedAssetsInstructions,
     });
 
     // Append strict JSON-only instruction + slug enforcement
