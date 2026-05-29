@@ -88,7 +88,7 @@ export function AssetPicker({ selectedAssets, onSelect, onSkip }: Props) {
         }));
 
         // Fetch product images from project_assets table
-        const { data: productImages } = await getBrandProductImages(activeBrand.id);
+        const productImages = await getBrandProductImages(activeBrand.id);
         const productAssets: AssetItem[] = (productImages || []).map((p: any) => ({
           id: p.id,
           type: 'product_image' as const,
