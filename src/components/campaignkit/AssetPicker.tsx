@@ -87,12 +87,12 @@ export function AssetPicker({ selectedAssets, onSelect, onSkip }: Props) {
           platformColor: platformColors[o.aspect_ratio] || platformColors.general,
         }));
 
-        // Fetch product images
+        // Fetch product images from project_assets table
         const { data: productImages } = await getBrandProductImages(activeBrand.id);
         const productAssets: AssetItem[] = (productImages || []).map((p: any) => ({
           id: p.id,
           type: 'product_image' as const,
-          imageUrl: p.image_url || null,
+          imageUrl: p.file_url || null,
           htmlContent: null,
           platform: 'product',
           platformColor: platformColors.general,
