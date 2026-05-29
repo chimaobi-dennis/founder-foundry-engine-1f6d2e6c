@@ -323,11 +323,11 @@ export async function grantFreeTrialCredits(userId: string): Promise<{ success: 
       return { success: true, amount: 0 }; // No free trial configured
     }
 
-    // Grant the credits as a bonus
+    // Grant the credits as a topup
     const result = await grantCreditsToUser({
       userId,
       amount: freeTrialCredits,
-      type: 'bonus',
+      type: 'topup',
       description: `Free trial credits (${freeTrialCredits} credits)`,
     });
 
@@ -352,7 +352,7 @@ export async function grantFreeTrialCredits(userId: string): Promise<{ success: 
 export async function grantCreditsToUser(params: {
   userId: string;
   amount: number;
-  type?: 'bonus' | 'adjustment' | 'topup';
+  type?: 'topup' | 'adjustment' | 'refund';
   description?: string;
   adminUserId?: string;
 }): Promise<{ success: boolean; error?: string; transactionId?: string; balanceAfter?: number }> {
@@ -363,7 +363,7 @@ export async function grantCreditsToUser(params: {
   const { data, error } = await admin.rpc('grant_credits_admin', {
     p_user_id: params.userId,
     p_amount: params.amount,
-    p_type: params.type || 'bonus',
+    p_type: params.type || 'topup',
     p_description: params.description || 'Admin credit grant',
     p_admin_user_id: params.adminUserId || null,
     p_idempotency_key: idempotencyKey,
