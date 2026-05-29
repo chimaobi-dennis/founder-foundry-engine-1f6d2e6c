@@ -170,6 +170,7 @@ export function AssetPicker({ selectedAssets, onSelect, onSkip }: Props) {
   }
 
   return (
+    <>
     <div>
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground font-ui">

@@ -318,6 +318,36 @@ export function buildVisualAssetInstructions(visualAssets: string[] | null | und
   return instructions.join(' ') || 'Use brand-appropriate imagery and graphics.';
 }
 
+// ─── Selected Assets Instruction Builder ─────────────────
+
+export function buildSelectedAssetsInstructions(selectedAssets: any[] | null | undefined): string {
+  if (!selectedAssets || selectedAssets.length === 0) {
+    return '';
+  }
+
+  const productImages = selectedAssets.filter(a => a.type === 'product_image');
+  const creativeOutputs = selectedAssets.filter(a => a.type === 'output');
+
+  const instructions: string[] = [];
+
+  if (productImages.length > 0) {
+    instructions.push(`SELECTED PRODUCT IMAGES (${productImages.length}):`);
+    instructions.push('Study the product composition, lighting, and angles in the selected images.');
+    instructions.push('Incorporate products naturally into the design as hero or contextual elements.');
+    instructions.push('Remove or extend backgrounds if needed to improve visual fit.');
+    instructions.push('Maintain product authenticity — do not alter core product features.');
+  }
+
+  if (creativeOutputs.length > 0) {
+    instructions.push(`SELECTED CREATIVE REFERENCES (${creativeOutputs.length}):`);
+    instructions.push('Use these as style references for visual continuity across the campaign.');
+    instructions.push('Match composition patterns, typography rhythm, and color usage.');
+    instructions.push('Adapt successful layout approaches to new platform dimensions.');
+  }
+
+  return instructions.join('\n');
+}
+
 // ─── Generation Settings Builder ────────────────────────
 
 export interface GenerationSettings {
@@ -702,11 +732,68 @@ export async function generateContentForBrief(
       return {};
     }
 
+    // Validate and enforce copy fields are never empty
+    function validateCopyFields(
+      copy: Record<string, any>,
+      platform: any,
+      brief: any
+    ): { headline: string; copy_text: string; subject_line: string | null; hashtags: string[] } {
+      const platformName = platform.name || platform.slug;
+      const briefText = brief.brief || brief.name || brief.campaign_goal || '';
+
+      // Ensure headline exists and is meaningful
+      let headline = copy.headline?.trim();
+      if (!headline || headline.length < 3) {
+        headline = `${platformName} Campaign`;
+      }
+
+      // Ensure copy_text exists and is meaningful
+      let copyText = copy.copy_text?.trim();
+      if (!copyText || copyText.length < 10) {
+        copyText = briefText || `Discover our ${platformName} content designed for your audience.`;
+      }
+
+      // Subject line - only for email platforms
+      let subjectLine: string | null = copy.subject_line?.trim() || null;
+      if (platform.slug?.includes('email') || platform.name?.toLowerCase().includes('email')) {
+        if (!subjectLine || subjectLine.length < 3) {
+          subjectLine = headline;
+        }
+      }
+
+      // Ensure hashtags exist
+      let hashtags: string[] = copy.hashtags || [];
+      if (!Array.isArray(hashtags) || hashtags.length === 0) {
+        // Generate default hashtags based on campaign/brief
+        const brandName = brief.brand?.name || 'Brand';
+        hashtags = ['#marketing', '#growth', `#${brandName.replace(/\s+/g, '')}`].filter(Boolean);
+      }
+      // Clean hashtags - ensure they start with # and are lowercase
+      hashtags = hashtags
+        .map((tag: string) => tag.toString().toLowerCase().trim())
+        .map((tag: string) => tag.startsWith('#') ? tag : `#${tag}`)
+        .filter((tag: string) => tag.length > 1);
+
+      console.log('[validateCopyFields]', {
+        platform: platform.slug,
+        headlineLength: headline.length,
+        copyTextLength: copyText.length,
+        subjectLine: subjectLine ? 'present' : 'null',
+        hashtagCount: hashtags.length,
+        wasValidated: !copy.headline || !copy.copy_text || !copy.hashtags
+      });
+
+      return { headline, copy_text: copyText, subject_line: subjectLine, hashtags };
+    }
+
     // Now generate visuals for each platform in parallel
     const creatives: any[] = [];
 
     await Promise.all(platforms.map(async (platform) => {
       const platformCopy = findCopyForPlatform(copyData, platform);
+
+      // Validate copy fields immediately - ensure AI returned valid content
+      const validatedCopy = validateCopyFields(platformCopy, platform, brief);
 
       // Find suitable ProStudio template for this platform
       const { data: templates } = await db
@@ -745,7 +832,7 @@ export async function generateContentForBrief(
       );
 
       const visualPrompt = injectPromptVariables(visualSystemPrompt, {
-        generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nCampaign: ${brief.brief || brief.campaign_goal || brand.name}\nHeadline to feature: "${platformCopy.headline || ''}"\nCopy snippet: "${(platformCopy.copy_text || '').slice(0, 80)}"`,
+        generation_prompt: `Platform: ${platform.name}\n\n${platformInstructions}\n\nCampaign: ${brief.brief || brief.campaign_goal || brand.name}\nHeadline to feature: "${validatedCopy.headline}"\nCopy snippet: "${validatedCopy.copy_text.slice(0, 80)}"`,
         aspectRatio: platform.aspect_ratio || '1:1',
         styleIntensity: generationSettings.visual_direction === 'bold' ? 'bold' : 'balanced',
         variant_index: '1',
@@ -823,10 +910,10 @@ export async function generateContentForBrief(
         brief_id: briefId,
         platform_id: platform.id,
         generation_session_id: sessionId,
-        headline: platformCopy.headline || null,
-        copy_text: platformCopy.copy_text || null,
-        subject_line: platformCopy.subject_line || null,
-        hashtags: platformCopy.hashtags || [],
+        headline: validatedCopy.headline,
+        copy_text: validatedCopy.copy_text,
+        subject_line: validatedCopy.subject_line,
+        hashtags: validatedCopy.hashtags,
         visual_html: persistVisualHtml,
         scene_json: persistSceneJson,
         render_engine: parsedResult.renderEngine,
