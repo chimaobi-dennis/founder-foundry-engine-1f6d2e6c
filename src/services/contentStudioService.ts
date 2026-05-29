@@ -568,14 +568,25 @@ export async function generateContentForBrief(
       selected_assets_context: selectedAssetsInstructions,
     });
 
-    // Append strict JSON-only instruction + slug enforcement
+    // Append strict JSON-only instruction + scene format enforcement
     const slugList = platforms.map(p => `"${p.slug}"`).join(', ');
     const strictCopyPrompt = copyPrompt +
-      '\n\nIMPORTANT: Return ONLY a valid JSON object. No explanation, ' +
-      'no markdown, no code fences, no text before or after the JSON. ' +
-      'Start your response with { and end with }\n' +
-      'CRITICAL: Use EXACTLY these JSON keys (platform slugs): ' + slugList + '. ' +
-      'Do not use platform display names as keys. Use the slug values above.';
+      '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' +
+      '\nMANDATORY JSON FORMAT - SCENE MODE STRUCTURE' +
+      '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' +
+      '\n\nReturn ONLY a valid JSON object. No explanation, no markdown, no code fences.' +
+      '\n\nEXACT STRUCTURE REQUIRED (copy this template and fill in values):' +
+      '\n\n{' +
+      '\n  "' + slugList.split(', ').join('": {\n    "render_engine": "scene",\n    "scene_version": "v1",\n    "copy": {\n      "headline": "YOUR COMPELLING HEADLINE HERE",\n      "caption": "YOUR ENGAGING CAPTION/COPY TEXT HERE - 2-3 sentences max",\n      "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],\n      "cta": "YOUR CALL TO ACTION HERE"\n    },\n    "scene": {\n      "width": 1080,\n      "height": 1350,\n      "background": "#hexcolor",\n      "nodes": []\n    }\n  },\n  "') + '")' +
+      '\n}\n\n' +
+      '\nCRITICAL RULES:' +
+      '\n1. Each platform MUST have: render_engine, scene_version, copy{}, scene{}' +
+      '\n2. copy{} MUST contain: headline, caption (not copy_text), hashtags[], cta' +
+      '\n3. DO NOT use legacy keys like "headline" or "copy_text" at the top level' +
+      '\n4. ALL copy fields must be inside the nested "copy" object' +
+      '\n5. Write ORIGINAL marketing copy - DO NOT repeat the user\'s brief text' +
+      '\n6. caption should be 2-3 compelling sentences, not the full brief' +
+      '\n\nStart your response with { and end with }';
 
     // ─── BILLING: Capture reservation → irreversible billing moment ──
     // After this point, credits remain consumed regardless of generation outcome.
@@ -696,8 +707,13 @@ export async function generateContentForBrief(
 
       // Exact slug match
       if (data[platform.slug]) {
+        const found = data[platform.slug];
         console.log('[findCopyForPlatform] Found exact slug match:', platform.slug);
-        return data[platform.slug];
+        console.log('[findCopyForPlatform] Returning object:', JSON.stringify(found, null, 2));
+        console.log('[findCopyForPlatform] Has copy.copy?', !!found?.copy);
+        console.log('[findCopyForPlatform] copy.copy.headline:', found?.copy?.headline);
+        console.log('[findCopyForPlatform] copy.copy.caption:', found?.copy?.caption?.substring(0, 50));
+        return found;
       }
 
       // Platform name as lowercase_underscored
@@ -706,7 +722,9 @@ export async function generateContentForBrief(
         .replace(/\//g, '_');
       if (nameLower && data[nameLower]) {
         console.log('[findCopyForPlatform] Found name match:', nameLower);
-        return data[nameLower];
+        const found = data[nameLower];
+        console.log('[findCopyForPlatform] Name match object:', JSON.stringify(found, null, 2)?.substring(0, 200));
+        return found;
       }
 
       // Partial match — base word from slug
@@ -716,7 +734,9 @@ export async function generateContentForBrief(
       );
       if (partialMatch) {
         console.log('[findCopyForPlatform] Found partial match:', partialMatch);
-        return data[partialMatch];
+        const found = data[partialMatch];
+        console.log('[findCopyForPlatform] Partial match object:', JSON.stringify(found, null, 2)?.substring(0, 200));
+        return found;
       }
 
       // Name word match
@@ -730,6 +750,8 @@ export async function generateContentForBrief(
       }
 
       console.log('[findCopyForPlatform] No match found, returning empty object');
+      console.log('[findCopyForPlatform] Platform slug was:', platform.slug);
+      console.log('[findCopyForPlatform] Available keys were:', Object.keys(data).join(', '));
       return {};
     }
 
@@ -799,6 +821,16 @@ export async function generateContentForBrief(
 
     await Promise.all(platforms.map(async (platform) => {
       const platformCopy = findCopyForPlatform(copyData, platform);
+
+      console.log('[ContentStudio] platformCopy before validation:', {
+        platform: platform.slug,
+        hasCopy: !!platformCopy?.copy,
+        copyHeadline: platformCopy?.copy?.headline,
+        copyCaption: platformCopy?.copy?.caption?.substring(0, 30),
+        directHeadline: platformCopy?.headline,
+        directCopyText: platformCopy?.copy_text?.substring(0, 30),
+        keys: Object.keys(platformCopy || {})
+      });
 
       // Validate copy fields immediately - ensure AI returned valid content
       const validatedCopy = validateCopyFields(platformCopy, platform, brief);
@@ -934,6 +966,15 @@ export async function generateContentForBrief(
         status: hasContent ? qualityStatus : 'failed',
         updated_at: new Date().toISOString()
       };
+
+      console.log('[ContentStudio] SAVING CREATIVE TO DB:', {
+        platform: platform.slug,
+        headline: creativePayload.headline,
+        copy_text_preview: (creativePayload.copy_text as string)?.substring(0, 50),
+        subject_line: creativePayload.subject_line,
+        hashtags_count: (creativePayload.hashtags as string[])?.length,
+        copy_source: validatedCopy.headline === platformCopy?.copy?.headline ? 'AI (scene format)' : validatedCopy.headline === platformCopy?.headline ? 'AI (legacy format)' : 'FALLBACK/GENERATED'
+      });
 
       // Structured logging per engine
       if (parsedResult.renderEngine === 'scene') {
