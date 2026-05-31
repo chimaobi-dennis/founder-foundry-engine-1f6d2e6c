@@ -1,143 +1,556 @@
-# FounderForge — Project Context for Claude Code
+# CLAUDE.md
 
-## What This Is
-An AI brand platform for founders and small business owners.
-A thinking partner and creative suite that remembers the
-user's brand and powers all marketing outputs from that memory.
+# Kinika
 
-## Tech Stack
-- Frontend: React + TypeScript + Tailwind CSS + shadcn/ui
-- Backend: Supabase (Auth + Postgres + Storage)
-- Build tool: Vite
-- Deployment: Vercel
-- AI: Lovable AI native integration (Gemini 3 Flash default,
-  Nano Banana 2 for image generation)
+AI-Native Brand Intelligence & Creative Operating System
 
-## Supabase
-- External Supabase project (not Lovable Cloud)
-- Client: src/integrations/supabase/client.ts
-- All tables have RLS enabled
-- Never create new Supabase clients — always import from the existing client file
+Last Updated: May 2026
 
-## Environment Variables
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+---
 
-## Database Tables
-Phase 1 — Foundation:
-- profiles (extends auth.users — id, full_name, email, role,
-  plan, credits_remaining, onboarding_completed, profession,
-  brand_status, team_size)
-- brands (user_id → profiles — name, primary_color,
-  secondary_color, is_active, completeness_score,
-  active_product_image_id)
-- brand_dna (brand_id → brands 1:1 — brand_voice,
-  positioning_statement, core_promise, target_audience,
-  brand_references, tone_descriptors, brand_feel,
-  campaign_strategy, customer_insight, product_positioning)
+# What is Kinika?
 
-Phase 2 — Templates:
-- creator_profiles (id → auth.users — display_name,
-  is_approved)
-- prostudio_templates (creator_id → auth.users — name, slug,
-  template_type, category, generation_prompt, cover_image_url,
-  status, uses_count)
-- template_preview_images (template_id → prostudio_templates —
-  image_url, is_cover, sort_order)
-- template_outputs (template_id, user_id, brand_id —
-  output_html, output_image_url, variation_index,
-  is_saved_to_library)
-- template_saves (template_id, user_id — unique constraint)
-- creator_applications (user_id — why_apply,
-  prompt_engineering_experience, sample_prompt, status)
+Kinika is an AI-native operating system for founders, startups, creators, agencies, and modern brands.
 
-Phase 3 — Modules:
-- mentor_conversations (brand_id → brands 1:1)
-- mentor_messages (conversation_id — role, content)
-- milestones (brand_id, conversation_id — name, category,
-  message_id)
-- assets (brand_id, user_id — name, type, source_module,
-  file_url, platform, times_used)
-- campaigns (brand_id, user_id — name, product_name,
-  campaign_goal, tone, asset_id, status)
-- campaign_creatives (campaign_id — platform, copy_text,
-  subject_line, asset_id)
-- calendar_posts (brand_id, user_id — platform,
-  scheduled_date, scheduled_time, copy_text, asset_id,
-  reminder_enabled, status)
-- documents (brand_id, user_id — name, document_type,
-  generated_html, asset_id)
-- reels (brand_id, user_id — name, platform,
-  duration_seconds, goal)
-- reel_scenes (reel_id — scene_number, voiceover,
-  on_screen_text, visual_direction)
+Most businesses currently use:
 
-## Service Layer Files
-All Supabase calls go through service files — never call
-Supabase directly from components.
+* ChatGPT
+* Canva
+* Notion
+* Google Docs
+* Hootsuite
+* Buffer
+* CapCut
+* Brand Guidelines PDFs
 
-- src/services/brandService.ts — brand and brand DNA
-- src/services/templateService.ts — ProStudio templates
-- src/services/creatorService.ts — creator applications
-- src/services/adminService.ts — admin dashboard data
+to accomplish work that should exist inside a single intelligent workspace.
 
-## Context Files
-- src/contexts/AuthContext.tsx — session, user, signOut
-- src/contexts/BrandContext.tsx — brands, activeBrand,
-  activeBrandDNA, switchBrand, createNewBrand
+Kinika unifies:
 
-## User Roles
-- founder (default) — uses the platform
-- creator (approved) — publishes templates in Creator Studio
-- admin — manages the platform via Admin Interface
+* Brand Intelligence
+* Content Generation
+* Creative Production
+* Publishing
+* Strategic Planning
+* Knowledge Capture
+* Business Validation
+* AI Agents
 
-Role is stored in profiles.role
-Check role via: const { data: profile } = await supabase
-  .from('profiles').select('role').eq('id', user.id).single()
+inside one connected ecosystem.
 
-## Six Modules
-1. Mentor — AI thinking partner. One continuous conversation
-   per brand. Milestone save points. Brand DNA extracted
-   from conversation progressively.
-2. ProStudio — Template marketplace. Physical and digital
-   product visuals. Templates fetched from Supabase.
-3. CampaignKit — Brief to 8 platform creatives. Image +
-   copy per platform.
-4. ContentCalendar — Planning only in v1. No auto-posting.
-   Manual posting with email reminders.
-5. DocStudio — 8 document types. Generated HTML preview.
-   Export as PDF/DOCX.
-6. ReelBuilder — Brief to storyboard. Teleprompter mode.
-   Template marketplace.
+The long-term vision is:
 
-## Design System
-Background dark: #0D1B2A
-Background light: #F5F2EC
-Card dark: #1A2A3A
-Card light: #FFFFFF
-Border dark: #2A3A4A
-Border light: #E8E2D9
-Amber accent: #D4A017
-Text primary dark: #F5F0E8
-Text primary light: #1A1A2E
-Text muted: #8A96A3
-Font display: Playfair Display
-Font body: DM Sans
+> Every founder should have an AI-native operating system that understands their business better over time.
 
-## Key Rules
-1. Never make direct Supabase calls from React components
-2. Always use service layer functions
-3. Never run database migrations — schema changes go through
-   Supabase dashboard SQL editor manually
-4. Always use existing Supabase client from
-   src/integrations/supabase/client.ts
-5. Follow existing component patterns and design system
-6. Never hardcode user IDs or credentials
-7. Always handle loading and error states
-8. TypeScript strict — no any types without good reason
+---
 
-## Current Priority
-Wiring all screens to real Supabase data.
-Starting with brand context bar → home screen →
-mentor → prostudio → campaignkit → contentcalendar →
-docstudio → reelbuilder → library → brand DNA page.
+# Product Philosophy
+
+Kinika is NOT:
+
+* another AI wrapper
+* another Canva clone
+* another content generator
+* another prompt marketplace
+
+Kinika IS:
+
+* a business memory system
+* a creative operating system
+* a brand intelligence engine
+* a contextual AI workspace
+
+Every action should strengthen the brand memory.
+
+Every module should contribute to shared business intelligence.
+
+---
+
+# Core Product Pillars
+
+## 1. Brand Memory
+
+Everything revolves around brand context.
+
+The system continuously learns:
+
+* tone of voice
+* audience
+* products
+* goals
+* positioning
+* market
+* visual identity
+* previous campaigns
+
+Brand memory is the foundation of all generation.
+
+---
+
+## 2. Human Editable AI
+
+AI generates.
+
+Humans edit.
+
+Humans remain in control.
+
+Never lock users into AI outputs.
+
+Every generated asset must be editable.
+
+---
+
+## 3. Structured Generation
+
+Kinika should generate:
+
+* copy
+* visuals
+* campaigns
+* strategies
+* reels
+* documents
+
+as structured editable objects.
+
+Never store only text blobs.
+
+Prefer:
+
+* scenes
+* nodes
+* layouts
+* assets
+* blocks
+
+---
+
+## 4. Context Persistence
+
+Context should compound over time.
+
+The more users work inside Kinika:
+
+The smarter Kinika becomes.
+
+---
+
+# Current Modules
+
+## Mentor
+
+Founder guidance system.
+
+Helps users move from:
+
+Idea
+→ Validation
+→ Brand
+→ Launch
+→ Growth
+
+Uses structured milestone progression.
+
+Contains:
+
+* stages
+* conversations
+* memory
+* validation framework
+
+---
+
+## Brand DNA
+
+Stores:
+
+* vision
+* mission
+* values
+* positioning
+* customer profiles
+* visual identity
+* voice
+
+Acts as the source of truth.
+
+---
+
+## ContentStudio
+
+Multi-platform content generation system.
+
+Generates:
+
+* Instagram Posts
+* Instagram Stories
+* Facebook Posts
+* LinkedIn Posts
+* X Posts
+* TikTok Captions
+
+Uses editable scene architecture.
+
+Current direction:
+
+Canva + AI + structured editor.
+
+---
+
+## ContentCalendar
+
+Publishing and scheduling system.
+
+Provides:
+
+* planning
+* campaign timelines
+* scheduling
+
+Future:
+
+* social integrations
+* approval workflows
+
+---
+
+## DocStudio
+
+Document generation system.
+
+Future:
+
+* proposals
+* business plans
+* reports
+* grant applications
+* investor decks
+
+---
+
+## ReelBuilder
+
+Video and reel generation.
+
+Future:
+
+* AI video workflows
+* scene editing
+* timeline editing
+
+---
+
+## ProStudio
+
+Advanced creative workspace.
+
+Long-term:
+
+Figma + Canva + AI.
+
+---
+
+# Editor Architecture
+
+Current editor uses:
+
+Scene
+→ Nodes
+→ Assets
+
+A Scene contains:
+
+* dimensions
+* metadata
+* node tree
+
+Nodes contain:
+
+* content
+* styling
+* positioning
+
+Everything should remain editable.
+
+---
+
+# Versioning System
+
+Current status:
+
+Autosave exists.
+
+Next phase:
+
+Version History.
+
+Requirements:
+
+* Snapshot versions
+* Restore points
+* Restore safety
+* Version timeline
+* Save indicators
+
+Autosave != Version
+
+Never create full versions on every keystroke.
+
+Use snapshots and diffs.
+
+---
+
+# Billing Architecture
+
+Kinika uses wallet-based billing.
+
+Credits are the universal usage currency.
+
+Current architecture includes:
+
+wallets
+wallet_transactions
+generations
+generation_assets
+generation_billing_events
+credit_packages
+
+---
+
+## Reservation Billing
+
+Generation lifecycle:
+
+Reserve Credits
+→ AI Call
+→ Capture Credits
+→ Complete Generation
+
+If failure occurs:
+
+Before AI call:
+Release reservation
+
+After AI call:
+Credits remain captured
+
+Reason:
+
+Provider costs already incurred.
+
+---
+
+# Subscription Plans
+
+Current plans:
+
+## Free Trial
+
+50 credits
+
+Includes:
+
+* watermark exports
+* limited AI access
+* 1 workspace
+
+---
+
+## Explore
+
+$15/month
+
+200 credits
+
+For early-stage founders.
+
+---
+
+## Pro
+
+$30/month
+
+500 credits
+
+Priority generation
+No watermarks
+Multiple workspaces
+
+---
+
+Future:
+
+Enterprise
+
+---
+
+# Design Language
+
+Kinika uses:
+
+Editorial + Premium + Calm
+
+Avoid:
+
+* excessive gradients
+* neon startup aesthetics
+* gaming UI
+
+Prefer:
+
+* typography first
+* whitespace
+* premium print-inspired layouts
+* warm gold accents
+
+Visual references:
+
+* Linear
+* Notion
+* Framer
+* Stripe
+* Apple
+* Arc Browser
+
+---
+
+# Mobile Philosophy
+
+Desktop-first product.
+
+Mobile is important but should not compromise desktop architecture.
+
+Rules:
+
+Desktop layouts and mobile layouts should be separated.
+
+Do not continuously patch responsive bugs.
+
+Prefer:
+
+DesktopShell
+MobileShell
+
+instead of massive conditional logic.
+
+---
+
+# Technical Principles
+
+## 1
+
+Never break existing flows.
+
+Backward compatibility matters.
+
+---
+
+## 2
+
+Avoid duplicate systems.
+
+Extend existing architecture.
+
+---
+
+## 3
+
+Prefer service layers.
+
+Business logic should not live in components.
+
+---
+
+## 4
+
+Prefer database truth.
+
+Frontend state should never be the source of truth.
+
+---
+
+## 5
+
+Use optimistic UI carefully.
+
+Billing and credits must always be server verified.
+
+---
+
+# Database Principles
+
+Before adding tables:
+
+Check existing architecture.
+
+Avoid duplicates.
+
+Prefer extending:
+
+* wallets
+* generations
+* assets
+* scenes
+* versions
+
+instead of introducing new concepts.
+
+---
+
+# AI Principles
+
+Every AI interaction should:
+
+1. Consume context
+2. Produce structured output
+3. Improve memory
+4. Remain editable
+
+Never generate content that becomes a dead end.
+
+---
+
+# Future Vision
+
+Kinika evolves into:
+
+The Operating System for Business Creation.
+
+A founder should be able to:
+
+* discover problems
+* validate ideas
+* build brands
+* create content
+* launch products
+* manage knowledge
+
+without leaving Kinika.
+
+Everything should become progressively more intelligent as usage grows.
+
+---
+
+# If You Are A New Developer
+
+Before changing anything:
+
+Understand:
+
+1. Brand Memory
+2. ContentStudio
+3. Wallet Billing
+4. Editor Architecture
+5. Mentor System
+
+These are foundational systems.
+
+When unsure:
+
+Preserve user data.
+Preserve editability.
+Preserve context.
+Preserve billing integrity.
+
+The product is optimized for long-term intelligence accumulation, not one-time content generation.
