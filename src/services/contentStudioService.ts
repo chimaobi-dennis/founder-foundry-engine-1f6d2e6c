@@ -569,17 +569,36 @@ export async function generateContentForBrief(
     });
 
     // Append strict JSON-only instruction + scene format enforcement
-    const slugList = platforms.map(p => `"${p.slug}"`).join(', ');
+    const exampleTemplate =
+      '{\n' +
+      platforms.map(p =>
+        `  "${p.slug}": {\n` +
+        `    "render_engine": "scene",\n` +
+        `    "scene_version": "v1",\n` +
+        `    "copy": {\n` +
+        `      "headline": "YOUR COMPELLING HEADLINE HERE",\n` +
+        `      "caption": "YOUR ENGAGING CAPTION/COPY TEXT HERE - 2-3 sentences max",\n` +
+        `      "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],\n` +
+        `      "cta": "YOUR CALL TO ACTION HERE"\n` +
+        `    },\n` +
+        `    "scene": {\n` +
+        `      "width": 1080,\n` +
+        `      "height": 1350,\n` +
+        `      "background": "#hexcolor",\n` +
+        `      "nodes": []\n` +
+        `    }\n` +
+        `  }`
+      ).join(',\n') +
+      '\n}';
+
     const strictCopyPrompt = copyPrompt +
       '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' +
       '\nMANDATORY JSON FORMAT - SCENE MODE STRUCTURE' +
       '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' +
       '\n\nReturn ONLY a valid JSON object. No explanation, no markdown, no code fences.' +
       '\n\nEXACT STRUCTURE REQUIRED (copy this template and fill in values):' +
-      '\n\n{' +
-      '\n  "' + slugList.split(', ').join('": {\n    "render_engine": "scene",\n    "scene_version": "v1",\n    "copy": {\n      "headline": "YOUR COMPELLING HEADLINE HERE",\n      "caption": "YOUR ENGAGING CAPTION/COPY TEXT HERE - 2-3 sentences max",\n      "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],\n      "cta": "YOUR CALL TO ACTION HERE"\n    },\n    "scene": {\n      "width": 1080,\n      "height": 1350,\n      "background": "#hexcolor",\n      "nodes": []\n    }\n  },\n  "') + '")' +
-      '\n}\n\n' +
-      '\nCRITICAL RULES:' +
+      '\n\n' + exampleTemplate +
+      '\n\nCRITICAL RULES:' +
       '\n1. Each platform MUST have: render_engine, scene_version, copy{}, scene{}' +
       '\n2. copy{} MUST contain: headline, caption (not copy_text), hashtags[], cta' +
       '\n3. DO NOT use legacy keys like "headline" or "copy_text" at the top level' +
