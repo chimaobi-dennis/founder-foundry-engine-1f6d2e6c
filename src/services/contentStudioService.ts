@@ -982,17 +982,19 @@ export async function generateContentForBrief(
         generation_fallback_reason: parsedResult.fallbackReason ?? null,
         export_unstable: parsedResult.telemetry ? parsedResult.telemetry.parityScore < 92 : false,
         template_id: selectedTemplateId,
-        status: hasContent ? qualityStatus : 'failed',
+        // Use 'ready' whenever content exists; export_unstable flag signals quality concerns
+        status: hasContent ? 'ready' : 'failed',
         updated_at: new Date().toISOString()
       };
 
       console.log('[ContentStudio] SAVING CREATIVE TO DB:', {
         platform: platform.slug,
         headline: creativePayload.headline,
-        copy_text_preview: (creativePayload.copy_text as string)?.substring(0, 50),
+        copy_text: creativePayload.copy_text,
         subject_line: creativePayload.subject_line,
-        hashtags_count: (creativePayload.hashtags as string[])?.length,
-        copy_source: validatedCopy.headline === platformCopy?.copy?.headline ? 'AI (scene format)' : validatedCopy.headline === platformCopy?.headline ? 'AI (legacy format)' : 'FALLBACK/GENERATED'
+        hashtags: creativePayload.hashtags,
+        copy_source: validatedCopy.headline === platformCopy?.copy?.headline ? 'AI (scene format)' : validatedCopy.headline === platformCopy?.headline ? 'AI (legacy format)' : 'FALLBACK/GENERATED',
+        status: creativePayload.status,
       });
 
       // Structured logging per engine
@@ -1509,13 +1511,22 @@ export async function regenerateCreative(
       });
     }
 
+    console.log('[ContentStudio] REGENERATE - copy fields kept from DB (visual-only regen):', {
+      creativeId,
+      headline: creative.headline,
+      copy_text: creative.copy_text,
+      subject_line: creative.subject_line,
+      hashtags: creative.hashtags,
+    });
+
     console.log('[ScenePersistence] Regenerate:', {
       creativeId,
       renderEngine: parsedRegen.renderEngine,
       sceneVersion: regenPersistVersion,
       hasVisualHtml: !!regenPersistHtml,
       hasSceneJson: !!regenPersistScene,
-      status: hasContent ? regenQualityStatus : 'failed',
+      // Use 'ready' whenever content exists; export_unstable flag signals quality concerns
+      status: hasContent ? 'ready' : 'failed',
     });
 
     const { error: regenUpdateError } = await db
@@ -1529,7 +1540,8 @@ export async function regenerateCreative(
         generation_telemetry: parsedRegen.telemetry ?? null,
         generation_fallback_reason: parsedRegen.fallbackReason ?? null,
         export_unstable: parsedRegen.telemetry ? parsedRegen.telemetry.parityScore < 92 : false,
-        status: hasContent ? regenQualityStatus : 'failed',
+        // Use 'ready' whenever content exists; export_unstable flag signals quality concerns
+        status: hasContent ? 'ready' : 'failed',
         generation_session_id: sessionId,
         updated_at: new Date().toISOString()
       })
@@ -1729,10 +1741,10 @@ export async function retryFailedCreatives(
     await Promise.all(failedCreatives.map(async (creative) => {
       const platform = creative.content_platforms;
 
-      // Mark as retrying
+      // Mark as generating ('retrying' is not in the DB status constraint)
       await db
         .from('content_studio_creatives')
-        .update({ status: 'retrying', updated_at: new Date().toISOString() })
+        .update({ status: 'generating', updated_at: new Date().toISOString() })
         .eq('id', creative.id);
 
       // Build platform intelligence
@@ -1839,7 +1851,7 @@ export async function retryFailedCreatives(
         sceneVersion: retryPersistVersion,
         hasVisualHtml: !!retryPersistHtml,
         hasSceneJson: !!retryPersistScene,
-        status: retryHasContent ? retryQualityStatus : 'failed',
+        status: retryHasContent ? 'ready' : 'failed',
       });
 
       const { error: retryUpdateError } = await db
@@ -1853,7 +1865,8 @@ export async function retryFailedCreatives(
           generation_telemetry: parsedRetry.telemetry ?? null,
           generation_fallback_reason: parsedRetry.fallbackReason ?? null,
           export_unstable: parsedRetry.telemetry ? parsedRetry.telemetry.parityScore < 92 : false,
-          status: retryHasContent ? retryQualityStatus : 'failed',
+          // Use 'ready' whenever content exists; export_unstable flag signals quality concerns
+          status: retryHasContent ? 'ready' : 'failed',
           generation_session_id: sessionId,
           updated_at: new Date().toISOString()
         })
