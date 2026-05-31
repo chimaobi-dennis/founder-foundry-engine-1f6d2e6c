@@ -706,6 +706,25 @@ const callAnthropicDirect = async (
   maxTokens: number = 2000
 ): Promise<AICallResult> => {
   try {
+    // Add prompt caching for system prompt (most expensive part)
+    const systemWithCache = systemPrompt
+      ? [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }]
+      : undefined;
+
+    // Add prompt caching to first user message if it's large (context, brief, etc.)
+    const messagesWithCache = messages.map((msg, index) => {
+      // Cache the first user message (usually contains the context/brief)
+      if (index === 0 && msg.role === 'user' && msg.content && msg.content.length > 500) {
+        return {
+          ...msg,
+          content: [
+            { type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }
+          ]
+        };
+      }
+      return msg;
+    });
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -717,8 +736,8 @@ const callAnthropicDirect = async (
       body: JSON.stringify({
         model: modelId,
         max_tokens: maxTokens,
-        system: systemPrompt,
-        messages
+        system: systemWithCache,
+        messages: messagesWithCache
       })
     });
 
