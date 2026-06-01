@@ -150,7 +150,7 @@ export function TopBar() {
   }, [isMobile, notifOpen, controlCenterOpen]);
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-sidebar/95 backdrop-blur-sm border-b-[0.5px] border-border flex-shrink-0 z-50 fixed md:static top-0 inset-x-0">
+    <header className="h-14 flex items-center justify-between px-4 md:px-6 bg-sidebar/95 backdrop-blur-sm border-b-[0.5px] border-border flex-shrink-0 z-50 fixed md:relative top-0 inset-x-0">
       {/* Left — page title */}
       <h1 className="font-display text-lg text-foreground truncate">{title}</h1>
 
@@ -223,7 +223,7 @@ export function TopBar() {
             </MobileBottomSheet>
           ) : (
             <div
-              className="absolute z-50 bg-card border border-card-border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 top-12 right-0 w-[360px] rounded-2xl flex flex-col"
+              className="absolute z-[60] bg-card/95 border border-card-border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 top-12 right-0 w-[360px] rounded-2xl flex flex-col"
               style={{ maxHeight: '70vh' }}
             >
               <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
