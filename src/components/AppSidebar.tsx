@@ -50,8 +50,7 @@ const navGroups: NavGroup[] = [
   },
   {
     section: "CREATE",
-    // Points to /content-studio until the unified Studio route is built
-    items: [{ label: "Studio", icon: PenTool, path: "/content-studio" }],
+    items: [{ label: "Studio", icon: PenTool, path: "/studio" }],
   },
   {
     section: "PUBLISH",

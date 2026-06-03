@@ -55,6 +55,8 @@ import AdminErrorLogs from "./pages/admin/AdminErrorLogs";
 import AdminRuntimeSettings from "./pages/admin/AdminRuntimeSettings";
 import AdminBilling from "./pages/admin/AdminBilling";
 import Billing from "./pages/Billing";
+import Studio from "./pages/Studio";
+import LogoStudio from "./pages/LogoStudio";
 
 const queryClient = new QueryClient();
 
@@ -146,6 +148,8 @@ const App = () => (
                         <Route path="/pro-studio" element={<ProStudio />} />
                         <Route path="/campaign-kit" element={<CampaignKit />} />
                         <Route path="/campaign-kit/:campaignId" element={<CampaignDetail />} />
+                        <Route path="/studio" element={<Studio />} />
+                        <Route path="/studio/logo" element={<LogoStudio />} />
                         <Route path="/content-studio" element={<ContentStudio />} />
                         <Route path="/content-studio/new" element={<ContentStudioNew />} />
                         <Route path="/content-calendar" element={<ContentCalendar />} />
