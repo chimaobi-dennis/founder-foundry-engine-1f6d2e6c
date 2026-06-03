@@ -135,6 +135,8 @@ export type TaskType =
   | 'document_generation'
   | 'reel_script'
   | 'campaign_copy'
+  | 'logo_generation'
+  | 'logo_mutation'
   | 'context_extraction'
   | 'system_ai';
 
@@ -768,6 +770,8 @@ const getModuleFromTaskType = (taskType?: string): ErrorModule => {
     mentor_chat: 'mentor',
     template_generation: 'prostudio',
     image_generation: 'prostudio',
+    logo_generation: 'prostudio',
+    logo_mutation: 'prostudio',
     document_generation: 'docstudio',
     reel_script: 'reelbuilder',
     campaign_copy: 'campaignkit'
