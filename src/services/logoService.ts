@@ -1,6 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callAI, getSystemPrompt, injectPromptVariables, type AICallResult } from '@/services/aiService';
 import { logAIError } from '@/services/errorService';
+import { parseAISceneResponse } from '@/lib/scene/parseAISceneResponse';
+import { applyMutationChain } from '@/lib/scene/mutations/mutateScene';
+import type { SceneDocument } from '@/types/scene';
+import type { MutationId, MutationParams } from '@/lib/scene/mutations/mutationTypes';
 
 const db = supabase as any;
 
@@ -19,7 +23,7 @@ export interface LogoMutationOptions {
   sessionId: string;
   userId: string;
   mutationDescription: string;
-  currentSceneJson?: any;
+  currentSceneJson?: SceneDocument;
   additionalContext?: string;
 }
 
@@ -35,7 +39,7 @@ export interface LogoSession {
   platform_slug: string | null;
   platform_width: number | null;
   render_engine: string | null;
-  scene_json: any;
+  scene_json: SceneDocument | null;
   source_module: string;
   template_id: string | null;
   template_output_id: string | null;
@@ -44,108 +48,280 @@ export interface LogoSession {
   visual_html: string;
 }
 
+const createSessionId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `session-${Math.random().toString(36).slice(2, 10)}-${Date.now()}`;
+};
+
+const knownMutationIds: Set<string> = new Set([
+  'replace_headline',
+  'rewrite_cta',
+  'swap_typography',
+  'change_color_direction',
+  'rebalance_layout',
+  'increase_density',
+  'simplify_composition',
+  'modernize_layout',
+  'convert_editorial_style',
+  'alternative_hierarchy',
+  'platform_adaptation',
+  'resize_reflow',
+  'swap_image',
+  'adjust_spacing',
+  'boost_contrast',
+  'custom'
+]);
+
 const buildLogoSystemPrompt = async (taskType: 'logo_generation' | 'logo_mutation'): Promise<string> => {
   const prompt = await getSystemPrompt(taskType);
   if (prompt) return prompt;
 
   if (taskType === 'logo_generation') {
-    return `You are a logo design assistant.
-    Use the brand context and creative brief to generate three distinct logo concepts.
-    Return only valid JSON with a concepts array. Each concept should contain a short name, a concise design description, and style notes.`;
+    return `You are an AI logo designer.
+Use the brand context, creative brief, and visual style guidance to generate a single valid SceneDocument.
+Return only valid JSON in the following form:
+{
+  "render_engine": "scene",
+  "scene_version": "v1",
+  "scene_json": { ... }
+}
+The scene_json must be a valid SceneDocument with width 800, height 800, a background color, and nodes suitable for a logo concept.
+Do not include markdown, explanations, or extra text.`;
   }
 
-  return `You are a logo design assistant.
-    Use the existing logo scene and the requested mutation to produce a refined version.
-    Return only valid JSON describing the updated scene or generation instructions.`;
+  return `You are an AI logo designer.
+Use the current logo scene and the requested mutation instructions to produce an updated logo scene.
+If possible, return a JSON object with a scene_json field containing a valid SceneDocument.
+If you cannot return a full scene, return only a JSON object with a mutations array.
+The mutations array should contain objects with id and params.
+Do not include markdown, explanations, or extra text.`;
 };
 
-export const getLogoSessions = async (userId: string): Promise<LogoSession[]> => {
-  const { data } = await db
+const stripCodeFences = (text: string): string =>
+  text
+    .replace(/^```(?:json|html|javascript|typescript)?\s*\n?/i, '')
+    .replace(/\n?```\s*$/i, '')
+    .trim();
+
+const tryParseJson = (text: string): unknown | null => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
+const isMutationInstruction = (value: unknown): value is { id: string; params?: Record<string, unknown> } => {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as any).id === 'string'
+  );
+};
+
+const normalizeMutationId = (id: string): MutationId =>
+  knownMutationIds.has(id) ? (id as MutationId) : 'custom';
+
+const parseLogoMutationResponse = (rawText?: string): Array<{ id: MutationId; params: MutationParams }> => {
+  if (!rawText) return [];
+  const cleaned = stripCodeFences(rawText);
+  const json = tryParseJson(cleaned) ?? tryParseJson(cleaned.replace(/^[^\{\[]+/, '').replace(/[^\}\]]+$/, ''));
+  const payload = json ?? cleaned;
+  const instructions: Array<{ id: MutationId; params: MutationParams }> = [];
+
+  const addInstruction = (value: unknown) => {
+    if (!isMutationInstruction(value)) return;
+    instructions.push({
+      id: normalizeMutationId((value as any).id),
+      params: typeof (value as any).params === 'object' && (value as any).params !== null ? (value as any).params : {}
+    });
+  };
+
+  if (Array.isArray(payload)) {
+    payload.forEach(addInstruction);
+    return instructions;
+  }
+
+  if (isMutationInstruction(payload)) {
+    addInstruction(payload);
+    return instructions;
+  }
+
+  if (payload && typeof payload === 'object') {
+    const obj = payload as Record<string, unknown>;
+    if (Array.isArray(obj.mutations)) {
+      obj.mutations.forEach(addInstruction);
+      return instructions;
+    }
+    if (typeof obj.mutation_id === 'string') {
+      addInstruction({ id: obj.mutation_id, params: obj.params as Record<string, unknown> });
+      return instructions;
+    }
+    if (typeof obj.id === 'string' && obj.params) {
+      addInstruction(obj as any);
+      return instructions;
+    }
+  }
+
+  return instructions;
+};
+
+const buildBrandContext = (options: LogoGenerationOptions) => {
+  const pieces: string[] = [];
+  pieces.push(`Brand name: ${options.name}`);
+  if (options.brandVoice) pieces.push(`Brand voice: ${options.brandVoice}`);
+  if (options.additionalContext) pieces.push(`Brand context: ${options.additionalContext}`);
+  return pieces.join('\n');
+};
+
+export const getLogoSessions = async (userId: string, brandId?: string): Promise<LogoSession[]> => {
+  let query = db
     .from('studio_sessions')
     .select('*')
     .eq('user_id', userId)
-    .eq('source_module', 'logo_studio')
-    .order('created_at', { ascending: false });
+    .eq('source_module', 'logo_studio');
 
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query.order('created_at', { ascending: false });
   return data ?? [];
+};
+
+export const getLogoSessionById = async (sessionId: string): Promise<LogoSession | null> => {
+  const { data, error } = await db
+    .from('studio_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single();
+
+  if (error) return null;
+  return data;
+};
+
+export const getLogoSessionByVersion = async (
+  rootSessionId: string,
+  version: number
+): Promise<LogoSession | null> => {
+  try {
+    const { data, error } = await db
+      .from('studio_sessions')
+      .select('*')
+      .contains('generation_params', { root_session_id: rootSessionId })
+      .eq('version', version)
+      .single();
+
+    if (error) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
 };
 
 export const generateLogoVariants = async (
   options: LogoGenerationOptions
-): Promise<AICallResult & { sessionId?: string }> => {
+): Promise<{ success: boolean; error?: string; sessions?: LogoSession[] }> => {
   try {
     const systemPrompt = await buildLogoSystemPrompt('logo_generation');
-    const filledPrompt = injectPromptVariables(systemPrompt, {
-      brand_name: options.name,
-      brief: options.prompt,
-      style: options.style || 'Not yet defined',
-      color_palette: options.colorPalette || 'Not yet defined',
-      brand_voice: options.brandVoice || 'Not yet defined',
-      additional_context: options.additionalContext || 'None provided'
+    const brandContext = buildBrandContext(options);
+
+    const requests = Array.from({ length: 4 }, (_value, index) => {
+      const prompt = injectPromptVariables(systemPrompt, {
+        brand_context: brandContext,
+        brief: options.prompt,
+        style: options.style || 'Modern and memorable',
+        color_palette: options.colorPalette || 'Bold, simple palette',
+        brand_voice: options.brandVoice || 'Confident and refined',
+        additional_context: options.additionalContext || 'No additional context',
+        variant_index: index + 1
+      });
+
+      return callAI({
+        taskType: 'logo_generation',
+        userId: options.userId,
+        messages: [
+          {
+            role: 'user',
+            content: `Generate a single square logo scene for variant ${index + 1}. Return only the JSON response described in the system prompt.`
+          }
+        ],
+        systemPrompt: prompt,
+        maxTokens: 1600,
+        userAction: 'generate_logo_variant'
+      });
     });
 
-    const result = await callAI({
-      taskType: 'logo_generation',
-      userId: options.userId,
-      messages: [
-        {
-          role: 'user',
-          content: `Generate logo concepts for ${options.name}. Use the brief and brand context in the system prompt.`
-        }
-      ],
-      systemPrompt: filledPrompt,
-      maxTokens: 1600,
-      userAction: 'generate_logo_variants'
-    });
+    const results = await Promise.all(requests);
+    const sessions: LogoSession[] = [];
 
-    if (!result.success) {
-      return result;
+    await Promise.all(results.map(async (result, index) => {
+      if (!result.success) return;
+
+      const parsed = parseAISceneResponse(result.text);
+      const sceneJson = parsed.type === 'scene' ? parsed.sceneJson : null;
+      const sessionId = createSessionId();
+      const generationParams = {
+        root_session_id: sessionId,
+        variant_index: index + 1,
+        variant_label: `Concept ${index + 1}`,
+        prompt: options.prompt,
+        style: options.style || null,
+        color_palette: options.colorPalette || null,
+        brand_voice: options.brandVoice || null,
+        additional_context: options.additionalContext || null,
+        brand_context: brandContext
+      };
+
+      const { data, error } = await db
+        .from('studio_sessions')
+        .insert({
+          id: sessionId,
+          brand_id: options.brandId,
+          user_id: options.userId,
+          source_module: 'logo_studio',
+          render_engine: 'logo_generation',
+          visual_html: '',
+          scene_json: sceneJson,
+          generation_params: generationParams,
+          platform_slug: null,
+          platform_width: 800,
+          platform_height: 800,
+          version: 1
+        })
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('[logoService.generateLogoVariants] Failed to persist variant:', error);
+        await logAIError(
+          options.userId,
+          'prostudio',
+          'Failed to persist logo variant',
+          { taskType: 'logo_generation', index, error: error.message },
+          'logo_generation',
+          undefined,
+          undefined,
+          'persist_variant',
+          'generate_logo_variant'
+        );
+        return;
+      }
+
+      if (data) {
+        sessions.push(data);
+      }
+    }));
+
+    if (sessions.length === 0) {
+      return { success: false, error: 'No logo variants could be generated.' };
     }
 
-    const { error, data } = await db
-      .from('studio_sessions')
-      .insert({
-        brand_id: options.brandId,
-        user_id: options.userId,
-        source_module: 'logo_studio',
-        render_engine: 'logo_generation',
-        visual_html: result.text ?? '',
-        scene_json: null,
-        generation_params: {
-          prompt: options.prompt,
-          style: options.style || null,
-          color_palette: options.colorPalette || null,
-          brand_voice: options.brandVoice || null,
-          additional_context: options.additionalContext || null
-        },
-        platform_slug: null,
-        platform_width: null,
-        platform_height: null,
-        version: 1
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.error('[logoService.generateLogoVariants] Failed to save session:', error);
-      await logAIError(
-        options.userId,
-        'prostudio',
-        'Failed to save logo session after generation',
-        { taskType: 'logo_generation', error: error.message },
-        'logo_generation',
-        undefined,
-        undefined,
-        'persist_session',
-        'generate_logo_variants'
-      );
-      return { success: false, error: error.message };
-    }
-
-    return {
-      ...result,
-      sessionId: data?.id
-    };
+    return { success: true, sessions };
   } catch (error: any) {
     console.error('[logoService.generateLogoVariants] Error:', error);
     await logAIError(
@@ -157,7 +333,7 @@ export const generateLogoVariants = async (
       undefined,
       undefined,
       'generate_logo_variants',
-      'generate_logo_variants'
+      'generate_logo_variant'
     );
     return { success: false, error: error?.message ?? 'Unexpected error generating logo variants' };
   }
@@ -165,7 +341,12 @@ export const generateLogoVariants = async (
 
 export const mutateLogoScene = async (
   options: LogoMutationOptions
-): Promise<AICallResult> => {
+): Promise<{
+  success: boolean;
+  error?: string;
+  session?: LogoSession;
+  mutations?: Array<{ id: MutationId; params: MutationParams }>;
+}> => {
   try {
     const { data: existingSession, error: sessionError } = await db
       .from('studio_sessions')
@@ -175,7 +356,7 @@ export const mutateLogoScene = async (
 
     if (sessionError || !existingSession) {
       const message = sessionError?.message || 'Logo session not found';
-      console.error('[logoService.mutateLogoScene] ', message);
+      console.error('[logoService.mutateLogoScene]', message);
       return { success: false, error: message };
     }
 
@@ -202,48 +383,76 @@ export const mutateLogoScene = async (
     });
 
     if (!result.success) {
-      return result;
+      return { success: false, error: result.error };
     }
 
-    const updatePayload: any = {
-      generation_params: {
-        ...(existingSession.generation_params || {}),
-        last_mutation: {
-          description: options.mutationDescription,
-          timestamp: new Date().toISOString(),
-          additional_context: options.additionalContext || null
-        }
-      },
-      visual_html: result.text ?? existingSession.visual_html,
-      version: (existingSession.version || 1) + 1
+    const sceneResult = parseAISceneResponse(result.text);
+    const mutationInstructions = parseLogoMutationResponse(result.text);
+    const startingScene: SceneDocument | null = options.currentSceneJson || existingSession.scene_json;
+
+    if (!startingScene) {
+      return { success: false, error: 'No scene available to mutate.' };
+    }
+
+    let mutatedScene: SceneDocument | null = null;
+    let appliedMutations: Array<{ id: MutationId; params: MutationParams }> = [];
+
+    if (sceneResult.type === 'scene' && sceneResult.sceneJson) {
+      mutatedScene = sceneResult.sceneJson;
+    } else if (mutationInstructions.length > 0) {
+      const chain = applyMutationChain(startingScene, mutationInstructions);
+      mutatedScene = chain.finalScene;
+      appliedMutations = mutationInstructions;
+    }
+
+    if (!mutatedScene) {
+      return {
+        success: false,
+        error: 'AI response did not include a valid scene or mutation instructions.'
+      };
+    }
+
+    const sessionId = createSessionId();
+    const rootSessionId = existingSession.generation_params?.root_session_id || existingSession.id;
+    const generationParams = {
+      ...(existingSession.generation_params || {}),
+      parent_session_id: existingSession.id,
+      root_session_id: rootSessionId,
+      mutation_description: options.mutationDescription,
+      mutation_timestamp: new Date().toISOString(),
+      mutation_chain: appliedMutations
     };
 
-    if (options.currentSceneJson) {
-      updatePayload.scene_json = options.currentSceneJson;
-    }
-
-    const { error: updateError } = await db
+    const { data, error: insertError } = await db
       .from('studio_sessions')
-      .update(updatePayload)
-      .eq('id', options.sessionId);
+      .insert({
+        id: sessionId,
+        asset_id: null,
+        brand_id: existingSession.brand_id,
+        user_id: existingSession.user_id,
+        source_module: 'logo_studio',
+        visual_html: '',
+        scene_json: mutatedScene,
+        render_engine: 'scene',
+        platform_slug: existingSession.platform_slug,
+        platform_width: existingSession.platform_width,
+        platform_height: existingSession.platform_height,
+        generation_params: generationParams,
+        version: (existingSession.version || 1) + 1
+      })
+      .select('*')
+      .single();
 
-    if (updateError) {
-      console.error('[logoService.mutateLogoScene] Failed to update session:', updateError);
-      await logAIError(
-        options.userId,
-        'prostudio',
-        'Failed to update logo session after mutation',
-        { taskType: 'logo_mutation', error: updateError.message },
-        'logo_mutation',
-        undefined,
-        undefined,
-        'persist_session',
-        'mutate_logo_scene'
-      );
-      return { success: false, error: updateError.message };
+    if (insertError || !data) {
+      console.error('[logoService.mutateLogoScene] Failed to persist mutated session:', insertError);
+      return { success: false, error: insertError?.message ?? 'Failed to save mutated session.' };
     }
 
-    return result;
+    return {
+      success: true,
+      session: data,
+      mutations: appliedMutations
+    };
   } catch (error: any) {
     console.error('[logoService.mutateLogoScene] Error:', error);
     await logAIError(
@@ -258,5 +467,82 @@ export const mutateLogoScene = async (
       'mutate_logo_scene'
     );
     return { success: false, error: error?.message ?? 'Unexpected error mutating logo scene' };
+  }
+};
+
+export const saveLogoToLibrary = async (
+  options: {
+    brandId: string;
+    userId: string;
+    sessionId: string;
+    name?: string;
+  }
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const session = await getLogoSessionById(options.sessionId);
+    if (!session) {
+      return { success: false, error: 'Logo session not found.' };
+    }
+
+    if (!session.scene_json) {
+      return { success: false, error: 'No scene available to save.' };
+    }
+
+    const assetName = options.name || `Logo studio asset ${session.id.slice(0, 8)}`;
+    const { data: asset, error: assetError } = await db
+      .from('assets')
+      .insert({
+        name: assetName,
+        brand_id: options.brandId,
+        user_id: options.userId,
+        source_module: 'logo_studio',
+        type: 'template_output',
+        file_url: null,
+        file_path: null,
+        mime_type: 'application/json',
+        width: session.platform_width,
+        height: session.platform_height,
+        platform: null,
+        template_id: null,
+        is_trashed: false,
+        version: 1,
+        version_label: 'v1'
+      })
+      .select('*')
+      .single();
+
+    if (assetError || !asset) {
+      return { success: false, error: assetError?.message ?? 'Failed to create library asset.' };
+    }
+
+    const { error: sessionError } = await db
+      .from('studio_sessions')
+      .insert({
+        asset_id: asset.id,
+        brand_id: options.brandId,
+        user_id: options.userId,
+        source_module: 'logo_studio',
+        visual_html: '',
+        scene_json: session.scene_json,
+        render_engine: 'scene',
+        platform_slug: session.platform_slug,
+        platform_width: session.platform_width,
+        platform_height: session.platform_height,
+        template_id: null,
+        brief_id: null,
+        creative_id: null,
+        template_output_id: null,
+        generation_params: session.generation_params || null,
+        version: session.version || 1
+      });
+
+    if (sessionError) {
+      return { success: false, error: sessionError.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('[logoService.saveLogoToLibrary] Error:', error);
+    return { success: false, error: error?.message ?? 'Unexpected error saving to library.' };
   }
 };
