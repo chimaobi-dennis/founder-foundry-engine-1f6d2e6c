@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/EditorialLayout";
+import { SEO } from "@/components/SEO";
 
 /* ── Editorial primitives (scoped to this page) ─────────────────────────── */
 
@@ -537,6 +538,21 @@ function CompoundingDiagram() {
 
 export default function System() {
   return (
+    <>
+      <SEO
+        title="The System — Kinika"
+        description="How Kinika's modules compose into a single working surface for founder-led businesses — one shared context across every creative workflow."
+        path="/system"
+        ogType="article"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: "The Kinika System",
+          author: { "@type": "Organization", name: "Kinika" },
+          datePublished: "2026-03-01",
+          publisher: { "@type": "Organization", name: "Kinika" },
+        }}
+      />
     <EditorialShell>
       {/* Opening spread ----------------------------------------------------- */}
       <section style={{ background: L.paper }}>
@@ -965,5 +981,6 @@ export default function System() {
         </div>
       </section>
     </EditorialShell>
+    </>
   );
 }
