@@ -40,6 +40,8 @@ import NotFound from "./pages/NotFound";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
 import Onboarding from "./pages/Onboarding";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
@@ -64,7 +66,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
   const location = useLocation();
-  const isAuthRoute = location.pathname === "/sign-in" || location.pathname === "/sign-up" || location.pathname === "/forgot-password";
+  const authRoutes = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/verify-email"];
+  const isAuthRoute = authRoutes.includes(location.pathname);
+  const isPasswordRecovery = location.pathname === "/reset-password";
   const isOnboarding = location.pathname === "/onboarding";
   const editorialPaths = ["/", "/philosophy", "/system", "/journal", "/pricing", "/memory", "/journey"];
   const isLanding = editorialPaths.includes(location.pathname);
@@ -82,7 +86,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <Navigate to="/sign-in" replace />;
   }
 
-  if (session && isAuthRoute) {
+  if (session && isAuthRoute && !isPasswordRecovery) {
     if (profile && !profile.onboarding_completed) {
       return <Navigate to="/onboarding" replace />;
     }
@@ -122,6 +126,8 @@ const App = () => (
                       <Route path="/sign-up" element={<SignUp />} />
                       <Route path="/sign-in" element={<SignIn />} />
                       <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
+                      <Route path="/verify-email" element={<VerifyEmail />} />
                       <Route path="/onboarding" element={<Onboarding />} />
                       {/* Admin shell — separate layout */}
                       <Route path="/admin" element={<AdminLayout />}>
