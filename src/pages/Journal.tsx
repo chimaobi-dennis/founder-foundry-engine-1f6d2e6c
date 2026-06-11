@@ -118,7 +118,7 @@ export default function Journal() {
           "@type": "CollectionPage",
           name: "Kinika Journal",
           description: "Writing on founder workflows and connected creative operations.",
-          url: "https://founder-foundry-engine.lovable.app/journal",
+          url: "https://kinika.studio/journal",
         }}
       />
     <EditorialShell>
