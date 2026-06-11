@@ -229,17 +229,19 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       throw uploadError;
     }
 
+    // Generate a one-shot signed URL only for the immediate return value.
+    // We intentionally do NOT persist file_url in the DB — readers regenerate
+    // fresh signed URLs from file_path via enrichTemplateOutputUrls().
     const { data: signed, error: signedError } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 365);
+      .createSignedUrl(storagePath, 60 * 60);
     if (signedError) {
       console.error('[assetService.saveToLibrary] Signed URL failed:', signedError);
       throw signedError;
     }
-    const publicUrl = signed.signedUrl;
-    console.log('[assetService.saveToLibrary] Signed URL:', publicUrl);
+    const transientUrl = signed.signedUrl;
 
-    // Insert into assets table
+    // Insert into assets table (file_url is NOT stored — regenerated on read)
     console.log('[assetService.saveToLibrary] Inserting into assets table...');
     const { data: asset, error: assetError } = await db
       .from('assets')
@@ -249,7 +251,7 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
         user_id: userId,
         source_module: sourceModule,
         type: 'template_output',
-        file_url: publicUrl,
+        file_url: null,
         file_path: storagePath,
         mime_type: mimeType,
         width: platformWidth,
@@ -268,6 +270,9 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       console.error('[assetService.saveToLibrary] Assets insert failed:', assetError);
       throw assetError;
     }
+    // Hydrate the returned asset with a transient signed URL so callers
+    // can render the image immediately without an extra round-trip.
+    asset.file_url = transientUrl;
     console.log('[assetService.saveToLibrary] Asset created:', asset.id);
 
     // Insert into studio_sessions table
