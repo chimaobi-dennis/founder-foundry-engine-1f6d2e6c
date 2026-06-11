@@ -92,6 +92,30 @@ function generateUUID(): string {
   return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 }
 
+// ─── Signed URL hydration ─────────────────────────────────────
+// Template-outputs assets are stored in a private bucket; we don't persist
+// expiring file_url values. Regenerate fresh signed URLs from file_path
+// every time we read from the assets table.
+async function enrichTemplateOutputUrls<T extends { type?: string; file_path?: string | null; file_url?: string | null }>(
+  assets: T[],
+): Promise<T[]> {
+  const SIGN_TTL = 60 * 60; // 1h is enough for a page session
+  return Promise.all(
+    assets.map(async (asset) => {
+      if (asset?.type !== 'template_output' || !asset.file_path) return asset;
+      try {
+        const { data, error } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .createSignedUrl(asset.file_path, SIGN_TTL);
+        if (error || !data?.signedUrl) return asset;
+        return { ...asset, file_url: data.signedUrl };
+      } catch {
+        return asset;
+      }
+    }),
+  );
+}
+
 // ─── Save to Library ─────────────────────────────────────
 
 export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset | null> {
@@ -229,17 +253,19 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       throw uploadError;
     }
 
+    // Generate a one-shot signed URL only for the immediate return value.
+    // We intentionally do NOT persist file_url in the DB — readers regenerate
+    // fresh signed URLs from file_path via enrichTemplateOutputUrls().
     const { data: signed, error: signedError } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 365);
+      .createSignedUrl(storagePath, 60 * 60);
     if (signedError) {
       console.error('[assetService.saveToLibrary] Signed URL failed:', signedError);
       throw signedError;
     }
-    const publicUrl = signed.signedUrl;
-    console.log('[assetService.saveToLibrary] Signed URL:', publicUrl);
+    const transientUrl = signed.signedUrl;
 
-    // Insert into assets table
+    // Insert into assets table (file_url is NOT stored — regenerated on read)
     console.log('[assetService.saveToLibrary] Inserting into assets table...');
     const { data: asset, error: assetError } = await db
       .from('assets')
@@ -249,7 +275,7 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
         user_id: userId,
         source_module: sourceModule,
         type: 'template_output',
-        file_url: publicUrl,
+        file_url: null,
         file_path: storagePath,
         mime_type: mimeType,
         width: platformWidth,
@@ -268,6 +294,9 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       console.error('[assetService.saveToLibrary] Assets insert failed:', assetError);
       throw assetError;
     }
+    // Hydrate the returned asset with a transient signed URL so callers
+    // can render the image immediately without an extra round-trip.
+    asset.file_url = transientUrl;
     console.log('[assetService.saveToLibrary] Asset created:', asset.id);
 
     // Insert into studio_sessions table
@@ -359,8 +388,12 @@ export async function getLibraryAssets(
     const { data, error } = await query;
     if (error) throw error;
 
+    // Regenerate fresh signed URLs for template-outputs assets so we never
+    // rely on stored (and expiring) file_url values.
+    const enriched = await enrichTemplateOutputUrls(data || []);
+
     // Add has_studio_session flag
-    return (data || []).map((asset: any) => ({
+    return enriched.map((asset: any) => ({
       ...asset,
       has_studio_session: !!asset.studio_sessions && asset.studio_sessions.length > 0,
     }));
@@ -524,7 +557,7 @@ export async function getAssetVersions(assetIdOrParentId: string): Promise<Asset
 
     if (error) throw error;
 
-    return data || [];
+    return await enrichTemplateOutputUrls(data || []);
   } catch (error: any) {
     console.error('[assetService.getAssetVersions] Error:', error);
     await logError({
