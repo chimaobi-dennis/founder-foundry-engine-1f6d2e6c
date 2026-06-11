@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://founder-foundry-engine.lovable.app/sitemap.xml
+Sitemap: https://kinika.studio/sitemap.xml

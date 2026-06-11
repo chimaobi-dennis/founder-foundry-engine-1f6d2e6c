@@ -1,6 +1,6 @@
 import { Helmet } from "react-helmet-async";
 
-const SITE = "https://founder-foundry-engine.lovable.app";
+const SITE = "https://kinika.studio";
 
 interface SEOProps {
   title: string;
