@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, CheckCircle, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -24,6 +24,7 @@ function getStrength(pw: string): { level: number; label: string } {
 }
 
 export default function SignUp() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -81,6 +82,9 @@ export default function SignUp() {
       }
     } else {
       setSuccess(true);
+      navigate(`/verify-email?email=${encodeURIComponent(form.email)}`, {
+        replace: true,
+      });
     }
   };
 
