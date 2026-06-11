@@ -406,9 +406,11 @@ export const uploadProductImage = async (
 
   if (uploadError) return { success: false, error: uploadError.message };
 
-  const { data: { publicUrl } } = (supabase as any).storage
+  const { data: signed, error: signedError } = await (supabase as any).storage
     .from('product-images')
-    .getPublicUrl(filename);
+    .createSignedUrl(filename, 60 * 60 * 24 * 365);
+  if (signedError) return { success: false, error: signedError.message };
+  const publicUrl = signed.signedUrl;
 
   const { data: asset, error: dbError } = await (supabase as any)
     .from('assets')

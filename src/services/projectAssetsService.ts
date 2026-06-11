@@ -68,9 +68,13 @@ export const uploadProjectFile = async (
       return { success: false, error: uploadError.message };
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: signed, error: signedError } = await supabase.storage
       .from('project-files')
-      .getPublicUrl(filename);
+      .createSignedUrl(filename, 60 * 60 * 24 * 365);
+    if (signedError) {
+      return { success: false, error: signedError.message };
+    }
+    const publicUrl = signed.signedUrl;
 
     const fileType = getFileType(file.type);
 
@@ -347,10 +351,14 @@ export async function uploadBrandProductImage(
       return { success: false, error: error.message };
     }
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    // Get signed URL (1 year expiry — max allowed by Supabase)
+    const { data: signed, error: signedError } = await supabase.storage
       .from('product-images')
-      .getPublicUrl(storagePath);
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 365);
+    if (signedError) {
+      return { success: false, error: signedError.message };
+    }
+    const publicUrl = signed.signedUrl;
 
     // Check if this brand has any existing product images
     const { data: existingImages } = await (supabase as any)
