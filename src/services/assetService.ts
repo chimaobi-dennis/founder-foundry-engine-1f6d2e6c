@@ -229,10 +229,15 @@ export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset 
       throw uploadError;
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: signed, error: signedError } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .getPublicUrl(storagePath);
-    console.log('[assetService.saveToLibrary] Public URL:', publicUrl);
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 365);
+    if (signedError) {
+      console.error('[assetService.saveToLibrary] Signed URL failed:', signedError);
+      throw signedError;
+    }
+    const publicUrl = signed.signedUrl;
+    console.log('[assetService.saveToLibrary] Signed URL:', publicUrl);
 
     // Insert into assets table
     console.log('[assetService.saveToLibrary] Inserting into assets table...');

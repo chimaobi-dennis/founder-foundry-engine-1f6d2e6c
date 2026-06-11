@@ -173,9 +173,11 @@ export const uploadTemplatePreviewImage = async (
 
     if (uploadError) throw uploadError;
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: signed, error: signedError } = await supabase.storage
       .from('template-previews')
-      .getPublicUrl(storagePath);
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 365);
+    if (signedError) throw signedError;
+    const publicUrl = signed.signedUrl;
 
     const isFirstImage = sortOrder === 0;
 
