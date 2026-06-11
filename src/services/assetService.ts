@@ -92,6 +92,30 @@ function generateUUID(): string {
   return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 }
 
+// ─── Signed URL hydration ─────────────────────────────────────
+// Template-outputs assets are stored in a private bucket; we don't persist
+// expiring file_url values. Regenerate fresh signed URLs from file_path
+// every time we read from the assets table.
+async function enrichTemplateOutputUrls<T extends { type?: string; file_path?: string | null; file_url?: string | null }>(
+  assets: T[],
+): Promise<T[]> {
+  const SIGN_TTL = 60 * 60; // 1h is enough for a page session
+  return Promise.all(
+    assets.map(async (asset) => {
+      if (asset?.type !== 'template_output' || !asset.file_path) return asset;
+      try {
+        const { data, error } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .createSignedUrl(asset.file_path, SIGN_TTL);
+        if (error || !data?.signedUrl) return asset;
+        return { ...asset, file_url: data.signedUrl };
+      } catch {
+        return asset;
+      }
+    }),
+  );
+}
+
 // ─── Save to Library ─────────────────────────────────────
 
 export async function saveToLibrary(params: SaveToLibraryParams): Promise<Asset | null> {
