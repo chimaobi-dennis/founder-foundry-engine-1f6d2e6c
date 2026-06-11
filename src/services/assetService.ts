@@ -364,8 +364,12 @@ export async function getLibraryAssets(
     const { data, error } = await query;
     if (error) throw error;
 
+    // Regenerate fresh signed URLs for template-outputs assets so we never
+    // rely on stored (and expiring) file_url values.
+    const enriched = await enrichTemplateOutputUrls(data || []);
+
     // Add has_studio_session flag
-    return (data || []).map((asset: any) => ({
+    return enriched.map((asset: any) => ({
       ...asset,
       has_studio_session: !!asset.studio_sessions && asset.studio_sessions.length > 0,
     }));
