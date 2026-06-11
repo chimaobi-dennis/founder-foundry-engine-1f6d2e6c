@@ -330,7 +330,7 @@ export function AssetPicker({ selectedAssets, onSelect, onSkip }: Props) {
                     )}
                   >
                     {asset.imageUrl ? (
-                      <img src={asset.imageUrl} alt="Product" className="w-full h-full object-cover" />
+                      <img src={asset.imageUrl} alt={`Product photo: ${asset.name || "uploaded product image"}`} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full bg-muted flex items-center justify-center">
                         <ImageIcon size={20} className="text-muted-foreground" />
@@ -373,7 +373,7 @@ export function AssetPicker({ selectedAssets, onSelect, onSkip }: Props) {
                     )}
                   >
                     {asset.imageUrl ? (
-                      <img src={asset.imageUrl} alt="Creative" className="w-full h-full object-cover" />
+                      <img src={asset.imageUrl} alt={`Generated creative: ${asset.name || "campaign visual"}`} className="w-full h-full object-cover" />
                     ) : asset.htmlContent ? (
                       <iframe
                         srcDoc={asset.htmlContent}

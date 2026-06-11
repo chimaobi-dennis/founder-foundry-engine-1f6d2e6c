@@ -65,7 +65,7 @@ export function LibraryProductImages() {
             className="rounded-[10px] overflow-hidden border border-border cursor-pointer relative group aspect-[3/4]"
           >
             {img.url ? (
-              <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+              <img src={img.url} alt={`Product image: ${img.name || "library asset"}`} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: img.color }}>
                 <span className="text-[11px] font-ui text-white/70 font-medium px-2 text-center">{img.name}</span>
