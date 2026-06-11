@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/EditorialLayout";
+import { SEO } from "@/components/SEO";
 
 /* ── Data ───────────────────────────────────────────────────────────────── */
 
@@ -298,6 +299,21 @@ function PlanCard({ plan, index }: { plan: Plan; index: number }) {
 
 export default function Pricing() {
   return (
+    <>
+      <SEO
+        title="Pricing — Kinika"
+        description="Kinika plans for founders: Starter, Studio, and Atelier. Wallet-based credits, no held-hostage memory, move between plans anytime."
+        path="/pricing"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: FAQ.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }}
+      />
     <EditorialShell>
       {/* ── Cover spread ────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
@@ -714,5 +730,6 @@ export default function Pricing() {
         </div>
       </section>
     </EditorialShell>
+    </>
   );
 }

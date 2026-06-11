@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { EditorialShell, Container, PageMeta, PageTitle, L } from "@/components/editorial/EditorialLayout";
+import { SEO } from "@/components/SEO";
 
 // ---------------------------------------------------------------------------
 // Visual systems — quiet, archival, notebook-inspired
@@ -365,6 +366,12 @@ function FigureCaption({ index, title }: { index: string; title: string }) {
 
 export default function Memory() {
   return (
+    <>
+      <SEO
+        title="Memory — Kinika"
+        description="Brand memory in Kinika: persistent business context that compounds as you work, so nothing has to be re-explained between tools."
+        path="/memory"
+      />
     <EditorialShell>
       <Container>
         <PageMeta issue="Kinika" section="Memory" date="The core of the product" />
@@ -682,6 +689,7 @@ export default function Memory() {
         </section>
       </Container>
     </EditorialShell>
+    </>
   );
 }
 

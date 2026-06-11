@@ -408,7 +408,7 @@ const Home = () => {
                 >
                   <div className="aspect-[16/10] bg-muted/30 overflow-hidden">
                     {latestAsset.file_url && (latestAsset.mime_type?.startsWith("image/") || latestAsset.type === "template_output" || latestAsset.type === "generated_visual" || latestAsset.type === "product_image") ? (
-                      <img src={latestAsset.file_url} alt={latestAsset.name} className="w-full h-full object-cover" loading="lazy" />
+                      <img src={latestAsset.file_url} alt={`Recent asset: ${latestAsset.name || "generated creative"}`} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Folder size={26} className="text-muted-foreground/40" />

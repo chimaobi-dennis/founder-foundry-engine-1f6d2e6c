@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/EditorialLayout";
+import { SEO } from "@/components/SEO";
 
 /* ── Data ───────────────────────────────────────────────────────────────── */
 
@@ -107,6 +108,19 @@ function ArticleMeta({ date, read, author }: { date: string; read: string; autho
 
 export default function Journal() {
   return (
+    <>
+      <SEO
+        title="Journal — Kinika"
+        description="Essays on founder workflows, brand operations, and the hidden cost of running a business across 15+ disconnected tools."
+        path="/journal"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Kinika Journal",
+          description: "Writing on founder workflows and connected creative operations.",
+          url: "https://founder-foundry-engine.lovable.app/journal",
+        }}
+      />
     <EditorialShell>
       {/* ── Cover spread ────────────────────────────────────────────────── */}
       <section style={{ background: L.paper }}>
@@ -641,5 +655,6 @@ export default function Journal() {
         </div>
       </section>
     </EditorialShell>
+    </>
   );
 }

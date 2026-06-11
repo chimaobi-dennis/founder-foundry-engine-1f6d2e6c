@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/EditorialLayout";
+import { SEO } from "@/components/SEO";
 
 /* ── Small editorial primitives, scoped to this essay ───────────────────── */
 
@@ -256,6 +257,21 @@ function MemoryDiagram() {
 
 export default function Philosophy() {
   return (
+    <>
+      <SEO
+        title="Philosophy — Kinika"
+        description="Why Kinika exists: context as infrastructure for founders, not another tool that resets the conversation every time."
+        path="/philosophy"
+        ogType="article"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: "The Kinika Philosophy",
+          author: { "@type": "Organization", name: "Kinika" },
+          datePublished: "2026-03-01",
+          publisher: { "@type": "Organization", name: "Kinika" },
+        }}
+      />
     <EditorialShell>
       {/* Opening spread ----------------------------------------------------- */}
       <section style={{ background: L.paper }}>
@@ -724,5 +740,6 @@ export default function Philosophy() {
         </div>
       </section>
     </EditorialShell>
+    </>
   );
 }

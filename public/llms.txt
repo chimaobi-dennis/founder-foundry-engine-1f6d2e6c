@@ -1,0 +1,18 @@
+# Kinika
+
+> Kinika is an AI-native brand intelligence and creative operating system. One business context, connected across every workflow a founder runs — mentor, content, documents, campaigns, and creative production.
+
+## Pages
+
+- [Home](/): What Kinika is and why founders use a connected operating layer instead of 15+ disconnected tools.
+- [Philosophy](/philosophy): The product thinking behind Kinika — context as infrastructure, not output.
+- [System](/system): How the modules compose into a single working surface for a founder-led business.
+- [Memory](/memory): The brand memory layer that compounds over time as you work.
+- [Journey](/journey): The six stages of founder evolution Kinika is designed around.
+- [Journal](/journal): Essays on founder workflows, brand operations, and the cost of fragmented creative tooling.
+- [Pricing](/pricing): Plans, what's included, and the wallet-based credit model.
+
+## Optional
+
+- [Sign in](/sign-in): Returning users.
+- [Sign up](/sign-up): Create an account.

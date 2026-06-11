@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { EditorialShell, Container, PageMeta, PageTitle, L } from "@/components/editorial/EditorialLayout";
+import { SEO } from "@/components/SEO";
 
 // ---------------------------------------------------------------------------
 // Stage data — six chapters of founder evolution
@@ -274,6 +275,12 @@ function EvolutionBand() {
 
 export default function Journey() {
   return (
+    <>
+      <SEO
+        title="The Founder Journey — Kinika"
+        description="Six stages of founder evolution Kinika is designed around — from the first instinct to a brand that operates as a system."
+        path="/journey"
+      />
     <EditorialShell>
       <Container>
         <PageMeta issue="Kinika" section="Founder Journey" date="Six stages" />
@@ -439,6 +446,7 @@ export default function Journey() {
         </section>
       </Container>
     </EditorialShell>
+    </>
   );
 }
 
