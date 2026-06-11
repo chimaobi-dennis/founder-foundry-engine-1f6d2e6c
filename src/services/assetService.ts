@@ -557,7 +557,7 @@ export async function getAssetVersions(assetIdOrParentId: string): Promise<Asset
 
     if (error) throw error;
 
-    return data || [];
+    return await enrichTemplateOutputUrls(data || []);
   } catch (error: any) {
     console.error('[assetService.getAssetVersions] Error:', error);
     await logError({
