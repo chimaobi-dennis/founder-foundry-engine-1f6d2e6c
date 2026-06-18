@@ -44,13 +44,6 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
   const [currentStageData, setCurrentStageData] = useState<JourneyStageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch stages once on mount
-  useEffect(() => {
-    getJourneyStages().then(stages => {
-      setJourneyStages(stages);
-    });
-  }, []);
-
   // Update currentStageData when activeBrand or stages change
   useEffect(() => {
     if (activeBrand && journeyStages.length > 0) {
@@ -64,13 +57,15 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return;
     setIsLoading(true);
 
-    const [allBrands, active] = await Promise.all([
+    const [allBrands, active, stages] = await Promise.all([
       getUserBrands(user.id),
-      getActiveBrand(user.id)
+      getActiveBrand(user.id),
+      getJourneyStages()
     ]);
 
     setBrands(allBrands);
     setActiveBrandState(active);
+    setJourneyStages(stages);
 
     if (active) {
       const dna = await getBrandDNA(active.id);

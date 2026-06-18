@@ -20,7 +20,6 @@ import { useProfile } from "@/hooks/use-profile";
 import { useBrand } from "@/hooks/use-brand";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { BrandContextBar } from "./BrandContextBar";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -278,13 +277,7 @@ export function AppSidebar() {
           {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
         </button>
 
-        {/* Brand switcher — collapsed: hidden, expanded: full width */}
-        {!collapsed && (
-          <div className="flex-shrink-0 pt-10 px-0">
-            <BrandContextBar />
-          </div>
-        )}
-        {collapsed && <div className="h-10" />}
+        <div className="flex-shrink-0 pt-10" />
 
         {/* Nav */}
         {collapsed ? <DesktopCollapsed /> : <DesktopExpanded />}
