@@ -92,18 +92,16 @@ function RecentSkeleton() {
       {[72, 88].map((w) => (
         <div key={w} className="flex items-center justify-between">
           <div
-            className="h-3 rounded"
+            className="h-3 rounded bg-foreground/10"
             style={{
               width: `${w}%`,
-              background: "rgba(255,255,255,0.06)",
               animation: "studio-skel 1.6s ease-in-out infinite",
             }}
           />
           <div
-            className="h-3 rounded ml-2 flex-shrink-0"
+            className="h-3 rounded ml-2 flex-shrink-0 bg-foreground/5"
             style={{
               width: 48,
-              background: "rgba(255,255,255,0.04)",
               animation: "studio-skel 1.6s ease-in-out infinite",
               animationDelay: "200ms",
             }}
@@ -121,10 +119,7 @@ function RecentItems({ items, loading }: { items: RecentItem[]; loading: boolean
 
   if (items.length === 0) {
     return (
-      <p
-        className="mt-3 text-[11px] font-ui italic"
-        style={{ color: "rgba(138,150,163,0.55)" }}
-      >
+      <p className="mt-3 text-[11px] font-ui italic text-muted-foreground/60">
         Nothing yet — start creating
       </p>
     );
@@ -135,16 +130,12 @@ function RecentItems({ items, loading }: { items: RecentItem[]; loading: boolean
       {items.map((item) => (
         <div key={item.id} className="flex items-center justify-between gap-2">
           <span
-            className="text-[11px] font-ui truncate"
-            style={{ color: "#8A96A3" }}
+            className="text-[11px] font-ui truncate text-muted-foreground"
             title={item.name}
           >
             {item.name}
           </span>
-          <span
-            className="text-[10px] font-ui flex-shrink-0"
-            style={{ color: "rgba(138,150,163,0.5)" }}
-          >
+          <span className="text-[10px] font-ui flex-shrink-0 text-muted-foreground/50">
             {relativeTime(item.createdAt)}
           </span>
         </div>
@@ -177,61 +168,48 @@ function CreationCard({
       onKeyDown={canClick ? (e) => e.key === "Enter" && onClick?.() : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative flex flex-col p-5 rounded-xl transition-all duration-200 select-none"
-      style={{
-        background: "#1A2A3A",
-        border: `1px solid ${hovered && canClick ? "rgba(212,160,23,0.45)" : "#2A3A4A"}`,
-        cursor: canClick ? "pointer" : "default",
-        outline: "none",
-      }}
+      className={`relative flex flex-col p-5 rounded-xl border transition-all duration-200 select-none bg-card outline-none ${
+        hovered && canClick ? "border-primary/45" : "border-card-border"
+      } ${canClick ? "cursor-pointer" : "cursor-default"}`}
     >
       {/* Coming Soon badge */}
       {card.soon && (
-        <span
-          className="absolute top-4 right-4 text-[9px] font-ui font-semibold uppercase tracking-widest px-2 py-0.5 rounded-sm"
-          style={{ background: "rgba(212,160,23,0.15)", color: "#D4A017" }}
-        >
+        <span className="absolute top-4 right-4 text-[9px] font-ui font-semibold uppercase tracking-widest px-2 py-0.5 rounded-sm bg-primary/15 text-primary">
           Soon
         </span>
       )}
 
       {/* Icon */}
       <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center mb-3 flex-shrink-0"
-        style={{
-          background: "rgba(212,160,23,0.10)",
-          color: card.soon ? "rgba(212,160,23,0.45)" : "#D4A017",
-        }}
+        className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 flex-shrink-0 bg-primary/10 ${
+          card.soon ? "text-primary/45" : "text-primary"
+        }`}
       >
         <card.icon size={18} />
       </div>
 
       {/* Title + description */}
       <p
-        className="text-[14px] font-ui font-semibold leading-snug mb-1"
-        style={{ color: card.soon ? "rgba(245,240,232,0.45)" : "#F5F0E8" }}
+        className={`text-[14px] font-ui font-semibold leading-snug mb-1 ${
+          card.soon ? "text-foreground/45" : "text-foreground"
+        }`}
       >
         {card.title}
       </p>
       <p
-        className="text-[12px] font-ui leading-snug"
-        style={{ color: card.soon ? "rgba(138,150,163,0.5)" : "#8A96A3" }}
+        className={`text-[12px] font-ui leading-snug ${
+          card.soon ? "text-muted-foreground/50" : "text-muted-foreground"
+        }`}
       >
         {card.description}
       </p>
 
       {/* Divider */}
-      <div
-        className="my-3 h-px"
-        style={{ background: "#2A3A4A" }}
-      />
+      <div className="my-3 h-px bg-card-border" />
 
       {/* Recent creations */}
       {card.soon ? (
-        <p
-          className="text-[11px] font-ui italic"
-          style={{ color: "rgba(138,150,163,0.35)" }}
-        >
+        <p className="text-[11px] font-ui italic text-muted-foreground/35">
           Coming soon
         </p>
       ) : (
@@ -278,10 +256,7 @@ export default function Studio() {
   };
 
   return (
-    <div
-      className="min-h-full px-6 py-8 md:px-10"
-      style={{ background: "#0D1B2A" }}
-    >
+    <div className="min-h-full px-6 py-8 md:px-10 bg-background">
       <style>{`
         @keyframes studio-skel {
           0%, 100% { opacity: 0.5; }
@@ -291,35 +266,25 @@ export default function Studio() {
 
       {/* ── Launcher bar ── */}
       <div className="max-w-2xl mb-10">
-        <h1
-          className="text-[22px] font-display font-semibold mb-1 leading-snug"
-          style={{ color: "#F5F0E8" }}
-        >
+        <h1 className="text-[22px] font-display font-semibold mb-1 leading-snug text-foreground">
           What do you want to create today?
         </h1>
-        <p
-          className="text-[13px] font-ui mb-5"
-          style={{ color: "#8A96A3" }}
-        >
+        <p className="text-[13px] font-ui mb-5 text-muted-foreground">
           Describe it or choose a starting point below
         </p>
 
         {/* Visual input — not wired */}
         <div
-          className="relative rounded-xl transition-all duration-200"
-          style={{
-            border: `1.5px solid ${focused ? "rgba(212,160,23,0.6)" : "#2A3A4A"}`,
-            boxShadow: focused ? "0 0 0 3px rgba(212,160,23,0.08)" : "none",
-            background: "#1A2A3A",
-          }}
+          className={`relative rounded-xl border-[1.5px] transition-all duration-200 bg-card ${
+            focused ? "border-primary/60 shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]" : "border-card-border"
+          }`}
         >
           <input
             type="text"
             placeholder="e.g. Instagram post for my new product launch…"
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            className="w-full bg-transparent px-4 py-4 text-[14px] font-ui outline-none placeholder:text-[#8A96A3]/50"
-            style={{ color: "#F5F0E8", caretColor: "#D4A017" }}
+            className="w-full bg-transparent px-4 py-4 text-[14px] font-ui outline-none text-foreground placeholder:text-muted-foreground/50 caret-primary"
             readOnly
           />
         </div>
