@@ -7,8 +7,8 @@ import {
   Film,
   TrendingUp,
   Monitor,
+  type LucideIcon,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRecentCreations, type RecentItem } from "@/services/studioService";
 
@@ -36,6 +36,20 @@ type CardDef = {
   route: string | null;
   soon?: boolean;
 };
+
+type QuickAction = {
+  id: CardDef["id"];
+  icon: LucideIcon;
+  label: string;
+  route: string;
+};
+
+const QUICK_ACTIONS: QuickAction[] = [
+  { id: "socialContent", icon: Megaphone, label: "Social Content", route: "/content-studio" },
+  { id: "logo", icon: Hexagon, label: "Logo", route: "/studio/logo" },
+  { id: "documents", icon: FileText, label: "Document", route: "/doc-studio" },
+  { id: "reels", icon: Film, label: "Reel Script", route: "/reel-builder" },
+];
 
 const CARDS: CardDef[] = [
   {
@@ -264,30 +278,56 @@ export default function Studio() {
         }
       `}</style>
 
-      {/* ── Launcher bar ── */}
-      <div className="max-w-2xl mb-10">
-        <h1 className="text-[22px] font-display font-semibold mb-1 leading-snug text-foreground">
+      {/* ── Launcher ── */}
+      <div className="max-w-2xl mb-8">
+        {/* Amber accent rule */}
+        <div className="w-10 h-px bg-primary mb-3" />
+
+        <h1 className="text-[26px] font-display font-semibold leading-snug mb-4 text-foreground">
           What do you want to create today?
         </h1>
-        <p className="text-[13px] font-ui mb-5 text-muted-foreground">
-          Describe it or choose a starting point below
-        </p>
 
-        {/* Visual input — not wired */}
+        {/* Input bar — no card, restrained border */}
         <div
-          className={`relative rounded-xl border-[1.5px] transition-all duration-200 bg-card ${
-            focused ? "border-primary/60 shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]" : "border-card-border"
+          className={`relative rounded-lg border transition-colors duration-200 ${
+            focused ? "border-primary/50" : "border-card-border"
           }`}
         >
           <input
             type="text"
-            placeholder="e.g. Instagram post for my new product launch…"
+            placeholder="Describe what you want to create…"
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            className="w-full bg-transparent px-4 py-4 text-[14px] font-ui outline-none text-foreground placeholder:text-muted-foreground/50 caret-primary"
+            className="w-full bg-transparent pl-4 pr-14 py-3.5 text-[14px] font-ui outline-none text-foreground placeholder:text-muted-foreground/50 caret-primary"
             readOnly
           />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-ui text-muted-foreground/40 select-none">
+            ⌘K
+          </span>
         </div>
+
+        {/* Quick action pills */}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {QUICK_ACTIONS.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              onClick={() => navigate(action.route)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-card-border text-[12px] font-ui text-muted-foreground transition-colors duration-150 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+            >
+              <action.icon size={12} />
+              {action.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Section break ── */}
+      <div className="mb-4">
+        <p className="text-[10px] font-ui font-medium uppercase tracking-widest text-muted-foreground/70 mb-2">
+          Quick Start
+        </p>
+        <div className="h-px bg-card-border" />
       </div>
 
       {/* ── Creation cards ── */}
