@@ -33,76 +33,136 @@ GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
 -- ── 2. Admin RLS policies ────────────────────────────────────────────────────
 
--- Temporary helper: create a policy if its table exists and it is not there yet.
-CREATE OR REPLACE FUNCTION public.__kinika_ensure_policy(p_table text, p_name text, p_sql text)
-RETURNS void
-LANGUAGE plpgsql AS $$
-BEGIN
-  IF to_regclass('public.' || p_table) IS NULL THEN
-    RAISE NOTICE 'skip policy "%": table public.% does not exist', p_name, p_table;
-    RETURN;
-  END IF;
-  IF EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = p_table AND policyname = p_name
-  ) THEN
-    RETURN;
-  END IF;
-  EXECUTE p_sql;
-END;
-$$;
+-- Each policy is created only if its table exists and it is not there yet.
 
 -- profiles: admin reads every profile (users list, dashboard counts, joins)
 -- and updates any profile (role changes, creator approval).
-SELECT public.__kinika_ensure_policy('profiles', 'Admins read all profiles',
-  'CREATE POLICY "Admins read all profiles" ON public.profiles FOR SELECT TO authenticated USING (public.is_admin())');
-SELECT public.__kinika_ensure_policy('profiles', 'Admins update all profiles',
-  'CREATE POLICY "Admins update all profiles" ON public.profiles FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.profiles') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'Admins read all profiles') THEN
+    CREATE POLICY "Admins read all profiles" ON public.profiles FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.profiles') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'profiles' AND policyname = 'Admins update all profiles') THEN
+    CREATE POLICY "Admins update all profiles" ON public.profiles FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
 
 -- creator_applications: admin review queue.
-SELECT public.__kinika_ensure_policy('creator_applications', 'Admins read all creator applications',
-  'CREATE POLICY "Admins read all creator applications" ON public.creator_applications FOR SELECT TO authenticated USING (public.is_admin())');
-SELECT public.__kinika_ensure_policy('creator_applications', 'Admins update creator applications',
-  'CREATE POLICY "Admins update creator applications" ON public.creator_applications FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.creator_applications') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'creator_applications' AND policyname = 'Admins read all creator applications') THEN
+    CREATE POLICY "Admins read all creator applications" ON public.creator_applications FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.creator_applications') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'creator_applications' AND policyname = 'Admins update creator applications') THEN
+    CREATE POLICY "Admins update creator applications" ON public.creator_applications FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
 
 -- creator_profiles: created/updated by the admin when approving an application.
-SELECT public.__kinika_ensure_policy('creator_profiles', 'Admins manage creator profiles',
-  'CREATE POLICY "Admins manage creator profiles" ON public.creator_profiles FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.creator_profiles') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'creator_profiles' AND policyname = 'Admins manage creator profiles') THEN
+    CREATE POLICY "Admins manage creator profiles" ON public.creator_profiles FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
 
 -- prostudio_templates + preview images: template review.
-SELECT public.__kinika_ensure_policy('prostudio_templates', 'Admins read all templates',
-  'CREATE POLICY "Admins read all templates" ON public.prostudio_templates FOR SELECT TO authenticated USING (public.is_admin())');
-SELECT public.__kinika_ensure_policy('prostudio_templates', 'Admins update all templates',
-  'CREATE POLICY "Admins update all templates" ON public.prostudio_templates FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
-SELECT public.__kinika_ensure_policy('template_preview_images', 'Admins read all template preview images',
-  'CREATE POLICY "Admins read all template preview images" ON public.template_preview_images FOR SELECT TO authenticated USING (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.prostudio_templates') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'prostudio_templates' AND policyname = 'Admins read all templates') THEN
+    CREATE POLICY "Admins read all templates" ON public.prostudio_templates FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.prostudio_templates') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'prostudio_templates' AND policyname = 'Admins update all templates') THEN
+    CREATE POLICY "Admins update all templates" ON public.prostudio_templates FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.template_preview_images') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'template_preview_images' AND policyname = 'Admins read all template preview images') THEN
+    CREATE POLICY "Admins read all template preview images" ON public.template_preview_images FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
 
 -- brands: dashboard counts and recent activity.
-SELECT public.__kinika_ensure_policy('brands', 'Admins read all brands',
-  'CREATE POLICY "Admins read all brands" ON public.brands FOR SELECT TO authenticated USING (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.brands') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'brands' AND policyname = 'Admins read all brands') THEN
+    CREATE POLICY "Admins read all brands" ON public.brands FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
 
 -- Billing tables.
-SELECT public.__kinika_ensure_policy('credit_packages', 'Admins manage credit packages',
-  'CREATE POLICY "Admins manage credit packages" ON public.credit_packages FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
-SELECT public.__kinika_ensure_policy('credit_purchases', 'Admins read all purchases',
-  'CREATE POLICY "Admins read all purchases" ON public.credit_purchases FOR SELECT TO authenticated USING (public.is_admin())');
-SELECT public.__kinika_ensure_policy('wallets', 'Admins read all wallets',
-  'CREATE POLICY "Admins read all wallets" ON public.wallets FOR SELECT TO authenticated USING (public.is_admin())');
-SELECT public.__kinika_ensure_policy('wallet_transactions', 'Admins read all transactions',
-  'CREATE POLICY "Admins read all transactions" ON public.wallet_transactions FOR SELECT TO authenticated USING (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.credit_packages') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'credit_packages' AND policyname = 'Admins manage credit packages') THEN
+    CREATE POLICY "Admins manage credit packages" ON public.credit_packages FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.credit_purchases') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'credit_purchases' AND policyname = 'Admins read all purchases') THEN
+    CREATE POLICY "Admins read all purchases" ON public.credit_purchases FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.wallets') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'wallets' AND policyname = 'Admins read all wallets') THEN
+    CREATE POLICY "Admins read all wallets" ON public.wallets FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.wallet_transactions') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'wallet_transactions' AND policyname = 'Admins read all transactions') THEN
+    CREATE POLICY "Admins read all transactions" ON public.wallet_transactions FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
 
 -- Pricing rules (same policy name as the Phase 0 migration; whichever runs
 -- first creates it).
-SELECT public.__kinika_ensure_policy('ai_generation_pricing', 'Admins manage pricing rules',
-  'CREATE POLICY "Admins manage pricing rules" ON public.ai_generation_pricing FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.ai_generation_pricing') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ai_generation_pricing' AND policyname = 'Admins manage pricing rules') THEN
+    CREATE POLICY "Admins manage pricing rules" ON public.ai_generation_pricing FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
 
 -- Error log: admins triage, users may report.
-SELECT public.__kinika_ensure_policy('app_errors', 'Admins read all errors',
-  'CREATE POLICY "Admins read all errors" ON public.app_errors FOR SELECT TO authenticated USING (public.is_admin())');
-SELECT public.__kinika_ensure_policy('app_errors', 'Admins update errors',
-  'CREATE POLICY "Admins update errors" ON public.app_errors FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
-SELECT public.__kinika_ensure_policy('app_errors', 'Users insert own errors',
-  'CREATE POLICY "Users insert own errors" ON public.app_errors FOR INSERT TO authenticated WITH CHECK (user_id IS NULL OR user_id = auth.uid())');
+DO $$ BEGIN
+  IF to_regclass('public.app_errors') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'app_errors' AND policyname = 'Admins read all errors') THEN
+    CREATE POLICY "Admins read all errors" ON public.app_errors FOR SELECT TO authenticated USING (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.app_errors') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'app_errors' AND policyname = 'Admins update errors') THEN
+    CREATE POLICY "Admins update errors" ON public.app_errors FOR UPDATE TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF to_regclass('public.app_errors') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'app_errors' AND policyname = 'Users insert own errors') THEN
+    CREATE POLICY "Users insert own errors" ON public.app_errors FOR INSERT TO authenticated WITH CHECK (user_id IS NULL OR user_id = auth.uid());
+  END IF;
+END $$;
 
 -- platform_settings: every signed-in user reads (render engine, billing
 -- defaults); only admins write. Same names as the Phase 0 migration.
@@ -111,12 +171,19 @@ DO $$ BEGIN
     ALTER TABLE public.platform_settings ENABLE ROW LEVEL SECURITY;
   END IF;
 END $$;
-SELECT public.__kinika_ensure_policy('platform_settings', 'Authenticated users read platform settings',
-  'CREATE POLICY "Authenticated users read platform settings" ON public.platform_settings FOR SELECT TO authenticated USING (true)');
-SELECT public.__kinika_ensure_policy('platform_settings', 'Admins manage platform settings',
-  'CREATE POLICY "Admins manage platform settings" ON public.platform_settings FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())');
+DO $$ BEGIN
+  IF to_regclass('public.platform_settings') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'platform_settings' AND policyname = 'Authenticated users read platform settings') THEN
+    CREATE POLICY "Authenticated users read platform settings" ON public.platform_settings FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
 
-DROP FUNCTION public.__kinika_ensure_policy(text, text, text);
+DO $$ BEGIN
+  IF to_regclass('public.platform_settings') IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'platform_settings' AND policyname = 'Admins manage platform settings') THEN
+    CREATE POLICY "Admins manage platform settings" ON public.platform_settings FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
+  END IF;
+END $$;
 
 -- ── 3. Credit grant RPCs ─────────────────────────────────────────────────────
 
