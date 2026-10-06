@@ -31,6 +31,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { calculateGenerationCredits, type CreditCalculationInput, type CreditBreakdown } from '@/utils/calculateGenerationCredits';
 import { logError } from './errorService';
+import { getContentStudioRule } from './pricingService';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -442,7 +443,8 @@ export async function estimateGenerationCost(params: {
 }): Promise<CreditEstimate> {
   const { userId, calculationInput } = params;
 
-  const { estimatedCredits, breakdown } = calculateGenerationCredits(calculationInput);
+  const rule = await getContentStudioRule();
+  const { estimatedCredits, breakdown } = calculateGenerationCredits(calculationInput, rule);
   const wallet = await getWalletBalance(userId);
 
   return {
@@ -696,7 +698,8 @@ export async function reserveGenerationCredits(params: {
   const { userId, briefId, sessionId, platformCount, renderEngine, calculationInput, reservationTtlMinutes = 30 } = params;
 
   try {
-    const { estimatedCredits, breakdown } = calculateGenerationCredits(calculationInput);
+    const rule = await getContentStudioRule();
+    const { estimatedCredits, breakdown } = calculateGenerationCredits(calculationInput, rule);
     const idempotencyKey = generateIdempotencyKey(userId, briefId, sessionId);
 
     console.log('[CreditBilling] Reserving credits:', {

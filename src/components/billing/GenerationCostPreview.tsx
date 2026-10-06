@@ -33,6 +33,7 @@ export function GenerationCostPreview({
 }: GenerationCostPreviewProps) {
   const insufficient = !balanceLoading && balance < credits;
   const balanceAfter = balance - credits;
+  const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''));
 
   return (
     <div
@@ -65,14 +66,12 @@ export function GenerationCostPreview({
         </div>
 
         {/* Complexity multiplier */}
-        {layoutComplexity !== 'balanced' && (
+        {breakdown.complexityMultiplier !== 1 && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">
               Complexity ({layoutComplexity})
             </span>
-            <span className="text-foreground">
-              ×{layoutComplexity === 'simple' ? '0.75' : layoutComplexity === 'advanced' ? '1.5' : '2'}
-            </span>
+            <span className="text-foreground">×{fmt(breakdown.complexityMultiplier)}</span>
           </div>
         )}
 
@@ -80,7 +79,7 @@ export function GenerationCostPreview({
         {selectedAssets.includes('ai_generated') && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">AI visuals</span>
-            <span className="text-foreground">×1.5</span>
+            <span className="text-foreground">×{fmt(breakdown.aiVisualsMultiplier)}</span>
           </div>
         )}
 
@@ -88,7 +87,7 @@ export function GenerationCostPreview({
         {selectedAssets.includes('svg_graphics') && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">SVG generation</span>
-            <span className="text-foreground">+{selectedPlatformCount * 0.5}</span>
+            <span className="text-foreground">+{fmt(breakdown.svgCost)}</span>
           </div>
         )}
 
@@ -96,15 +95,15 @@ export function GenerationCostPreview({
         {creativeMode === 'experimental' && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Experimental mode</span>
-            <span className="text-foreground">×1.3</span>
+            <span className="text-foreground">×{fmt(breakdown.experimentalMultiplier)}</span>
           </div>
         )}
 
         {/* High AI freedom */}
-        {aiFreedom > 70 && (
+        {breakdown.aiFreedomMultiplier !== 1 && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">High AI freedom</span>
-            <span className="text-foreground">×1.2</span>
+            <span className="text-foreground">×{fmt(breakdown.aiFreedomMultiplier)}</span>
           </div>
         )}
 

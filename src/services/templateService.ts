@@ -1131,3 +1131,101 @@ export const getStudioElements = async (
   const { data } = await query;
   return data ?? [];
 };
+
+// ─── Template Variant functions ──────────────────────────────────────────────
+
+export interface TemplateVariant {
+  id: string;
+  template_id: string;
+  platform_id: string;
+  scene_json: SceneDocument | null;
+  render_engine: string;
+  is_primary: boolean;
+  fitness_check_passed: boolean;
+  status: 'draft' | 'active' | 'archived';
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  platform: {
+    id: string;
+    name: string;
+    slug: string;
+    image_width: number | null;
+    image_height: number | null;
+    sort_order: number | null;
+  };
+}
+
+export const getTemplateVariants = async (
+  templateId: string
+): Promise<TemplateVariant[]> => {
+  const { data, error } = await db
+    .from('template_variants')
+    .select('*, platform:content_platforms(id, name, slug, image_width, image_height, sort_order)')
+    .eq('template_id', templateId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('getTemplateVariants error:', error);
+    return [];
+  }
+  return (data ?? []) as TemplateVariant[];
+};
+
+export const saveTemplateVariant = async (
+  templateId: string,
+  platformId: string,
+  sceneJson: SceneDocument,
+  fitnessPassed: boolean,
+  isPrimary: boolean,
+  existingVariantId?: string
+): Promise<{ success: boolean; variantId?: string; error?: string }> => {
+  try {
+    const payload = {
+      template_id: templateId,
+      platform_id: platformId,
+      scene_json: sceneJson as unknown as any,
+      render_engine: 'scene',
+      fitness_check_passed: fitnessPassed,
+      is_primary: isPrimary,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingVariantId) {
+      const { error } = await db
+        .from('template_variants')
+        .update(payload)
+        .eq('id', existingVariantId);
+      if (error) throw error;
+      return { success: true, variantId: existingVariantId };
+    }
+
+    const { data, error } = await db
+      .from('template_variants')
+      .upsert({ ...payload, status: 'draft' }, { onConflict: 'template_id,platform_id' })
+      .select('id')
+      .single();
+
+    if (error) throw error;
+    return { success: true, variantId: data.id };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};
+
+export const deleteTemplateVariant = async (
+  variantId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await db
+      .from('template_variants')
+      .delete()
+      .eq('id', variantId)
+      .in('status', ['draft', 'archived']);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+};

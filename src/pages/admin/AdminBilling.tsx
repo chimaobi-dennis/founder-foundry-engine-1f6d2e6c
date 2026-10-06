@@ -13,17 +13,15 @@ import {
   createCreditPackage,
   updateCreditPackage,
   deleteCreditPackage,
-  listGenerationPricing,
-  updateGenerationPricing,
   getBillingSettings,
   updateBillingSettings,
   grantCreditsToUser,
   getAllPurchases,
   type BillingAnalytics,
   type CreditPackageRow,
-  type GenerationPricingRow,
   type BillingSettings,
 } from '@/services/billingAdminService';
+import PricingAdmin from './billing/PricingAdmin';
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN BILLING DASHBOARD
@@ -287,99 +285,7 @@ function PackageForm({ onSave, onCancel }: {
 // ═══════════════════════════════════════════════════════════════
 
 function PricingSection() {
-  const [pricing, setPricing] = useState<GenerationPricingRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    listGenerationPricing().then(setPricing).finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: '#6B7A8D' }} /></div>;
-  }
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-[15px] font-display font-semibold" style={{ color: '#F5F0E8' }}>Generation Pricing</h2>
-      {pricing.length === 0 ? (
-        <p className="text-[13px] font-ui" style={{ color: '#6B7A8D' }}>No pricing rules configured.</p>
-      ) : (
-        <div className="space-y-3">
-          {pricing.map((p) => (
-            <PricingCard key={p.id} pricing={p} onUpdate={() => listGenerationPricing().then(setPricing)} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PricingCard({ pricing, onUpdate }: { pricing: GenerationPricingRow; onUpdate: () => void }) {
-  const [expanded, setExpanded] = useState(false);
-  const [baseCost, setBaseCost] = useState(String(pricing.base_cost));
-  const [perPlatform, setPerPlatform] = useState(String(pricing.per_platform_cost));
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    const result = await updateGenerationPricing(pricing.id, {
-      base_cost: Number(baseCost),
-      per_platform_cost: Number(perPlatform),
-    });
-    setSaving(false);
-    if (result) {
-      toast({ title: 'Pricing updated' });
-      onUpdate();
-    } else {
-      toast({ title: 'Failed to update', variant: 'destructive' });
-    }
-  };
-
-  return (
-    <div className="rounded-xl overflow-hidden" style={{ background: '#0D1520', border: '0.5px solid #1A2A3A' }}>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left"
-      >
-        <div>
-          <span className="text-[13px] font-ui font-medium" style={{ color: '#F5F0E8' }}>{pricing.display_name}</span>
-          <span className="ml-2 text-[11px] font-ui" style={{ color: '#6B7A8D' }}>({pricing.pricing_key})</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-ui" style={{ color: '#D4A017' }}>
-            {pricing.base_cost} base · {pricing.per_platform_cost}/platform
-          </span>
-          {expanded ? <ChevronUp size={14} style={{ color: '#6B7A8D' }} /> : <ChevronDown size={14} style={{ color: '#6B7A8D' }} />}
-        </div>
-      </button>
-      {expanded && (
-        <div className="px-4 pb-4 space-y-3" style={{ borderTop: '0.5px solid #1A2A3A' }}>
-          <div className="grid grid-cols-2 gap-3 pt-3">
-            <div>
-              <label className="text-[11px] font-ui" style={{ color: '#6B7A8D' }}>Base Cost</label>
-              <input type="number" step="0.1" value={baseCost} onChange={e => setBaseCost(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-[13px] font-ui" style={{ background: '#1A2530', border: '0.5px solid #2A3A4A', color: '#F5F0E8' }} />
-            </div>
-            <div>
-              <label className="text-[11px] font-ui" style={{ color: '#6B7A8D' }}>Per Platform Cost</label>
-              <input type="number" step="0.1" value={perPlatform} onChange={e => setPerPlatform(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-lg text-[13px] font-ui" style={{ background: '#1A2530', border: '0.5px solid #2A3A4A', color: '#F5F0E8' }} />
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-3 py-1.5 rounded-lg text-[12px] font-ui font-medium flex items-center gap-1"
-              style={{ background: '#D4A017', color: '#0D1B2A' }}
-            >
-              {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <PricingAdmin />;
 }
 
 // ═══════════════════════════════════════════════════════════════

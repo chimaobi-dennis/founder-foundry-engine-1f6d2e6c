@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logAIError, type ErrorModule } from './errorService';
-import { GoogleGenAI } from '@google/genai';
+import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 
 // ─── System Prompt Functions ─────────────────────────────
 
@@ -140,6 +140,9 @@ export type TaskType =
   | 'context_extraction'
   | 'system_ai';
 
+/** Agents resolve models by tier; admins map each tier in Task Defaults. */
+export type TierTaskType = 'tier_fast' | 'tier_standard' | 'tier_reasoning';
+
 export interface AIProvider {
   id: string;
   name: string;
@@ -148,7 +151,9 @@ export interface AIProvider {
   base_url: string;
   auth_header_name: string;
   auth_header_prefix: string;
-  api_key: string | null;
+  /** Set via setProviderApiKey(); never readable from the browser. */
+  has_key?: boolean;
+  key_hint?: string | null;
   is_enabled: boolean;
   supports_text: boolean;
   supports_images: boolean;
@@ -171,7 +176,9 @@ export interface AIModel {
 }
 
 export interface AICallOptions {
-  taskType: TaskType;
+  taskType: TaskType | TierTaskType;
+  /** Agents ask for a tier; admins map tiers to models in Task Defaults. */
+  modelTier?: ModelTier;
   userId?: string;
   systemPrompt?: string;
   messages: { role: string; content: any }[];
@@ -181,6 +188,10 @@ export interface AICallOptions {
   overrideModelId?: string;
   userAction?: string;
   onChunk?: (text: string) => void; // streaming callback
+  temperature?: number;
+  /** Attach usage + provider cost to this generation row. */
+  generationId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AICallResult {
@@ -190,6 +201,10 @@ export interface AICallResult {
   error?: string;
   modelUsed?: string;
   providerUsed?: string;
+  usage?: AIUsage;
+  costUsd?: number;
+  creditsEquivalent?: number;
+  usageLogId?: string;
 }
 
 // ─── Model resolution ────────────────────────────────────
@@ -318,449 +333,115 @@ export const resolveModelForTask = async (
   return { model, provider: model.ai_providers };
 };
 
-// ─── Provider-specific call builders ─────────────────────
+// ─── Gateway client ──────────────────────────────────────
+//
+// All inference goes through the ai-gateway edge function. The browser never
+// holds a provider key: it sends a task type (or model tier), the gateway
+// resolves the model, calls the provider, logs usage + cost, and returns text.
 
-const callGoogleAI = async (
-  apiKey: string,
-  modelId: string,
-  messages: any[],
-  systemPrompt?: string,
-  maxTokens: number = 2000
-): Promise<AICallResult> => {
-  try {
-    // ── Param validation to prevent 'Params are not set' SDK error ──
-    if (!apiKey) {
-      console.error('[callGoogleAI] API key is empty/undefined');
-      return {
-        success: false,
-        error: 'Google AI API key is empty. Add it in admin dashboard → AI Models → Providers.'
-      };
-    }
-    if (!modelId) {
-      console.error('[callGoogleAI] Model ID is empty/undefined');
-      return { success: false, error: 'Google AI model ID is not set. Check task defaults in admin.' };
-    }
-    if (!messages || messages.length === 0) {
-      console.error('[callGoogleAI] No messages provided');
-      return { success: false, error: 'No messages provided to AI call' };
-    }
+export type ModelTier = 'fast' | 'standard' | 'reasoning';
 
-    console.log('[callGoogleAI] params:', {
-      hasApiKey: !!apiKey,
-      apiKeyLength: apiKey.length,
-      model: modelId,
-      messageCount: messages.length,
-      firstMessageLength: typeof messages[0]?.content === 'string' ? messages[0].content.length : 0,
-    });
+export interface AIUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+}
 
-    const ai = new GoogleGenAI({ apiKey });
+interface GatewayPayload {
+  taskType: string;
+  modelTier?: ModelTier;
+  messages: { role: string; content: any }[];
+  systemPrompt?: string;
+  maxTokens?: number;
+  temperature?: number;
+  overrideModelId?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
+  stream?: boolean;
+  generationId?: string;
+  cacheContext?: boolean;
+  metadata?: Record<string, unknown>;
+}
 
-    // Convert messages to Gemini contents format
-    const contents = messages.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{
-        text: typeof msg.content === 'string'
-          ? msg.content
-          : msg.content?.[1]?.text ?? ''
-      }]
-    }));
+interface GatewayResponse {
+  success: boolean;
+  text?: string;
+  error?: string;
+  modelUsed?: string;
+  providerUsed?: string;
+  usage?: AIUsage;
+  costUsd?: number;
+  creditsEquivalent?: number;
+  usageLogId?: string | null;
+}
 
-    // Filter empty messages
-    const filteredContents = contents.filter(
-      m => m.parts[0].text.trim().length > 0
-    );
+const GATEWAY_URL = `${SUPABASE_CONFIG.url}/functions/v1/ai-gateway`;
 
-    // Merge consecutive same-role messages
-    // Google requires strict user/model alternation
-    const dedupedContents = filteredContents.reduce((acc: any[], msg) => {
-      if (acc.length === 0) return [msg];
-      const last = acc[acc.length - 1];
-      if (last.role === msg.role) {
-        last.parts[0].text += '\n' + msg.parts[0].text;
-        return acc;
-      }
-      return [...acc, msg];
-    }, []);
-
-    // Must start with user message
-    if (dedupedContents.length > 0 && dedupedContents[0].role === 'model') {
-      dedupedContents.shift();
-    }
-
-    if (dedupedContents.length === 0) {
-      console.error('[callGoogleAI] After filtering/dedup, no valid messages remain');
-      return { success: false, error: 'No valid messages to send after filtering' };
-    }
-
-    // Validate that messages have actual text content
-    const hasEmptyContent = dedupedContents.some(m => !m.parts?.[0]?.text?.trim());
-    if (hasEmptyContent) {
-      console.error('[callGoogleAI] Some messages have empty text content after dedup');
-      return { success: false, error: 'Messages contain empty text content' };
-    }
-
-    console.log('[callGoogleAI] call:', {
-      model: modelId,
-      messageCount: dedupedContents.length,
-      hasSystemPrompt: !!systemPrompt,
-      firstMsgLength: dedupedContents[0].parts[0].text.length,
-    });
-
-    const config: any = {
-      maxOutputTokens: maxTokens,
-      temperature: 0.8
-    };
-
-    if (systemPrompt) {
-      config.systemInstruction = systemPrompt;
-    }
-
-    const response = await ai.models.generateContent({
-      model: modelId,
-      contents: dedupedContents,
-      config
-    });
-
-    const text = response.text;
-
-    if (!text) {
-      return {
-        success: false,
-        error: 'Google AI returned empty response'
-      };
-    }
-
-    console.log('Google GenAI response received, length:', text.length);
-
-    return {
-      success: true,
-      text,
-      modelUsed: modelId,
-      providerUsed: 'google-ai-studio'
-    };
-
-  } catch (error: any) {
-    console.error('Google GenAI error:', error);
-    return {
-      success: false,
-      error: error.message ?? 'Google AI call failed'
-    };
-  }
+const gatewayHeaders = async (): Promise<Record<string, string>> => {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('You need to be signed in to use AI features.');
+  return {
+    'Content-Type': 'application/json',
+    apikey: SUPABASE_CONFIG.anonKey,
+    Authorization: `Bearer ${token}`,
+  };
 };
 
-const callGoogleAIStreaming = async (
-  apiKey: string,
-  modelId: string,
-  messages: any[],
-  systemPrompt?: string,
-  maxTokens: number = 2000,
+const callGateway = async (
+  payload: GatewayPayload,
   onChunk?: (text: string) => void
-): Promise<AICallResult> => {
-  try {
-    // ── Param validation to prevent 'Params are not set' SDK error ──
-    if (!apiKey) {
-      console.error('[callGoogleAIStreaming] API key is empty/undefined');
-      return { success: false, error: 'Google AI API key is empty.' };
-    }
-    if (!modelId) {
-      console.error('[callGoogleAIStreaming] Model ID is empty/undefined');
-      return { success: false, error: 'Google AI model ID is not set.' };
-    }
-    if (!messages || messages.length === 0) {
-      console.error('[callGoogleAIStreaming] No messages provided');
-      return { success: false, error: 'No messages provided to AI call' };
-    }
+): Promise<GatewayResponse> => {
+  const headers = await gatewayHeaders();
+  const wantStream = !!onChunk;
+  const res = await fetch(GATEWAY_URL, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ ...payload, stream: wantStream }),
+  });
 
-    console.log('[callGoogleAIStreaming] params:', {
-      hasApiKey: !!apiKey,
-      apiKeyLength: apiKey.length,
-      model: modelId,
-      messageCount: messages.length,
-      firstMessageLength: typeof messages[0]?.content === 'string' ? messages[0].content.length : 0,
-    });
+  if (!wantStream) {
+    const data = (await res.json().catch(() => null)) as GatewayResponse | null;
+    if (!data) return { success: false, error: `AI gateway returned ${res.status}` };
+    return data;
+  }
 
-    const { GoogleGenAI } = await import('@google/genai');
-    const ai = new GoogleGenAI({ apiKey });
+  if (!res.ok || !res.body) {
+    const data = (await res.json().catch(() => null)) as GatewayResponse | null;
+    return { success: false, error: data?.error ?? `AI gateway returned ${res.status}` };
+  }
 
-    const contents = messages.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{
-        text: typeof msg.content === 'string' ? msg.content : ''
-      }]
-    })).filter(m => m.parts[0].text.trim().length > 0);
-
-    // Merge consecutive same-role messages
-    const dedupedContents = contents.reduce((acc: any[], msg) => {
-      if (acc.length === 0) return [msg];
-      const last = acc[acc.length - 1];
-      if (last.role === msg.role) {
-        last.parts[0].text += '\n' + msg.parts[0].text;
-        return acc;
-      }
-      return [...acc, msg];
-    }, []);
-
-    if (dedupedContents[0]?.role === 'model') dedupedContents.shift();
-    if (dedupedContents.length === 0) {
-      console.error('[callGoogleAIStreaming] After filtering/dedup, no valid messages remain');
-      return { success: false, error: 'No valid messages' };
-    }
-
-    console.log('[callGoogleAIStreaming] call:', {
-      model: modelId,
-      messageCount: dedupedContents.length,
-      hasSystemPrompt: !!systemPrompt,
-      firstMsgLength: dedupedContents[0].parts[0].text.length,
-    });
-
-    const config: any = {
-      maxOutputTokens: maxTokens,
-      temperature: 0.8
-    };
-    if (systemPrompt) config.systemInstruction = systemPrompt;
-
-    let fullText = '';
-
-    if (onChunk) {
-      // Streaming mode
-      const streamResult = await ai.models.generateContentStream({
-        model: modelId,
-        contents: dedupedContents,
-        config
-      });
-
-      for await (const chunk of streamResult) {
-        const chunkText = chunk.text ?? '';
-        if (chunkText) {
-          fullText += chunkText;
-          // Strip partial CHOICE_PROMPT blocks from streaming display
-          const displayText = fullText.replace(
-            /<CHOICE_PROMPT>[\s\S]*?(<\/CHOICE_PROMPT>|$)/g, 
-            ''
-          ).trim();
-          onChunk(displayText);
+  // SSE: {type:'chunk', text} … {type:'done'|'error', ...GatewayResponse}
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let final: GatewayResponse | null = null;
+  let streamed = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, idx).trim();
+      buffer = buffer.slice(idx + 1);
+      if (!line.startsWith('data:')) continue;
+      try {
+        const ev = JSON.parse(line.slice(5).trim());
+        if (ev.type === 'chunk' && typeof ev.text === 'string') {
+          streamed += ev.text;
+          onChunk!(ev.text);
+        } else if (ev.type === 'done' || ev.type === 'error') {
+          final = ev;
         }
+      } catch {
+        // ignore partial lines
       }
-    } else {
-      // Non-streaming fallback
-      const response = await ai.models.generateContent({
-        model: modelId,
-        contents: dedupedContents,
-        config
-      });
-      fullText = response.text ?? '';
     }
-
-    if (!fullText) {
-      return { success: false, error: 'Empty response from Google AI' };
-    }
-
-    return {
-      success: true,
-      text: fullText,
-      modelUsed: modelId,
-      providerUsed: 'google-ai-studio'
-    };
-
-  } catch (error: any) {
-    console.error('Google GenAI error:', error);
-    return { success: false, error: error.message ?? 'Google AI call failed' };
   }
-};
-
-const callOpenAICompatible = async (
-  baseUrl: string,
-  apiKey: string,
-  authHeaderName: string,
-  authHeaderPrefix: string,
-  modelId: string,
-  messages: any[],
-  systemPrompt?: string,
-  maxTokens: number = 2000,
-  imageBase64?: string,
-  imageMimeType?: string
-): Promise<AICallResult> => {
-  try {
-    const processedMessages = messages.map((msg, index) => {
-      if (
-        index === messages.length - 1 &&
-        msg.role === 'user' &&
-        imageBase64 &&
-        imageMimeType
-      ) {
-        return {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${imageMimeType};base64,${imageBase64}`
-              }
-            },
-            {
-              type: 'text',
-              text: typeof msg.content === 'string'
-                ? msg.content
-                : msg.content
-            }
-          ]
-        };
-      }
-      return msg;
-    });
-
-    const allMessages = systemPrompt
-      ? [{ role: 'system', content: systemPrompt }, ...processedMessages]
-      : processedMessages;
-
-    // Normalize messages before sending to OpenAI
-    const normalizedMessages = allMessages.map((m: any) => {
-      if (typeof m.content === 'string') {
-        return m;
-      }
-
-      // OpenAI-compatible multimodal array
-      if (Array.isArray(m.content)) {
-        return m;
-      }
-
-      // Gemini/object fallback
-      return {
-        role: m.role,
-        content: JSON.stringify(m.content)
-      };
-    });
-
-    // Max payload protection
-    const estimatedSize = JSON.stringify(normalizedMessages).length;
-    if (estimatedSize > 500000) {
-      return {
-        success: false,
-        error: 'Payload too large for OpenAI request'
-      };
-    }
-
-    // Log outgoing payload shape
-    console.log('[OpenAI Request]', {
-      model: modelId,
-      messageCount: allMessages.length,
-      hasSystemPrompt: !!systemPrompt,
-      firstMessage: allMessages[0],
-      estimatedSize: estimatedSize
-    });
-
-    const authValue = authHeaderPrefix
-      ? `${authHeaderPrefix} ${apiKey}`
-      : apiKey;
-
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        [authHeaderName]: authValue
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: normalizedMessages,
-        max_completion_tokens: maxTokens // Newer OpenAI models require this parameter
-      })
-    });
-
-    const data = await response.json();
-
-    console.log('[OpenAI Response Status]', response.status);
-    console.log('[OpenAI Response Body]', data);
-
-    if (!response.ok) {
-      console.error('[OpenAI API ERROR]', {
-        status: response.status,
-        data,
-        model: modelId,
-        baseUrl,
-        messageCount: allMessages.length,
-      });
-
-      return {
-        success: false,
-        error:
-          data?.error?.message ||
-          `OpenAI API error (${response.status})`
-      };
-    }
-
-    return {
-      success: true,
-      text: data.choices?.[0]?.message?.content ?? null,
-      modelUsed: modelId,
-      providerUsed: baseUrl
-    };
-  } catch (error: any) {
-    console.error('OpenAI-compatible API call failed:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-const callAnthropicDirect = async (
-  apiKey: string,
-  modelId: string,
-  messages: any[],
-  systemPrompt?: string,
-  maxTokens: number = 2000
-): Promise<AICallResult> => {
-  try {
-    // Add prompt caching for system prompt (most expensive part)
-    const systemWithCache = systemPrompt
-      ? [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }]
-      : undefined;
-
-    // Add prompt caching to first user message if it's large (context, brief, etc.)
-    const messagesWithCache = messages.map((msg, index) => {
-      // Cache the first user message (usually contains the context/brief)
-      if (index === 0 && msg.role === 'user' && msg.content && msg.content.length > 500) {
-        return {
-          ...msg,
-          content: [
-            { type: 'text', text: msg.content, cache_control: { type: 'ephemeral' } }
-          ]
-        };
-      }
-      return msg;
-    });
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: modelId,
-        max_tokens: maxTokens,
-        system: systemWithCache,
-        messages: messagesWithCache
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error?.message ?? 'Anthropic API call failed'
-      };
-    }
-
-    return {
-      success: true,
-      text: data.content?.[0]?.text ?? null,
-      modelUsed: modelId,
-      providerUsed: 'anthropic'
-    };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+  if (!final) return { success: !!streamed, text: streamed, error: streamed ? undefined : 'Stream ended without a result' };
+  return { ...final, text: final.text || streamed };
 };
 
 // ─── Helper functions ─────────────────────────────────────
@@ -784,181 +465,77 @@ const getModuleFromTaskType = (taskType?: string): ErrorModule => {
 export const callAI = async (options: AICallOptions): Promise<AICallResult> => {
   const {
     taskType,
+    modelTier,
     userId,
     systemPrompt,
     messages,
     imageBase64,
     imageMimeType,
     maxTokens = 2000,
+    temperature,
     overrideModelId,
     userAction,
-    onChunk
+    onChunk,
+    generationId,
+    metadata,
   } = options;
 
-  let currentPipelineStep = 'resolving_model';
+  let currentPipelineStep = 'calling_gateway';
 
   try {
-    // Step 1 — Resolve model
-    currentPipelineStep = 'resolving_model';
-    const resolved = await resolveModelForTask(taskType, userId);
+    const result = await callGateway(
+      {
+        taskType,
+        modelTier,
+        messages,
+        systemPrompt,
+        maxTokens,
+        temperature,
+        overrideModelId,
+        imageBase64,
+        imageMimeType,
+        generationId,
+        metadata: { ...(metadata ?? {}), userAction },
+      },
+      onChunk
+    );
 
-    if (!resolved) {
-      const error = 'No AI model configured for this task';
-      if (userId) {
-        await logAIError(
-          userId,
-          getModuleFromTaskType(taskType),
-          error,
-          { taskType },
-          taskType,
-          undefined,
-          undefined,
-          currentPipelineStep,
-          userAction
-        );
-      }
-      return { 
-        success: false, 
-        error 
-      };
-    }
-
-    const { model, provider } = resolved;
-    const modelIdToUse = overrideModelId ?? model.model_id;
-
-    // Validate resolved model and provider have required fields
-    if (!modelIdToUse) {
-      const error = `No model_id resolved for task type: ${taskType}. Please set it in Admin → AI Models → Task Defaults.`;
-      console.error('[callAI]', error);
-      return { success: false, error };
-    }
-    if (!provider.slug) {
-      const error = `No provider slug resolved for task type: ${taskType}. Check provider configuration.`;
-      console.error('[callAI]', error);
-      return { success: false, error };
-    }
-
-    console.log('[callAI] Resolved model:', {
-      taskType,
-      modelId: modelIdToUse,
-      providerSlug: provider.slug,
-      apiKeySource: provider.api_key ? 'db' : 'MISSING',
-      apiKeyLength: provider.api_key?.length ?? 0,
-    });
-
-    // Step 2 — Build request
-    currentPipelineStep = 'building_request';
-    
-    // Step 3 — Call provider
-    currentPipelineStep = `calling_provider:${provider.slug}`;
-
-    console.log('Provider slug for routing:', `"${provider.slug}"`);
-    console.log('Routing decision: matching against cases: google-ai-studio, anthropic, lovable-gemini');
-
-    let result: AICallResult;
-
-    switch (provider.slug) {
-      case 'google-ai-studio': {
-        console.log('[callAI] ✓ Matched case: google-ai-studio');
-        const googleApiKey = provider.api_key ?? '';
-        console.log('[callAI] API key source:', provider.api_key ? 'db (provider record)' : 'MISSING');
-        if (!googleApiKey) {
-          console.error('[callAI] Google AI API key is MISSING from provider record');
-        }
-        if (onChunk) {
-          result = await callGoogleAIStreaming(
-            googleApiKey,
-            modelIdToUse,
-            options.messages,
-            options.systemPrompt,
-            options.maxTokens ?? 2000,
-            onChunk
-          );
-        } else {
-          result = await callGoogleAI(
-            googleApiKey,
-            modelIdToUse,
-            options.messages,
-            options.systemPrompt,
-            options.maxTokens ?? 2000
-          );
-        }
-        break;
-      }
-        break;
-
-      case 'anthropic':
-        console.log('✓ Matched case: anthropic -> routing to callAnthropicDirect');
-        result = await callAnthropicDirect(
-          provider.api_key ?? '',
-          modelIdToUse,
-          options.messages,
-          options.systemPrompt,
-          options.maxTokens ?? 2000
-        );
-        break;
-
-      case 'lovable-gemini':
-        result = {
-          success: false,
-          error: 'Lovable AI not available in local environment. Switch to Google AI Studio provider in admin dashboard.'
-        };
-        break;
-
-      case 'openai':
-      case 'jojapi':
-      default:
-        console.log('✓ Matched default case (openai/jojapi or unmatched slug) -> routing to callOpenAICompatible');
-        result = await callOpenAICompatible(
-          provider.base_url,
-          provider.api_key ?? '',
-          provider.auth_header_name,
-          provider.auth_header_prefix,
-          modelIdToUse,
-          options.messages,
-          options.systemPrompt,
-          options.maxTokens ?? 2000,
-          options.imageBase64,
-          options.imageMimeType
-        );
-        break;
-    }
-
-    // Step 4 — Handle result
     currentPipelineStep = 'processing_response';
 
-    // Log the AI failure
     if (!result.success && userId) {
       await logAIError(
         userId,
         getModuleFromTaskType(taskType),
         result.error ?? 'AI call failed with no error message',
-        {
-          taskType,
-          modelId: model.model_id,
-          messageCount: messages.length
-        },
+        { taskType, modelTier, modelId: result.modelUsed, messageCount: messages.length },
         taskType,
-        model.model_id,
-        provider.slug,
+        result.modelUsed,
+        result.providerUsed,
         currentPipelineStep,
         userAction
       );
     }
 
-    return result;
+    return {
+      success: result.success,
+      text: result.text,
+      error: result.error,
+      modelUsed: result.modelUsed,
+      providerUsed: result.providerUsed,
+      usage: result.usage,
+      costUsd: result.costUsd,
+      creditsEquivalent: result.creditsEquivalent,
+      usageLogId: result.usageLogId ?? undefined,
+    };
   } catch (error: any) {
     const errorMessage = error?.message ?? 'Unexpected error in AI pipeline';
-    
+
     if (userId) {
       await logAIError(
         userId,
         getModuleFromTaskType(taskType),
         errorMessage,
-        {
-          taskType,
-          pipelineStep: currentPipelineStep
-        },
+        { taskType, pipelineStep: currentPipelineStep },
         taskType,
         undefined,
         undefined,
@@ -1029,24 +606,65 @@ export const getAllModels = async (): Promise<AIModel[]> => {
   return data ?? [];
 };
 
+const stripKeyFields = (p: Partial<AIProvider> & { api_key?: string }) => {
+  const { api_key: _k, has_key: _h, key_hint: _hint, ...rest } = p;
+  return rest;
+};
+
 export const createProvider = async (
-  provider: Partial<AIProvider>
-): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await (supabase as any)
+  provider: Partial<AIProvider> & { api_key?: string }
+): Promise<{ success: boolean; error?: string; id?: string }> => {
+  const { data, error } = await (supabase as any)
     .from('ai_providers')
-    .insert(provider);
-  return { success: !error, error: error?.message };
+    .insert(stripKeyFields(provider))
+    .select('id')
+    .single();
+  if (error) return { success: false, error: error.message };
+  if (provider.api_key && data?.id) {
+    const keyResult = await setProviderApiKey(data.id, provider.api_key);
+    if (!keyResult.success) return { success: false, error: keyResult.error, id: data.id };
+  }
+  return { success: true, id: data?.id };
+};
+
+/** Store a provider key server-side. Empty string clears it. Admin only. */
+export const setProviderApiKey = async (
+  providerId: string,
+  apiKey: string
+): Promise<{ success: boolean; error?: string; hasKey?: boolean }> => {
+  const { data, error } = await (supabase as any).rpc('admin_set_provider_api_key', {
+    p_provider_id: providerId,
+    p_api_key: apiKey,
+  });
+  if (error) return { success: false, error: error.message };
+  if (!data?.success) return { success: false, error: data?.error ?? 'Failed to save key' };
+  return { success: true, hasKey: !!data.has_key };
+};
+
+/** Which providers have a key (and a last-4 hint). Admin only. */
+export const getProviderKeyStatus = async (): Promise<Record<string, { has_key: boolean; key_hint: string | null }>> => {
+  const { data } = await (supabase as any).rpc('admin_provider_key_status');
+  const map: Record<string, { has_key: boolean; key_hint: string | null }> = {};
+  (data ?? []).forEach((row: any) => {
+    map[row.provider_id] = { has_key: !!row.has_key, key_hint: row.key_hint ?? null };
+  });
+  return map;
 };
 
 export const updateProvider = async (
   id: string,
-  updates: Partial<AIProvider>
+  updates: Partial<AIProvider> & { api_key?: string }
 ): Promise<{ success: boolean; error?: string }> => {
   const { error } = await (supabase as any)
     .from('ai_providers')
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({ ...stripKeyFields(updates), updated_at: new Date().toISOString() })
     .eq('id', id);
-  return { success: !error, error: error?.message };
+  if (error) return { success: false, error: error.message };
+  // Only touch the key when the admin typed one; blank means "leave as is".
+  if (updates.api_key && updates.api_key.trim()) {
+    return setProviderApiKey(id, updates.api_key.trim());
+  }
+  return { success: true };
 };
 
 export const createModel = async (
@@ -1070,7 +688,7 @@ export const updateModel = async (
 };
 
 export const setTaskDefault = async (
-  taskType: TaskType,
+  taskType: TaskType | TierTaskType,
   modelId: string
 ): Promise<{ success: boolean; error?: string }> => {
   const { error } = await (supabase as any)

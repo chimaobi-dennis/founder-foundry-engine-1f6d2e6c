@@ -116,6 +116,9 @@ export async function deleteCreditPackage(id: string): Promise<boolean> {
 // GENERATION PRICING CRUD
 // ═══════════════════════════════════════════════════════════════
 
+export type PricingMode = 'fixed' | 'metered';
+export type ModelTier = 'fast' | 'standard' | 'reasoning';
+
 export interface GenerationPricingRow {
   id: string;
   pricing_key: string;
@@ -127,6 +130,11 @@ export interface GenerationPricingRow {
   complexity_multipliers: Record<string, number>;
   is_active: boolean;
   description: string | null;
+  pricing_mode: PricingMode;
+  model_tier: ModelTier | null;
+  range_factor: number;
+  cogs_estimate_usd: number | null;
+  unit_label: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -171,10 +179,20 @@ export async function createGenerationPricing(pricing: {
   feature_multipliers?: Record<string, number>;
   complexity_multipliers?: Record<string, number>;
   description?: string;
+  pricing_mode?: PricingMode;
+  model_tier?: ModelTier | null;
+  range_factor?: number;
+  cogs_estimate_usd?: number | null;
+  unit_label?: string | null;
 }): Promise<GenerationPricingRow | null> {
   const { data, error } = await db
     .from('ai_generation_pricing')
     .insert({
+      pricing_mode: pricing.pricing_mode ?? 'fixed',
+      model_tier: pricing.model_tier ?? null,
+      range_factor: pricing.range_factor ?? 1,
+      cogs_estimate_usd: pricing.cogs_estimate_usd ?? null,
+      unit_label: pricing.unit_label ?? null,
       pricing_key: pricing.pricing_key,
       display_name: pricing.display_name,
       base_cost: pricing.base_cost,
@@ -472,4 +490,135 @@ export async function getAllWallets(options?: {
     return [];
   }
   return data ?? [];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CREDIT ECONOMICS, MODEL RATES, COGS (Phase 0)
+// ═══════════════════════════════════════════════════════════════
+
+export interface CreditEconomicsSetting {
+  retail_usd_per_credit: number;
+  cogs_multiplier: number;
+  metered_overage_policy: 'pause' | 'bill_through';
+}
+
+const DEFAULT_ECONOMICS: CreditEconomicsSetting = {
+  retail_usd_per_credit: 0.02,
+  cogs_multiplier: 5,
+  metered_overage_policy: 'pause',
+};
+
+export async function getCreditEconomicsSetting(): Promise<CreditEconomicsSetting> {
+  const { data } = await db
+    .from('platform_settings')
+    .select('setting_value')
+    .eq('setting_key', 'credit_economics')
+    .maybeSingle();
+  const v = (data?.setting_value ?? {}) as Partial<CreditEconomicsSetting>;
+  return {
+    retail_usd_per_credit: Number(v.retail_usd_per_credit) || DEFAULT_ECONOMICS.retail_usd_per_credit,
+    cogs_multiplier: Number(v.cogs_multiplier) || DEFAULT_ECONOMICS.cogs_multiplier,
+    metered_overage_policy: v.metered_overage_policy === 'bill_through' ? 'bill_through' : 'pause',
+  };
+}
+
+export async function updateCreditEconomicsSetting(
+  value: CreditEconomicsSetting
+): Promise<CreditEconomicsSetting | null> {
+  const { data, error } = await db
+    .from('platform_settings')
+    .upsert(
+      {
+        setting_key: 'credit_economics',
+        setting_value: value,
+        description: 'Retail price of one credit and the markup applied to provider cost when converting usage to credits.',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'setting_key' }
+    )
+    .select('setting_value')
+    .single();
+  if (error) {
+    console.error('[BillingAdmin] updateCreditEconomicsSetting error:', error.message);
+    return null;
+  }
+  return data.setting_value as CreditEconomicsSetting;
+}
+
+export interface ModelRateRow {
+  id: string;
+  provider_slug: string;
+  model_id: string;
+  display_name: string | null;
+  input_per_1m: number;
+  output_per_1m: number;
+  cache_read_per_1m: number | null;
+  cache_write_per_1m: number | null;
+  is_active: boolean;
+  source: string | null;
+  updated_at: string;
+}
+
+export async function listModelRates(): Promise<ModelRateRow[]> {
+  const { data, error } = await db
+    .from('model_rates')
+    .select('*')
+    .order('provider_slug')
+    .order('model_id');
+  if (error) {
+    console.error('[BillingAdmin] listModelRates error:', error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+export async function upsertModelRate(
+  rate: Omit<ModelRateRow, 'id' | 'updated_at'> & { id?: string }
+): Promise<ModelRateRow | null> {
+  const payload = { ...rate, updated_at: new Date().toISOString() };
+  const { data, error } = await db
+    .from('model_rates')
+    .upsert(payload, { onConflict: 'provider_slug,model_id' })
+    .select('*')
+    .single();
+  if (error) {
+    console.error('[BillingAdmin] upsertModelRate error:', error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteModelRate(id: string): Promise<boolean> {
+  const { error } = await db.from('model_rates').delete().eq('id', id);
+  if (error) {
+    console.error('[BillingAdmin] deleteModelRate error:', error.message);
+    return false;
+  }
+  return true;
+}
+
+export interface CogsDay {
+  day: string;
+  calls: number;
+  cost_usd: number;
+  credits_equivalent: number;
+  credits_captured: number;
+  retail_usd: number;
+}
+
+/** Daily provider cost vs credits captured, from ai_usage_log and wallet_transactions. */
+export async function getCogsDaily(days = 30): Promise<CogsDay[]> {
+  const { data, error } = await db.rpc('admin_cogs_daily', { p_days: days });
+  if (error) {
+    console.error('[BillingAdmin] getCogsDaily error:', error.message);
+    return [];
+  }
+  return (data ?? []).map((r: any) => ({
+    day: r.day,
+    calls: Number(r.calls) || 0,
+    cost_usd: Number(r.cost_usd) || 0,
+    credits_equivalent: Number(r.credits_equivalent) || 0,
+    credits_captured: Number(r.credits_captured) || 0,
+    retail_usd: Number(r.retail_usd) || 0,
+  }));
 }
