@@ -46,6 +46,7 @@ import Onboarding from "./pages/Onboarding";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
 import CreatorTemplateEditor from "./pages/CreatorTemplateEditor";
+import VariantStudio from "./pages/VariantStudio";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminTemplates from "./pages/admin/AdminTemplates";
@@ -174,6 +175,8 @@ const App = () => (
                         <Route path="/creator" element={<CreatorStudio />} />
                         <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />
                         <Route path="/creator/templates/:id" element={<CreatorTemplateEditor />} />
+                        <Route path="/creator/templates/:templateId/variants/new" element={<VariantStudio />} />
+                        <Route path="/creator/templates/:templateId/variants/:variantId" element={<VariantStudio />} />
                       </Route>
                       <Route path="*" element={<NotFound />} />
                     </Routes>

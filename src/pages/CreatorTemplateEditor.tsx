@@ -11,11 +11,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { CreatorTemplateEditorSkeleton } from "@/components/skeletons/PageSkeletons";
 import { FadeIn } from "@/components/FadeIn";
-import { ArrowLeft, Upload, X } from "lucide-react";
+import { ArrowLeft, Upload, Layers } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { TemplateVariantsSection } from "@/components/prostudio/TemplateVariantsSection";
 
 const categories = ["Skincare", "Food & Beverage", "Fashion", "Jewellery", "Electronics", "Home Decor", "Cosmetics", "General"];
 const digitalOutputTypes = ["Social Media Post", "Story", "Banner", "Logo", "Mockup", "Presentation"];
@@ -155,157 +156,250 @@ export default function CreatorTemplateEditor() {
     return <CreatorTemplateEditorSkeleton />;
   }
 
+  const sortedImages = [...images].sort((a, b) => a.sort_order - b.sort_order);
+
   return (
     <FadeIn>
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
+
       {/* Back + title */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate("/creator")} className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
+      <div className="flex items-start gap-3">
+        <button
+          onClick={() => navigate("/creator")}
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex-shrink-0 mt-0.5"
+        >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="font-display text-xl text-foreground">{isNew ? "New template" : form.name || "Edit template"}</h1>
-        {!isNew && (
-          <Badge className={`ml-2 text-[11px] border-0 capitalize ${
-            status === "published" ? "bg-green-500/15 text-green-500" :
-            status === "pending_review" ? "bg-yellow-500/15 text-yellow-500" :
-            status === "unpublished" ? "bg-red-500/15 text-red-400" :
-            "bg-muted text-muted-foreground"
-          }`}>
-            {status === "pending_review" ? "Pending review" : status}
-          </Badge>
-        )}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="font-display text-xl text-foreground">
+              {isNew ? "New template" : form.name || "Edit template"}
+            </h1>
+            {!isNew && (
+              <Badge className={`text-[11px] border-0 capitalize ${
+                status === "published" ? "bg-green-500/15 text-green-500" :
+                status === "pending_review" ? "bg-yellow-500/15 text-yellow-500" :
+                status === "unpublished" ? "bg-red-500/15 text-red-400" :
+                "bg-muted text-muted-foreground"
+              }`}>
+                {status === "pending_review" ? "Pending review" : status}
+              </Badge>
+            )}
+          </div>
+          {!isNew && (
+            <p className="text-[13px] font-ui text-muted-foreground mt-0.5">
+              Add platform variants below to define how this template renders across different formats
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left — Form */}
-        <div className="lg:col-span-2 space-y-5">
-          <div className="rounded-xl border border-border bg-card p-6 space-y-5">
-            <div>
-              <Label className="text-xs font-ui text-muted-foreground">Template name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled={!isEditable} className="mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs font-ui text-muted-foreground">Description</Label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} disabled={!isEditable} className="mt-1" rows={3} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs font-ui text-muted-foreground">Type</Label>
-                <select
-                  value={form.templateType}
-                  onChange={(e) => setForm({ ...form, templateType: e.target.value as any })}
-                  disabled={!isEditable}
-                  className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-ui"
-                >
-                  <option value="physical">Physical</option>
-                  <option value="digital">Digital</option>
-                </select>
-              </div>
-              <div>
-                <Label className="text-xs font-ui text-muted-foreground">Category</Label>
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  disabled={!isEditable}
-                  className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-ui"
-                >
-                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            {form.templateType === "digital" && (
-              <div>
-                <Label className="text-xs font-ui text-muted-foreground">Output type</Label>
-                <select
-                  value={form.digitalOutputType}
-                  onChange={(e) => setForm({ ...form, digitalOutputType: e.target.value })}
-                  disabled={!isEditable}
-                  className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-ui"
-                >
-                  <option value="">Select...</option>
-                  {digitalOutputTypes.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-            )}
-            <div>
-              <Label className="text-xs font-ui text-muted-foreground">Best for (comma-separated)</Label>
-              <Input value={form.bestFor} onChange={(e) => setForm({ ...form, bestFor: e.target.value })} disabled={!isEditable} className="mt-1" placeholder="Skincare, Cosmetics" />
-            </div>
-            <div>
-              <Label className="text-xs font-ui text-muted-foreground">Generation prompt</Label>
-              <Textarea value={form.generationPrompt} onChange={(e) => setForm({ ...form, generationPrompt: e.target.value })} disabled={!isEditable} className="mt-1" rows={4} placeholder="The AI prompt used to generate outputs..." />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs font-ui text-muted-foreground">Preview background</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input type="color" value={form.previewBackground} onChange={(e) => setForm({ ...form, previewBackground: e.target.value })} disabled={!isEditable} className="w-10 h-10 rounded border-0 cursor-pointer" />
-                  <Input value={form.previewBackground} onChange={(e) => setForm({ ...form, previewBackground: e.target.value })} disabled={!isEditable} className="flex-1" />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs font-ui text-muted-foreground">Price (credits)</Label>
-                <Input type="number" value={form.priceCredits} onChange={(e) => setForm({ ...form, priceCredits: Number(e.target.value) })} disabled={!isEditable} className="mt-1" min={0} />
-              </div>
-            </div>
+      {/* Metadata card */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-5">
+        <div>
+          <Label className="text-xs font-ui text-muted-foreground">Template name</Label>
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled={!isEditable} className="mt-1" />
+        </div>
+        <div>
+          <Label className="text-xs font-ui text-muted-foreground">Description</Label>
+          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} disabled={!isEditable} className="mt-1" rows={3} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs font-ui text-muted-foreground">Type</Label>
+            <select
+              value={form.templateType}
+              onChange={(e) => setForm({ ...form, templateType: e.target.value as any })}
+              disabled={!isEditable}
+              className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-ui"
+            >
+              <option value="physical">Physical</option>
+              <option value="digital">Digital</option>
+            </select>
           </div>
-
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-3">
-            {isEditable && (
-              <button onClick={handleSave} disabled={saving || !form.name} className="h-11 px-6 rounded-lg bg-primary text-primary-foreground font-ui text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2">
-                {saving && <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />}
-                {isNew ? "Create template" : "Save changes"}
-              </button>
-            )}
-            {status === "draft" && templateId && (
-              <button onClick={handleSubmitForReview} className="h-11 px-6 rounded-lg border border-primary text-primary font-ui text-sm font-medium hover:bg-primary/10 transition-colors">
-                Submit for review
-              </button>
-            )}
-            {status === "published" && (
-              <button onClick={handleUnpublish} className="h-11 px-6 rounded-lg border border-border text-muted-foreground font-ui text-sm hover:bg-muted/50 transition-colors">
-                Unpublish
-              </button>
-            )}
-            {status === "unpublished" && (
-              <button onClick={handleRepublish} className="h-11 px-6 rounded-lg border border-primary text-primary font-ui text-sm font-medium hover:bg-primary/10 transition-colors">
-                Republish
-              </button>
-            )}
+          <div>
+            <Label className="text-xs font-ui text-muted-foreground">Category</Label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              disabled={!isEditable}
+              className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-ui"
+            >
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         </div>
+        {form.templateType === "digital" && (
+          <div>
+            <Label className="text-xs font-ui text-muted-foreground">Output type</Label>
+            <select
+              value={form.digitalOutputType}
+              onChange={(e) => setForm({ ...form, digitalOutputType: e.target.value })}
+              disabled={!isEditable}
+              className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm font-ui"
+            >
+              <option value="">Select...</option>
+              {digitalOutputTypes.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+        )}
+        <div>
+          <Label className="text-xs font-ui text-muted-foreground">Best for (comma-separated)</Label>
+          <Input value={form.bestFor} onChange={(e) => setForm({ ...form, bestFor: e.target.value })} disabled={!isEditable} className="mt-1" placeholder="Skincare, Cosmetics" />
+        </div>
+        <div>
+          <Label className="text-xs font-ui text-muted-foreground">Preview background</Label>
+          <div className="flex items-center gap-2 mt-1">
+            <input type="color" value={form.previewBackground} onChange={(e) => setForm({ ...form, previewBackground: e.target.value })} disabled={!isEditable} className="w-10 h-10 rounded border-0 cursor-pointer" />
+            <Input value={form.previewBackground} onChange={(e) => setForm({ ...form, previewBackground: e.target.value })} disabled={!isEditable} className="flex-1" />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs font-ui text-muted-foreground">Design notes (optional)</Label>
+          <Textarea
+            value={form.generationPrompt}
+            onChange={(e) => setForm({ ...form, generationPrompt: e.target.value })}
+            disabled={!isEditable}
+            className="mt-1"
+            rows={3}
+            placeholder="Describe the design intent, style decisions, or creative direction for this template. This helps reviewers understand your work."
+          />
+          <p className="mt-1.5 text-[11px] font-ui text-muted-foreground/70">
+            These notes are for Kinika's review team, not used in AI generation.
+          </p>
+        </div>
 
-        {/* Right — Preview images */}
-        <div className="space-y-4">
-          <h3 className="font-ui text-sm text-foreground font-medium">Preview images</h3>
-          <div className="space-y-3">
-            {images.sort((a, b) => a.sort_order - b.sort_order).map((img, i) => (
-              <div key={img.id} className="relative rounded-lg overflow-hidden border border-border">
-                <img src={img.image_url} alt="" className="w-full aspect-square object-cover" />
+        {/* Pricing subsection */}
+        <div className="pt-4 border-t border-border space-y-4">
+          <p className="text-xs font-ui font-medium uppercase tracking-wider text-muted-foreground">Pricing</p>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.isFree}
+              onChange={(e) => setForm({ ...form, isFree: e.target.checked })}
+              disabled={!isEditable}
+              className="accent-primary w-4 h-4"
+            />
+            <span className="text-sm font-ui text-foreground">Free template</span>
+          </label>
+          {!form.isFree && (
+            <div>
+              <Label className="text-xs font-ui text-muted-foreground">Price (credits)</Label>
+              <Input
+                type="number"
+                value={form.priceCredits}
+                onChange={(e) => setForm({ ...form, priceCredits: Number(e.target.value) })}
+                disabled={!isEditable}
+                className="mt-1 w-40"
+                min={1}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Variants section or new-template empty state */}
+      {templateId ? (
+        <TemplateVariantsSection templateId={templateId} />
+      ) : (
+        <div className="rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-3 py-12 px-6 text-center">
+          <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+            <Layers size={20} className="text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-[14px] font-ui font-medium text-foreground">Save to start adding variants</p>
+            <p className="text-[12px] font-ui text-muted-foreground mt-1 max-w-sm">
+              Create your template metadata above, then save to unlock platform variant management. Each variant is a Scene JSON design for a specific platform format.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Preview images */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <p className="text-xs font-ui font-medium uppercase tracking-wider text-muted-foreground">Preview images</p>
+        {isNew && !templateId ? (
+          <p className="text-[12px] font-ui text-muted-foreground/70">Save the template first to upload images.</p>
+        ) : (
+          <div className="flex items-start gap-3 overflow-x-auto pb-1">
+            {sortedImages.map((img, i) => (
+              <div key={img.id} className="relative flex-shrink-0 w-32 h-32 rounded-lg overflow-hidden border border-border">
+                <img src={img.image_url} alt="" className="w-full h-full object-cover" />
                 {i === 0 && (
-                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-primary/80 text-primary-foreground text-[10px] font-ui font-medium">
+                  <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full bg-primary/80 text-primary-foreground text-[10px] font-ui font-medium">
                     Cover
                   </span>
                 )}
               </div>
             ))}
-            {templateId && isEditable && (
+            {templateId && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                className="flex-shrink-0 w-32 h-32 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
               >
-                <Upload size={20} />
-                <span className="text-xs font-ui">Upload image</span>
+                <Upload size={18} />
+                <span className="text-[11px] font-ui">Upload</span>
               </button>
             )}
-            {!templateId && isNew && (
-              <p className="text-xs font-ui text-muted-foreground">Save the template first to upload images.</p>
-            )}
           </div>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-        </div>
+        )}
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
       </div>
+
+      {/* Creator apply prompt — only on new template for non-creator users */}
+      {isNew && profile && profile.role !== "creator" && profile.role !== "admin" && (
+        <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[13px] font-ui font-medium text-foreground">Want to publish templates?</p>
+            <p className="text-[12px] font-ui text-muted-foreground mt-0.5">Apply to become a Kinika creator.</p>
+          </div>
+          <button
+            onClick={() => navigate("/creator/apply")}
+            className="flex-shrink-0 h-9 px-4 rounded-lg border border-primary text-primary text-[13px] font-ui font-medium hover:bg-primary/10 transition-colors"
+          >
+            Apply now
+          </button>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-3 pb-2">
+        {isEditable && (
+          <button
+            onClick={handleSave}
+            disabled={saving || !form.name}
+            className="h-11 px-6 rounded-lg bg-primary text-primary-foreground font-ui text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving && <span className="h-2.5 w-2.5 rounded-full bg-current/40 animate-pulse" />}
+            {isNew ? "Create template" : "Save changes"}
+          </button>
+        )}
+        {status === "draft" && templateId && (
+          <button
+            onClick={handleSubmitForReview}
+            className="h-11 px-6 rounded-lg border border-primary text-primary font-ui text-sm font-medium hover:bg-primary/10 transition-colors"
+          >
+            Submit for review
+          </button>
+        )}
+        {status === "published" && (
+          <button
+            onClick={handleUnpublish}
+            className="h-11 px-6 rounded-lg border border-border text-muted-foreground font-ui text-sm hover:bg-muted/50 transition-colors"
+          >
+            Unpublish
+          </button>
+        )}
+        {status === "unpublished" && (
+          <button
+            onClick={handleRepublish}
+            className="h-11 px-6 rounded-lg border border-primary text-primary font-ui text-sm font-medium hover:bg-primary/10 transition-colors"
+          >
+            Republish
+          </button>
+        )}
+      </div>
+
     </div>
     </FadeIn>
   );
