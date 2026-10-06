@@ -36,6 +36,14 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGci...your-anon-key
 ```
 
+> **Never put the service_role key in the frontend.** Every `VITE_*` variable is
+> inlined into the browser bundle, so a `VITE_SUPABASE_SERVICE_ROLE_KEY` would be
+> readable by every visitor and would bypass Row Level Security for them. The
+> admin UI runs on the anon key; admin access comes from the `is_admin()`
+> RLS policies and `SECURITY DEFINER` RPCs in
+> `supabase/migrations/20260702000000_remove_frontend_service_role.sql`.
+> The service_role key is only ever set as an **edge function secret** (below).
+
 ### Edge Functions (Supabase Secrets)
 ```bash
 LOVABLE_API_KEY=your-lovable-api-key

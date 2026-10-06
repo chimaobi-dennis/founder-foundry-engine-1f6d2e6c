@@ -2,7 +2,9 @@
  * billingAdminService.ts
  *
  * Admin APIs for billing management.
- * All mutations require service role (adminSupabase).
+ * Runs with the normal client; admin writes are allowed by the
+ * "Admins ..." RLS policies and the is_admin()-gated RPCs
+ * (20260702000000_remove_frontend_service_role.sql).
  *
  * Provides:
  *   - Credit package CRUD
@@ -13,16 +15,8 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { adminSupabase } from './adminServiceSupabase';
 
 const db = supabase as any;
-
-function getAdmin() {
-  if (!adminSupabase) {
-    throw new Error('Service role key not configured. Add VITE_SUPABASE_SERVICE_ROLE_KEY to env.');
-  }
-  return adminSupabase as any;
-}
 
 // ═══════════════════════════════════════════════════════════════
 // CREDIT PACKAGE CRUD
@@ -65,8 +59,7 @@ export async function createCreditPackage(pkg: {
   sort_order?: number;
   active?: boolean;
 }): Promise<CreditPackageRow | null> {
-  const admin = getAdmin();
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('credit_packages')
     .insert({
       name: pkg.name,
@@ -92,8 +85,7 @@ export async function updateCreditPackage(
   id: string,
   updates: Partial<Omit<CreditPackageRow, 'id' | 'created_at'>>
 ): Promise<CreditPackageRow | null> {
-  const admin = getAdmin();
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('credit_packages')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -108,8 +100,7 @@ export async function updateCreditPackage(
 }
 
 export async function deleteCreditPackage(id: string): Promise<boolean> {
-  const admin = getAdmin();
-  const { error } = await admin
+  const { error } = await db
     .from('credit_packages')
     .delete()
     .eq('id', id);
@@ -157,8 +148,7 @@ export async function updateGenerationPricing(
   id: string,
   updates: Partial<Omit<GenerationPricingRow, 'id' | 'created_at'>>
 ): Promise<GenerationPricingRow | null> {
-  const admin = getAdmin();
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('ai_generation_pricing')
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -182,8 +172,7 @@ export async function createGenerationPricing(pricing: {
   complexity_multipliers?: Record<string, number>;
   description?: string;
 }): Promise<GenerationPricingRow | null> {
-  const admin = getAdmin();
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('ai_generation_pricing')
     .insert({
       pricing_key: pricing.pricing_key,
@@ -260,11 +249,10 @@ export async function getBillingSettings(): Promise<BillingSettings> {
 export async function updateBillingSettings(
   updates: Partial<BillingSettings>
 ): Promise<BillingSettings | null> {
-  const admin = getAdmin();
   const current = await getBillingSettings();
   const merged = { ...current, ...updates };
 
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('platform_settings')
     .upsert(
       {
@@ -290,58 +278,51 @@ export async function updateBillingSettings(
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Grant free trial credits to a new user after onboarding completion.
- * Reads free_trial_credits from billing settings and grants them as a bonus.
- * Prevents duplicate grants by checking for existing free trial transactions.
+ * Grant free trial credits to the signed-in user after onboarding completion.
+ *
+ * Runs the `claim_free_trial_credits` RPC (SECURITY DEFINER): it reads
+ * free_trial_credits from billing settings, grants them once as a topup, and
+ * is idempotent per user. The amount and duplicate check live server-side, so
+ * no privileged client is needed. `userId` must be the current user; the RPC
+ * always grants to auth.uid().
  */
 export async function grantFreeTrialCredits(userId: string): Promise<{ success: boolean; error?: string; amount?: number; transactionId?: string; balanceAfter?: number; alreadyGranted?: boolean }> {
   try {
-    // Check if user already received free trial credits
-    const admin = getAdmin();
-    const { data: existingTransactions, error: checkError } = await admin
-      .from('wallet_transactions')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('transaction_type', 'topup')
-      .filter('metadata->>description', 'ilike', '%free trial%')
-      .limit(1);
-
-    if (checkError) {
-      console.error('[BillingAdmin] Error checking for existing free trial:', checkError.message);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+    if (user.id !== userId) {
+      return { success: false, error: 'Free trial credits can only be claimed by the signed-in user' };
     }
 
-    if (existingTransactions && existingTransactions.length > 0) {
+    const { data, error } = await db.rpc('claim_free_trial_credits');
+
+    if (error) {
+      console.error('[BillingAdmin] grantFreeTrialCredits error:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    const result = (data ?? {}) as Record<string, any>;
+    if (!result.success) {
+      return { success: false, error: result.error ?? 'Unknown error' };
+    }
+
+    if (result.already_granted) {
       console.log('[BillingAdmin] Free trial credits already granted to user:', userId);
       return { success: true, amount: 0, alreadyGranted: true };
     }
 
-    // Get the free trial credits amount from settings
-    const billingSettings = await getBillingSettings();
-    const freeTrialCredits = billingSettings.free_trial_credits ?? DEFAULT_BILLING_SETTINGS.free_trial_credits;
-
-    if (freeTrialCredits <= 0) {
-      return { success: true, amount: 0 }; // No free trial configured
+    const amount = result.credits_granted != null ? Number(result.credits_granted) : 0;
+    if (amount > 0) {
+      console.log('[BillingAdmin] Free trial credits granted:', { userId, amount, transactionId: result.transaction_id });
     }
-
-    // Grant the credits as a topup
-    const result = await grantCreditsToUser({
-      userId,
-      amount: freeTrialCredits,
-      type: 'topup',
-      description: `Free trial credits (${freeTrialCredits} credits)`,
-    });
-
-    if (result.success) {
-      console.log('[BillingAdmin] Free trial credits granted:', { userId, amount: freeTrialCredits, transactionId: result.transactionId });
-      return {
-        success: true,
-        amount: freeTrialCredits,
-        transactionId: result.transactionId,
-        balanceAfter: result.balanceAfter,
-      };
-    } else {
-      return { success: false, error: result.error };
-    }
+    return {
+      success: true,
+      amount,
+      transactionId: result.transaction_id,
+      balanceAfter: result.balance_after != null ? Number(result.balance_after) : undefined,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('[BillingAdmin] grantFreeTrialCredits error:', message);
@@ -356,11 +337,10 @@ export async function grantCreditsToUser(params: {
   description?: string;
   adminUserId?: string;
 }): Promise<{ success: boolean; error?: string; transactionId?: string; balanceAfter?: number }> {
-  const admin = getAdmin();
 
   const idempotencyKey = `admin_grant_${params.userId}_${Date.now()}`;
 
-  const { data, error } = await admin.rpc('grant_credits_admin', {
+  const { data, error } = await db.rpc('grant_credits_admin', {
     p_user_id: params.userId,
     p_amount: params.amount,
     p_type: params.type || 'topup',
@@ -398,11 +378,10 @@ export interface BillingAnalytics {
 }
 
 export async function getBillingAnalytics(): Promise<BillingAnalytics> {
-  const admin = getAdmin();
 
   const [purchaseStats, walletStats] = await Promise.all([
     // Purchase stats
-    admin
+    db
       .from('credit_purchases')
       .select('status, amount_usd, credits')
       .then(({ data }: any) => {
@@ -417,7 +396,7 @@ export async function getBillingAnalytics(): Promise<BillingAnalytics> {
       }),
 
     // Wallet stats
-    admin
+    db
       .from('wallets')
       .select('balance, lifetime_spent')
       .then(({ data }: any) => {
@@ -451,11 +430,10 @@ export async function getAllPurchases(options?: {
   offset?: number;
   status?: string;
 }): Promise<any[]> {
-  const admin = getAdmin();
   const limit = options?.limit ?? 50;
   const offset = options?.offset ?? 0;
 
-  let query = admin
+  let query = db
     .from('credit_purchases')
     .select('*')
     .order('created_at', { ascending: false })
@@ -480,11 +458,10 @@ export async function getAllWallets(options?: {
   limit?: number;
   offset?: number;
 }): Promise<any[]> {
-  const admin = getAdmin();
   const limit = options?.limit ?? 50;
   const offset = options?.offset ?? 0;
 
-  const { data, error } = await admin
+  const { data, error } = await db
     .from('wallets')
     .select('*')
     .order('updated_at', { ascending: false })
