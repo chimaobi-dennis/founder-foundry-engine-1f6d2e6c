@@ -8,23 +8,16 @@
  *   - Content Studio generation render engine (html | scene)
  *   - Future platform-wide runtime flags
  *
+ * Access: every signed-in user can read; only admins can write
+ * (RLS policies in 20260702000000_remove_frontend_service_role.sql).
+ *
  * DO NOT create alternative config tables or duplicate systems.
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { adminSupabase } from './adminServiceSupabase';
 import type { RenderEngine } from '@/types/scene';
 
 const db = supabase as any;
-
-/**
- * Get the best available Supabase client.
- * Prefers adminSupabase (service role, bypasses RLS) when available.
- * Falls back to regular client (subject to RLS).
- */
-function getClient() {
-  return (adminSupabase ?? db) as any;
-}
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -64,8 +57,7 @@ const DEFAULT_CONTENT_STUDIO_GENERATION: ContentStudioGenerationSettings = {
  * Get a single setting by key. Returns null if not found.
  */
 export async function getSetting(key: string): Promise<PlatformSetting | null> {
-  const client = getClient();
-  const { data, error } = await client
+  const { data, error } = await db
     .from('platform_settings')
     .select('*')
     .eq('setting_key', key)
@@ -86,8 +78,7 @@ export async function setSetting(
   value: Record<string, unknown>,
   description?: string
 ): Promise<PlatformSetting | null> {
-  const client = getClient();
-  const { data, error } = await client
+  const { data, error } = await db
     .from('platform_settings')
     .upsert(
       {
@@ -124,8 +115,7 @@ export async function updateSetting(
 
   const merged = { ...existing.setting_value, ...partialValue };
 
-  const client = getClient();
-  const { data, error } = await client
+  const { data, error } = await db
     .from('platform_settings')
     .update({
       setting_value: merged,
@@ -146,8 +136,7 @@ export async function updateSetting(
  * Remove a setting by key.
  */
 export async function removeSetting(key: string): Promise<boolean> {
-  const client = getClient();
-  const { error } = await client
+  const { error } = await db
     .from('platform_settings')
     .delete()
     .eq('setting_key', key);
@@ -163,8 +152,7 @@ export async function removeSetting(key: string): Promise<boolean> {
  * Get all settings.
  */
 export async function getAllSettings(): Promise<PlatformSetting[]> {
-  const client = getClient();
-  const { data, error } = await client
+  const { data, error } = await db
     .from('platform_settings')
     .select('*')
     .order('setting_key');
@@ -215,8 +203,7 @@ export async function getContentStudioGenerationSettings(): Promise<ContentStudi
  * Safe to call multiple times — uses upsert with ignoreDuplicates.
  */
 export async function ensureDefaultSettings(): Promise<void> {
-  const client = getClient();
-  const { error } = await client
+  const { error } = await db
     .from('platform_settings')
     .upsert(
       {

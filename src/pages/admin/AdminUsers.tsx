@@ -3,8 +3,7 @@ import { FadeIn } from "@/components/FadeIn";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, MoreHorizontal } from "lucide-react";
-import { getAllUsers, updateUserRole } from "@/services/adminService";
-import { getAllUsersAdmin, updateUserRoleAdmin } from "@/services/adminServiceSupabase";
+import { getAllUsers, updateUserRole, getAllUsersAdmin, updateUserRoleAdmin } from "@/services/adminService";
 import { toast } from "@/hooks/use-toast";
 
 const ROLE_TABS = ["all", "founder", "creator"] as const;

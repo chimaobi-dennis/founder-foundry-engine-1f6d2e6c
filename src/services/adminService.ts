@@ -65,47 +65,20 @@ export const approveCreator = async (applicationId: string, notes: string) => {
     // Fetch user profile data (should exist since user submitted application)
     console.log('Fetching user profile for:', appResult.data.user_id);
     
-    let profileData: any;
-    try {
-      // Try admin service first to bypass RLS
-      const { adminSupabase } = await import('./adminServiceSupabase');
-      
-      if (adminSupabase) {
-        console.log('Using admin service to fetch profile...');
-        const profileResult = await adminSupabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', appResult.data.user_id)
-          .single();
-        
-        if (profileResult.error) {
-          console.error('Admin service profile fetch failed:', profileResult.error);
-          throw profileResult.error;
-        }
-        profileData = profileResult.data;
-        console.log('Profile fetched successfully with admin service');
-      } else {
-        throw new Error('Admin service not available');
-      }
-    } catch (adminError) {
-      console.warn('Admin service failed, trying regular client:', adminError);
-      
-      // Fallback to regular client
-      const profileResult = await db
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', appResult.data.user_id)
-        .single();
-      
-      if (profileResult.error) {
-        console.error('Regular client profile fetch failed:', profileResult.error);
-        throw new Error(`Failed to fetch user profile: ${profileResult.error.message}. User ID: ${appResult.data.user_id}`);
-      }
-      
-      profileData = profileResult.data;
-      console.log('Profile fetched successfully with regular client');
+    // Admins can read any profile through RLS ("Admins read all profiles").
+    const profileResult = await db
+      .from('profiles')
+      .select('full_name, avatar_url')
+      .eq('id', appResult.data.user_id)
+      .single();
+
+    if (profileResult.error) {
+      console.error('Profile fetch failed:', profileResult.error);
+      throw new Error(`Failed to fetch user profile: ${profileResult.error.message}. User ID: ${appResult.data.user_id}`);
     }
-    
+
+    const profileData: any = profileResult.data;
+
     const app = {
       ...appResult.data,
       profiles: profileData
@@ -126,37 +99,14 @@ export const approveCreator = async (applicationId: string, notes: string) => {
     if (appErr) throw appErr;
 
     // Update user profile to creator role and set is_creator flag
-    let roleErr;
-    try {
-      const { adminSupabase } = await import('./adminServiceSupabase');
-      
-      if (adminSupabase) {
-        console.log('Using admin service to update user role...');
-        const result = await adminSupabase
-          .from('profiles')
-          .update({ 
-            role: 'creator', 
-            is_creator: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', app.user_id);
-        roleErr = result.error;
-      } else {
-        // Fallback to regular client
-        const result = await db
-          .from('profiles')
-          .update({ 
-            role: 'creator', 
-            is_creator: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', app.user_id);
-        roleErr = result.error;
-      }
-    } catch (updateError) {
-      console.error('Profile update failed:', updateError);
-      roleErr = updateError;
-    }
+    const { error: roleErr } = await db
+      .from('profiles')
+      .update({
+        role: 'creator',
+        is_creator: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', app.user_id);
 
     if (roleErr) {
       console.error('Failed to update user role:', roleErr);
@@ -181,33 +131,12 @@ export const approveCreator = async (applicationId: string, notes: string) => {
     
     console.log('Creator profile data:', creatorProfileData);
     
-    let creatorProfileErr;
-    try {
-      const { adminSupabase } = await import('./adminServiceSupabase');
-      
-      if (adminSupabase) {
-        console.log('Using admin service to create creator profile...');
-        const result = await adminSupabase
-          .from('creator_profiles')
-          .upsert(creatorProfileData, {
-            onConflict: 'id',
-            ignoreDuplicates: false
-          });
-        creatorProfileErr = result.error;
-      } else {
-        // Fallback to regular client
-        const result = await db
-          .from('creator_profiles')
-          .upsert(creatorProfileData, {
-            onConflict: 'id',
-            ignoreDuplicates: false
-          });
-        creatorProfileErr = result.error;
-      }
-    } catch (createError) {
-      console.error('Creator profile creation failed:', createError);
-      creatorProfileErr = createError;
-    }
+    const { error: creatorProfileErr } = await db
+      .from('creator_profiles')
+      .upsert(creatorProfileData, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      });
 
     if (creatorProfileErr) {
       console.error('Failed to create creator profile:', creatorProfileErr);
@@ -529,4 +458,148 @@ export const requestTemplateChanges = async (
     })
     .eq('id', templateId);
   return { success: !error, error: error?.message };
+};
+// ═══════════════════════════════════════════════════════════════
+// ADMIN PAGE QUERIES
+//
+// These used to run through a second client built from the service-role
+// key (which was inlined into the browser bundle). They now run with the
+// normal client; the "Admins ..." RLS policies added in
+// 20260702000000_remove_frontend_service_role.sql grant the access.
+// ═══════════════════════════════════════════════════════════════
+
+type ProfileLite = { id: string; [key: string]: any };
+
+const indexById = (rows: ProfileLite[] | null | undefined) =>
+  (rows ?? []).reduce<Record<string, ProfileLite>>((acc, row) => {
+    acc[row.id] = row;
+    return acc;
+  }, {});
+
+// All users for the Users section (admin).
+export const getAllUsersAdmin = getAllUsers;
+
+// Update a user's role (admin).
+export const updateUserRoleAdmin = updateUserRole;
+
+// Dashboard stats (admin).
+export const getDashboardStatsAdmin = getDashboardStats;
+
+// All creator applications with the applicant's profile (admin).
+// Tries the embedded join first; if the FK relationship is not exposed,
+// fetches profiles separately and merges them.
+export const getAllApplicationsAdmin = async (statusFilter?: string) => {
+  const joined = await getAllApplications(statusFilter);
+  if (!joined.error) return joined;
+
+  let query = db
+    .from('creator_applications')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (statusFilter) query = query.eq('status', statusFilter);
+
+  const { data, error } = await query;
+  if (error || !data?.length) return { data, error };
+
+  const userIds = [...new Set(data.map((app: any) => app.user_id).filter(Boolean))];
+  const { data: profiles, error: profilesError } = await db
+    .from('profiles')
+    .select('id, full_name, email, avatar_url')
+    .in('id', userIds);
+
+  if (profilesError) return { data, error: null };
+
+  const profileMap = indexById(profiles);
+  return {
+    data: data.map((app: any) => ({ ...app, profiles: profileMap[app.user_id] ?? null })),
+    error: null,
+  };
+};
+
+// All templates with preview images and creator name (admin).
+// Same join-then-merge strategy as getAllApplicationsAdmin.
+export const getAllTemplatesAdmin = async (statusFilter?: string, typeFilter?: string) => {
+  const joined = await getAllTemplates(statusFilter, typeFilter);
+  if (!joined.error) return joined;
+
+  let query = db
+    .from('prostudio_templates')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (statusFilter) query = query.eq('status', statusFilter);
+  if (typeFilter) query = query.eq('template_type', typeFilter);
+
+  const { data, error } = await query;
+  if (error || !data?.length) return { data, error };
+
+  const creatorIds = [...new Set(data.map((t: any) => t.creator_id).filter(Boolean))];
+  const { data: creatorProfiles, error: profilesError } = await db
+    .from('profiles')
+    .select('id, display_name, full_name')
+    .in('id', creatorIds);
+
+  if (profilesError) return { data, error: null };
+
+  const profileMap = indexById(creatorProfiles);
+  return {
+    data: data.map((t: any) => ({ ...t, creator_profiles: profileMap[t.creator_id] ?? null })),
+    error: null,
+  };
+};
+
+// Template detail with preview images, the creator's profile and the
+// creator's extended creator_profiles row (admin).
+export const getTemplateDetailAdmin = async (templateId: string) => {
+  const { data: templateData, error: templateError } = await db
+    .from('prostudio_templates')
+    .select(`
+      *,
+      template_preview_images (image_url, is_cover, sort_order)
+    `)
+    .eq('id', templateId)
+    .single();
+
+  if (templateError) {
+    return { data: null, error: templateError };
+  }
+
+  let creatorProfile: any = null;
+  let creatorProfileExtended: any = null;
+
+  if (templateData.creator_id) {
+    const [profileResult, extendedResult] = await Promise.all([
+      db.from('profiles').select('full_name, avatar_url').eq('id', templateData.creator_id).maybeSingle(),
+      db.from('creator_profiles').select('display_name, avatar_url').eq('id', templateData.creator_id).maybeSingle(),
+    ]);
+    if (!profileResult.error) creatorProfile = profileResult.data;
+    if (!extendedResult.error) creatorProfileExtended = extendedResult.data;
+  }
+
+  return {
+    data: {
+      ...templateData,
+      profiles: creatorProfile,
+      creator_profiles: creatorProfileExtended,
+    },
+    error: null,
+  };
+};
+
+// Update a template's status / review fields (admin).
+export const updateTemplateAdmin = async (
+  templateId: string,
+  data: { status?: string; [key: string]: any }
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const { error } = await db
+      .from('prostudio_templates')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', templateId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    console.error('Failed to update template:', error);
+    return { success: false, error: error.message };
+  }
 };

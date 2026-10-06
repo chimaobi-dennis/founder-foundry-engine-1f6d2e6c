@@ -9,8 +9,8 @@ import {
   getTemplateUsageByCategory,
   getUserRoleBreakdown,
   getRecentActivity,
+  getDashboardStatsAdmin,
 } from "@/services/adminService";
-import { getDashboardStatsAdmin, testAdminService } from "@/services/adminServiceSupabase";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Area, AreaChart,
   BarChart, Bar, PieChart, Pie, Cell, Legend,
@@ -42,16 +42,8 @@ export default function AdminDashboard() {
 
   const fetchAll = async () => {
     setLoading(true);
-    
-    // Test admin service first
+
     try {
-      await testAdminService();
-    } catch (testError) {
-      console.error('Admin service test failed:', testError);
-    }
-    
-    try {
-      // Try admin service first for dashboard stats (bypasses RLS)
       const s = await getDashboardStatsAdmin();
       const [su, tu, rb, act] = await Promise.all([
         getUserSignupsByDay(signupDays),

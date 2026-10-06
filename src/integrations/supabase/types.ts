@@ -3473,6 +3473,7 @@ export type Database = {
         }[]
       }
       get_wallet_balance: { Args: { p_user_id: string }; Returns: Json }
+      claim_free_trial_credits: { Args: Record<PropertyKey, never>; Returns: Json }
       grant_credits_admin: {
         Args: {
           p_admin_user_id?: string
@@ -3485,6 +3486,7 @@ export type Database = {
         Returns: Json
       }
       increment: { Args: { x: number }; Returns: number }
+      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
       prune_old_versions: {
         Args: { p_creative_id: string; p_keep_count?: number }
         Returns: number

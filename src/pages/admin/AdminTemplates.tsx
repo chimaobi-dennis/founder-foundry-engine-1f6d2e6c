@@ -6,8 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Image, Check } from "lucide-react";
-import { getAllTemplates, getTemplateDetail } from "@/services/adminService";
-import { getAllTemplatesAdmin, getTemplateDetailAdmin, updateTemplateAdmin } from "@/services/adminServiceSupabase";
+import { getAllTemplates, getTemplateDetail, getAllTemplatesAdmin, getTemplateDetailAdmin, updateTemplateAdmin } from "@/services/adminService";
 import { updateTemplate } from "@/services/templateService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";

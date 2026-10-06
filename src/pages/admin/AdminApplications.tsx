@@ -5,8 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Check, X } from "lucide-react";
-import { getAllApplications, approveCreator, rejectCreator } from "@/services/adminService";
-import { getAllApplicationsAdmin } from "@/services/adminServiceSupabase";
+import { getAllApplications, approveCreator, rejectCreator, getAllApplicationsAdmin } from "@/services/adminService";
 import { toast } from "@/hooks/use-toast";
 
 const STATUS_TABS = ["pending", "approved", "rejected", "all"];
