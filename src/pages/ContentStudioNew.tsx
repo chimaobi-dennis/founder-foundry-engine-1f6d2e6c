@@ -26,6 +26,8 @@ import {
   generateContentForBrief,
 } from "@/services/contentStudioService";
 import { calculateGenerationCredits } from "@/utils/calculateGenerationCredits";
+import { useContentStudioRule } from "@/hooks/use-pricing";
+import { QuoteChip } from "@/components/billing/QuoteChip";
 import { cn } from "@/lib/utils";
 import { useCreditBalance } from "@/hooks/use-credit-balance";
 import { usePricingModal } from "@/contexts/PricingModalContext";
@@ -151,7 +153,9 @@ export default function ContentStudioNew() {
     );
   };
 
-  // Calculate credits using shared utility (single source of truth)
+  // Calculate credits using shared utility (single source of truth).
+  // The rule comes from ai_generation_pricing; defaults render until it loads.
+  const { rule: pricingRule } = useContentStudioRule();
   const creditResult = calculateGenerationCredits({
     platformCount: selectedPlatformIds.length,
     complexityLevel: layoutComplexityLevel,
@@ -159,7 +163,7 @@ export default function ContentStudioNew() {
     aiFreedom: aiFreedom,
     visualAssets: selectedAssets,
     variationCount: 1,
-  });
+  }, pricingRule);
   const credits = creditResult.estimatedCredits;
   const creditBreakdown = creditResult.breakdown;
 
@@ -638,6 +642,16 @@ export default function ContentStudioNew() {
             creditsCharged={billingCreditsCharged}
             balanceAfter={billingBalanceAfter}
           />
+
+          {/* Live quote next to the action */}
+          <div className="flex justify-center">
+            <QuoteChip
+              estimate={credits}
+              balance={balance}
+              balanceLoading={balanceLoading}
+              onTopUp={() => openPricingModal({ currentBalance: balance })}
+            />
+          </div>
 
           {/* Generate / Top Up Button */}
           <button

@@ -6,6 +6,7 @@ import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from
 import { buildFounderIntelligenceContext } from './founderIntelligenceService';
 import { buildPlatformDesignSystem, buildPlatformRenderInstructions } from './platformIntelligenceService';
 import { calculateGenerationCredits, CreditBreakdown, CreditCalculationInput } from '@/utils/calculateGenerationCredits';
+import { getContentStudioRule } from './pricingService';
 import {
   chargeGenerationCredits,
   refundGenerationCredits,
@@ -241,7 +242,8 @@ export async function createBrief(brandId: string, userId: string, brief: {
     image_density: brief.image_density,
   });
 
-  // Calculate estimated credits
+  // Calculate estimated credits from the database rule
+  const pricingRule = await getContentStudioRule();
   const { estimatedCredits } = calculateGenerationCredits({
     platformCount: brief.selected_platform_ids.length,
     complexityLevel: generationSettings.layout_complexity,
@@ -249,7 +251,7 @@ export async function createBrief(brandId: string, userId: string, brief: {
     aiFreedom: generationSettings.ai_freedom,
     visualAssets: generationSettings.visual_assets,
     variationCount: 1,
-  });
+  }, pricingRule);
 
   const insertPayload = {
     brand_id: brandId,

@@ -28,3 +28,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Deno lockfile from local edge-function checks
+deno.lock

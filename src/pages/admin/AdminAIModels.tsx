@@ -9,9 +9,11 @@ import {
   setTaskDefault,
   getAllEnabledModels,
   getAllTaskDefaults,
+  getProviderKeyStatus,
   type AIProvider,
   type AIModel,
-  type TaskType
+  type TaskType,
+  type TierTaskType
 } from "@/services/aiService";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -43,7 +45,10 @@ import {
 } from "@/components/ui/select";
 import { Plus, Edit, Save, X } from "lucide-react";
 
-const TASK_TYPES: { type: TaskType; name: string; description: string }[] = [
+const TASK_TYPES: { type: TaskType | TierTaskType; name: string; description: string }[] = [
+  { type: 'tier_fast', name: 'Tier: fast', description: 'Agents use this for classify, summarize, route and memory steps' },
+  { type: 'tier_standard', name: 'Tier: standard', description: 'Agents use this for copy, research and design decisions' },
+  { type: 'tier_reasoning', name: 'Tier: reasoning', description: 'Agents use this for code changes, planning and anything irreversible' },
   { type: 'mentor_chat', name: 'Mentor chat', description: 'Powers your brand conversations' },
   { type: 'template_generation', name: 'Template generation', description: 'Used when generating ProStudio templates' },
   { type: 'document_generation', name: 'Document generation', description: 'Used in DocStudio' },
@@ -71,6 +76,7 @@ export default function AdminAIModels() {
   
   // Providers state
   const [providers, setProviders] = useState<AIProvider[]>([]);
+  const [keyStatus, setKeyStatus] = useState<Record<string, { has_key: boolean; key_hint: string | null }>>({});
   const [providerDialogOpen, setProviderDialogOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<AIProvider | null>(null);
   const [providerForm, setProviderForm] = useState({
@@ -114,13 +120,15 @@ export default function AdminAIModels() {
   }, []);
 
   const loadData = async () => {
-    const [providersData, modelsData, enabledModelsData, taskDefaultsData] = await Promise.all([
+    const [providersData, modelsData, enabledModelsData, taskDefaultsData, keyStatusData] = await Promise.all([
       getAllProviders(),
       getAllModels(),
       getAllEnabledModels(),
       getAllTaskDefaults(),
+      getProviderKeyStatus(),
     ]);
     setProviders(providersData);
+    setKeyStatus(keyStatusData);
     setModels(modelsData);
     setEnabledModels(enabledModelsData);
     setTaskDefaults(taskDefaultsData);
@@ -237,7 +245,7 @@ export default function AdminAIModels() {
   };
 
   // Task defaults handlers
-  const handleTaskDefaultChange = async (taskType: TaskType, modelId: string) => {
+  const handleTaskDefaultChange = async (taskType: TaskType | TierTaskType, modelId: string) => {
     const loadingKey = `save-default-${taskType}`;
     setActionLoading(loadingKey, true);
     
@@ -295,6 +303,7 @@ export default function AdminAIModels() {
                   <th className="text-left px-4 py-3 text-xs font-ui uppercase tracking-wider text-muted-foreground">Base URL</th>
                   <th className="text-left px-4 py-3 text-xs font-ui uppercase tracking-wider text-muted-foreground">Text</th>
                   <th className="text-left px-4 py-3 text-xs font-ui uppercase tracking-wider text-muted-foreground">Images</th>
+                  <th className="text-left px-4 py-3 text-xs font-ui uppercase tracking-wider text-muted-foreground">API key</th>
                   <th className="text-left px-4 py-3 text-xs font-ui uppercase tracking-wider text-muted-foreground">Enabled</th>
                   <th className="text-left px-4 py-3 text-xs font-ui uppercase tracking-wider text-muted-foreground">Actions</th>
                 </tr>
@@ -316,6 +325,17 @@ export default function AdminAIModels() {
                       {provider.supports_images && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
                           Yes
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {keyStatus[provider.id]?.has_key ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-primary/10 text-primary">
+                          {keyStatus[provider.id]?.key_hint ?? 'set'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-destructive/10 text-destructive">
+                          Missing
                         </span>
                       )}
                     </td>
@@ -634,8 +654,10 @@ export default function AdminAIModels() {
               <Input
                 id="provider-api-key"
                 type="password"
+                autoComplete="off"
                 value={providerForm.api_key}
                 onChange={(e) => setProviderForm({ ...providerForm, api_key: e.target.value })}
+                placeholder={editingProvider && keyStatus[editingProvider.id]?.has_key ? `Stored (${keyStatus[editingProvider.id]?.key_hint}). Leave blank to keep.` : 'Stored server-side; never sent to the browser'}
               />
             </div>
             <div className="flex items-center gap-4">

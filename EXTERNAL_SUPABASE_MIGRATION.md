@@ -40,7 +40,15 @@ VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGci...your-anon-key
 ```bash
 LOVABLE_API_KEY=your-lovable-api-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+# Optional fallbacks for ai-gateway when no key is set in Admin → AI Models → Providers
+ANTHROPIC_API_KEY=...
+GOOGLE_AI_API_KEY=...
+OPENAI_API_KEY=...
 ```
+
+Provider API keys are **never** read by the browser. Set them in Admin → AI
+Models → Providers (stored in `ai_provider_secrets`, service-role only) or as
+the secrets above. The `ai-gateway` function reads them server-side.
 
 ## Step 3: Database Schema Setup
 
@@ -53,9 +61,16 @@ Your application uses the following Supabase features that need to be set up:
 
 ### Edge Functions
 The following edge functions need to be deployed:
-1. **ai-call** - Handles AI generation requests
-2. **mentor-chat** - Powers the mentor chat feature
-3. **detect-milestone** - Milestone detection functionality
+1. **ai-gateway** - All LLM inference (model resolution, provider keys, usage + cost logging). Deploy this first; every AI feature in the app calls it.
+2. **ai-call** - Legacy Lovable-gateway call used by `src/lib/ai.ts`
+3. **mentor-chat** - Powers the mentor chat feature
+4. **detect-milestone** - Milestone detection functionality
+5. **content-series-cron** - Scheduled content series runs
+6. **create-checkout-session** / **stripe-webhook** - Billing
+
+```bash
+supabase functions deploy ai-gateway
+```
 
 ### Database Tables
 Based on your TypeScript types, you'll need to create these tables:
