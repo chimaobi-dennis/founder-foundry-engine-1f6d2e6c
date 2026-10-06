@@ -11,8 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
-  X,
-} from "lucide-react";
+  X, Users } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -39,6 +38,10 @@ type NavGroup = {
 // ─── Nav structure ────────────────────────────────────────────────────────────
 
 const navGroups: NavGroup[] = [
+  {
+    section: "TEAM",
+    items: [{ label: "Your team", icon: Users, path: "/team" }],
+  },
   {
     section: "THINK",
     items: [{ label: "Kinika", icon: Sparkles, path: "/mentor" }],

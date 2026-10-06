@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button";
 import {
   MessageCircle, Camera, Megaphone, Calendar, FileText, Film,
-  ArrowRight, ArrowUpRight, Folder, AlertCircle, Layers, Shield,
-} from "lucide-react";
+  ArrowRight, ArrowUpRight, Folder, AlertCircle, Layers, Shield, Users } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { useProfile } from "@/hooks/use-profile";
@@ -492,6 +491,7 @@ const Home = () => {
           {/* Secondary workflows — compact list */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
+              { name: "Your team", icon: Users, path: "/team", desc: "Hire agents that write, design and research in your voice." },
               { name: "Studio", icon: Camera, path: "/pro-studio", desc: "Visual generation shaped by your brand context.", count: visualCount, unit: "outputs" },
               { name: "Campaigns", icon: Megaphone, path: "/content-studio", desc: "One brief, sequenced across platforms.", locked: !hasDNA, lockedHint: "Available once your brand DNA forms." },
               { name: "Calendar", icon: Calendar, path: "/content-calendar", desc: "Continuity across what you publish.", count: upcomingPosts.length, unit: "scheduled" },
