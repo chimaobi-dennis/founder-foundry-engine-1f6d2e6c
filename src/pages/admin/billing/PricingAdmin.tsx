@@ -11,6 +11,8 @@ import {
   upsertModelRate,
   deleteModelRate,
   getCogsDaily,
+  getAgentStats,
+  type AgentStats,
   type GenerationPricingRow,
   type CreditEconomicsSetting,
   type ModelRateRow,
@@ -76,19 +78,22 @@ export default function PricingAdmin() {
   const [rules, setRules] = useState<GenerationPricingRow[]>([]);
   const [rates, setRates] = useState<ModelRateRow[]>([]);
   const [cogs, setCogs] = useState<CogsDay[]>([]);
+  const [agentStats, setAgentStats] = useState<AgentStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = async () => {
-    const [e, r, m, c] = await Promise.all([
+    const [e, r, m, c, a] = await Promise.all([
       getCreditEconomicsSetting(),
       listGenerationPricing(),
       listModelRates(),
       getCogsDaily(30),
+      getAgentStats(30),
     ]);
     setEcon(e);
     setRules(r);
     setRates(m);
     setCogs(c);
+    setAgentStats(a);
     invalidatePricingCache();
   };
 
@@ -110,6 +115,7 @@ export default function PricingAdmin() {
     <div className="space-y-4">
       <EconomicsPanel econ={econ} onSaved={(e) => { setEcon(e); invalidatePricingCache(); }} />
       <CogsPanel days={cogs} econ={econ} onRefresh={reload} />
+      {agentStats && <AgentStatsPanel stats={agentStats} econ={econ} />}
       <RulesPanel rules={rules} creditCogs={creditCogs} retailPerCredit={econ.retail_usd_per_credit} onChanged={reload} />
       <RatesPanel rates={rates} onChanged={reload} />
     </div>
@@ -269,6 +275,78 @@ function Stat({ label, value, color, hint }: { label: string; value: string; col
       <div className="text-[15px] font-ui font-medium tabular-nums" style={{ color: color ?? C.text }}>{value}</div>
       {hint && <div className="text-[11px] font-ui" style={{ color: C.muted }}>{hint}</div>}
     </div>
+  );
+}
+
+// ─── Agents: failure rate, cost and latency ────────────────
+
+const seconds = (v: number | null) => (v == null ? '—' : v < 10 ? `${v.toFixed(1)}s` : `${Math.round(v)}s`);
+const CLASS_LABEL: Record<string, string> = { read: 'Reads', generate: 'Writes', review: 'Waits for founder', data_write: 'Changes data', code_change: 'Changes code', publish: 'Publishes', unclassified: 'Older runs (not classified)' };
+
+function AgentStatsPanel({ stats, econ }: { stats: AgentStats; econ: CreditEconomicsSetting }) {
+  const th = 'text-left text-[11px] font-ui uppercase tracking-wider py-1.5 pr-3';
+  const td = 'py-1.5 pr-3 text-[12px] font-ui tabular-nums';
+  return (
+    <Panel title="Agents · last 30 days" subtitle="Per-run cost, failure rate and step latency, from the runner's own records. Margin = credits captured at the retail price minus provider cost.">
+      {stats.unrated_models.length > 0 && (
+        <div className="rounded-lg px-3 py-2 mb-4 text-[12px] font-ui" style={{ background: C.field, color: C.bad, border: `0.5px solid ${C.bad}` }}>
+          {stats.unrated_models.map((m) => `${m.model_id} (${m.provider_slug}, ${m.calls} calls)`).join(', ')} {stats.unrated_models.length === 1 ? 'has' : 'have'} no rate, so provider cost shows as $0 and margin is overstated. Add a rate under Model rates below.
+        </div>
+      )}
+      {stats.agents.length === 0 ? (
+        <p className="text-[13px] font-ui" style={{ color: C.muted }}>No agent runs in this window yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr style={{ color: C.muted }}>
+              <th className={th}>Agent</th><th className={th}>Runs</th><th className={th}>Failed</th><th className={th}>Failure rate</th><th className={th}>Avg step</th><th className={th}>Credits</th><th className={th}>Provider cost</th><th className={th}>Cost / run</th><th className={th}>Margin</th>
+            </tr></thead>
+            <tbody>
+              {stats.agents.map((a) => {
+                const finished = a.completed + a.failed;
+                const rate = finished > 0 ? a.failed / finished : null;
+                const retail = a.credits_captured * econ.retail_usd_per_credit;
+                const margin = retail > 0 ? (retail - a.cost_usd) / retail : null;
+                return (
+                  <tr key={a.slug} style={{ borderTop: `0.5px solid ${C.line}`, color: C.text }}>
+                    <td className={td}>{a.name}</td>
+                    <td className={td}>{a.runs}</td>
+                    <td className={td}>{a.failed}</td>
+                    <td className={td} style={{ color: rate == null ? C.muted : rate > 0.2 ? C.bad : rate > 0.05 ? C.gold : C.good }}>{rate == null ? '—' : `${(rate * 100).toFixed(0)}%`}</td>
+                    <td className={td}>{seconds(a.avg_step_seconds)}</td>
+                    <td className={td}>{Math.round(a.credits_captured)}</td>
+                    <td className={td}>{money(a.cost_usd, 4)}</td>
+                    <td className={td}>{a.runs > 0 ? money(a.cost_usd / a.runs, 4) : '—'}</td>
+                    <td className={td} style={{ color: margin == null ? C.muted : margin >= 0.7 ? C.good : margin >= 0.5 ? C.gold : C.bad }}>{margin == null ? '—' : `${(margin * 100).toFixed(0)}%`}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {stats.action_classes.length > 0 && (
+        <div className="overflow-x-auto mt-5">
+          <p className="text-[11px] font-ui uppercase tracking-wider mb-1" style={{ color: C.muted }}>By action class</p>
+          <table className="w-full">
+            <thead><tr style={{ color: C.muted }}><th className={th}>Class</th><th className={th}>Steps</th><th className={th}>Failed</th><th className={th}>Failure rate</th><th className={th}>Avg</th><th className={th}>p95</th></tr></thead>
+            <tbody>
+              {stats.action_classes.map((c) => (
+                <tr key={c.action_class} style={{ borderTop: `0.5px solid ${C.line}`, color: C.text }}>
+                  <td className={td}>{CLASS_LABEL[c.action_class] ?? c.action_class}</td>
+                  <td className={td}>{c.steps}</td>
+                  <td className={td}>{c.failed}</td>
+                  <td className={td} style={{ color: c.steps > 0 && c.failed / c.steps > 0.2 ? C.bad : C.text }}>{c.steps > 0 ? `${((c.failed / c.steps) * 100).toFixed(0)}%` : '—'}</td>
+                  <td className={td}>{seconds(c.avg_seconds)}</td>
+                  <td className={td}>{seconds(c.p95_seconds)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[11px] font-ui mt-2" style={{ color: C.muted }}>Latency for steps that wait on a founder includes the wait.</p>
+        </div>
+      )}
+    </Panel>
   );
 }
 

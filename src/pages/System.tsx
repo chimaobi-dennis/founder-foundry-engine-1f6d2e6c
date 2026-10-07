@@ -832,6 +832,14 @@ export default function System() {
                 them re-asks who you are. They draw on the same memory, return their work to the
                 same memory, and hand off cleanly between one another.
               </Body>
+              <Body>
+                The specialists are also available as agents. Hire a Copywriter, a Designer, a
+                Researcher, an SEO Specialist or a Developer onto your team, give one a task or a
+                schedule, and it works from the same memory the rooms do. Every task is quoted in
+                credits first and every result comes back for your review. When an agent is
+                connected to your store, your site or your socials, it acts there too, with
+                changes logged one by one and reversible.
+              </Body>
             </div>
           </div>
         </div>
@@ -911,6 +919,12 @@ export default function System() {
               <Body>
                 The work is not a series of one-offs. It is a body. And bodies, properly cared
                 for, get stronger over time.
+              </Body>
+              <Body>
+                It compounds for the team as well. When an agent finishes, what it did and what
+                came of it are written back to the same memory, along with what you approved,
+                rejected or reverted. The next run starts from that. You can read it, and delete
+                any line that is wrong.
               </Body>
             </div>
           </div>
