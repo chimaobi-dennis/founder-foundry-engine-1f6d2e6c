@@ -23,6 +23,7 @@ import { allowedFields, diffLines, ConnectorError, runConnector, type Normalized
 import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullRequest, publishItems, pullRequestStatus, readRepoFiles, repoSnapshot, trimRecords } from "../_shared/connectorOps.ts";
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import {
+  creatorEarning,
   approvalKindFor,
   isConnectorWrite,
   writeMayRunUnreviewed,
@@ -445,6 +446,20 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       }
       creditsCaptured += captured;
       lastOutput = parsed.value;
+      // Marketplace: a creator-made agent earns its share of what was captured.
+      if ((agent as any)?.creator_id) {
+        await admin.rpc("bump_agent_uses", { p_agent_id: agent.id });
+        if (captured > 0) {
+          const { data: econ } = await admin.from("platform_settings").select("setting_value").eq("setting_key", "credit_economics").maybeSingle();
+          const retail = Number((econ?.setting_value as any)?.retail_usd_per_credit) || 0.02;
+          const pct = Number((agent as any).revenue_share_pct) || 0;
+          const { error: earnErr } = await admin.from("creator_earnings").insert({
+            creator_id: (agent as any).creator_id, agent_id: agent.id, run_id: run.id, step_id: step.id, founder_id: run.user_id,
+            credits: captured, share_pct: pct, amount_usd: creatorEarning(captured, pct, retail),
+          });
+          if (earnErr) console.error("[run-step] creator earning not recorded", { stepId: step.id, error: earnErr.message });
+        }
+      }
 
       await admin.from("automation_run_steps").update({
         status: "done",

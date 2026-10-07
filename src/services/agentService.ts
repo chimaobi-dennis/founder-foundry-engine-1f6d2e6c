@@ -45,6 +45,10 @@ export interface Agent extends AgentDefinition {
   suited_stages: string[];
   is_active: boolean;
   sort_order: number;
+  /** Marketplace: set when a creator wrote this agent */
+  creator_id?: string | null;
+  status?: 'draft' | 'pending_review' | 'published' | 'unpublished';
+  creator?: { display_name: string } | null;
 }
 
 export interface AgentHire {
@@ -120,7 +124,7 @@ export interface Approval {
 // ─── Agents and hires ──────────────────────────────────────
 
 export async function listAgents(): Promise<Agent[]> {
-  const { data, error } = await db.from('agents').select('*').eq('is_active', true).order('sort_order');
+  const { data, error } = await db.from('agents').select('*, creator:creator_profiles(display_name)').eq('is_active', true).eq('status', 'published').order('sort_order');
   if (error) {
     console.error('[Agents] listAgents error:', error.message);
     return [];

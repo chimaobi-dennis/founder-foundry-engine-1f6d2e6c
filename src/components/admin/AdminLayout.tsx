@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
 import { useEffect } from "react";
 import {
-  LayoutGrid, Users, User, Star, Layers, Clock, Inbox, Tag, Award, Settings, LogOut, Cpu, Book, Bug, Map, Coins,
+  LayoutGrid, Users, User, Star, Layers, Clock, Inbox, Tag, Award, Settings, LogOut, Cpu, Book, Bug, Map, Coins, Bot,
 } from "lucide-react";
 
 const sections = [
@@ -23,6 +23,7 @@ const sections = [
     items: [
       { label: "Templates", icon: Layers, path: "/admin/product/templates" },
       { label: "Creator applications", icon: Inbox, path: "/admin/product/applications", countKey: "pendingApplications" as const },
+      { label: "Community agents", icon: Bot, path: "/admin/product/agents" },
       { label: "AI Models", icon: Cpu, path: "/admin/product/ai-models" },
       { label: "Knowledge Base", icon: Book, path: "/admin/knowledge-base" },
       { label: "Journey Stages", icon: Map, path: "/admin/journey-stages" },
