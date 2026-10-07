@@ -130,6 +130,8 @@ serve(async (req) => {
   const econ = await creditEconomics(admin);
   const started = Date.now();
   let attemptsTotal = 0;
+  // Every failed try, so an admin can see why a fallback was used.
+  const attemptErrors: { provider: string; model: string; status: number; error: string }[] = [];
 
   const finish = async (chosen: RouteCandidate, text: string, usage: TokenUsage, success: boolean, error?: string, routeNote?: Record<string, unknown>) => {
     const rate = await modelRate(admin, chosen.provider.slug, chosen.model_id, chosen);
@@ -154,7 +156,7 @@ serve(async (req) => {
         latency_ms: latency,
         success,
         error_message: error ?? null,
-        metadata: { ...(body.metadata ?? {}), stream: !!body.stream, max_tokens: maxTokens, rate_found: !!rate, route: { profile: route.profile, class: route.class, source: route.source, attempts: attemptsTotal, ...(routeNote ?? {}) } },
+        metadata: { ...(body.metadata ?? {}), stream: !!body.stream, max_tokens: maxTokens, rate_found: !!rate, route: { profile: route.profile, class: route.class, source: route.source, attempts: attemptsTotal, ...(attemptErrors.length ? { attempt_errors: attemptErrors } : {}), ...(routeNote ?? {}) } },
       })
       .select("id")
       .single();
@@ -213,12 +215,13 @@ serve(async (req) => {
         try {
           const out = await callProvider(cfg, { ...baseReq, modelId: c.model_id, maxTokens: capMaxTokens(maxTokens, c), ...(onChunk ? { stream: true, onChunk: (t: string) => { emitted = true; onChunk(t); } } : {}) });
           const text = c.strip_reasoning ? stripReasoning(out.text) : out.text;
-          if (!text) { last = { chosen: c, status: 502, message: "Provider returned an empty response" }; break; }
+          if (!text) { last = { chosen: c, status: 502, message: "Provider returned an empty response" }; attemptErrors.push({ provider: c.provider.slug, model: c.model_id, status: 502, error: "empty response" }); break; }
           return { ok: true, chosen: c, text, usage: out.usage, fallbackUsed: i > 0 };
         } catch (e) {
           const status = e instanceof ProviderError ? e.status : 500;
           const message = (e as Error).message;
           last = { chosen: c, status, message };
+          attemptErrors.push({ provider: c.provider.slug, model: c.model_id, status, error: message.slice(0, 200) });
           // A stream that already sent text cannot be transparently retried.
           if (emitted || !isRetryable(status, message)) return { ok: false, ...last };
           if (tryN === 0) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
