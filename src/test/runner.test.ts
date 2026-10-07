@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
+  approvalKindFor,
+  isConnectorWrite,
+  writeMayRunUnreviewed,
   buildTaskPrompt,
   checkBudget,
   normalizeUnits,
@@ -172,5 +175,32 @@ describe('coercePlanDraft', () => {
     expect(p).toContain('copywriter');
     expect(p).toContain('c-shop');
     expect(p).toContain('seo_refresh');
+  });
+});
+
+describe('connector write review policy', () => {
+  it('knows which connector actions change the outside world', () => {
+    expect(isConnectorWrite('apply_changes')).toBe(true);
+    expect(isConnectorWrite('open_pr')).toBe(true);
+    expect(isConnectorWrite('list_records')).toBe(false);
+    expect(isConnectorWrite(undefined)).toBe(false);
+  });
+
+  it('maps writes to the approval kind the UI renders', () => {
+    expect(approvalKindFor('apply_changes')).toBe('review_changes');
+    expect(approvalKindFor('open_pr')).toBe('review_code');
+    expect(approvalKindFor('publish_items')).toBe('review_publish');
+    expect(approvalKindFor('create_draft')).toBe('review_output');
+  });
+
+  it('lets writes run unreviewed only under autonomous policy on a plan that includes it', () => {
+    expect(writeMayRunUnreviewed('apply_changes', 'autonomous', true)).toBe(true);
+    expect(writeMayRunUnreviewed('apply_changes', 'autonomous', false)).toBe(false);
+    expect(writeMayRunUnreviewed('apply_changes', 'review_first', true)).toBe(false);
+    expect(writeMayRunUnreviewed('open_pr', 'autonomous', true)).toBe(true);
+  });
+
+  it('never publishes without a review', () => {
+    expect(writeMayRunUnreviewed('publish_items', 'autonomous', true)).toBe(false);
   });
 });

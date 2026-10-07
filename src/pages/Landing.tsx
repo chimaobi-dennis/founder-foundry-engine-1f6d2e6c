@@ -240,7 +240,7 @@ function ModuleEcosystem() {
               letterSpacing: "0.18em", textTransform: "uppercase",
               color: L.inkMuted, marginTop: 6, fontWeight: 500,
             }}>
-              Memory · Mentor · Brand DNA
+              Agents · Mentor · Brand DNA
             </p>
 
             <div style={{ height: 1, background: L.ruleSoft, margin: "16px auto 14px", width: 36 }} />
@@ -351,7 +351,7 @@ function ModuleEcosystem() {
             letterSpacing: "0.18em", textTransform: "uppercase",
             color: L.inkMuted, marginTop: 6,
           }}>
-            Memory · Mentor · Brand DNA
+            Agents · Mentor · Brand DNA
           </p>
         </div>
 
@@ -1451,10 +1451,10 @@ export default function Landing() {
                   letterSpacing: "-0.025em",
                 }}
               >
-                One place where
+                Hire AI agents that
                 <br />
-                your business is{" "}
-                <span style={{ fontStyle: "italic" }}>understood</span>
+                know your{" "}
+                <span style={{ fontStyle: "italic" }}>business</span>
                 <span style={{ color: L.amber }}>.</span>
               </h1>
 
@@ -1470,7 +1470,7 @@ export default function Landing() {
                   fontWeight: 400,
                 }}
               >
-                Founders run their business across a dozen disconnected tools — each one powerful on its own, none of them aware of the others. Kinika is the shared business context layer that connects every workflow, so your positioning, audience and voice carry through everything you create.
+                A copywriter, a designer, an SEO specialist, a developer. Each one reads your Brand DNA and Mentor history before it works, quotes the job before it runs, and brings the result back for your review. Connect your shop, site, socials or repo and they act there, every change logged and revertible.
               </p>
 
               <div className="fade-up-2 flex flex-wrap items-center gap-4" style={{ marginTop: 40 }}>

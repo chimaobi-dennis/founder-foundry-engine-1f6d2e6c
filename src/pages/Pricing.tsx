@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { getCreditPackages, type CreditPackage } from "@/services/stripeService";
+import { splitPackages } from "@/services/subscriptionService";
+import type { PlanLimits } from "@shared/plans";
 import { EditorialShell, Container, PageMeta, L } from "@/components/editorial/EditorialLayout";
 import { SEO } from "@/components/SEO";
 
@@ -17,86 +21,102 @@ type Plan = {
   to: string;
 };
 
-const PLANS: Plan[] = [
+const money = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`);
+const count = (n: number | undefined, one: string, many: string) => (n == null ? null : n < 0 ? `Unlimited ${many}` : `${n} ${n === 1 ? one : many}`);
+
+/**
+ * Plans are rows in credit_packages; this page reads them so the public price
+ * is the price Billing charges. The fallback below mirrors the seeded rows and
+ * only shows if the database cannot be reached.
+ */
+function planFromPackage(pkg: CreditPackage, index: number, seats: CreditPackage[]): Plan {
+  const lim = pkg.limits as Partial<PlanLimits>;
+  const agentSeat = seats.find((s) => s.addonKind === "agent_seat");
+  const memberSeat = seats.find((s) => s.addonKind === "member_seat");
+  const includes = [
+    `${(pkg.monthlyCredits ?? pkg.credits).toLocaleString()} credits every month`,
+    count(lim.agents, "agent on your team", "agents on your team"),
+    count(lim.members, "person in the workspace", "people in the workspace"),
+    count(lim.connections, "connected tool", "connected tools"),
+    lim.code_repos ? count(lim.code_repos, "connected repository", "connected repositories") : null,
+    lim.autonomous_publishing ? "Agents can apply changes without a review stop" : "Every change reviewed by you before it goes out",
+    agentSeat && (lim.agents ?? 0) >= 0 ? `Extra agents ${money(agentSeat.priceUsd)} each per month` : null,
+    memberSeat && (lim.members ?? 0) >= 0 ? `Extra people ${money(memberSeat.priceUsd)} each per month` : null,
+    lim.enterprise ? "Priority support and bespoke connections" : null,
+  ].filter((x): x is string => !!x);
+  return {
+    no: `Plan 0${index + 1}`,
+    name: pkg.name,
+    intent: pkg.tagline ?? "",
+    price: money(pkg.priceUsd),
+    cadence: "per month",
+    description: pkg.description ?? "",
+    includes,
+    cta: index === 0 ? "Start with " + pkg.name : `Choose ${pkg.name}`,
+    to: `/sign-up?plan=${pkg.slug ?? pkg.id}`,
+  };
+}
+
+const FALLBACK_PLANS: Plan[] = [
   {
     no: "Plan 01",
-    name: "Starter",
-    intent: "For founders setting up their first brand memory.",
-    price: "Free",
-    cadence: "always",
-    description:
-      "One brand memory, one ongoing Mentor conversation, and a Brand DNA that begins to take shape as you work.",
-    includes: [
-      "One brand memory",
-      "Mentor — the continuous conversation",
-      "Modest monthly generations",
-      "Brand DNA, in progress",
-    ],
-    cta: "Start for free",
-    to: "/sign-up",
+    name: "Solo",
+    intent: "For one founder getting things going.",
+    price: "$20",
+    cadence: "per month",
+    description: "Two agents, three schedules, 1,000 credits a month. Review-first on everything.",
+    includes: ["1,000 credits every month", "2 agents on your team", "1 person in the workspace", "2 connected tools", "1 connected repository", "Every change reviewed by you before it goes out", "Extra agents $10 each per month", "Extra people $5 each per month"],
+    cta: "Start with Solo",
+    to: "/sign-up?plan=solo",
   },
   {
     no: "Plan 02",
-    name: "Studio",
-    intent: "For founders building in earnest across multiple brands.",
-    price: "$28",
+    name: "Startup",
+    intent: "For a small team automating real workflows.",
+    price: "$45",
     cadence: "per month",
-    description:
-      "Full access to every module. Memory deepens. Outputs sharpen. The work begins to compound.",
-    includes: [
-      "Three brand memories",
-      "Every module — Mentor, ProStudio, Calendar, DocStudio, ReelBuilder",
-      "Generous monthly generations",
-      "Priority Mentor responses",
-      "Library, exports, and version history",
-    ],
-    cta: "Start building with Kinika",
-    to: "/sign-up",
+    description: "Five agents, fifteen schedules, 2,000 credits a month, autonomous publishing, three repos.",
+    includes: ["2,000 credits every month", "5 agents on your team", "3 people in the workspace", "Unlimited connected tools", "3 connected repositories", "Agents can apply changes without a review stop", "Extra agents $10 each per month", "Extra people $5 each per month"],
+    cta: "Choose Startup",
+    to: "/sign-up?plan=startup",
   },
   {
     no: "Plan 03",
-    name: "Atelier",
-    intent: "For studios, agencies, and small teams.",
-    price: "By arrangement",
-    cadence: "annual",
-    description:
-      "A shared workspace for collaborators, with a private memory the whole team writes into and draws from.",
-    includes: [
-      "Unlimited brand memories",
-      "Shared memory across the team",
-      "White-label DocStudio exports",
-      "Dedicated support",
-      "Bespoke integrations",
-    ],
-    cta: "Get in touch",
-    to: "mailto:hello@kinika.studio",
+    name: "Enterprise",
+    intent: "For teams running the business on agents.",
+    price: "$139",
+    cadence: "per month",
+    description: "Ten agents, unlimited schedules and tools, 6,000 credits a month, twenty members, Enterprise unlocks.",
+    includes: ["6,000 credits every month", "10 agents on your team", "20 people in the workspace", "Unlimited connected tools", "Unlimited connected repositories", "Agents can apply changes without a review stop", "Extra agents $10 each per month", "Extra people $5 each per month", "Priority support and bespoke connections"],
+    cta: "Choose Enterprise",
+    to: "/sign-up?plan=enterprise",
   },
 ];
 
 /* What's the same for everyone */
 const ALWAYS_INCLUDED = [
-  "Your memory remains yours — exportable, portable.",
-  "No usage tracking sold to third parties.",
-  "Cancel any month. Your archive is downloadable.",
-  "A single, considered email when something material changes.",
+  "Every run is quoted in credits before it starts. No surprises.",
+  "Publishing and code changes always wait for your approval.",
+  "Changes agents make to your tools are logged and revertible one by one.",
+  "Your memory remains yours. Exportable, portable, cancel any month.",
 ];
 
 const FAQ = [
   {
-    q: "Why three plans and not five?",
-    a: "Because three is the smallest number of decisions a founder should have to make about a tool that lives quietly in the background. We made the choice simple on purpose.",
+    q: "What is a credit?",
+    a: "The unit every agent run is priced in. A credit is two cents. A caption costs a few credits, a researched blog post a few dozen, and you see the quote before you say yes. Top-ups never expire.",
   },
   {
-    q: "What happens to my work if I leave?",
-    a: "It comes with you. Brand DNA, conversations, generated assets — all exportable in plain formats. We do not believe in held-hostage memory.",
+    q: "What does an agent actually do?",
+    a: "It reads your Brand DNA and Mentor history, does the job you briefed, and brings the result back. Connect a shop, site, social accounts or a repository and it can act there too, with every change reviewable and revertible.",
+  },
+  {
+    q: "What if I need more agents or people?",
+    a: "Add a seat from Billing at any time. An extra agent is ten dollars a month, an extra person five. Remove them just as easily.",
   },
   {
     q: "Can I move between plans?",
-    a: "At any time, in either direction. The system does not penalise downsizing, and it does not gate work you have already done.",
-  },
-  {
-    q: "Do you offer a discount for annual billing?",
-    a: "Studio is fifteen percent less when paid annually. Atelier is annual by default.",
+    a: "At any time, in either direction. Unused credits carry over, and nothing you have already built is gated.",
   },
 ];
 
@@ -298,11 +318,25 @@ function PlanCard({ plan, index }: { plan: Plan; index: number }) {
 /* ── Page ───────────────────────────────────────────────────────────────── */
 
 export default function Pricing() {
+  const [plans, setPlans] = useState<Plan[]>(FALLBACK_PLANS);
+  const [topups, setTopups] = useState<CreditPackage[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    getCreditPackages().then((all) => {
+      if (!active) return;
+      const { plans: p, seats, topups: t } = splitPackages(all);
+      if (p.length) setPlans(p.map((pkg, i) => planFromPackage(pkg, i, seats)));
+      setTopups(t);
+    }).catch(() => { /* fallback plans stay */ });
+    return () => { active = false; };
+  }, []);
+
   return (
     <>
       <SEO
         title="Pricing — Kinika"
-        description="Kinika plans for founders: Starter, Studio, and Atelier. Wallet-based credits, no held-hostage memory, move between plans anytime."
+        description="Kinika plans for founders: Solo, Startup and Enterprise. Agents priced in credits, quoted before every run, with seats for more agents and people."
         path="/pricing"
         jsonLd={{
           "@context": "https://schema.org",
@@ -345,7 +379,7 @@ export default function Pricing() {
                   maxWidth: "16ch",
                 }}
               >
-                Access to an intelligent founder workspace.
+                Hire the team your business needs.
               </h1>
             </div>
             <aside className="col-span-12 lg:col-span-4 lg:pt-24">
@@ -471,9 +505,24 @@ export default function Pricing() {
             </aside>
           </div>
 
-          {PLANS.map((plan, i) => (
+          {plans.map((plan, i) => (
             <PlanCard key={plan.no} plan={plan} index={i} />
           ))}
+          {topups.length > 0 && (
+            <div className="grid grid-cols-12 gap-6 lg:gap-12" style={{ paddingTop: 48, borderTop: `1px solid ${L.rule}` }}>
+              <div className="col-span-12 lg:col-span-3">
+                <p className="pf" style={{ fontStyle: "italic", color: L.amber, fontSize: 22, marginBottom: 12 }}>Top-ups</p>
+                <p className="pf" style={{ fontSize: 16, lineHeight: 1.55, color: L.inkSoft, fontStyle: "italic", maxWidth: "26ch" }}>For a busy month. Credits that never expire.</p>
+              </div>
+              <div className="col-span-12 lg:col-span-9 flex flex-wrap gap-x-10 gap-y-4">
+                {topups.map((t) => (
+                  <p key={t.id} style={{ fontSize: 15, color: L.inkSoft }}>
+                    <span className="pf" style={{ color: L.ink, fontSize: 22, fontWeight: 500 }}>{money(t.priceUsd)}</span> · {t.credits.toLocaleString()} credits
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -682,7 +731,7 @@ export default function Pricing() {
                   marginBottom: 32,
                 }}
               >
-                Start with the free plan. Move up when you're ready.
+                Start free with one agent. Move up when the work does.
               </p>
               <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
                 <Link
