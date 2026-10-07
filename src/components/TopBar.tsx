@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { HelpCircle, MessageSquarePlus, Bell, Sun, Moon, CheckCheck, Coins } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
+import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/use-profile";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -79,15 +80,14 @@ export function TopBar() {
       try {
         const c = await getUnreadCount(user.id);
         if (!cancelled) setUnreadCount(c);
-      } catch {}
+      } catch { /* the badge is a courtesy */ }
     };
     refresh();
-    const t = window.setInterval(refresh, 30000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
+    refreshRef.current = refresh;
+    return () => { cancelled = true; };
   }, [user?.id]);
+  const refreshRef = useRef<() => void>(() => {});
+  useVisibleInterval(() => refreshRef.current(), 60000, !!user?.id);
 
   // Load full list when opening
   useEffect(() => {

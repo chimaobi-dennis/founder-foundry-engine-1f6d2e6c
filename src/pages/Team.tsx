@@ -32,6 +32,7 @@ import { listConnections, type ToolConnection } from "@/services/connectionServi
 import { SUPABASE_CONFIG } from "@/config/supabaseConfig";
 import { getEntitlements, planAllows, planLimitMessage, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
 import { linkTaskToRun } from "@/services/planService";
+import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { getMyRole, roleAtLeast, type BrandRole } from "@/services/teamMembersService";
 import { PeopleSection } from "@/components/team/People";
 import { useProfile } from "@/hooks/use-profile";
@@ -109,13 +110,10 @@ export default function Team() {
     reload().finally(() => setLoading(false));
   }, [reload]);
 
-  // Runs in flight: poll gently so the founder sees steps complete.
+  // Runs in flight: poll gently so the founder sees steps complete. Only
+  // while this tab is visible, and no faster than every 8 seconds.
   const inFlight = runs.some((r) => r.status === "queued" || r.status === "running");
-  useEffect(() => {
-    if (!inFlight) return;
-    const t = setInterval(() => { reload(); refetchBalance(); }, 4000);
-    return () => clearInterval(t);
-  }, [inFlight, reload, refetchBalance]);
+  useVisibleInterval(() => { reload(); refetchBalance(); }, 8000, inFlight);
 
   // Until the membership migration is applied the role RPC is absent; the
   // brand's owner must still be treated as the owner.

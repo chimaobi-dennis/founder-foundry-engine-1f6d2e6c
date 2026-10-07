@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { useNavigate } from "react-router-dom";
 import { 
   getErrorStats, 
@@ -135,14 +136,9 @@ export default function AdminErrorLogs() {
   useEffect(() => {
     loadData();
     
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(() => {
-      loadData();
-      setLastUpdated(new Date());
-    }, 60000);
-    
-    return () => clearInterval(interval);
   }, [moduleFilter, errorTypeFilter, statusFilter, searchQuery]);
+  // Auto-refresh every 2 minutes, only while the tab is visible
+  useVisibleInterval(() => { loadData(); setLastUpdated(new Date()); }, 120000);
 
   const loadData = async () => {
     setLoading(true);
