@@ -27,6 +27,7 @@ import {
 import type { Quote } from "@/services/pricingService";
 import { ConnectionsSection, DiffTable, CodeReview } from "@/components/team/Connections";
 import { DescribeIt } from "@/components/team/DescribeIt";
+import { TeamMemorySection } from "@/components/team/TeamMemory";
 import { listConnections, type ToolConnection } from "@/services/connectionService";
 import { SUPABASE_CONFIG } from "@/config/supabaseConfig";
 import { getEntitlements, planAllows, planLimitMessage, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
@@ -334,6 +335,9 @@ export default function Team() {
               </div>
             )}
           </section>
+
+          {/* ── What the team remembers ── */}
+          <TeamMemorySection brandId={brandId!} canEdit={canEdit} refreshKey={runs.length} />
         </>
       )}
 

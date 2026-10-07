@@ -72,15 +72,42 @@ function planSingleAgentRunRaw(agent: AgentDefinition, input: TaskInput, policy:
       input: { agent_id: agent.id, units, brief: input.brief, platforms: input.platforms ?? [] },
     },
   ];
+  // Creative agents check their own draft against the brand before the founder
+  // sees it: a fast, uncharged critique-and-repair pass.
+  if ((agent.output_spec as { type?: string } | undefined)?.type === "creative_brief") {
+    steps.push({
+      step_index: steps.length,
+      type: "agent_task",
+      name: `${agent.name}: self-review`,
+      input: { agent_id: agent.id, units, brief: input.brief, platforms: input.platforms ?? [], use_previous: "output", prompt_mode: "critique", model_tier: "fast", max_tokens: 4000, charge: false },
+    });
+  }
   if (policy.approval === "review_first") {
     steps.push({
-      step_index: 1,
+      step_index: steps.length,
       type: "approval",
       name: "Review the result",
       input: { kind: "review_output" },
     });
   }
   return steps;
+}
+
+/** The instruction an agent gets for its own self-review pass. */
+export function selfReviewInstruction(): string {
+  return [
+    "MODE: SELF-REVIEW. Below is your own draft. Check it against the BRAND CONTEXT and fix what is wrong:",
+    "1. Voice and tone match the brand. 2. No invented facts, prices, dates or claims. 3. Each platform item fits its platform (length, hashtags, one clear call to action).",
+    "4. Headlines are distinct and short. 5. The visual direction uses the brand's colors and feel.",
+    'Return the SAME JSON shape as the draft, corrected, plus "review": { "issues_found": ["..."], "changes_made": ["..."], "confidence": "high|medium|low" }.',
+    "If the draft is already good, return it unchanged with empty lists.",
+  ].join("\n");
+}
+
+/** Keep the draft's shape: a self-review that loses the items falls back to the draft plus its notes. */
+export function mergeSelfReview(draft: Record<string, unknown>, reviewed: Record<string, unknown>): Record<string, unknown> {
+  const keepsItems = Array.isArray((reviewed as any).items) && (reviewed as any).items.length > 0;
+  return keepsItems ? { ...draft, ...reviewed } : { ...draft, review: (reviewed as any).review ?? null };
 }
 
 export interface BudgetState {

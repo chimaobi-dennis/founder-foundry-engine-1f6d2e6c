@@ -19,6 +19,7 @@ import {
   type PublishItem,
 } from "./connectors.ts";
 import { PROVIDERS } from "./connectors.ts";
+import { remember, revertFeedbackEntry } from "./memory.ts";
 import {
   DEFAULT_ALLOWED_PATHS,
   MAX_SNAPSHOT_FILES,
@@ -211,6 +212,7 @@ export async function revertChangeSet(admin: SupabaseClient, changeSetId: string
       await runConnector(loaded.row, loaded.secret, { action: "update_record", id: cs.target_id, fields: cs.before as Record<string, string> });
     }
     await admin.from("change_sets").update({ reverted_at: new Date().toISOString(), reverted_by: userId, revert_error: null }).eq("id", cs.id);
+    await remember(admin, { brandId: cs.brand_id, userId: cs.user_id, runId: cs.run_id }, revertFeedbackEntry(cs.id, cs.target_label, loaded.row.display_name));
     return { success: true };
   } catch (e) {
     const msg = (e as Error).message;
@@ -417,6 +419,7 @@ export async function mergePullRequest(admin: SupabaseClient, loaded: LoadedConn
     /* branch protection or already gone */
   }
   await admin.from("change_sets").update({ after: { ...(cs.after ?? {}), merged_at: new Date().toISOString(), merge_sha: r.sha } }).eq("id", cs.id);
+  await remember(admin, { brandId: loaded.row.brand_id, userId: loaded.row.user_id }, { kind: "outcome", key: `pr:${cs.id}:merged`, title: `Pull request #${cs.target_id} was merged in ${loaded.row.display_name}`, summary: String(cs.target_label ?? "The change") + " is live on the base branch.", data: { pr_number: Number(cs.target_id), merge_sha: r.sha } });
   return { sha: r.sha };
 }
 

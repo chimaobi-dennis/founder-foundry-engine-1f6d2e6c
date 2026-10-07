@@ -19,10 +19,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
+import { feedbackEntry, outcomeEntry, remember, runSummaryEntry } from "../_shared/memory.ts";
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
 import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullRequest, publishItems, readRepoFiles, repoSnapshot, settlePull, trimRecords } from "../_shared/connectorOps.ts";
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import {
+  mergeSelfReview,
+  selfReviewInstruction,
   planSingleAgentRun,
   creatorEarning,
   approvalKindFor,
@@ -297,7 +300,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
     } else {
       const { data: approval } = await admin
         .from("approvals")
-        .select("status, note")
+        .select("id, status, note")
         .eq("step_id", waiting.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -305,6 +308,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       if (!approval || approval.status === "pending") {
         return { status: "waiting_approval", stepsRun };
       }
+      if (approval.id) await remember(admin, { brandId: run.brand_id, userId: run.user_id, runId: run.id }, feedbackEntry(approval.id, approval.status === "rejected" ? "rejected" : "approved", approval.note, run.name, agent?.name ?? "the agent"));
       if (approval.status === "rejected") {
         await admin.from("automation_run_steps").update({ status: "skipped", output: { decision: "rejected", note: approval.note }, finished_at: new Date().toISOString() }).eq("id", waiting.id);
         await finishRun(admin, run, "cancelled", { summary: `Cancelled by the founder${approval.note ? `: ${approval.note}` : "."}` });
@@ -395,6 +399,9 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
           `RECORDS (${records.length}):`,
           JSON.stringify(records.map((r) => ({ id: r.id, label: r.label, ...r.fields })), null, 0).slice(0, 60_000),
         ].join("\n");
+      } else if (step.input?.use_previous === "output" && step.input?.prompt_mode === "critique") {
+        const draftStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
+        extra = [selfReviewInstruction(), "YOUR DRAFT:", JSON.stringify(draftStep?.output ?? {}).slice(0, 40_000)].join("\n");
       } else if (step.input?.use_previous === "output") {
         const prevAgentStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
         if (prevAgentStep) {
@@ -436,7 +443,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         body: JSON.stringify({
           userId: run.user_id,
           taskType: `agent_${agent.slug}`,
-          modelTier: agent.model_tier,
+          modelTier: step.input?.model_tier ?? agent.model_tier,
           systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
           maxTokens: Math.min(32000, Math.max(1000, Number(step.input?.max_tokens) || 4000)),
@@ -458,6 +465,11 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       if (!parsed.ok) {
         await failRun(admin, run, step, `${agent.name} did not return structured output (${parsed.error}).`, result.usageLogId ?? null, result.text);
         return { status: "failed", stepsRun };
+      }
+
+      if (step.input?.prompt_mode === "critique") {
+        const draftStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output && s.input?.prompt_mode !== "critique");
+        if (draftStep?.output) parsed.value = mergeSelfReview(draftStep.output as Record<string, unknown>, parsed.value);
       }
 
       // Charge: fixed rules bill the rule, metered rules bill real usage.
@@ -525,6 +537,10 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       try {
         const out = await runConnectorStep(admin, run, step, all);
         await admin.from("automation_run_steps").update({ status: "done", output: out, finished_at: new Date().toISOString() }).eq("id", step.id);
+        if (isConnectorWrite(step.input?.action)) {
+          const { data: connName } = await admin.from("tool_connections").select("display_name").eq("id", step.input?.connection_id).maybeSingle();
+          await remember(admin, { brandId: run.brand_id, userId: run.user_id, runId: run.id }, outcomeEntry(step.id, step.input.action, out as Record<string, unknown>, connName?.display_name ?? "your connection"));
+        }
         step.status = "done";
         step.output = out;
         if (out && typeof out === "object" && !Array.isArray((out as any).records)) lastOutput = { ...(lastOutput ?? {}), connector: out };
@@ -551,6 +567,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
   const summary = summarizeOutput(agent?.name ?? "Agent", lastOutput, `${run.name} finished.`);
   const finalOutput = { ...(lastOutput ?? {}), summary };
   await finishRun(admin, run, "completed", finalOutput);
+  await remember(admin, { brandId: run.brand_id, userId: run.user_id, runId: run.id }, runSummaryEntry(run.id, run.name, agent?.name ?? "Agent", summary, { credits: creditsCaptured, review: (finalOutput as any).review?.confidence ?? undefined }));
   await notify(admin, run, "agent_run_completed", `${agent?.name ?? "Agent"} finished "${run.name}"`, summary, null);
   return { status: "completed", stepsRun };
 }
