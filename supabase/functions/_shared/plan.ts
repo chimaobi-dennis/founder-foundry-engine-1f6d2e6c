@@ -88,6 +88,56 @@ export function planSystemPrompt(): string {
   ].join("\n\n");
 }
 
+// ── Weekly check-in ──────────────────────────────────────────────────────────
+
+export interface CheckinTask {
+  title: string;
+  status: string;
+  owner: string;
+  done_at: string | null;
+  updated_at: string;
+}
+export interface CheckinTarget {
+  title: string;
+  status: string;
+  position: number;
+  tasks: CheckinTask[];
+}
+
+const WEEK_MS = 7 * 24 * 3600_000;
+const list = (xs: string[]) => xs.map((x) => `"${x}"`).join(", ");
+
+/**
+ * The weekly check-in as a notification: what moved, what is next in the
+ * current target, what has sat "in progress" for over a week. Computed, not
+ * generated, so it costs the founder nothing.
+ */
+export function checkinSummary(plan: { title: string; targets: CheckinTarget[] }, now = new Date()): { title: string; body: string; complete: boolean } {
+  const weekAgo = now.getTime() - WEEK_MS;
+  const targets = [...plan.targets].sort((a, b) => a.position - b.position);
+  const tasks = targets.flatMap((t) => t.tasks).filter((k) => k.status !== "skipped");
+  const doneWeek = tasks.filter((k) => k.status === "done" && k.done_at && Date.parse(k.done_at) >= weekAgo);
+  const open = tasks.filter((k) => k.status === "todo" || k.status === "doing");
+  const stale = tasks.filter((k) => k.status === "doing" && Date.parse(k.updated_at) < weekAgo);
+  if (!open.length) {
+    return { complete: true, title: "Your plan is complete", body: `Every task on "${clip(plan.title, 80)}" is done. Ask Kinika to write what comes next.` };
+  }
+  const current = targets.find((t) => t.status !== "done" && t.tasks.some((k) => k.status === "todo" || k.status === "doing")) ?? targets[0];
+  const next = current.tasks.filter((k) => k.status === "todo" || k.status === "doing").slice(0, 3).map((k) => clip(k.title, 80));
+  const agentable = open.filter((k) => k.owner === "agent").length;
+  const parts = [
+    doneWeek.length ? `Done this week: ${list(doneWeek.slice(0, 3).map((k) => clip(k.title, 60)))}${doneWeek.length > 3 ? ` and ${doneWeek.length - 3} more` : ""}.` : "Nothing moved this week.",
+    `Up next in "${clip(current.title, 80)}": ${list(next)}.`,
+    stale.length ? `${stale.length} task${stale.length === 1 ? " has" : "s have"} been in progress for over a week: ${list(stale.slice(0, 2).map((k) => clip(k.title, 60)))}.` : "",
+    agentable ? `${agentable} of the open tasks can go to an agent.` : "",
+  ].filter(Boolean);
+  return {
+    complete: false,
+    title: `Your week on the plan: ${doneWeek.length} done, ${open.length} to go`,
+    body: parts.join(" "),
+  };
+}
+
 export function agentsBlock(agents: PlanAgentOption[]): string {
   if (!agents.length) return "AGENTS: none available yet.";
   return "AGENTS (slug: name, what they do, hired or not):\n" + agents.map((a) => `- ${a.slug}: ${a.name}. ${a.tagline ?? ""} ${a.hired ? "(on the team)" : "(available to hire)"}`.trim()).join("\n");

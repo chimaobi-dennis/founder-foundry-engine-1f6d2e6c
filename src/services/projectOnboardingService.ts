@@ -4,6 +4,7 @@ import { saveMultipleStageFields } from './journeyDataService';
 import { updateProjectName, updateJourneyStage, getAllJourneyStages } from './brandService';
 import { uploadProjectFile } from './projectAssetsService';
 import { logError } from './errorService';
+import { ensurePlan } from './planService';
 
 const db = supabase as any;
 
@@ -404,6 +405,9 @@ export const saveExtractedContext = async (
     }
     
     console.log('[saveContext] Brand updated successfully');
+
+    // Intake import: with real context captured, Kinika writes the first plan in the background.
+    if (extracted.extractedFields && extracted.extractedFields.length > 0) void ensurePlan(brandId);
 
     return { fieldsCount: extracted.extractedFields?.length || 0 };
   } catch (error: any) {
