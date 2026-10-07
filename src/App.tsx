@@ -61,6 +61,7 @@ import Billing from "./pages/Billing";
 import Studio from "./pages/Studio";
 import LogoStudio from "./pages/LogoStudio";
 import Team from "./pages/Team";
+import AcceptInvite from "./pages/AcceptInvite";
 
 const queryClient = new QueryClient();
 
@@ -85,10 +86,20 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!session && !isPublic) {
+    // An invite link must survive the sign-in / sign-up detour.
+    if (location.pathname.startsWith("/invite/")) {
+      try { localStorage.setItem("kinika.pendingInvite", location.pathname); } catch { /* storage unavailable */ }
+    }
     return <Navigate to="/sign-in" replace />;
   }
 
   if (session && isAuthRoute && !isPasswordRecovery) {
+    let pendingInvite: string | null = null;
+    try { pendingInvite = localStorage.getItem("kinika.pendingInvite"); } catch { /* storage unavailable */ }
+    if (pendingInvite) {
+      try { localStorage.removeItem("kinika.pendingInvite"); } catch { /* storage unavailable */ }
+      return <Navigate to={pendingInvite} replace />;
+    }
     if (profile && !profile.onboarding_completed) {
       return <Navigate to="/onboarding" replace />;
     }
@@ -151,6 +162,7 @@ const App = () => (
                         <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
                         <Route path="/home" element={<Home />} />
                         <Route path="/team" element={<Team />} />
+                        <Route path="/invite/:token" element={<AcceptInvite />} />
                         <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />
                         <Route path="/pro-studio/:brandId" element={<ProStudio />} />

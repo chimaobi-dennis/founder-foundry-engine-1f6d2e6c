@@ -70,3 +70,21 @@ export function planAllows(ent: Pick<Entitlements, LimitKind | "extra_agent_seat
 export function isActiveStatus(status: Entitlements["status"]): boolean {
   return status === "active" || status === "trialing" || status === "past_due";
 }
+
+// ── Workspace roles ──────────────────────────────────────────────────────────
+
+export type BrandRole = "owner" | "editor" | "viewer";
+
+const ROLE_RANK: Record<BrandRole, number> = { viewer: 1, editor: 2, owner: 3 };
+
+/** Is `role` at least `min`? Unknown or null roles never qualify. */
+export function roleAtLeast(role: BrandRole | null | undefined, min: BrandRole): boolean {
+  if (!role || !(role in ROLE_RANK)) return false;
+  return ROLE_RANK[role] >= ROLE_RANK[min];
+}
+
+export const ROLE_LABEL: Record<BrandRole, { name: string; blurb: string }> = {
+  owner: { name: "Owner", blurb: "Pays the plan, manages people and connections." },
+  editor: { name: "Editor", blurb: "Gives tasks, approves work, edits content." },
+  viewer: { name: "Viewer", blurb: "Sees everything, changes nothing." },
+};
