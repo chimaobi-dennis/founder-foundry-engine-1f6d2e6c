@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { getWalletBalance, type WalletBalance } from '@/services/generationCreditService';
+import { claimTrialCredits } from '@/services/trialService';
 
 interface UseCreditBalanceReturn {
   balance: number;
@@ -50,6 +51,12 @@ export function useCreditBalance(): UseCreditBalanceReturn {
     setLoading(true);
     fetchBalance();
   }, [fetchBalance]);
+
+  // New Free Trial accounts get their credits once; the database decides who qualifies.
+  useEffect(() => {
+    if (!user?.id) return;
+    claimTrialCredits(user.id).then((granted) => { if (granted > 0) fetchBalance(); });
+  }, [user?.id, fetchBalance]);
 
   // Poll every 30 seconds
   useEffect(() => {

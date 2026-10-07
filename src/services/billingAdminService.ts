@@ -625,3 +625,48 @@ export async function getCogsDaily(days = 30): Promise<CogsDay[]> {
     retail_usd: Number(r.retail_usd) || 0,
   }));
 }
+
+
+export interface AgentStat {
+  slug: string;
+  name: string;
+  runs: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  paused: number;
+  credits_captured: number;
+  cost_usd: number;
+  avg_step_seconds: number | null;
+}
+
+export interface ActionClassStat {
+  action_class: string;
+  steps: number;
+  failed: number;
+  avg_seconds: number | null;
+  p95_seconds: number | null;
+}
+
+export interface AgentStats {
+  agents: AgentStat[];
+  action_classes: ActionClassStat[];
+  unrated_models: { provider_slug: string; model_id: string; calls: number }[];
+}
+
+/** Runs, failure rate, cost and latency by agent and by action class (admin only). */
+export async function getAgentStats(days = 30): Promise<AgentStats> {
+  const empty: AgentStats = { agents: [], action_classes: [], unrated_models: [] };
+  const { data, error } = await db.rpc('admin_agent_stats', { p_days: days });
+  if (error || !data) {
+    // The function arrives with the step 5 migration.
+    if (error && !/admin_agent_stats|schema cache|does not exist/i.test(error.message)) console.error('[BillingAdmin] getAgentStats error:', error.message);
+    return empty;
+  }
+  const num = (v: any) => (v == null ? null : Number(v));
+  return {
+    agents: (data.agents ?? []).map((a: any) => ({ ...a, runs: Number(a.runs) || 0, completed: Number(a.completed) || 0, failed: Number(a.failed) || 0, cancelled: Number(a.cancelled) || 0, paused: Number(a.paused) || 0, credits_captured: Number(a.credits_captured) || 0, cost_usd: Number(a.cost_usd) || 0, avg_step_seconds: num(a.avg_step_seconds) })),
+    action_classes: (data.action_classes ?? []).map((c: any) => ({ ...c, steps: Number(c.steps) || 0, failed: Number(c.failed) || 0, avg_seconds: num(c.avg_seconds), p95_seconds: num(c.p95_seconds) })),
+    unrated_models: (data.unrated_models ?? []).map((m: any) => ({ ...m, calls: Number(m.calls) || 0 })),
+  };
+}

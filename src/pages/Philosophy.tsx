@@ -335,9 +335,9 @@ export default function Philosophy() {
                     fontStyle: "italic",
                   }}
                 >
-                  Kinika is a unified business context layer for the modern
-                  founder — one place where positioning, audience and creative
-                  work stay connected across every workflow.
+                  Kinika is where founders hire AI agents that already know
+                  the business — one shared context behind every task, so the
+                  work comes back on-brand and waiting for your review.
                 </p>
               </div>
             </aside>
@@ -620,7 +620,49 @@ export default function Philosophy() {
         </div>
       </section>
 
-      {/* V — Why Kinika exists --------------------------------------------- */}
+      {/* V — On delegation -------------------------------------------------- */}
+      <section style={{ background: L.paperDeep }}>
+        <div
+          className="mx-auto"
+          style={{
+            maxWidth: 1320,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+            paddingTop: "clamp(80px, 10vh, 120px)",
+            paddingBottom: "clamp(80px, 10vh, 120px)",
+            borderTop: `1px solid ${L.rule}`,
+          }}
+        >
+          <div className="grid grid-cols-12 gap-8 lg:gap-16">
+            <div className="col-span-12 lg:col-span-3">
+              <SectionMark n="V." label="On Delegation" />
+            </div>
+            <div className="col-span-12 lg:col-span-9">
+              <SectionTitle>Context is what makes delegation safe.</SectionTitle>
+              <Body>
+                A shared business context is not only a way to stop repeating yourself. It is what
+                lets you hand work to someone else. An agent that knows your voice, your audience
+                and what you decided last month can write the post, refresh the product pages or
+                open the pull request — and the result is already close to what you would have done.
+              </Body>
+              <Body>
+                That only works with limits you can see. Every task is priced in credits before it
+                runs, and a run that reaches its cap stops rather than overspends. Anything that
+                publishes or changes code waits for your approval. Changes to a store or a site are
+                recorded field by field, and any one of them can be put back. The team remembers
+                what you approved, what you rejected and what you reverted, and starts the next job
+                from there.
+              </Body>
+              <Body>
+                The founder stays the editor. The work gets done by a team that has read everything
+                you have ever told it.
+              </Body>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* VI — Why Kinika exists --------------------------------------------- */}
       <section style={{ background: L.paper }}>
         <div
           className="mx-auto"
@@ -635,7 +677,7 @@ export default function Philosophy() {
         >
           <div className="grid grid-cols-12 gap-8 lg:gap-16">
             <div className="col-span-12 lg:col-span-3">
-              <SectionMark n="V." label="The Origin" />
+              <SectionMark n="VI." label="The Origin" />
             </div>
             <div className="col-span-12 lg:col-span-9">
               <SectionTitle>Why Kinika exists.</SectionTitle>
@@ -663,7 +705,8 @@ export default function Philosophy() {
               </Body>
               <Body>
                 We are not building another tool. We are building the connective layer the modern
-                founder has been quietly providing for free.
+                founder has been quietly providing for free — and a team that can finally work
+                from it.
               </Body>
             </div>
           </div>

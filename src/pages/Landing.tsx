@@ -1767,7 +1767,98 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ───────── SECTION 04 — Journey Record (founder evolution map) ───────── */}
+      {/* ───────── SECTION 04 — Your Team (agents) ───────── */}
+      <section className="relative overflow-hidden" style={{ background: L.paperDeep }}>
+        <div
+          className="relative w-full mx-auto"
+          style={{
+            maxWidth: 1320,
+            paddingLeft: "clamp(24px, 6vw, 96px)",
+            paddingRight: "clamp(24px, 6vw, 96px)",
+            paddingTop: "clamp(96px, 14vh, 160px)",
+            paddingBottom: "clamp(96px, 14vh, 160px)",
+          }}
+        >
+          <div className="flex items-center gap-3" style={{ marginBottom: 56 }}>
+            <span style={{ width: 24, height: 1, background: L.amber }} />
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif", fontSize: 11,
+              letterSpacing: "0.22em", textTransform: "uppercase",
+              color: L.inkSoft, fontWeight: 500,
+            }}>
+              Your Team
+            </span>
+          </div>
+
+          <div className="grid grid-cols-12 gap-x-8 lg:gap-x-20 gap-y-8 items-end" style={{ marginBottom: 72 }}>
+            <div className="col-span-12 lg:col-span-7">
+              <h2
+                className="pf"
+                style={{
+                  color: L.ink,
+                  fontSize: "clamp(34px, 4.4vw, 56px)",
+                  lineHeight: 1.05,
+                  fontWeight: 500,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Hire a team that already{" "}
+                <span style={{ fontStyle: "italic" }}>knows</span> your business
+                <span style={{ color: L.amber }}>.</span>
+              </h2>
+            </div>
+            <div className="col-span-12 lg:col-span-5">
+              <p style={{
+                color: L.inkSoft, fontSize: "clamp(15px, 1.15vw, 17px)",
+                lineHeight: 1.65, maxWidth: "44ch",
+              }}>
+                A Copywriter, a Designer, a Researcher, an SEO Specialist, a Developer. They are standing colleagues, not prompts: give them a task or a schedule and they work from your Brand DNA and everything the team has already done.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-12">
+            {[
+              { n: "i.", t: "Quoted before it runs", d: "Every task shows its cost in credits before anything starts. A run that reaches its cap stops. It never overspends." },
+              { n: "ii.", t: "Reviewed before it ships", d: "Posts and code changes wait for your approval. Changes to your store or site are logged field by field, and any one of them can be put back." },
+              { n: "iii.", t: "Remembers what you said", d: "Approve, reject or revert and the team keeps it. The next run starts from your feedback, and you can read and prune that memory any time." },
+            ].map((c) => (
+              <div key={c.n} style={{ borderTop: `1px solid ${L.amber}`, paddingTop: 20 }}>
+                <p className="pf" style={{ fontStyle: "italic", color: L.amber, fontSize: 20, marginBottom: 10 }}>{c.n}</p>
+                <h3 className="pf" style={{ color: L.ink, fontSize: 24, lineHeight: 1.2, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 12 }}>{c.t}</h3>
+                <p style={{ color: L.inkSoft, fontSize: 15, lineHeight: 1.65 }}>{c.d}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 88, textAlign: "center" }}>
+            <p className="pf" style={{
+              color: L.ink, fontSize: "clamp(20px, 2vw, 26px)",
+              lineHeight: 1.4, fontStyle: "italic", fontWeight: 500,
+              letterSpacing: "-0.01em", maxWidth: "32ch", margin: "0 auto",
+            }}>
+              Delegation only works when the work is understood.
+            </p>
+          </div>
+        </div>
+
+        <div style={{
+          borderTop: `1px solid ${L.rule}`,
+          paddingLeft: "clamp(24px, 6vw, 96px)",
+          paddingRight: "clamp(24px, 6vw, 96px)",
+        }}>
+          <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
+              № 04 — On Delegation
+            </span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
+              Continued ↓
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────── SECTION 05 — Journey Record (founder evolution map) ───────── */}
       <section className="relative overflow-hidden" style={{ background: L.paperDeep }}>
         {/* paper grain */}
         <div
@@ -1849,7 +1940,7 @@ export default function Landing() {
         }}>
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
-              № 04 — On Becoming
+              № 05 — On Becoming
             </span>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }} className="hidden md:inline">
               Continued ↓
@@ -1937,7 +2028,7 @@ export default function Landing() {
         }}>
           <div className="max-w-[1320px] mx-auto flex items-center justify-between" style={{ height: 56 }}>
             <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
-              № 05 — On Continuity
+              № 06 — On Continuity
             </span>
           </div>
         </div>

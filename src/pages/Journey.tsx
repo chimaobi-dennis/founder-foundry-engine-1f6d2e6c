@@ -337,6 +337,34 @@ export default function Journey() {
               Spark for a second product and Validate for a third. The studio
               keeps its place either way.
             </p>
+            <span
+              style={{
+                display: "block",
+                marginTop: 28,
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: 10,
+                letterSpacing: "0.24em",
+                textTransform: "uppercase",
+                color: L.inkMuted,
+                fontWeight: 600,
+              }}
+            >
+              A note on hiring
+            </span>
+            <p
+              className="pf"
+              style={{
+                marginTop: 16,
+                fontSize: 15,
+                lineHeight: 1.6,
+                color: L.inkSoft,
+                fontStyle: "italic",
+              }}
+            >
+              Early on, the work is thinking, and a Researcher helps. Later it is
+              writing, design, search and the site itself. Mentor suggests who to
+              hire as you move, and every agent starts from the same record.
+            </p>
           </aside>
         </section>
 
