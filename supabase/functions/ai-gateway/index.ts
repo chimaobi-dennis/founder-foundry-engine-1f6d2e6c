@@ -9,7 +9,7 @@
  * Request (POST, user JWT in Authorization):
  * {
  *   taskType: string,                    // 'mentor_chat', 'template_generation', …
- *   modelTier?: 'fast'|'standard'|'reasoning',  // agents ask by tier, not model
+ *   modelTier?: 'fast'|'standard'|'reasoning'|'coding',  // agents ask by tier, not model
  *   messages: {role, content}[],
  *   systemPrompt?: string,
  *   maxTokens?: number,
@@ -29,6 +29,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { callProvider, ProviderError, type ChatMessage, type ProviderConfig } from "../_shared/providers.ts";
+import { capMaxTokens, isRetryable, orderForRequest, RETRY_DELAY_MS, stripReasoning, type Route, type RouteCandidate } from "../_shared/routing.ts";
 import {
   costFromUsage,
   creditsFromCost,
@@ -42,7 +43,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const TIERS = new Set(["fast", "standard", "reasoning"]);
+const TIERS = new Set(["fast", "standard", "reasoning", "coding"]);
 
 interface GatewayRequest {
   taskType: string;
@@ -60,13 +61,6 @@ interface GatewayRequest {
   metadata?: Record<string, unknown>;
 }
 
-interface ResolvedModel {
-  modelId: string;
-  modelName: string;
-  provider: { id: string; slug: string; base_url: string; auth_header_name: string; auth_header_prefix: string; is_enabled: boolean };
-  costPer1kInput: number | null;
-  costPer1kOutput: number | null;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -105,42 +99,40 @@ serve(async (req) => {
   const tier = body.modelTier && TIERS.has(body.modelTier) ? body.modelTier : null;
   const maxTokens = clamp(body.maxTokens ?? 2000, 16, 65536);
 
-  // ── Resolve model + key ──
-  let resolved: ResolvedModel | null;
+  // ── Resolve the route: ordered candidates from the active profile ──
+  let route: Route;
   try {
-    resolved = await resolveModel(admin, body.taskType, tier, userId);
+    route = await resolveRoute(admin, body.taskType, tier, userId);
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500);
   }
-  if (!resolved) {
-    const where = tier ? `tier_${tier}` : body.taskType;
-    return json({ success: false, error: `No AI model configured for ${where}. Set it in Admin → AI Models → Task Defaults.` }, 422);
+  // Remember the task type so admins can route it (fire and forget).
+  admin.rpc("register_ai_task_type", { p_task_type: body.taskType, p_tier: tier }).then(() => {}, () => {});
+
+  let candidates = orderForRequest(route.candidates, !!body.imageBase64);
+  if (body.overrideModelId) {
+    // An explicit model wins, if the admin has it configured; otherwise it is ignored.
+    const pinned = route.candidates.find((c) => c.model_id === body.overrideModelId);
+    if (pinned) candidates = [pinned, ...candidates.filter((c) => c.model_row_id !== pinned.model_row_id)];
   }
-  if (!resolved.provider.is_enabled) {
-    return json({ success: false, error: `Provider ${resolved.provider.slug} is disabled.` }, 422);
-  }
-  const modelId = body.overrideModelId || resolved.modelId;
-  const apiKey = await providerKey(admin, resolved.provider.id, resolved.provider.slug);
-  if (!apiKey) {
-    return json({ success: false, error: `No API key configured for provider ${resolved.provider.slug}. Add it in Admin → AI Models → Providers.` }, 422);
+  if (!candidates.length) {
+    const where = route.class ? `the ${route.class} class` : tier ? `tier_${tier}` : body.taskType;
+    return json({ success: false, error: `No AI model is routed for ${where}. Set it in Admin → AI Models → Routing.` }, 422);
   }
 
-  const cfg: ProviderConfig = {
-    slug: resolved.provider.slug,
-    base_url: baseUrlFor(resolved.provider),
-    auth_header_name: resolved.provider.auth_header_name,
-    auth_header_prefix: resolved.provider.auth_header_prefix,
-    apiKey,
+  // Keys are fetched per provider as we go; a provider with no key is skipped.
+  const keyCache = new Map<string, string | null>();
+  const keyFor = async (c: RouteCandidate) => {
+    if (!keyCache.has(c.provider.id)) keyCache.set(c.provider.id, await providerKey(admin, c.provider.id, c.provider.slug));
+    return keyCache.get(c.provider.id) ?? null;
   };
 
-  // Rates + economics are read once per call; both are small tables.
-  const [rate, econ] = await Promise.all([
-    modelRate(admin, cfg.slug, modelId, resolved),
-    creditEconomics(admin),
-  ]);
-
+  const econ = await creditEconomics(admin);
   const started = Date.now();
-  const finish = async (text: string, usage: TokenUsage, success: boolean, error?: string) => {
+  let attemptsTotal = 0;
+
+  const finish = async (chosen: RouteCandidate, text: string, usage: TokenUsage, success: boolean, error?: string, routeNote?: Record<string, unknown>) => {
+    const rate = await modelRate(admin, chosen.provider.slug, chosen.model_id, chosen);
     const costUsd = costFromUsage(usage, rate);
     const credits = creditsFromCost(costUsd, econ);
     const latency = Date.now() - started;
@@ -151,8 +143,8 @@ serve(async (req) => {
         generation_id: body.generationId ?? null,
         task_type: body.taskType,
         model_tier: tier,
-        provider_slug: cfg.slug,
-        model_id: modelId,
+        provider_slug: chosen.provider.slug,
+        model_id: chosen.model_id,
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
         cache_read_tokens: usage.cache_read_tokens,
@@ -162,7 +154,7 @@ serve(async (req) => {
         latency_ms: latency,
         success,
         error_message: error ?? null,
-        metadata: { ...(body.metadata ?? {}), stream: !!body.stream, max_tokens: maxTokens, rate_found: !!rate },
+        metadata: { ...(body.metadata ?? {}), stream: !!body.stream, max_tokens: maxTokens, rate_found: !!rate, route: { profile: route.profile, class: route.class, source: route.source, attempts: attemptsTotal, ...(routeNote ?? {}) } },
       })
       .select("id")
       .single();
@@ -172,8 +164,8 @@ serve(async (req) => {
       await admin.rpc("add_generation_provider_cost", {
         p_generation_id: body.generationId,
         p_cost_usd: costUsd,
-        p_provider: cfg.slug,
-        p_model: modelId,
+        p_provider: chosen.provider.slug,
+        p_model: chosen.model_id,
         p_usage: usage,
       }).then(({ error: rpcErr }: any) => {
         if (rpcErr) console.warn("[ai-gateway] add_generation_provider_cost:", rpcErr.message);
@@ -184,8 +176,8 @@ serve(async (req) => {
       success,
       text,
       error,
-      modelUsed: modelId,
-      providerUsed: cfg.slug,
+      modelUsed: chosen.model_id,
+      providerUsed: chosen.provider.slug,
       usage,
       costUsd,
       creditsEquivalent: credits,
@@ -194,31 +186,54 @@ serve(async (req) => {
     };
   };
 
-  const providerReq = {
-    modelId,
+  const baseReq = {
     messages: body.messages,
     systemPrompt: body.systemPrompt,
-    maxTokens,
     temperature: body.temperature,
     imageBase64: body.imageBase64,
     imageMimeType: body.imageMimeType,
     cacheContext: body.cacheContext !== false,
   };
 
+  /**
+   * Walk the candidates: one retry on the same model for a provider-side
+   * failure, then the next model. Returns the first good answer, or the last
+   * error with the candidate it came from.
+   */
+  const attempt = async (onChunk?: (t: string) => void): Promise<{ ok: true; chosen: RouteCandidate; text: string; usage: TokenUsage; fallbackUsed: boolean } | { ok: false; chosen: RouteCandidate; status: number; message: string }> => {
+    let last: { chosen: RouteCandidate; status: number; message: string } | null = null;
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i];
+      const apiKey = await keyFor(c);
+      if (!apiKey) { last = { chosen: c, status: 422, message: `No API key configured for provider ${c.provider.slug}. Add it in Admin → AI Models → Providers.` }; continue; }
+      const cfg: ProviderConfig = { slug: c.provider.slug, base_url: baseUrlFor(c.provider), auth_header_name: c.provider.auth_header_name, auth_header_prefix: c.provider.auth_header_prefix, apiKey };
+      for (let tryN = 0; tryN < 2; tryN++) {
+        attemptsTotal++;
+        let emitted = false;
+        try {
+          const out = await callProvider(cfg, { ...baseReq, modelId: c.model_id, maxTokens: capMaxTokens(maxTokens, c), ...(onChunk ? { stream: true, onChunk: (t: string) => { emitted = true; onChunk(t); } } : {}) });
+          const text = c.strip_reasoning ? stripReasoning(out.text) : out.text;
+          if (!text) { last = { chosen: c, status: 502, message: "Provider returned an empty response" }; break; }
+          return { ok: true, chosen: c, text, usage: out.usage, fallbackUsed: i > 0 };
+        } catch (e) {
+          const status = e instanceof ProviderError ? e.status : 500;
+          const message = (e as Error).message;
+          last = { chosen: c, status, message };
+          // A stream that already sent text cannot be transparently retried.
+          if (emitted || !isRetryable(status, message)) return { ok: false, ...last };
+          if (tryN === 0) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
+      }
+    }
+    return { ok: false, ...(last ?? { chosen: candidates[0], status: 502, message: "No candidate could serve the request" }) };
+  };
+
   // ── Non-streaming ──
   if (!body.stream) {
-    try {
-      const out = await callProvider(cfg, providerReq);
-      if (!out.text) {
-        const r = await finish("", out.usage, false, "Provider returned an empty response");
-        return json(r, 502);
-      }
-      return json(await finish(out.text, out.usage, true));
-    } catch (e) {
-      const status = e instanceof ProviderError ? e.status : 500;
-      const r = await finish("", zeroUsage(), false, (e as Error).message);
-      return json(r, status >= 400 && status < 600 ? status : 502);
-    }
+    const res = await attempt();
+    if (res.ok) return json(await finish(res.chosen, res.text, res.usage, true, undefined, { fallback_used: res.fallbackUsed }));
+    const r = await finish(res.chosen, "", zeroUsage(), false, res.message);
+    return json(r, res.status >= 400 && res.status < 600 ? res.status : 502);
   }
 
   // ── Streaming (SSE) ──
@@ -227,16 +242,16 @@ serve(async (req) => {
     async start(controller) {
       const send = (ev: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
       try {
-        const out = await callProvider(cfg, {
-          ...providerReq,
-          stream: true,
-          onChunk: (text) => send({ type: "chunk", text }),
-        });
-        const r = await finish(out.text, out.usage, !!out.text, out.text ? undefined : "Provider returned an empty response");
-        send({ type: r.success ? "done" : "error", ...r });
+        const res = await attempt((text) => send({ type: "chunk", text }));
+        if (res.ok) {
+          const r = await finish(res.chosen, res.text, res.usage, true, undefined, { fallback_used: res.fallbackUsed });
+          send({ type: "done", ...r });
+        } else {
+          const r = await finish(res.chosen, "", zeroUsage(), false, res.message);
+          send({ type: "error", ...r });
+        }
       } catch (e) {
-        const r = await finish("", zeroUsage(), false, (e as Error).message);
-        send({ type: "error", ...r });
+        send({ type: "error", success: false, error: (e as Error).message });
       } finally {
         controller.close();
       }
@@ -258,63 +273,19 @@ function zeroUsage(): TokenUsage {
   return { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
 }
 
-function baseUrlFor(p: ResolvedModel["provider"]): string {
+function baseUrlFor(p: RouteCandidate["provider"]): string {
   if (p.base_url) return p.base_url;
   if (p.slug === "lovable-gemini") return "https://ai.gateway.lovable.dev/v1";
   if (p.slug === "openai") return "https://api.openai.com/v1";
   return "";
 }
 
-/**
- * Mirrors resolveModelForTask on the client:
- * user preference → task default → (tier_<x> when a tier is given) → system_ai.
- */
-async function resolveModel(
-  admin: SupabaseClient,
-  taskType: string,
-  tier: string | null,
-  userId: string | null,
-): Promise<ResolvedModel | null> {
-  const select = "model_id, ai_models ( id, name, model_id, cost_per_1k_input, cost_per_1k_output, is_enabled, ai_providers ( id, slug, base_url, auth_header_name, auth_header_prefix, is_enabled ) )";
-  const shape = (row: any): ResolvedModel | null => {
-    const m = row?.ai_models;
-    if (!m || !m.ai_providers || m.is_enabled === false) return null;
-    return {
-      modelId: m.model_id,
-      modelName: m.name,
-      provider: m.ai_providers,
-      costPer1kInput: m.cost_per_1k_input,
-      costPer1kOutput: m.cost_per_1k_output,
-    };
-  };
-
-  // Tier requests resolve through the tier defaults first.
-  if (tier) {
-    const { data } = await admin.from("ai_task_defaults").select(select).eq("task_type", `tier_${tier}`).maybeSingle();
-    const r = shape(data);
-    if (r) return r;
-  }
-
-  if (userId) {
-    const { data } = await admin
-      .from("user_model_preferences")
-      .select(select)
-      .eq("user_id", userId)
-      .eq("task_type", taskType)
-      .maybeSingle();
-    const r = shape(data);
-    if (r) return r;
-  }
-
-  const { data: def } = await admin.from("ai_task_defaults").select(select).eq("task_type", taskType).maybeSingle();
-  const r = shape(def);
-  if (r) return r;
-
-  if (taskType !== "system_ai") {
-    const { data: sys } = await admin.from("ai_task_defaults").select(select).eq("task_type", "system_ai").maybeSingle();
-    return shape(sys);
-  }
-  return null;
+/** The ordered candidates for this call, from the active routing profile. */
+async function resolveRoute(admin: SupabaseClient, taskType: string, tier: string | null, userId: string | null): Promise<Route> {
+  const { data, error } = await admin.rpc("resolve_ai_route", { p_task_type: taskType, p_tier: tier, p_user_id: userId });
+  if (error) throw new Error(`Could not resolve a model: ${error.message}`);
+  const r = (data ?? {}) as Partial<Route>;
+  return { profile: r.profile ?? null, class: r.class ?? null, source: r.source ?? "none", candidates: Array.isArray(r.candidates) ? r.candidates : [] };
 }
 
 /** Secret from ai_provider_secrets, else an env var for that provider. */
@@ -331,7 +302,7 @@ async function providerKey(admin: SupabaseClient, providerId: string, slug: stri
   return envName ? Deno.env.get(envName) ?? null : null;
 }
 
-async function modelRate(admin: SupabaseClient, slug: string, modelId: string, resolved: ResolvedModel): Promise<ModelRate | null> {
+async function modelRate(admin: SupabaseClient, slug: string, modelId: string, resolved: Pick<RouteCandidate, "cost_per_1k_input" | "cost_per_1k_output">): Promise<ModelRate | null> {
   const { data } = await admin
     .from("model_rates")
     .select("input_per_1m, output_per_1m, cache_read_per_1m, cache_write_per_1m")
@@ -341,10 +312,10 @@ async function modelRate(admin: SupabaseClient, slug: string, modelId: string, r
     .maybeSingle();
   if (data) return data as ModelRate;
   // Fall back to the per-1k numbers on ai_models, if the admin filled them in.
-  if (resolved.costPer1kInput != null || resolved.costPer1kOutput != null) {
+  if (resolved.cost_per_1k_input != null || resolved.cost_per_1k_output != null) {
     return {
-      input_per_1m: (resolved.costPer1kInput ?? 0) * 1000,
-      output_per_1m: (resolved.costPer1kOutput ?? 0) * 1000,
+      input_per_1m: (resolved.cost_per_1k_input ?? 0) * 1000,
+      output_per_1m: (resolved.cost_per_1k_output ?? 0) * 1000,
       cache_read_per_1m: null,
       cache_write_per_1m: null,
     };

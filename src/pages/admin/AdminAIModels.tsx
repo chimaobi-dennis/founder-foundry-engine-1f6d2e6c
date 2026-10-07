@@ -44,6 +44,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Edit, Save, X } from "lucide-react";
+import { RoutingTab } from "@/components/admin/RoutingTab";
+import { PROVIDER_PRESETS } from "@/services/modelRoutingService";
 
 const TASK_TYPES: { type: TaskType | TierTaskType; name: string; description: string }[] = [
   { type: 'tier_fast', name: 'Tier: fast', description: 'Agents use this for classify, summarize, route and memory steps' },
@@ -65,7 +67,7 @@ const SYSTEM_AI_TASK: { type: TaskType; name: string; description: string } = {
 
 export default function AdminAIModels() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("providers");
+  const [activeTab, setActiveTab] = useState("routing");
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
 
   const setActionLoading = (key: string, value: boolean) => {
@@ -279,15 +281,36 @@ export default function AdminAIModels() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="routing">Routing</TabsTrigger>
           <TabsTrigger value="providers">Providers</TabsTrigger>
           <TabsTrigger value="models">Models</TabsTrigger>
-          <TabsTrigger value="task-defaults">Task Defaults</TabsTrigger>
+          <TabsTrigger value="task-defaults">Legacy defaults</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="routing" className="space-y-4">
+          <RoutingTab models={models} providers={providers} keyStatus={keyStatus} />
+        </TabsContent>
 
         {/* Providers Tab */}
         <TabsContent value="providers" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-ui uppercase tracking-wider text-muted-foreground">Open-model providers:</span>
+              {PROVIDER_PRESETS.map((pr) => {
+                const existing = providers.find((p) => p.slug === pr.slug);
+                return (
+                  <button key={pr.slug} type="button" title={pr.description} onClick={() => {
+                    if (existing) { handleEditProvider(existing); return; }
+                    setEditingProvider(null);
+                    setProviderForm({ name: pr.name, slug: pr.slug, base_url: pr.base_url, auth_header_name: "Authorization", auth_header_prefix: "Bearer", api_key: "", supports_text: true, supports_images: pr.slug !== "groq" && pr.slug !== "cerebras", is_enabled: true });
+                    setProviderDialogOpen(true);
+                  }} className={`px-2.5 py-1 rounded-full text-[11px] font-ui border ${existing && keyStatus[existing.id]?.has_key ? "border-emerald-500/50 text-emerald-600" : "border-border text-muted-foreground hover:border-primary"}`}>
+                    {pr.name}{existing ? (keyStatus[existing.id]?.has_key ? " ✓" : " · add key") : " +"}
+                  </button>
+                );
+              })}
+            </div>
             <Button onClick={handleAddProvider} className="bg-primary text-primary-foreground">
               <Plus className="w-4 h-4 mr-2" />
               Add Provider
@@ -500,7 +523,7 @@ export default function AdminAIModels() {
         <TabsContent value="task-defaults" className="space-y-4">
           <div className="p-4 bg-muted/50 rounded-lg border border-border">
             <p className="text-sm text-muted-foreground">
-              These are the system-wide defaults. Individual users can override these in their settings.
+              Legacy per-task defaults. The Routing tab now decides which model serves each call; these are only used when the active profile has no rule for a class. Individual users can still override a task in their settings.
             </p>
           </div>
 
