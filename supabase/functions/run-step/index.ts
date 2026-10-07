@@ -20,7 +20,8 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
-import { applyChanges, createRecord, loadConnection, publishItems, trimRecords } from "../_shared/connectorOps.ts";
+import { applyChanges, createRecord, loadConnection, openPullRequest, publishItems, readRepoFiles, repoSnapshot, trimRecords } from "../_shared/connectorOps.ts";
+import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import {
   buildTaskPrompt,
   checkBudget,
@@ -254,6 +255,20 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
           diff = { lines: d.lines, rejected: d.rejected, applied_count: d.applied.length, connection_name: connRow.display_name, provider: connRow.provider };
         }
       }
+      let code: Record<string, unknown> | null = null;
+      if (step.input?.kind === "review_code" && step.input?.connection_id) {
+        const { data: connRow } = await admin.from("tool_connections").select("scope, display_name").eq("id", step.input.connection_id).maybeSingle();
+        const allowed = (connRow?.scope?.paths?.length ? connRow.scope.paths : DEFAULT_ALLOWED_PATHS) as string[];
+        const v = validateEdit(((prev?.output as any)?.changes ?? []) as any[], allowed);
+        code = {
+          connection_name: connRow?.display_name ?? null,
+          commit_message: (prev?.output as any)?.commit_message ?? null,
+          pr_title: (prev?.output as any)?.pr_title ?? null,
+          pr_body: (prev?.output as any)?.pr_body ?? null,
+          files: v.accepted.map((a) => ({ path: a.path, action: a.action, bytes: a.content ? new TextEncoder().encode(a.content).length : 0, preview: (a.content ?? "").slice(0, 600) })),
+          rejected: v.rejected,
+        };
+      }
       await admin.from("automation_run_steps").update({ status: "waiting", started_at: new Date().toISOString() }).eq("id", step.id);
       const { data: ap } = await admin.from("approvals").insert({
         run_id: run.id,
@@ -262,7 +277,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         user_id: run.user_id,
         kind: step.input?.kind ?? "review_output",
         title: `${agent?.name ?? "Agent"} finished "${run.name}"`,
-        payload: { output: prev?.output ?? lastOutput ?? null, step_name: prev?.name ?? null, diff },
+        payload: { output: code ? null : (prev?.output ?? lastOutput ?? null), step_name: prev?.name ?? null, diff, code },
       }).select("id").single();
       await admin.from("automation_runs").update({ status: "waiting_approval", current_step: step.step_index }).eq("id", run.id);
       await notify(admin, run, "agent_needs_you", `${agent?.name ?? "An agent"} needs your review`, `"${run.name}" is ready to review.`, ap?.id ?? null);
@@ -303,6 +318,27 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
           `RECORDS (${records.length}):`,
           JSON.stringify(records.map((r) => ({ id: r.id, label: r.label, ...r.fields })), null, 0).slice(0, 60_000),
         ].join("\n");
+      } else if (step.input?.use_previous === "snapshot") {
+        const snap = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.files));
+        const files = ((snap?.output?.files ?? []) as { path: string; size: number }[]).map((f) => `${f.path} (${f.size}b)`);
+        extra = [
+          `MODE: PLAN. Choose at most 8 files to read and outline the change. Respond with the PLAN JSON shape.`,
+          `REPOSITORY FILES you may read and change (${files.length}${snap?.output?.truncated ? ", truncated" : ""}):`,
+          files.join("\n").slice(0, 40_000),
+        ].join("\n");
+      } else if (step.input?.use_previous === "files") {
+        const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.files) && s.output?.files?.[0]?.content != null);
+        const plan = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.input?.prompt_mode === "plan");
+        const files = (read?.output?.files ?? []) as { path: string; content: string }[];
+        const { data: connRow } = step.input?.connection_id ? await admin.from("tool_connections").select("scope").eq("id", step.input.connection_id).maybeSingle() : { data: null };
+        const allowed = (connRow?.scope?.paths?.length ? connRow.scope.paths : DEFAULT_ALLOWED_PATHS) as string[];
+        extra = [
+          `MODE: EDIT. Respond with the EDIT JSON shape. Return FULL new contents for each changed file.`,
+          `WRITABLE PATHS: ${allowed.join(", ")}. Anything else is rejected.`,
+          plan?.output?.approach ? `YOUR PLAN: ${plan.output.approach}` : "",
+          `FILES (${files.length}):`,
+          ...files.map((f) => `=== ${f.path} ===\n${f.content}`),
+        ].filter(Boolean).join("\n\n").slice(0, 180_000);
       } else if (step.input?.output_hint === "blog_post") {
         extra = `OUTPUT SHAPE FOR THIS TASK: exactly one item with "platform": "blog", "title" (the post title), "excerpt" (one or two sentences for the meta description, under 155 characters) and "body" (the full post, 500-900 words, with short paragraphs and subheadings as plain text).`;
       }
@@ -317,8 +353,8 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
           modelTier: agent.model_tier,
           systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
-          maxTokens: 4000,
-          temperature: 0.7,
+          maxTokens: Math.min(32000, Math.max(1000, Number(step.input?.max_tokens) || 4000)),
+          temperature: step.input?.prompt_mode ? 0.2 : 0.7,
           generationId: run.generation_id,
           cacheContext: true,
           metadata: { run_id: run.id, step_id: step.id, agent: agent.slug, context_hash: pack.hash },
@@ -339,9 +375,11 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       }
 
       // Charge: fixed rules bill the rule, metered rules bill real usage.
+      // Helper steps marked charge:false (e.g. the Developer's plan) bill only
+      // their real usage so the quoted action is not charged twice.
       let toCapture = fixedCredits;
-      if (rule?.pricing_mode === "metered") {
-        toCapture = Math.max(1, Math.ceil(Number(result.creditsEquivalent) || 0));
+      if (rule?.pricing_mode === "metered" || step.input?.charge === false) {
+        toCapture = Math.max(step.input?.charge === false ? 0 : 1, Math.ceil(Number(result.creditsEquivalent) || 0));
       }
       const remaining = Number(run.credits_reserved) - creditsCaptured;
       toCapture = Math.min(toCapture, Math.max(0, remaining));
@@ -456,6 +494,32 @@ async function runConnectorStep(admin: Admin, run: any, step: any, all: any[]): 
       };
       const { change_set_id, record } = await createRecord(admin, ctx, loaded, fields, fields.title);
       return { created: { id: record.id, label: record.label, url: record.url }, change_set_id, summary: `Draft "${record.label}" created in ${loaded.row.display_name}.` };
+    }
+    case "repo_snapshot": {
+      const snap = await repoSnapshot(loaded);
+      return { ...snap, summary: `${snap.total} file${snap.total === 1 ? "" : "s"} visible under the allowed paths.` };
+    }
+    case "read_files": {
+      const snap = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && s.output?.branch);
+      const paths = (((prevAgent?.output as any)?.files_to_read ?? []) as unknown[]).map(String);
+      if (!paths.length) throw new ConnectorError("The plan named no files to read.", 400);
+      const r = await readRepoFiles(loaded, String(snap?.output?.branch ?? ""), paths);
+      return { ...r, branch: snap?.output?.branch ?? null, summary: `Read ${r.files.length} file${r.files.length === 1 ? "" : "s"}.` };
+    }
+    case "open_pr": {
+      const out = (prevAgent?.output ?? {}) as any;
+      const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.files) && s.output?.files?.[0]?.sha);
+      const known: Record<string, string> = {};
+      for (const f of (read?.output?.files ?? []) as { path: string; sha: string }[]) known[f.path] = f.sha;
+      const r = await openPullRequest(admin, ctx, loaded, {
+        changes: out.changes ?? [],
+        commit_message: String(out.commit_message ?? ""),
+        pr_title: String(out.pr_title ?? run.name),
+        pr_body: String(out.pr_body ?? ""),
+        known,
+        branch: String(read?.output?.branch ?? ""),
+      });
+      return { ...r, summary: `Pull request #${r.pr_number} opened with ${r.files.length} file${r.files.length === 1 ? "" : "s"}: ${r.pr_url}` };
     }
     case "publish_items": {
       const items = (((prevAgent?.output as any)?.items ?? []) as any[]).filter((it) => it && typeof it === "object");

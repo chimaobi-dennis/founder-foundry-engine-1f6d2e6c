@@ -220,13 +220,13 @@ export function agentSuitsStage(suited: string[] | null | undefined, stage: stri
 
 // ── Recipes (connector + agent plans) ───────────────────────────────────────
 
-export type RecipeKey = "seo_refresh" | "blog_draft" | "notion_draft" | "social_publish";
+export type RecipeKey = "seo_refresh" | "blog_draft" | "notion_draft" | "social_publish" | "code_change";
 
 export interface RecipeSpec {
   key: RecipeKey;
   name: string;
   description: string;
-  provider: "shopify" | "wordpress" | "notion" | "ayrshare";
+  provider: "shopify" | "wordpress" | "notion" | "ayrshare" | "github";
   agentSlug: string;
   unitLabel: string;
   /** Irreversible outward action: always reviewed, never autonomous. */
@@ -267,6 +267,14 @@ export const RECIPES: Record<RecipeKey, RecipeSpec> = {
     unitLabel: "post",
     irreversible: true,
   },
+  code_change: {
+    key: "code_change",
+    name: "Change my site's code",
+    description: "The Developer reads the relevant files, makes the change on a branch and opens a pull request with a preview. You merge it. Never touches your main branch, secrets, CI or dependencies.",
+    provider: "github",
+    agentSlug: "developer",
+    unitLabel: "change",
+  },
 };
 
 export interface RecipeInput extends TaskInput {
@@ -304,6 +312,18 @@ export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: 
       steps.push({ step_index: i++, type: "approval", name: "Review the draft", input: { kind: "review_output", connection_id: input.connection_id } });
     }
     steps.push({ step_index: i++, type: "connector", name: `Create the ${recipe === "notion_draft" ? "page" : "draft"} in ${where}`, input: { connection_id: input.connection_id, action: "create_draft", from_step_type: "agent_task" } });
+    return steps;
+  }
+
+  if (recipe === "code_change") {
+    steps.push({ step_index: i++, type: "connector", name: "Read the repository file list", input: { connection_id: input.connection_id, action: "repo_snapshot" } });
+    steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: plan the change`, input: { agent_id: agent.id, units: 1, brief: input.brief, use_previous: "snapshot", prompt_mode: "plan", max_tokens: 2000, connection_id: input.connection_id, charge: false } });
+    steps.push({ step_index: i++, type: "connector", name: "Read the chosen files", input: { connection_id: input.connection_id, action: "read_files", from_step_type: "agent_task" } });
+    steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: make the change`, input: { agent_id: agent.id, units: 1, brief: input.brief, use_previous: "files", prompt_mode: "edit", max_tokens: 16000, connection_id: input.connection_id } });
+    if (policy.approval === "review_first") {
+      steps.push({ step_index: i++, type: "approval", name: "Review the change", input: { kind: "review_code", connection_id: input.connection_id } });
+    }
+    steps.push({ step_index: i++, type: "connector", name: "Open the pull request", input: { connection_id: input.connection_id, action: "open_pr", from_step_type: "agent_task" } });
     return steps;
   }
 
