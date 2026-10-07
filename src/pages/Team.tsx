@@ -25,6 +25,7 @@ import {
   type Agent, type AgentHire, type AutomationRun, type Approval, type RunStep, type Automation, type ScheduleInterval,
 } from "@/services/agentService";
 import type { Quote } from "@/services/pricingService";
+import { ConnectionsSection, DiffTable } from "@/components/team/Connections";
 
 const PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok", "email"];
 
@@ -224,6 +225,17 @@ export default function Team() {
               </div>
             </section>
           )}
+
+          {/* ── Connected tools + changes ── */}
+          <ConnectionsSection
+            brandId={brandId!}
+            userId={user!.id}
+            agents={agents}
+            balance={balance}
+            balanceLoading={balanceLoading}
+            onTopUp={() => openPricingModal({ currentBalance: balance })}
+            onRunStarted={(id) => { setOpenRunId(id); reload(); }}
+          />
 
           {/* ── Automations ── */}
           {automations.length > 0 && (
@@ -467,12 +479,12 @@ function ApprovalCard({ approval, userId, onDecided, onOpenRun }: { approval: Ap
         <div>
           <p className="font-display text-[15px] text-foreground">{approval.title}</p>
           <p className="font-ui text-[12px] text-muted-foreground mt-0.5">
-            {items.length ? `${items.length} item${items.length === 1 ? "" : "s"} ready` : "Result ready"} · {Number(approval.run?.credits_captured ?? 0)} credits used
+            {(approval.payload as any)?.diff ? `${(approval.payload as any).diff.lines?.length ?? 0} field change${((approval.payload as any).diff.lines?.length ?? 0) === 1 ? "" : "s"} to review` : items.length ? `${items.length} item${items.length === 1 ? "" : "s"} ready` : "Result ready"} · {Number(approval.run?.credits_captured ?? 0)} credits used
           </p>
         </div>
         <button onClick={onOpenRun} className="text-[12px] font-ui text-muted-foreground hover:text-foreground inline-flex items-center gap-1">Open run <ArrowUpRight size={12} /></button>
       </div>
-      <OutputView output={approval.payload?.output ?? null} compact />
+      {(approval.payload as any)?.diff ? <DiffTable diff={(approval.payload as any).diff} /> : <OutputView output={approval.payload?.output ?? null} compact />}
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the log" className="max-w-xs h-8 text-[12px]" />
         <button onClick={() => decide("approved")} disabled={!!busy} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50">
@@ -481,7 +493,7 @@ function ApprovalCard({ approval, userId, onDecided, onOpenRun }: { approval: Ap
         <button onClick={() => decide("rejected")} disabled={!!busy} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui disabled:opacity-50">
           {busy === "rejected" ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} Send back
         </button>
-        <span className="text-[11px] font-ui text-muted-foreground">Approving keeps the result; sending back cancels the run. Credits already used stay used.</span>
+        <span className="text-[11px] font-ui text-muted-foreground">{(approval.payload as any)?.diff ? "Approving applies these changes; each one can be reverted afterwards." : "Approving keeps the result; sending back cancels the run."} Credits already used stay used.</span>
       </div>
     </div>
   );
@@ -624,6 +636,9 @@ function RunRow({ run, open, onToggle, onChanged, onTopUp, onOpenInStudio }: {
             </div>
           )}
 
+          {run.status === "completed" && (run.output as any)?.connector?.summary && (
+            <p className="font-ui text-[12px] text-foreground mt-3 inline-flex items-center gap-1.5"><Check size={12} className="text-emerald-500" /> {(run.output as any).connector.summary}</p>
+          )}
           {run.output && (run.status === "completed" || run.status === "waiting_approval") && (
             <div>
               <div className="flex items-center justify-between gap-2 flex-wrap mb-2">

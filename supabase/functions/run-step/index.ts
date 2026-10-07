@@ -19,6 +19,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
+import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
+import { applyChanges, createRecord, loadConnection, trimRecords } from "../_shared/connectorOps.ts";
 import {
   buildTaskPrompt,
   checkBudget,
@@ -207,6 +209,18 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
 
     if (step.type === "approval") {
       const prev = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task");
+      let diff: Record<string, unknown> | null = null;
+      if (step.input?.kind === "review_changes" && step.input?.connection_id) {
+        // Show the founder exactly what will change, field by field, against
+        // what was read, so the approval is a diff table, not a blob.
+        const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.records));
+        const { data: connRow } = await admin.from("tool_connections").select("provider, scope, display_name").eq("id", step.input.connection_id).maybeSingle();
+        if (read && connRow) {
+          const allowed = allowedFields(connRow.provider, connRow.scope);
+          const d = diffLines(read.output.records as NormalizedRecord[], ((prev?.output as any)?.changes ?? []) as ProposedChange[], connRow.provider, allowed);
+          diff = { lines: d.lines, rejected: d.rejected, applied_count: d.applied.length, connection_name: connRow.display_name, provider: connRow.provider };
+        }
+      }
       await admin.from("automation_run_steps").update({ status: "waiting", started_at: new Date().toISOString() }).eq("id", step.id);
       const { data: ap } = await admin.from("approvals").insert({
         run_id: run.id,
@@ -215,7 +229,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         user_id: run.user_id,
         kind: step.input?.kind ?? "review_output",
         title: `${agent?.name ?? "Agent"} finished "${run.name}"`,
-        payload: { output: prev?.output ?? lastOutput ?? null, step_name: prev?.name ?? null },
+        payload: { output: prev?.output ?? lastOutput ?? null, step_name: prev?.name ?? null, diff },
       }).select("id").single();
       await admin.from("automation_runs").update({ status: "waiting_approval", current_step: step.step_index }).eq("id", run.id);
       await notify(admin, run, "agent_needs_you", `${agent?.name ?? "An agent"} needs your review`, `"${run.name}" is ready to review.`, ap?.id ?? null);
@@ -245,7 +259,21 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
 
       const pack = await buildContextPack(admin, run.brand_id);
       const systemPrompt = `${agent.system_prompt}\n\n=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text}`;
-      const userPrompt = buildTaskPrompt(agent, step.input ?? {});
+      let extra = "";
+      if (step.input?.use_previous === "records") {
+        const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.records));
+        const { data: connRow } = step.input?.connection_id ? await admin.from("tool_connections").select("provider, scope").eq("id", step.input.connection_id).maybeSingle() : { data: null };
+        const allowed = connRow ? allowedFields(connRow.provider, connRow.scope) : [];
+        const records = (read?.output?.records ?? []) as NormalizedRecord[];
+        extra = [
+          `ALLOWED FIELDS (only these may appear in "fields"): ${allowed.join(", ") || "(none)"}`,
+          `RECORDS (${records.length}):`,
+          JSON.stringify(records.map((r) => ({ id: r.id, label: r.label, ...r.fields })), null, 0).slice(0, 60_000),
+        ].join("\n");
+      } else if (step.input?.output_hint === "blog_post") {
+        extra = `OUTPUT SHAPE FOR THIS TASK: exactly one item with "platform": "blog", "title" (the post title), "excerpt" (one or two sentences for the meta description, under 155 characters) and "body" (the full post, 500-900 words, with short paragraphs and subheadings as plain text).`;
+      }
+      const userPrompt = buildTaskPrompt(agent, step.input ?? {}, extra);
 
       const gw = await fetch(GATEWAY_URL, {
         method: "POST",
@@ -319,7 +347,25 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       continue;
     }
 
-    // native / connector steps arrive in Phase 2
+    if (step.type === "connector") {
+      await admin.from("automation_run_steps").update({ status: "running", started_at: new Date().toISOString() }).eq("id", step.id);
+      await admin.from("automation_runs").update({ current_step: step.step_index }).eq("id", run.id);
+      try {
+        const out = await runConnectorStep(admin, run, step, all);
+        await admin.from("automation_run_steps").update({ status: "done", output: out, finished_at: new Date().toISOString() }).eq("id", step.id);
+        step.status = "done";
+        step.output = out;
+        if (out && typeof out === "object" && !Array.isArray((out as any).records)) lastOutput = { ...(lastOutput ?? {}), connector: out };
+        stepsRun++;
+        continue;
+      } catch (e) {
+        const msg = e instanceof ConnectorError ? e.message : `Connector step failed: ${(e as Error).message}`;
+        await failRun(admin, run, step, msg);
+        return { status: "failed", stepsRun };
+      }
+    }
+
+    // native steps arrive with Phase 3
     await admin.from("automation_run_steps").update({ status: "skipped", output: { reason: "step type not available yet" }, finished_at: new Date().toISOString() }).eq("id", step.id);
     step.status = "skipped";
   }
@@ -335,6 +381,52 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
   await finishRun(admin, run, "completed", finalOutput);
   await notify(admin, run, "agent_run_completed", `${agent?.name ?? "Agent"} finished "${run.name}"`, summary, null);
   return { status: "completed", stepsRun };
+}
+
+// ── connector steps ──────────────────────────────────────────────────────────
+
+/**
+ * list_records → read through the connection (output.records)
+ * apply_changes → take the previous agent step's `changes`, diff them against
+ *                 the records read earlier, write the allowed ones, one change
+ *                 set each
+ * create_draft  → take the previous agent step's first item and create it
+ */
+async function runConnectorStep(admin: Admin, run: any, step: any, all: any[]): Promise<Record<string, unknown>> {
+  const connectionId = step.input?.connection_id;
+  if (!connectionId) throw new ConnectorError("This step has no connection.", 400);
+  const loaded = await loadConnection(admin, connectionId);
+  if (loaded.row.brand_id !== run.brand_id || loaded.row.user_id !== run.user_id) throw new ConnectorError("Connection does not belong to this run's brand.", 403);
+  const ctx = { brandId: run.brand_id, userId: run.user_id, runId: run.id, stepId: step.id };
+  const prevAgent = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task");
+
+  switch (step.input?.action) {
+    case "list_records": {
+      const records = await runConnector(loaded.row, loaded.secret, { action: "list_records", limit: Number(step.input.limit) || 25 });
+      return { records: trimRecords(records), count: records.length, connection: loaded.row.display_name };
+    }
+    case "apply_changes": {
+      const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.records));
+      const records = (read?.output?.records ?? []) as NormalizedRecord[];
+      const changes = ((prevAgent?.output as any)?.changes ?? []) as ProposedChange[];
+      if (!changes.length) return { applied: [], rejected: [], failed: [], note: "The agent proposed no changes." };
+      const result = await applyChanges(admin, ctx, loaded, records, changes);
+      return { ...result, summary: `${result.applied.length} record${result.applied.length === 1 ? "" : "s"} updated in ${loaded.row.display_name}${result.failed.length ? `, ${result.failed.length} failed` : ""}.` };
+    }
+    case "create_draft": {
+      const item = ((prevAgent?.output as any)?.items ?? [])[0];
+      if (!item) throw new ConnectorError("The agent did not produce a post to publish.", 400);
+      const fields: Record<string, string> = {
+        title: String(item.title ?? run.name),
+        content: String(item.body ?? ""),
+        excerpt: String(item.excerpt ?? ""),
+      };
+      const { change_set_id, record } = await createRecord(admin, ctx, loaded, fields, fields.title);
+      return { created: { id: record.id, label: record.label, url: record.url }, change_set_id, summary: `Draft "${record.label}" created in ${loaded.row.display_name}.` };
+    }
+    default:
+      throw new ConnectorError(`Unknown connector action ${step.input?.action}`, 400);
+  }
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
