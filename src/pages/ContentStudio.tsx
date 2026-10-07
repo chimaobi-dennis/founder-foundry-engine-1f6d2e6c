@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Sparkles, Pause, Play, Clock, FileText } from "lucide-react";
+import { Plus, Sparkles, FileText } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
 import { getBriefs } from "@/services/contentStudioService";
-import { supabase } from "@/integrations/supabase/client";
-
-const db = supabase as any;
+import { listAutomations } from "@/services/agentService";
 
 interface BriefRow {
   id: string;
@@ -20,14 +18,6 @@ interface BriefRow {
   content_studio_creatives: { id: string; status: string }[];
 }
 
-const intervalLabels: Record<string, string> = {
-  daily: "Daily",
-  every_48h: "Every 48h",
-  weekly: "Weekly",
-  biweekly: "Biweekly",
-  monthly: "Monthly",
-};
-
 const statusStyle: Record<string, { bg: string; color: string; label: string }> = {
   generating: { bg: "rgba(212,160,23,0.12)", color: "#D4A017", label: "Generating" },
   ready: { bg: "rgba(74,222,128,0.12)", color: "#4ADE80", label: "Ready" },
@@ -37,30 +27,20 @@ const statusStyle: Record<string, { bg: string; color: string; label: string }> 
   failed: { bg: "rgba(220,38,38,0.12)", color: "#F87171", label: "Failed" },
 };
 
-function timeFromNow(iso: string | null) {
-  if (!iso) return "";
-  const ms = new Date(iso).getTime() - Date.now();
-  const mins = Math.round(ms / 60000);
-  if (mins < 0) return "due now";
-  if (mins < 60) return `in ${mins}m`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `in ${hours}h`;
-  const days = Math.round(hours / 24);
-  return `in ${days}d`;
-}
-
 export default function ContentStudio() {
   const navigate = useNavigate();
   const { activeBrand } = useBrand();
   const [briefs, setBriefs] = useState<BriefRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scheduled, setScheduled] = useState(0);
 
   const load = async () => {
     if (!activeBrand?.id) return;
     setLoading(true);
     try {
-      const data = await getBriefs(activeBrand.id);
+      const [data, autos] = await Promise.all([getBriefs(activeBrand.id), listAutomations(activeBrand.id)]);
       setBriefs(data || []);
+      setScheduled(autos.filter((a) => a.status === "active" && a.trigger_type === "schedule").length);
     } catch (e) {
       console.error("Failed to load briefs", e);
     } finally {
@@ -76,19 +56,7 @@ export default function ContentStudio() {
     (n, b) => n + (b.content_studio_creatives?.length || 0),
     0
   );
-  const activeSeries = briefs.filter((b) => b.is_series && b.series_active);
-  const recent = briefs.filter((b) => !b.is_series || !b.series_active).slice(0, 12);
-
-  const togglePause = async (brief: BriefRow) => {
-    const next = !brief.series_active;
-    setBriefs((prev) =>
-      prev.map((b) => (b.id === brief.id ? { ...b, series_active: next } : b))
-    );
-    await db
-      .from("content_studio_briefs")
-      .update({ series_active: next })
-      .eq("id", brief.id);
-  };
+  const recent = briefs.slice(0, 12);
 
   if (loading) {
     return (
@@ -126,7 +94,7 @@ export default function ContentStudio() {
       <div className="grid grid-cols-3 gap-3 mb-10">
         <Stat label="Briefs created" value={briefs.length} />
         <Stat label="Creatives generated" value={totalCreatives} />
-        <Stat label="Active series" value={activeSeries.length} />
+        <Stat label="Scheduled runs" value={scheduled} />
       </div>
 
       {briefs.length === 0 && (
@@ -148,62 +116,6 @@ export default function ContentStudio() {
             + New content
           </button>
         </div>
-      )}
-
-      {/* Active series */}
-      {activeSeries.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-[11px] font-ui text-muted-foreground uppercase tracking-wider mb-4">
-            Active series
-          </h2>
-          <div className="grid gap-3">
-            {activeSeries.map((b) => (
-              <div
-                key={b.id}
-                className="rounded-xl border border-border bg-card p-5 flex items-center gap-4 hover:-translate-y-px hover:border-primary/40 transition-all"
-              >
-                <div
-                  className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(212,160,23,0.1)" }}
-                >
-                  <Clock size={20} className="text-primary" />
-                </div>
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => navigate(`/content-studio/${b.id}`)}
-                >
-                  <p className="font-ui text-[15px] font-medium text-foreground truncate">
-                    {b.name}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span
-                      className="inline-block rounded-full px-2 py-0.5 text-[10px] font-ui font-semibold"
-                      style={{
-                        background: "rgba(212,160,23,0.12)",
-                        color: "#D4A017",
-                      }}
-                    >
-                      {intervalLabels[b.series_interval || "weekly"]}
-                    </span>
-                    <span className="text-[12px] font-ui text-muted-foreground">
-                      Next: {timeFromNow(b.next_generation_at)}
-                    </span>
-                    <span className="text-[12px] font-ui text-muted-foreground">
-                      · {b.selected_platform_ids?.length || 0} platforms
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => togglePause(b)}
-                  className="h-9 px-3 rounded-md border border-border text-[12px] font-ui text-foreground hover:bg-muted/40 flex items-center gap-1.5 transition-colors"
-                >
-                  {b.series_active ? <Pause size={13} /> : <Play size={13} />}
-                  {b.series_active ? "Pause" : "Resume"}
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
       )}
 
       {/* Recent content */}
