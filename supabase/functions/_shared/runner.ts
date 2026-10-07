@@ -166,3 +166,52 @@ export function buildTaskPrompt(agent: AgentDefinition, input: Record<string, un
     `Respond with the JSON object only.`,
   ].join("\n");
 }
+
+// ── Schedules ────────────────────────────────────────────────────────────────
+
+export type ScheduleInterval = "daily" | "weekly" | "biweekly" | "monthly";
+
+export const SCHEDULE_INTERVALS: { value: ScheduleInterval; label: string }[] = [
+  { value: "daily", label: "Every day" },
+  { value: "weekly", label: "Every week" },
+  { value: "biweekly", label: "Every two weeks" },
+  { value: "monthly", label: "Every month" },
+];
+
+/** When the next run after `from` should happen for an interval. */
+export function nextRunAt(interval: ScheduleInterval, from: Date = new Date()): Date {
+  const d = new Date(from.getTime());
+  switch (interval) {
+    case "daily":
+      d.setUTCDate(d.getUTCDate() + 1);
+      break;
+    case "weekly":
+      d.setUTCDate(d.getUTCDate() + 7);
+      break;
+    case "biweekly":
+      d.setUTCDate(d.getUTCDate() + 14);
+      break;
+    case "monthly":
+      d.setUTCMonth(d.getUTCMonth() + 1);
+      break;
+  }
+  return d;
+}
+
+/**
+ * Stage keys drift between the seed and the live journey_stages table; match
+ * leniently so a recommendation still appears.
+ */
+export function agentSuitsStage(suited: string[] | null | undefined, stage: string | null | undefined): boolean {
+  if (!suited || suited.length === 0 || !stage) return false;
+  const aliases: Record<string, string[]> = {
+    spark: ["spark", "idea"],
+    shape: ["shape", "idea"],
+    validate: ["validate", "validation"],
+    brand: ["brand"],
+    launch: ["launch"],
+    grow: ["grow", "growth"],
+  };
+  const wanted = new Set(aliases[stage] ?? [stage]);
+  return suited.some((s) => wanted.has(s));
+}

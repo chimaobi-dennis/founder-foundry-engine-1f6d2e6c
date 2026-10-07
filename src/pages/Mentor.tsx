@@ -40,6 +40,7 @@ import { callAI } from "@/services/aiService";
 import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
+import { RecommendedAgents } from "@/components/team/RecommendedAgents";
 import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptyState";
 import { ProjectOnboarding } from "@/components/mentor/ProjectOnboarding";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -2117,6 +2118,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             dataRefreshTrigger={forceRefresh}
             onUpdateContext={handleOpenUpdateContext}
           />
+          <RecommendedAgents brandId={activeBrand?.id} stage={activeBrand?.journey_stage} />
         </aside>
       ) : (
         <Sheet open={leftOpen} onOpenChange={setLeftOpen}>

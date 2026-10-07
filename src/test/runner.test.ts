@@ -99,3 +99,24 @@ describe('summarizeOutput and buildTaskPrompt', () => {
     expect(p).toContain('instagram, x');
   });
 });
+
+import { nextRunAt, agentSuitsStage } from '@shared/runner';
+
+describe('schedules and stage matching', () => {
+  it('nextRunAt advances by the interval', () => {
+    const from = new Date('2026-10-07T10:00:00Z');
+    expect(nextRunAt('daily', from).toISOString()).toBe('2026-10-08T10:00:00.000Z');
+    expect(nextRunAt('weekly', from).toISOString()).toBe('2026-10-14T10:00:00.000Z');
+    expect(nextRunAt('biweekly', from).toISOString()).toBe('2026-10-21T10:00:00.000Z');
+    expect(nextRunAt('monthly', from).toISOString()).toBe('2026-11-07T10:00:00.000Z');
+  });
+  it('agentSuitsStage matches live keys and seed aliases', () => {
+    expect(agentSuitsStage(['brand', 'launch'], 'brand')).toBe(true);
+    expect(agentSuitsStage(['validation'], 'validate')).toBe(true);
+    expect(agentSuitsStage(['growth'], 'grow')).toBe(true);
+    expect(agentSuitsStage(['idea'], 'spark')).toBe(true);
+    expect(agentSuitsStage(['brand'], 'spark')).toBe(false);
+    expect(agentSuitsStage([], 'brand')).toBe(false);
+    expect(agentSuitsStage(['brand'], null)).toBe(false);
+  });
+});
