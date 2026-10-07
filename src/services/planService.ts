@@ -45,6 +45,13 @@ export interface FounderPlan {
   founder_type: string | null;
   version: number;
   built_at: string;
+  /** Revise on milestones and stage changes (the runner does it a few minutes later). */
+  auto_revise: boolean;
+  /** Why the last revision happened: "Milestone reached: …", "You asked: …". */
+  last_revision_reason: string | null;
+  /** Something happened and a revision is queued. */
+  revise_pending: boolean;
+  next_checkin_at: string | null;
   targets: PlanTarget[];
 }
 
@@ -58,7 +65,28 @@ export async function getPlan(brandId: string): Promise<FounderPlan | null> {
   const targets: PlanTarget[] = (data.plan_targets ?? [])
     .map((t: any) => ({ id: t.id, title: t.title, why: t.why, position: t.position, status: t.status, tasks: (t.plan_tasks ?? []).sort((a: any, b: any) => a.position - b.position) }))
     .sort((a: PlanTarget, b: PlanTarget) => a.position - b.position);
-  return { id: data.id, brand_id: data.brand_id, title: data.title, summary: data.summary, founder_type: data.founder_type, version: data.version, built_at: data.built_at, targets };
+  return {
+    id: data.id, brand_id: data.brand_id, title: data.title, summary: data.summary, founder_type: data.founder_type, version: data.version, built_at: data.built_at,
+    auto_revise: data.auto_revise ?? true, last_revision_reason: data.last_revision_reason ?? null, revise_pending: !!data.revise_note, next_checkin_at: data.next_checkin_at ?? null,
+    targets,
+  };
+}
+
+/** Intake import: a brand that just told Kinika about itself gets a plan without being asked, unless it has one. */
+export async function ensurePlan(brandId: string): Promise<void> {
+  try {
+    const { count } = await db.from('brand_plans').select('id', { count: 'exact', head: true }).eq('brand_id', brandId);
+    if (count) return;
+    const r = await buildPlan(brandId);
+    if (!r.success) console.warn('[Plan] ensurePlan skipped:', r.error);
+  } catch (e: any) {
+    console.warn('[Plan] ensurePlan failed:', e?.message);
+  }
+}
+
+export async function setAutoRevise(planId: string, on: boolean): Promise<boolean> {
+  const { error } = await db.from('brand_plans').update({ auto_revise: on }).eq('id', planId);
+  return !error;
 }
 
 async function callPlanFunction(body: Record<string, unknown>): Promise<{ success: boolean; error?: string; targets?: number; tasks?: number; modelUsed?: string }> {

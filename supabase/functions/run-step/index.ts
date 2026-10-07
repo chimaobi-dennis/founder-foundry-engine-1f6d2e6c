@@ -23,6 +23,8 @@ import { feedbackEntry, outcomeEntry, remember, runSummaryEntry } from "../_shar
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
 import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullRequest, publishItems, readRepoFiles, repoSnapshot, settlePull, trimRecords } from "../_shared/connectorOps.ts";
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
+import { buildOrRevisePlan } from "../_shared/planBuild.ts";
+import { checkinSummary } from "../_shared/plan.ts";
 import {
   mergeSelfReview,
   selfReviewInstruction,
@@ -124,7 +126,74 @@ async function tick(admin: Admin) {
   const digests = housekeeping ? await weeklyDigest(admin) : 0;
   const readied = housekeeping ? await settleOpenPulls(admin) : 0;
   const merged = housekeeping ? await autoMergeDue(admin) : 0;
-  return { enqueued: enqueued?.length ?? 0, advanced, digests, readied, merged, housekeeping };
+  const revised = housekeeping ? await revisePlansDue(admin) : 0;
+  const checkins = housekeeping ? await planCheckins(admin) : 0;
+  return { enqueued: enqueued?.length ?? 0, advanced, digests, readied, merged, revised, checkins, housekeeping };
+}
+
+/**
+ * A plan with news (a milestone reached, the stage moved) is revised once the
+ * news has settled for ten minutes, so a burst of events becomes one revision.
+ * If the builder fails the note is kept and tried again in a few hours.
+ */
+const REVISION_DEBOUNCE_MS = 10 * 60_000;
+const REVISION_RETRY_MS = 6 * 3600_000;
+async function revisePlansDue(admin: Admin): Promise<number> {
+  const { data: plans } = await admin
+    .from("brand_plans")
+    .select("id, revise_note, brands(id, user_id, name, journey_stage)")
+    .not("revise_note", "is", null)
+    .lte("revise_requested_at", new Date(Date.now() - REVISION_DEBOUNCE_MS).toISOString())
+    .order("revise_requested_at")
+    .limit(3);
+  let n = 0;
+  for (const p of plans ?? []) {
+    const brand = p.brands as any;
+    const note = String(p.revise_note ?? "").trim();
+    if (!brand || !note) continue;
+    const r = await buildOrRevisePlan(admin, brand, "revise", note, note).catch((e: Error) => ({ success: false as const, error: e.message, status: 500 }));
+    if (r.success) {
+      n++;
+      await admin.from("notifications").insert({
+        user_id: brand.user_id,
+        brand_id: brand.id,
+        type: "plan_revised",
+        title: "Kinika revised your plan",
+        body: `${note} Done tasks and your edits were kept.`,
+        action_url: "/plan",
+        related_type: "plan",
+      });
+    } else {
+      await admin.from("brand_plans").update({ revise_requested_at: new Date(Date.now() + REVISION_RETRY_MS - REVISION_DEBOUNCE_MS).toISOString() }).eq("id", p.id);
+    }
+  }
+  return n;
+}
+
+/** Once a week per plan: what moved, what is next, what has stalled. Computed, so it is free. */
+async function planCheckins(admin: Admin): Promise<number> {
+  const now = new Date();
+  const { data: plans } = await admin
+    .from("brand_plans")
+    .select("id, brand_id, user_id, title, plan_targets(title, status, position, plan_tasks(title, status, owner, done_at, updated_at))")
+    .lte("next_checkin_at", now.toISOString())
+    .limit(10);
+  let n = 0;
+  for (const p of plans ?? []) {
+    const s = checkinSummary({ title: p.title, targets: (p.plan_targets ?? []) as any }, now);
+    const { error } = await admin.from("notifications").insert({
+      user_id: p.user_id,
+      brand_id: p.brand_id,
+      type: "plan_checkin",
+      title: s.title,
+      body: s.body,
+      action_url: "/plan",
+      related_type: "plan",
+    });
+    await admin.from("brand_plans").update({ last_checkin_at: now.toISOString(), next_checkin_at: new Date(now.getTime() + 7 * 24 * 3600_000).toISOString() }).eq("id", p.id);
+    if (!error) n++;
+  }
+  return n;
 }
 
 /**

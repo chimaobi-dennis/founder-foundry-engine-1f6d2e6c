@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { listAgents, listHires, type Agent } from "@/services/agentService";
 import { getMyRole } from "@/services/teamMembersService";
 import { roleAtLeast } from "@shared/plans";
-import { addTask, buildPlan, delegateUrl, deleteTask, getPlan, planProgress, revisePlan, setTaskStatus, type FounderPlan, type PlanTask, type PlanTarget, type TaskStatus } from "@/services/planService";
+import { addTask, buildPlan, delegateUrl, deleteTask, getPlan, planProgress, revisePlan, setAutoRevise, setTaskStatus, type FounderPlan, type PlanTask, type PlanTarget, type TaskStatus } from "@/services/planService";
 
 /**
  * /plan — the founder's plan. Targets in order, each a checklist. Every task
@@ -95,10 +95,20 @@ export default function Plan() {
           </div>
         </div>
         <div className="mt-3 h-1 rounded-full bg-muted/60 overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${progress.total ? Math.max(2, (progress.done / progress.total) * 100) : 2}%` }} /></div>
+        <p className="font-ui text-[11px] text-muted-foreground mt-2">
+          {plan.revise_pending
+            ? "Something changed; Kinika is revising this plan in a few minutes."
+            : plan.last_revision_reason ? `Revised after: ${plan.last_revision_reason}` : `Written ${new Date(plan.built_at).toLocaleDateString()}`}
+          {plan.next_checkin_at && ` · Next check-in ${new Date(plan.next_checkin_at).toLocaleDateString()}`}
+        </p>
         {canEdit && (
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <button onClick={() => setRevising((v) => !v)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui hover:border-primary"><RefreshCw size={12} /> Revise with Kinika</button>
             <button disabled={busy === "build"} onClick={() => { if (confirm("Write a fresh plan? Your edits and task states will be lost.")) build(true); }} className="font-ui text-[12px] text-muted-foreground underline disabled:opacity-50">Start over</button>
+            <label className="ml-auto inline-flex items-center gap-2 font-ui text-[11px] text-muted-foreground cursor-pointer">
+              <input type="checkbox" className="accent-primary" checked={plan.auto_revise} onChange={async (e) => { const on = e.target.checked; setPlan({ ...plan, auto_revise: on }); if (!(await setAutoRevise(plan.id, on))) { toast.error("Could not save"); reload(); } }} />
+              Revise when I reach a milestone or change stage
+            </label>
           </div>
         )}
         {revising && (

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { agentsBlock, coercePlan, founderTypeFrom, planSystemPrompt } from '@shared/plan';
+import { agentsBlock, checkinSummary, coercePlan, founderTypeFrom, planSystemPrompt } from '@shared/plan';
 
 const agents = [{ slug: 'copywriter', name: 'Copywriter', tagline: 'Captions', hired: true }, { slug: 'developer', name: 'Developer', hired: false }];
 
@@ -42,5 +42,33 @@ describe('coercePlan', () => {
     expect(agentsBlock(agents)).toMatch(/developer: Developer\.\s+\(available to hire\)/);
     expect(agentsBlock([])).toMatch(/none available/);
     expect(planSystemPrompt()).toMatch(/2 to 5 TARGETS/);
+  });
+});
+
+describe('checkinSummary', () => {
+  const now = new Date('2026-10-08T12:00:00Z');
+  const days = (n: number) => new Date(now.getTime() - n * 24 * 3600_000).toISOString();
+  const task = (title: string, status: string, extra: Partial<{ owner: string; done_at: string | null; updated_at: string }> = {}) =>
+    ({ title, status, owner: 'founder', done_at: null, updated_at: days(1), ...extra });
+
+  it('reports the week: done, next in the current target, stalled, delegable', () => {
+    const s = checkinSummary({ title: 'Launch', targets: [
+      { title: 'Validate', status: 'done', position: 0, tasks: [task('Talk to 10 people', 'done', { done_at: days(2) }), task('Old one', 'done', { done_at: days(20) })] },
+      { title: 'Build', status: 'current', position: 1, tasks: [task('Write the landing page', 'doing', { owner: 'agent', updated_at: days(9) }), task('Set up payments', 'todo'), task('Skip me', 'skipped')] },
+      { title: 'Grow', status: 'upcoming', position: 2, tasks: [task('First 100 customers', 'todo')] },
+    ] }, now);
+    expect(s.complete).toBe(false);
+    expect(s.title).toBe('Your week on the plan: 1 done, 3 to go');
+    expect(s.body).toContain('Done this week: "Talk to 10 people".');
+    expect(s.body).toContain('Up next in "Build": "Write the landing page", "Set up payments".');
+    expect(s.body).toContain('1 task has been in progress for over a week: "Write the landing page".');
+    expect(s.body).toContain('1 of the open tasks can go to an agent.');
+  });
+  it('says so when nothing moved, and when everything is done', () => {
+    const quiet = checkinSummary({ title: 'P', targets: [{ title: 'T', status: 'current', position: 0, tasks: [task('A', 'todo')] }] }, now);
+    expect(quiet.body).toMatch(/^Nothing moved this week\. Up next in "T": "A"\.$/);
+    const done = checkinSummary({ title: 'Launch the shop', targets: [{ title: 'T', status: 'done', position: 0, tasks: [task('A', 'done', { done_at: days(1) })] }] }, now);
+    expect(done).toMatchObject({ complete: true, title: 'Your plan is complete' });
+    expect(done.body).toContain('"Launch the shop"');
   });
 });
