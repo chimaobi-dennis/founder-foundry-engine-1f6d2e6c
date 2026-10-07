@@ -54,7 +54,7 @@ export async function getBrandOwnerId(brandId: string): Promise<string | null> {
 export async function listMembers(brandId: string): Promise<BrandMember[]> {
   const { data, error } = await db
     .from('brand_members')
-    .select('*, profile:profiles(full_name, avatar_url)')
+    .select('*, profile:profiles!brand_members_user_id_fkey(full_name, avatar_url)')
     .eq('brand_id', brandId)
     .order('created_at');
   if (error) {
