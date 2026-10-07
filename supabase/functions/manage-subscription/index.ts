@@ -12,6 +12,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { corsHeaders, json } from "../_shared/cors.ts";
+import { syncSubscription, grantForPeriod } from "../_shared/stripeSync.ts";
+import { ensureStripeProduct, monthlyPriceData } from "../_shared/stripeProducts.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -31,7 +33,7 @@ serve(async (req) => {
   if (!user) return json({ success: false, error: "Unauthorized" }, 401);
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  let body: { action?: string; agentSeats?: number; memberSeats?: number; packageId?: string; returnUrl?: string };
+  let body: { action?: string; agentSeats?: number; memberSeats?: number; packageId?: string; returnUrl?: string; sessionId?: string };
   try {
     body = await req.json();
   } catch {
@@ -50,6 +52,21 @@ serve(async (req) => {
   const origin = body.returnUrl ? new URL(body.returnUrl).origin : req.headers.get("origin") || "https://app.kinika.co";
 
   try {
+    if (body.action === "sync_checkout") {
+      // The success redirect: confirm the session belongs to this user, then
+      // mirror the subscription and grant credits (idempotent) without
+      // waiting for the webhook.
+      if (!body.sessionId) return json({ success: false, error: "sessionId is required" }, 400);
+      const session = await stripe.checkout.sessions.retrieve(body.sessionId);
+      if (session.metadata?.user_id !== user.id) return json({ success: false, error: "Not your checkout session" }, 403);
+      if (session.mode !== "subscription" || !session.subscription) return json({ success: true, kind: session.mode });
+      const stripeSubFull = await stripe.subscriptions.retrieve(session.subscription as string, { expand: ["items.data.price.product"] });
+      const saved = await syncSubscription(admin, stripeSubFull, user.id);
+      let grant: unknown = null;
+      if (saved && ["active", "trialing"].includes(stripeSubFull.status)) grant = await grantForPeriod(admin, saved.id, saved.current_period_start);
+      return json({ success: true, status: stripeSubFull.status, plan: stripeSubFull.metadata?.plan_slug ?? null, grant });
+    }
+
     if (body.action === "portal") {
       const customerId = sub?.stripe_customer_id ?? (await admin.from("stripe_customers").select("stripe_customer_id").eq("user_id", user.id).maybeSingle()).data?.stripe_customer_id;
       if (!customerId) return json({ success: false, error: "No billing account yet. Pick a plan first." }, 404);
@@ -66,7 +83,7 @@ serve(async (req) => {
       });
 
     if (body.action === "set_seats") {
-      const { data: addons } = await admin.from("credit_packages").select("id, name, price_usd, addon_kind").eq("active", true).not("addon_kind", "is", null);
+      const { data: addons } = await admin.from("credit_packages").select("id, name, slug, description, price_usd, addon_kind, stripe_product_id").eq("active", true).not("addon_kind", "is", null);
       const items: Stripe.SubscriptionUpdateParams.Item[] = [];
       const want: Array<["agent_seat" | "member_seat", number | undefined]> = [["agent_seat", body.agentSeats], ["member_seat", body.memberSeats]];
       for (const [kind, qtyRaw] of want) {
@@ -78,10 +95,8 @@ serve(async (req) => {
         } else if (qty > 0) {
           const a = (addons ?? []).find((x: any) => x.addon_kind === kind);
           if (!a) return json({ success: false, error: `No ${kind} package configured.` }, 500);
-          items.push({
-            price_data: { currency: "usd", recurring: { interval: "month" }, product: undefined as any, product_data: { name: a.name, metadata: { package_id: a.id, addon_kind: kind } }, unit_amount: Math.round(a.price_usd * 100) } as any,
-            quantity: qty,
-          });
+          const productId = await ensureStripeProduct(stripe, admin, a);
+          items.push({ price_data: monthlyPriceData(productId, Number(a.price_usd)), quantity: qty });
         }
       }
       if (!items.length) return json({ success: true, unchanged: true });
@@ -107,11 +122,9 @@ serve(async (req) => {
       if (!pkg) return json({ success: false, error: "Plan not found" }, 404);
       const planItem = itemOf("plan");
       if (!planItem) return json({ success: false, error: "Could not find the plan line on the subscription" }, 500);
+      const productId = await ensureStripeProduct(stripe, admin, pkg);
       const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
-        items: [{
-          id: planItem.id,
-          price_data: { currency: "usd", recurring: { interval: "month" }, product_data: { name: `Kinika ${pkg.name}`, metadata: { package_id: pkg.id, plan_slug: pkg.slug } }, unit_amount: Math.round(pkg.price_usd * 100) } as any,
-        }],
+        items: [{ id: planItem.id, price_data: monthlyPriceData(productId, Number(pkg.price_usd)) }],
         proration_behavior: "create_prorations",
         metadata: { ...stripeSub.metadata, package_id: pkg.id, plan_slug: pkg.slug ?? "" },
       });
