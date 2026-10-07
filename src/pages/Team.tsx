@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Users, Plus, Pause, Play, Check, X, Loader2, ChevronDown, ChevronUp,
-  Copy, ArrowUpRight, Coins, AlertTriangle, Clock, Sparkles, RefreshCw, Repeat, Archive,
+  Copy, ArrowUpRight, Coins, AlertTriangle, Clock, Sparkles, RefreshCw, Repeat, Archive, Webhook,
 } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +26,9 @@ import {
 } from "@/services/agentService";
 import type { Quote } from "@/services/pricingService";
 import { ConnectionsSection, DiffTable, CodeReview } from "@/components/team/Connections";
+import { DescribeIt } from "@/components/team/DescribeIt";
+import { listConnections, type ToolConnection } from "@/services/connectionService";
+import { SUPABASE_CONFIG } from "@/config/supabaseConfig";
 
 const PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok", "email"];
 
@@ -67,6 +70,7 @@ export default function Team() {
   const [runs, setRuns] = useState<AutomationRun[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [automations, setAutomations] = useState<Automation[]>([]);
+  const [connections, setConnections] = useState<ToolConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [taskAgent, setTaskAgent] = useState<Agent | null>(null);
   const [openRunId, setOpenRunId] = useState<string | null>(params.get("run"));
@@ -75,12 +79,13 @@ export default function Team() {
 
   const reload = useCallback(async () => {
     if (!brandId) return;
-    const [a, h, r, ap, au] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId), listAutomations(brandId)]);
+    const [a, h, r, ap, au, co] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId), listAutomations(brandId), listConnections(brandId)]);
     setAgents(a);
     setHires(h);
     setRuns(r);
     setApprovals(ap);
     setAutomations(au);
+    setConnections(co);
   }, [brandId]);
 
   useEffect(() => {
@@ -127,6 +132,19 @@ export default function Team() {
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>
       ) : (
         <>
+          {/* ── Describe it ── */}
+          <DescribeIt
+            brandId={brandId!}
+            userId={user!.id}
+            agents={hires.filter((h) => h.status === "active").map((h) => h.agent)}
+            connections={connections}
+            stage={activeBrand.journey_stage}
+            balance={balance}
+            balanceLoading={balanceLoading}
+            onTopUp={() => openPricingModal({ currentBalance: balance })}
+            onCreated={(id) => { if (id) setOpenRunId(id); reload(); refetchBalance(); }}
+          />
+
           {/* ── Needs you ── */}
           {approvals.length > 0 && (
             <section>
@@ -286,9 +304,9 @@ export default function Team() {
           onCreate={async (name, input, autonomous, repeat) => {
             const policy = { approval: autonomous ? "autonomous" : "review_first" } as const;
             if (repeat !== "once") {
-              const r = await createAutomation({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, interval: repeat, policy });
+              const r = await createAutomation({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, interval: repeat === "webhook" ? "weekly" : repeat, trigger: repeat === "webhook" ? "webhook" : "schedule", policy });
               if (!r.success) { toast.error(r.error ?? "Could not set up the schedule"); return false; }
-              toast(`${taskAgent.name} will do this ${SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase() ?? repeat}`);
+              toast(repeat === "webhook" ? "Webhook ready; copy its URL from the schedule list" : `${taskAgent.name} will do this ${SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase() ?? repeat}`);
               setTaskAgent(null);
               if (r.run) setOpenRunId(r.run.id);
               reload();
@@ -326,10 +344,10 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
   balanceLoading: boolean;
   onClose: () => void;
   onTopUp: () => void;
-  onCreate: (name: string, input: { brief: string; units: number; platforms: string[] }, autonomous: boolean, repeat: ScheduleInterval | "once") => Promise<boolean>;
+  onCreate: (name: string, input: { brief: string; units: number; platforms: string[] }, autonomous: boolean, repeat: ScheduleInterval | "once" | "webhook") => Promise<boolean>;
 }) {
   const [brief, setBrief] = useState("");
-  const [repeat, setRepeat] = useState<ScheduleInterval | "once">("once");
+  const [repeat, setRepeat] = useState<ScheduleInterval | "once" | "webhook">("once");
   const [name, setName] = useState("");
   const [units, setUnits] = useState(agent.slug === "copywriter" ? 3 : 1);
   const [platforms, setPlatforms] = useState<string[]>(agent.slug === "researcher" ? [] : ["instagram"]);
@@ -405,13 +423,16 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
             <select
               id="task-repeat"
               value={repeat}
-              onChange={(e) => setRepeat(e.target.value as ScheduleInterval | "once")}
+              onChange={(e) => setRepeat(e.target.value as ScheduleInterval | "once" | "webhook")}
               className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] font-ui"
             >
               <option value="once">Just once</option>
               {SCHEDULE_INTERVALS.map((i) => <option key={i.value} value={i.value}>{i.label}</option>)}
+              <option value="webhook">When a webhook fires</option>
             </select>
-            {repeat !== "once" && (
+            {repeat === "webhook" ? (
+              <p className="font-ui text-[11px] text-muted-foreground mt-1">Creates a webhook URL you can call from another system (Zapier, a form, your app). Each call starts one run with the call's data attached.</p>
+            ) : repeat !== "once" && (
               <p className="font-ui text-[11px] text-muted-foreground mt-1">Runs now, then {SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase()}. Each run is quoted and reviewed the same way; pause it any time.</p>
             )}
           </div>
@@ -448,7 +469,7 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50"
           >
             {submitting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            {insufficient ? "Top up to run" : repeat === "once" ? "Run" : "Run and schedule"}
+            {insufficient ? "Top up to run" : repeat === "once" ? "Run" : repeat === "webhook" ? "Create webhook" : "Run and schedule"}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -503,9 +524,11 @@ function ApprovalCard({ approval, userId, onDecided, onOpenRun }: { approval: Ap
 
 function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automation: Automation; userId: string; onChanged: () => void; onOpenRun: (runId: string) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const label = SCHEDULE_INTERVALS.find((i) => i.value === automation.schedule_interval)?.label ?? automation.schedule_interval ?? "";
+  const isWebhook = automation.trigger_type === "webhook";
+  const label = isWebhook ? "Webhook" : SCHEDULE_INTERVALS.find((i) => i.value === automation.schedule_interval)?.label ?? automation.schedule_interval ?? "";
   const next = automation.next_run_at ? new Date(automation.next_run_at) : null;
   const paused = automation.status === "paused";
+  const webhookUrl = isWebhook && automation.webhook_secret ? `${SUPABASE_CONFIG.url}/functions/v1/webhook-trigger?automation=${automation.id}&key=${automation.webhook_secret}` : null;
 
   const act = async (what: string, fn: () => Promise<unknown>) => {
     setBusy(what);
@@ -519,11 +542,17 @@ function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automatio
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-display text-[15px] text-foreground truncate">{automation.name}</span>
-          {paused ? <StatusPill status="paused" /> : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-ui font-medium bg-primary/10 text-primary">{label}</span>}
+          {paused ? <StatusPill status="paused" /> : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-ui font-medium bg-primary/10 text-primary">{isWebhook && <Webhook size={10} />}{label}</span>}
         </div>
+        {webhookUrl && (
+          <p className="font-ui text-[11px] text-muted-foreground mt-1 flex items-center gap-2 min-w-0">
+            <code className="truncate bg-muted/60 rounded px-1.5 py-0.5 text-[10px]">POST {webhookUrl}</code>
+            <button onClick={() => navigator.clipboard?.writeText(webhookUrl).then(() => toast("Webhook URL copied")).catch(() => toast.error("Copy failed"))} className="inline-flex items-center gap-1 shrink-0 hover:text-foreground"><Copy size={11} /> copy</button>
+          </p>
+        )}
         <p className="font-ui text-[12px] text-muted-foreground mt-0.5 truncate">
           {automation.agent?.name ?? "Agent"} · {automation.task_input.units ?? 1} {automation.agent?.unit_label ?? "item"}{(automation.task_input.units ?? 1) === 1 ? "" : "s"}
-          {next && !paused ? ` · next ${next.toLocaleString()}` : ""}
+          {next && !paused && !isWebhook ? ` · next ${next.toLocaleString()}` : ""}
           {automation.last_run_at ? ` · last ${new Date(automation.last_run_at).toLocaleDateString()}` : ""}
         </p>
       </div>

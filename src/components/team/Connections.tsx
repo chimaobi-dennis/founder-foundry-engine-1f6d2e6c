@@ -470,6 +470,7 @@ function PrLine({ change: ch }: { change: ChangeSet }) {
       {url && <a href={url} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">#{ch.target_id} <ExternalLink size={10} /></a>}
       <span className="truncate">{ch.after.files}</span>
       <button onClick={check} disabled={busy} className="underline disabled:opacity-50">{busy ? "checking…" : "checks?"}</button>
+      {status?.preview?.url && <a href={status.preview.url} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">preview <ExternalLink size={10} /></a>}
       {status && (
         <span className={cn(status.merged ? "text-emerald-500" : status.checks.failure ? "text-destructive" : status.checks.pending ? "text-amber-500" : "text-foreground")}>
           {status.merged ? "merged" : status.state === "closed" ? "closed" : status.checks.total === 0 ? "no checks" : status.checks.failure ? `${status.checks.failure} failing (${status.checks.names.join(", ")})` : status.checks.pending ? `${status.checks.pending} pending` : `${status.checks.success}/${status.checks.total} passing`}

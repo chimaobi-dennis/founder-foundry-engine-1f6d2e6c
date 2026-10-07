@@ -14,11 +14,14 @@ import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 import { quoteAction, type Quote } from './pricingService';
 import {
   planSingleAgentRun,
+  planHiveRun,
+  hiveBudget,
   normalizeUnits,
   nextRunAt,
   DEFAULT_BUDGET,
   DEFAULT_POLICY,
   type ScheduleInterval,
+  type HiveStage,
   type AgentDefinition,
   type RunBudget,
   type RunPolicy,
@@ -28,7 +31,7 @@ import {
   type TaskInput,
 } from '@shared/runner';
 
-export type { AgentDefinition, RunPolicy, RunBudget, TaskInput, RunStatus, StepStatus, ScheduleInterval } from '@shared/runner';
+export type { AgentDefinition, RunPolicy, RunBudget, TaskInput, RunStatus, StepStatus, ScheduleInterval, HiveStage } from '@shared/runner';
 export { SCHEDULE_INTERVALS } from '@shared/runner';
 
 const db = supabase as any;
@@ -375,8 +378,9 @@ export interface Automation {
   user_id: string;
   agent_id: string | null;
   name: string;
-  trigger_type: 'manual' | 'schedule';
+  trigger_type: 'manual' | 'schedule' | 'webhook';
   schedule_interval: ScheduleInterval | null;
+  webhook_secret: string | null;
   next_run_at: string | null;
   task_input: TaskInput;
   policy: RunPolicy;
@@ -408,10 +412,18 @@ export interface CreateAutomationInput {
   name: string;
   input: TaskInput;
   interval: ScheduleInterval;
+  /** schedule (default) fires on the interval; webhook fires when another system calls in */
+  trigger?: 'schedule' | 'webhook';
   policy?: RunPolicy;
   budget?: Partial<RunBudget>;
   /** Also start the first run right away (default true). */
   runNow?: boolean;
+}
+
+function newWebhookSecret(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return 'whk_' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -427,17 +439,19 @@ export async function createAutomation(params: CreateAutomationInput): Promise<{
     credits_per_run: Math.min(DEFAULT_BUDGET.credits_per_run, agent.per_run_credit_ceiling),
     ...(params.budget ?? {}),
   };
-  const runNow = params.runNow !== false;
+  const trigger = params.trigger ?? 'schedule';
+  const runNow = trigger === 'schedule' && params.runNow !== false;
   const { data, error } = await db
     .from('automations')
     .insert({
       brand_id: brandId,
       user_id: userId,
       agent_id: agent.id,
-      name: name.trim() || `${agent.name} · ${interval}`,
-      trigger_type: 'schedule',
-      schedule_interval: interval,
-      next_run_at: nextRunAt(interval, new Date()).toISOString(),
+      name: name.trim() || `${agent.name} · ${trigger === 'webhook' ? 'webhook' : interval}`,
+      trigger_type: trigger,
+      schedule_interval: trigger === 'schedule' ? interval : null,
+      next_run_at: trigger === 'schedule' ? nextRunAt(interval, new Date()).toISOString() : null,
+      webhook_secret: trigger === 'webhook' ? newWebhookSecret() : null,
       task_input: { ...input, units: normalizeUnits(input.units) },
       policy,
       budget,
@@ -486,4 +500,70 @@ export async function runAutomationNow(automation: Automation, userId: string): 
     await db.from('automations').update({ last_run_at: new Date().toISOString(), next_run_at: nextRunAt(automation.schedule_interval, new Date()).toISOString() }).eq('id', automation.id);
   }
   return r;
+}
+
+// ─── Hives ──────────────────────────────────────────────────
+
+/** Sum of the stages' quotes; the hive reserves the sum of their maxes. */
+export async function quoteHive(stages: HiveStage[]): Promise<Quote> {
+  const quotes = await Promise.all(stages.map((st) => quoteAction({ actionType: st.agent.action_type, units: normalizeUnits(st.units) })));
+  const estimate = quotes.reduce((a, q) => a + q.estimate, 0);
+  const max = quotes.reduce((a, q) => a + q.max, 0);
+  const min = quotes.reduce((a, q) => a + q.min, 0);
+  return {
+    actionType: 'hive',
+    mode: quotes.some((q) => q.mode === 'metered') ? 'metered' : 'fixed',
+    estimate,
+    min,
+    max,
+    retailUsd: Math.round(quotes.reduce((a, q) => a + q.retailUsd, 0) * 100) / 100,
+    breakdown: stages.map((st, i) => ({ label: `${st.agent.name} × ${normalizeUnits(st.units)} ${st.agent.unit_label}${normalizeUnits(st.units) === 1 ? '' : 's'}`, value: `${quotes[i].estimate}` })),
+    fromRule: quotes.every((q) => q.fromRule),
+  };
+}
+
+export interface CreateHiveInput {
+  brandId: string;
+  userId: string;
+  name: string;
+  stages: HiveStage[];
+  input: TaskInput;
+  policy?: RunPolicy;
+}
+
+/** A run where several agents hand off in order; the first agent is the run's "owner". */
+export async function createHiveRun(params: CreateHiveInput): Promise<{ success: boolean; error?: string; run?: AutomationRun; quote?: Quote }> {
+  const { brandId, userId, name, stages, input } = params;
+  if (stages.length < 2) return { success: false, error: 'A team task needs at least two agents.' };
+  const policy = params.policy ?? DEFAULT_POLICY;
+  const quote = await quoteHive(stages);
+  if (!quote.fromRule) return { success: false, error: 'One of the agents has no pricing rule.' };
+  const steps = planHiveRun(stages, input, policy);
+  const budget = hiveBudget(stages);
+
+  const { data: run, error } = await db
+    .from('automation_runs')
+    .insert({
+      brand_id: brandId,
+      user_id: userId,
+      agent_id: stages[0].agent.id,
+      name: name.trim() || stages.map((s) => s.agent.name).join(' → '),
+      trigger_type: 'manual',
+      status: 'queued',
+      input: { ...input, units: normalizeUnits(input.units), hive: stages.map((s) => s.agent.slug) },
+      policy,
+      budget,
+      credits_quoted: quote.estimate,
+      credits_reserved: quote.max,
+    })
+    .select('*')
+    .single();
+  if (error) return { success: false, error: error.message };
+  const { error: stepErr } = await db.from('automation_run_steps').insert(steps.map((st) => ({ run_id: run.id, step_index: st.step_index, type: st.type, name: st.name, input: st.input })));
+  if (stepErr) {
+    await db.from('automation_runs').update({ status: 'failed', error: stepErr.message }).eq('id', run.id);
+    return { success: false, error: stepErr.message };
+  }
+  void kickRun(run.id);
+  return { success: true, run, quote };
 }

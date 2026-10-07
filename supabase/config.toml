@@ -16,3 +16,7 @@ verify_jwt = false
 
 [functions.connector-action]
 verify_jwt = false
+
+[functions.webhook-trigger]
+# Credential is the per-automation secret, not a user JWT.
+verify_jwt = false
