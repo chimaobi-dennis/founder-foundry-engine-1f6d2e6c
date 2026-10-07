@@ -22,3 +22,7 @@ verify_jwt = false
 [functions.create-checkout-session]
 # Checks the user JWT itself; keeps parity with the webhook's gateway setting.
 verify_jwt = false
+
+[functions.founder-plan]
+# Checks the user JWT itself (same pattern as ai-gateway).
+verify_jwt = false

@@ -31,6 +31,7 @@ import { TeamMemorySection } from "@/components/team/TeamMemory";
 import { listConnections, type ToolConnection } from "@/services/connectionService";
 import { SUPABASE_CONFIG } from "@/config/supabaseConfig";
 import { getEntitlements, planAllows, planLimitMessage, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
+import { linkTaskToRun } from "@/services/planService";
 import { getMyRole, roleAtLeast, type BrandRole } from "@/services/teamMembersService";
 import { PeopleSection } from "@/components/team/People";
 import { useProfile } from "@/hooks/use-profile";
@@ -82,6 +83,10 @@ export default function Team() {
   const [loading, setLoading] = useState(true);
   const [taskAgent, setTaskAgent] = useState<Agent | null>(null);
   const [openRunId, setOpenRunId] = useState<string | null>(params.get("run"));
+  // Arriving from the plan: a task to delegate (brief prefilled) or an agent to hire.
+  const planTaskId = params.get("task");
+  const describeText = params.get("describe") ?? undefined;
+  const hireSlug = params.get("hire");
 
   const brandId = activeBrand?.id;
 
@@ -165,8 +170,18 @@ export default function Team() {
             balance={balance}
             balanceLoading={balanceLoading}
             onTopUp={() => openPricingModal({ currentBalance: balance })}
-            onCreated={(id) => { if (id) setOpenRunId(id); reload(); refetchBalance(); }}
+            initialText={describeText}
+            onCreated={async (id) => {
+              if (id && planTaskId) {
+                await linkTaskToRun(planTaskId, id);
+                toast("Linked to your plan; the task completes when the run does");
+                params.delete("task"); params.delete("describe"); params.delete("agent"); setParams(params, { replace: true });
+              }
+              if (id) setOpenRunId(id);
+              reload(); refetchBalance();
+            }}
           />}
+          {describeText && planTaskId && <p className="font-ui text-[12px] text-muted-foreground -mt-4">From your plan. Confirm the plan above and the task is linked to the run.</p>}
 
           {/* ── People ── */}
           <PeopleSection
@@ -254,7 +269,7 @@ export default function Team() {
               <SectionTitle icon={<Plus size={14} className="text-muted-foreground" />} title="Hire" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {available.map((a) => (
-                  <div key={a.id} className="rounded-xl border border-card-border bg-card/30 p-5 flex flex-col gap-2">
+                  <div key={a.id} className={cn("rounded-xl border bg-card/30 p-5 flex flex-col gap-2", hireSlug === a.slug ? "border-primary ring-1 ring-primary/40" : "border-card-border")}>
                     <div className="flex items-center gap-2">
                       <h3 className="font-display text-lg text-foreground">{a.name}</h3>
                       <CostDots n={a.cost_indicator} />

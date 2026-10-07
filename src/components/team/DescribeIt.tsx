@@ -13,7 +13,7 @@ import { ACTION_CLASS_LABEL, EVENT_TYPES, RECIPES, SCHEDULE_INTERVALS, type Acti
  * "Describe it": plain language in, a reviewed plan out. Nothing is created
  * until the founder confirms the draft they can read.
  */
-export function DescribeIt({ brandId, userId, agents, connections, stage, balance, balanceLoading, onTopUp, onCreated }: {
+export function DescribeIt({ brandId, userId, agents, connections, stage, balance, balanceLoading, onTopUp, onCreated, initialText }: {
   brandId: string;
   userId: string;
   agents: Agent[];
@@ -23,8 +23,10 @@ export function DescribeIt({ brandId, userId, agents, connections, stage, balanc
   balanceLoading: boolean;
   onTopUp: () => void;
   onCreated: (runId?: string) => void;
+  /** Prefilled from a plan task; the founder still reads and confirms */
+  initialText?: string;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText ?? "");
   const [busy, setBusy] = useState<"draft" | "run" | null>(null);
   const [draft, setDraft] = useState<PlanDraft | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);

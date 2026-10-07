@@ -41,6 +41,7 @@ import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
 import { RecommendedAgents } from "@/components/team/RecommendedAgents";
+import { PlanGlance } from "@/components/plan/PlanGlance";
 import { MentorEmptyState, MentorMode } from "@/components/mentor/MentorEmptyState";
 import { ProjectOnboarding } from "@/components/mentor/ProjectOnboarding";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -2118,6 +2119,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
             dataRefreshTrigger={forceRefresh}
             onUpdateContext={handleOpenUpdateContext}
           />
+          <PlanGlance brandId={activeBrand?.id} variant="aside" refreshKey={forceRefresh} />
           <RecommendedAgents brandId={activeBrand?.id} stage={activeBrand?.journey_stage} />
         </aside>
       ) : (
@@ -2140,6 +2142,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               dataRefreshTrigger={forceRefresh}
               onUpdateContext={() => { handleOpenUpdateContext(); setLeftOpen(false); }}
             />
+            <PlanGlance brandId={activeBrand?.id} variant="aside" refreshKey={forceRefresh} />
             <RecommendedAgents brandId={activeBrand?.id} stage={activeBrand?.journey_stage} />
           </SheetContent>
         </Sheet>
