@@ -71,6 +71,6 @@ END $$;
 -- Clean up the one failed run and notification created when the retired
 -- endpoint was probed during the 2026-10-07 audit (it was open to anyone).
 DELETE FROM public.content_series_runs
-  WHERE status = 'failed' AND trigger_type = 'cron' AND created_at >= TIMESTAMPTZ '2026-10-07 13:45:00+00' AND created_at < TIMESTAMPTZ '2026-10-07 14:30:00+00';
+  WHERE status = 'failed' AND trigger_type = 'cron' AND triggered_at >= TIMESTAMPTZ '2026-10-07 13:45:00+00' AND triggered_at < TIMESTAMPTZ '2026-10-07 14:30:00+00';
 DELETE FROM public.notifications
   WHERE type = 'content_series_failed' AND created_at >= TIMESTAMPTZ '2026-10-07 13:45:00+00' AND created_at < TIMESTAMPTZ '2026-10-07 14:30:00+00';
