@@ -15,8 +15,10 @@ import { quoteAction, type Quote } from './pricingService';
 import {
   planSingleAgentRun,
   normalizeUnits,
+  nextRunAt,
   DEFAULT_BUDGET,
   DEFAULT_POLICY,
+  type ScheduleInterval,
   type AgentDefinition,
   type RunBudget,
   type RunPolicy,
@@ -26,7 +28,8 @@ import {
   type TaskInput,
 } from '@shared/runner';
 
-export type { AgentDefinition, RunPolicy, RunBudget, TaskInput, RunStatus, StepStatus } from '@shared/runner';
+export type { AgentDefinition, RunPolicy, RunBudget, TaskInput, RunStatus, StepStatus, ScheduleInterval } from '@shared/runner';
+export { SCHEDULE_INTERVALS } from '@shared/runner';
 
 const db = supabase as any;
 
@@ -171,6 +174,7 @@ export interface CreateRunInput {
   input: TaskInput;
   policy?: RunPolicy;
   budget?: Partial<RunBudget>;
+  automationId?: string | null;
 }
 
 /**
@@ -196,6 +200,7 @@ export async function createRun(params: CreateRunInput): Promise<{ success: bool
       brand_id: brandId,
       user_id: userId,
       agent_id: agent.id,
+      automation_id: params.automationId ?? null,
       name: name.trim() || `${agent.name} task`,
       trigger_type: 'manual',
       status: 'queued',
@@ -360,4 +365,125 @@ export function outputToText(output: Record<string, unknown> | null | undefined)
   if (Array.isArray((output as any).recommendations)) parts.push(`Recommendations:\n- ${(output as any).recommendations.join('\n- ')}`);
   if (typeof output.notes === 'string' && output.notes) parts.push(`Notes: ${output.notes}`);
   return parts.join('\n\n');
+}
+
+// ─── Automations (standing tasks on a schedule) ─────────────
+
+export interface Automation {
+  id: string;
+  brand_id: string;
+  user_id: string;
+  agent_id: string | null;
+  name: string;
+  trigger_type: 'manual' | 'schedule';
+  schedule_interval: ScheduleInterval | null;
+  next_run_at: string | null;
+  task_input: TaskInput;
+  policy: RunPolicy;
+  budget: RunBudget;
+  status: 'active' | 'paused' | 'archived';
+  last_run_at: string | null;
+  created_at: string;
+  agent?: Pick<Agent, 'id' | 'slug' | 'name' | 'unit_label' | 'action_type' | 'per_run_credit_ceiling' | 'cost_indicator'> | null;
+}
+
+export async function listAutomations(brandId: string): Promise<Automation[]> {
+  const { data, error } = await db
+    .from('automations')
+    .select('*, agent:agents(id, slug, name, unit_label, action_type, per_run_credit_ceiling, cost_indicator)')
+    .eq('brand_id', brandId)
+    .neq('status', 'archived')
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[Agents] listAutomations error:', error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+export interface CreateAutomationInput {
+  brandId: string;
+  userId: string;
+  agent: Agent;
+  name: string;
+  input: TaskInput;
+  interval: ScheduleInterval;
+  policy?: RunPolicy;
+  budget?: Partial<RunBudget>;
+  /** Also start the first run right away (default true). */
+  runNow?: boolean;
+}
+
+/**
+ * A standing task: the cron tick turns it into a run whenever next_run_at
+ * passes. With runNow the first run starts immediately and the schedule
+ * counts from now.
+ */
+export async function createAutomation(params: CreateAutomationInput): Promise<{ success: boolean; error?: string; automation?: Automation; run?: AutomationRun }> {
+  const { brandId, userId, agent, name, input, interval } = params;
+  const policy = params.policy ?? DEFAULT_POLICY;
+  const budget: RunBudget = {
+    ...DEFAULT_BUDGET,
+    credits_per_run: Math.min(DEFAULT_BUDGET.credits_per_run, agent.per_run_credit_ceiling),
+    ...(params.budget ?? {}),
+  };
+  const runNow = params.runNow !== false;
+  const { data, error } = await db
+    .from('automations')
+    .insert({
+      brand_id: brandId,
+      user_id: userId,
+      agent_id: agent.id,
+      name: name.trim() || `${agent.name} · ${interval}`,
+      trigger_type: 'schedule',
+      schedule_interval: interval,
+      next_run_at: nextRunAt(interval, new Date()).toISOString(),
+      task_input: { ...input, units: normalizeUnits(input.units) },
+      policy,
+      budget,
+      status: 'active',
+      last_run_at: runNow ? new Date().toISOString() : null,
+    })
+    .select('*')
+    .single();
+  if (error) return { success: false, error: error.message };
+
+  let run: AutomationRun | undefined;
+  if (runNow) {
+    const r = await createRun({ brandId, userId, agent, name: data.name, input, policy, budget, automationId: data.id });
+    if (!r.success) return { success: false, error: r.error, automation: data };
+    run = r.run;
+  }
+  return { success: true, automation: data, run };
+}
+
+export async function setAutomationStatus(id: string, status: 'active' | 'paused' | 'archived'): Promise<boolean> {
+  const patch: Record<string, unknown> = { status };
+  if (status === 'active') {
+    // Resuming reschedules from now rather than firing a backlog of missed runs.
+    const { data } = await db.from('automations').select('schedule_interval').eq('id', id).maybeSingle();
+    if (data?.schedule_interval) patch.next_run_at = nextRunAt(data.schedule_interval, new Date()).toISOString();
+  }
+  const { error } = await db.from('automations').update(patch).eq('id', id);
+  return !error;
+}
+
+/** Start a run from an automation now, and push the schedule forward. */
+export async function runAutomationNow(automation: Automation, userId: string): Promise<{ success: boolean; error?: string; run?: AutomationRun }> {
+  const { data: agent } = await db.from('agents').select('*').eq('id', automation.agent_id).maybeSingle();
+  if (!agent) return { success: false, error: 'This automation has no agent attached.' };
+  const r = await createRun({
+    brandId: automation.brand_id,
+    userId,
+    agent,
+    name: automation.name,
+    input: automation.task_input,
+    policy: automation.policy,
+    budget: automation.budget,
+    automationId: automation.id,
+  });
+  if (r.success && automation.schedule_interval) {
+    await db.from('automations').update({ last_run_at: new Date().toISOString(), next_run_at: nextRunAt(automation.schedule_interval, new Date()).toISOString() }).eq('id', automation.id);
+  }
+  return r;
 }

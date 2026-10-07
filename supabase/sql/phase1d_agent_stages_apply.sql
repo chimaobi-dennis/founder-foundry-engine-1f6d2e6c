@@ -1,0 +1,18 @@
+-- Kinika · align agent stage keys — paste into Supabase → SQL Editor → Run.
+-- Safe to run more than once. Applies migration 20260704000000 and records it.
+
+BEGIN;
+
+-- Align agents.suited_stages with the journey_stages keys the app uses
+-- (spark, shape, validate, brand, launch, grow). The seed used a guessed
+-- vocabulary; Mentor's recommendations match on these keys.
+
+UPDATE public.agents SET suited_stages = ARRAY['brand', 'launch', 'grow']            WHERE slug = 'copywriter';
+UPDATE public.agents SET suited_stages = ARRAY['brand', 'launch', 'grow']            WHERE slug = 'designer';
+UPDATE public.agents SET suited_stages = ARRAY['spark', 'shape', 'validate', 'brand'] WHERE slug = 'researcher';
+
+INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
+  ('20260704000000', 'agent_stage_keys')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

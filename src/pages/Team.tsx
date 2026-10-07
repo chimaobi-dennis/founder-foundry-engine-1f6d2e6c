@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Users, Plus, Pause, Play, Check, X, Loader2, ChevronDown, ChevronUp,
-  Copy, ArrowUpRight, Coins, AlertTriangle, Clock, Sparkles, RefreshCw,
+  Copy, ArrowUpRight, Coins, AlertTriangle, Clock, Sparkles, RefreshCw, Repeat, Archive,
 } from "lucide-react";
 import { useBrand } from "@/hooks/use-brand";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +21,8 @@ import {
   listAgents, listHires, hireAgent, setHireStatus, removeHire,
   quoteAgentTask, createRun, listRuns, getRun, resumeRun, cancelRun, kickRun,
   listPendingApprovals, decideApproval, outputItems, outputToText,
-  type Agent, type AgentHire, type AutomationRun, type Approval, type RunStep,
+  listAutomations, createAutomation, setAutomationStatus, runAutomationNow, SCHEDULE_INTERVALS,
+  type Agent, type AgentHire, type AutomationRun, type Approval, type RunStep, type Automation, type ScheduleInterval,
 } from "@/services/agentService";
 import type { Quote } from "@/services/pricingService";
 
@@ -64,6 +65,7 @@ export default function Team() {
   const [hires, setHires] = useState<AgentHire[]>([]);
   const [runs, setRuns] = useState<AutomationRun[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
   const [taskAgent, setTaskAgent] = useState<Agent | null>(null);
   const [openRunId, setOpenRunId] = useState<string | null>(params.get("run"));
@@ -72,11 +74,12 @@ export default function Team() {
 
   const reload = useCallback(async () => {
     if (!brandId) return;
-    const [a, h, r, ap] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId)]);
+    const [a, h, r, ap, au] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId), listAutomations(brandId)]);
     setAgents(a);
     setHires(h);
     setRuns(r);
     setApprovals(ap);
+    setAutomations(au);
   }, [brandId]);
 
   useEffect(() => {
@@ -222,6 +225,21 @@ export default function Team() {
             </section>
           )}
 
+          {/* ── Automations ── */}
+          {automations.length > 0 && (
+            <section>
+              <SectionTitle icon={<Repeat size={14} className="text-muted-foreground" />} title="On a schedule" count={automations.length} />
+              <div className="grid gap-2">
+                {automations.map((au) => (
+                  <AutomationRow key={au.id} automation={au} userId={user!.id} onChanged={() => { reload(); refetchBalance(); }} onOpenRun={(id) => setOpenRunId(id)} />
+                ))}
+              </div>
+              <p className="font-ui text-[11px] text-muted-foreground mt-2">
+                Scheduled runs start on their own once the runner tick is set up (supabase/sql/phase1_cron.sql). "Run now" always works.
+              </p>
+            </section>
+          )}
+
           {/* ── Runs ── */}
           <section>
             <SectionTitle icon={<Clock size={14} className="text-muted-foreground" />} title="Recent work" count={runs.length} />
@@ -253,8 +271,18 @@ export default function Team() {
           balanceLoading={balanceLoading}
           onClose={() => setTaskAgent(null)}
           onTopUp={() => openPricingModal({ currentBalance: balance })}
-          onCreate={async (name, input, autonomous) => {
-            const r = await createRun({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, policy: { approval: autonomous ? "autonomous" : "review_first" } });
+          onCreate={async (name, input, autonomous, repeat) => {
+            const policy = { approval: autonomous ? "autonomous" : "review_first" } as const;
+            if (repeat !== "once") {
+              const r = await createAutomation({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, interval: repeat, policy });
+              if (!r.success) { toast.error(r.error ?? "Could not set up the schedule"); return false; }
+              toast(`${taskAgent.name} will do this ${SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase() ?? repeat}`);
+              setTaskAgent(null);
+              if (r.run) setOpenRunId(r.run.id);
+              reload();
+              return true;
+            }
+            const r = await createRun({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, policy });
             if (!r.success) { toast.error(r.error ?? "Could not start the task"); return false; }
             toast(`${taskAgent.name} is on it`);
             setTaskAgent(null);
@@ -286,9 +314,10 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
   balanceLoading: boolean;
   onClose: () => void;
   onTopUp: () => void;
-  onCreate: (name: string, input: { brief: string; units: number; platforms: string[] }, autonomous: boolean) => Promise<boolean>;
+  onCreate: (name: string, input: { brief: string; units: number; platforms: string[] }, autonomous: boolean, repeat: ScheduleInterval | "once") => Promise<boolean>;
 }) {
   const [brief, setBrief] = useState("");
+  const [repeat, setRepeat] = useState<ScheduleInterval | "once">("once");
   const [name, setName] = useState("");
   const [units, setUnits] = useState(agent.slug === "copywriter" ? 3 : 1);
   const [platforms, setPlatforms] = useState<string[]>(agent.slug === "researcher" ? [] : ["instagram"]);
@@ -359,6 +388,21 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
               </div>
             </div>
           )}
+          <div>
+            <Label htmlFor="task-repeat" className="text-[12px]">Repeat</Label>
+            <select
+              id="task-repeat"
+              value={repeat}
+              onChange={(e) => setRepeat(e.target.value as ScheduleInterval | "once")}
+              className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] font-ui"
+            >
+              <option value="once">Just once</option>
+              {SCHEDULE_INTERVALS.map((i) => <option key={i.value} value={i.value}>{i.label}</option>)}
+            </select>
+            {repeat !== "once" && (
+              <p className="font-ui text-[11px] text-muted-foreground mt-1">Runs now, then {SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase()}. Each run is quoted and reviewed the same way; pause it any time.</p>
+            )}
+          </div>
           <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
             <input type="checkbox" checked={autonomous} onChange={(e) => setAutonomous(e.target.checked)} className="mt-0.5" />
             <span>Skip my review. The result lands in Recent work without waiting for me. (Nothing is published either way in this phase.)</span>
@@ -385,14 +429,14 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
             disabled={submitting || !brief.trim() || !quote || insufficient}
             onClick={async () => {
               setSubmitting(true);
-              const ok = await onCreate(name, { brief: brief.trim(), units: effectiveUnits, platforms }, autonomous);
+              const ok = await onCreate(name, { brief: brief.trim(), units: effectiveUnits, platforms }, autonomous, repeat);
               setSubmitting(false);
               if (!ok) return;
             }}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50"
           >
             {submitting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            {insufficient ? "Top up to run" : "Run"}
+            {insufficient ? "Top up to run" : repeat === "once" ? "Run" : "Run and schedule"}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -438,6 +482,65 @@ function ApprovalCard({ approval, userId, onDecided, onOpenRun }: { approval: Ap
           {busy === "rejected" ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} Send back
         </button>
         <span className="text-[11px] font-ui text-muted-foreground">Approving keeps the result; sending back cancels the run. Credits already used stay used.</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Automation row ─────────────────────────────────────────
+
+function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automation: Automation; userId: string; onChanged: () => void; onOpenRun: (runId: string) => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const label = SCHEDULE_INTERVALS.find((i) => i.value === automation.schedule_interval)?.label ?? automation.schedule_interval ?? "";
+  const next = automation.next_run_at ? new Date(automation.next_run_at) : null;
+  const paused = automation.status === "paused";
+
+  const act = async (what: string, fn: () => Promise<unknown>) => {
+    setBusy(what);
+    await fn();
+    setBusy(null);
+    onChanged();
+  };
+
+  return (
+    <div className="rounded-xl border border-card-border bg-card/40 px-5 py-3.5 flex items-center gap-3 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-display text-[15px] text-foreground truncate">{automation.name}</span>
+          {paused ? <StatusPill status="paused" /> : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-ui font-medium bg-primary/10 text-primary">{label}</span>}
+        </div>
+        <p className="font-ui text-[12px] text-muted-foreground mt-0.5 truncate">
+          {automation.agent?.name ?? "Agent"} · {automation.task_input.units ?? 1} {automation.agent?.unit_label ?? "item"}{(automation.task_input.units ?? 1) === 1 ? "" : "s"}
+          {next && !paused ? ` · next ${next.toLocaleString()}` : ""}
+          {automation.last_run_at ? ` · last ${new Date(automation.last_run_at).toLocaleDateString()}` : ""}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          disabled={!!busy || paused}
+          onClick={() => act("run", async () => { const r = await runAutomationNow(automation, userId); if (!r.success) toast.error(r.error ?? "Could not start"); else if (r.run) onOpenRun(r.run.id); })}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui hover:border-primary disabled:opacity-50"
+        >
+          {busy === "run" ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} Run now
+        </button>
+        <button
+          disabled={!!busy}
+          onClick={() => act("toggle", () => setAutomationStatus(automation.id, paused ? "active" : "paused"))}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label={paused ? "Resume schedule" : "Pause schedule"}
+          title={paused ? "Resume" : "Pause"}
+        >
+          {paused ? <Play size={14} /> : <Pause size={14} />}
+        </button>
+        <button
+          disabled={!!busy}
+          onClick={() => act("archive", () => setAutomationStatus(automation.id, "archived"))}
+          className="text-muted-foreground hover:text-destructive"
+          aria-label="Remove schedule"
+          title="Remove"
+        >
+          <Archive size={14} />
+        </button>
       </div>
     </div>
   );
