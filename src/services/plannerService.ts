@@ -37,7 +37,8 @@ export async function draftPlan(description: string, agents: Agent[], connection
     userId,
     systemPrompt: plannerSystemPrompt(ctx),
     messages: [{ role: 'user', content: `${text}\n\nRespond with the JSON object only.` }],
-    maxTokens: 1200,
+    // Thinking models spend output tokens before the JSON; leave room.
+    maxTokens: 6000,
     temperature: 0.2,
     userAction: 'plan_automation',
     metadata: { planner: true },
