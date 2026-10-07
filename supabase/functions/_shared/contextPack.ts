@@ -1,12 +1,13 @@
 /**
  * Context pack — the brand brief every agent step is given.
  *
- * Compiled from brands, brand_dna, brand_stage_data and the summaries of
- * recent agent runs (the memory write-back). The text is byte-stable for a
+ * Compiled from brands, brand_dna, brand_stage_data and the team memory
+ * (run summaries, outcomes and the founder's feedback). The text is byte-stable for a
  * given state so the gateway's prompt cache hits across steps in a run; the
  * hash is stored on the run so the founder can see what the agent knew.
  */
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { memoryLine } from "./memory.ts";
 
 export interface ContextPack {
   text: string;
@@ -16,11 +17,12 @@ export interface ContextPack {
 }
 
 export async function buildContextPack(admin: SupabaseClient, brandId: string): Promise<ContextPack> {
-  const [{ data: brand }, { data: dna }, { data: stageData }, { data: runs }] = await Promise.all([
+  const [{ data: brand }, { data: dna }, { data: stageData }, { data: runs }, { data: memories, error: memErr }] = await Promise.all([
     admin.from("brands").select("id, name, tagline, industry, product_type, location, journey_stage, primary_color, secondary_color").eq("id", brandId).maybeSingle(),
     admin.from("brand_dna").select("brand_voice, tone_descriptors, brand_feel, core_promise, positioning_statement, product_positioning, target_audience, customer_profile, customer_insight, pain_points, why_choose_us, campaign_strategy").eq("brand_id", brandId).maybeSingle(),
     admin.from("brand_stage_data").select("stage_key, field_key, value").eq("brand_id", brandId).order("stage_key").order("field_key"),
     admin.from("automation_runs").select("name, output, finished_at").eq("brand_id", brandId).eq("status", "completed").order("finished_at", { ascending: false }).limit(5),
+    admin.from("brand_memories").select("kind, title, summary, created_at").eq("brand_id", brandId).order("created_at", { ascending: false }).limit(12),
   ]);
 
   const grouped: Record<string, Record<string, string>> = {};
@@ -29,13 +31,16 @@ export async function buildContextPack(admin: SupabaseClient, brandId: string): 
     (grouped[row.stage_key] ??= {})[row.field_key] = String(row.value).slice(0, 600);
   }
 
-  const memory = (runs ?? [])
-    .map((r: any) => {
-      const s = r.output?.summary;
-      return typeof s === "string" && s.trim() ? `- ${r.name}: ${s.trim()}` : null;
-    })
-    .filter(Boolean)
-    .join("\n");
+  // Team memory when the table exists; otherwise the summaries of recent runs.
+  const memory = !memErr && (memories?.length ?? 0) > 0
+    ? (memories ?? []).map((m: any) => memoryLine(m)).join("\n")
+    : (runs ?? [])
+        .map((r: any) => {
+          const s = r.output?.summary;
+          return typeof s === "string" && s.trim() ? `- ${r.name}: ${s.trim()}` : null;
+        })
+        .filter(Boolean)
+        .join("\n");
 
   const line = (label: string, v: unknown) => {
     if (v == null) return null;
@@ -82,7 +87,7 @@ export async function buildContextPack(admin: SupabaseClient, brandId: string): 
   }
 
   if (memory) {
-    sections.push("# RECENT AGENT WORK");
+    sections.push("# TEAM MEMORY (what the team did, what came of it, what the founder said; newest first)");
     sections.push(memory);
   }
 

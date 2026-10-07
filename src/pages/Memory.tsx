@@ -572,6 +572,12 @@ export default function Memory() {
                 This is the moat — not faster generation, but better grounding.
                 The studio simply has more of you to draw from.
               </Prose>
+              <Prose>
+                The agents you hire draw on it too, and they add to it. What a run produced, what
+                came of it once it was published or merged, and what you said about it — approved,
+                rejected, reverted — are kept as part of the same memory. You can read all of it on
+                your team page and delete anything that is wrong or no longer true.
+              </Prose>
             </div>
           </div>
         </Section>
