@@ -13,3 +13,6 @@ verify_jwt = false
 # The function checks the user JWT (or the service role) itself so that
 # server-to-server callers (Phase 1 runner) can use the service key.
 verify_jwt = false
+
+[functions.connector-action]
+verify_jwt = false

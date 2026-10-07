@@ -154,17 +154,19 @@ export function summarizeOutput(agentName: string, output: Record<string, unknow
 }
 
 /** Build the user-turn prompt for an agent task step. */
-export function buildTaskPrompt(agent: AgentDefinition, input: Record<string, unknown>): string {
-  const units = normalizeUnits(input.units);
+export function buildTaskPrompt(agent: AgentDefinition, input: Record<string, unknown>, extra = ""): string {
+  const units = normalizeUnits(input.units, 250);
   const platforms = Array.isArray(input.platforms) && input.platforms.length ? (input.platforms as string[]).join(", ") : "founder's choice";
-  return [
+  const lines = [
     `TASK FROM THE FOUNDER:`,
     String(input.brief ?? "").trim() || "(no brief given; use the brand context)",
     ``,
     `REQUEST: produce ${units} ${agent.unit_label}${units === 1 ? "" : "s"}.`,
     `PLATFORMS: ${platforms}.`,
-    `Respond with the JSON object only.`,
-  ].join("\n");
+  ];
+  if (extra) lines.push(``, extra);
+  lines.push(`Respond with the JSON object only.`);
+  return lines.join("\n");
 }
 
 // ── Schedules ────────────────────────────────────────────────────────────────
@@ -214,4 +216,71 @@ export function agentSuitsStage(suited: string[] | null | undefined, stage: stri
   };
   const wanted = new Set(aliases[stage] ?? [stage]);
   return suited.some((s) => wanted.has(s));
+}
+
+// ── Recipes (connector + agent plans) ───────────────────────────────────────
+
+export type RecipeKey = "seo_refresh" | "blog_draft";
+
+export const RECIPES: Record<RecipeKey, { key: RecipeKey; name: string; description: string; provider: "shopify" | "wordpress"; agentSlug: string; unitLabel: string }> = {
+  seo_refresh: {
+    key: "seo_refresh",
+    name: "Refresh product SEO",
+    description: "Reads your products, proposes better search titles and descriptions in your voice, applies them after you approve the diff. Every change is revertible.",
+    provider: "shopify",
+    agentSlug: "seo_specialist",
+    unitLabel: "product",
+  },
+  blog_draft: {
+    key: "blog_draft",
+    name: "Draft a blog post",
+    description: "The Copywriter writes a post from your brief and brand context; it lands in WordPress as a draft you can edit or publish.",
+    provider: "wordpress",
+    agentSlug: "copywriter",
+    unitLabel: "post",
+  },
+};
+
+export interface RecipeInput extends TaskInput {
+  connection_id: string;
+  /** For seo_refresh: how many records to fetch and consider */
+  record_limit?: number;
+}
+
+/**
+ * Connector recipes read first, think second, ask third, write last.
+ * Reversible data writes can skip the approval under an autonomous policy;
+ * the write step itself still records a change set for one-tap revert.
+ */
+export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: RecipeInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+  const limit = Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
+  const steps: PlannedStep[] = [];
+  let i = 0;
+
+  if (recipe === "seo_refresh") {
+    steps.push({ step_index: i++, type: "connector", name: `Read up to ${limit} products`, input: { connection_id: input.connection_id, action: "list_records", limit } });
+    steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: propose changes`, input: { agent_id: agent.id, units: limit, brief: input.brief, use_previous: "records", connection_id: input.connection_id } });
+    if (policy.approval === "review_first") {
+      steps.push({ step_index: i++, type: "approval", name: "Review the changes", input: { kind: "review_changes", connection_id: input.connection_id } });
+    }
+    steps.push({ step_index: i++, type: "connector", name: "Apply approved changes", input: { connection_id: input.connection_id, action: "apply_changes", from_step_type: "agent_task" } });
+    return steps;
+  }
+
+  if (recipe === "blog_draft") {
+    steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: write the post`, input: { agent_id: agent.id, units: 1, brief: input.brief, platforms: ["blog"], output_hint: "blog_post" } });
+    if (policy.approval === "review_first") {
+      steps.push({ step_index: i++, type: "approval", name: "Review the draft", input: { kind: "review_output", connection_id: input.connection_id } });
+    }
+    steps.push({ step_index: i++, type: "connector", name: "Create the draft in WordPress", input: { connection_id: input.connection_id, action: "create_draft", from_step_type: "agent_task" } });
+    return steps;
+  }
+
+  return steps;
+}
+
+/** Units a recipe is quoted on (the agent step is what costs credits). */
+export function recipeUnits(recipe: RecipeKey, input: RecipeInput): number {
+  if (recipe === "seo_refresh") return Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
+  return 1;
 }
