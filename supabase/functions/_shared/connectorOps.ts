@@ -41,16 +41,24 @@ export interface LoadedConnection {
 }
 
 export async function loadConnection(admin: SupabaseClient, connectionId: string): Promise<LoadedConnection> {
-  const [{ data: row }, { data: sec }] = await Promise.all([
+  const [{ data: row }, { data: vaulted, error: vaultErr }] = await Promise.all([
     admin.from("tool_connections").select("*").eq("id", connectionId).maybeSingle(),
-    admin.from("tool_connection_secrets").select("secret").eq("connection_id", connectionId).maybeSingle(),
+    admin.rpc("get_connection_secret", { p_connection_id: connectionId }),
   ]);
   if (!row) throw new ConnectorError("Connection not found", 404);
-  if (!sec?.secret) throw new ConnectorError("This connection has no credentials saved. Edit it and add them.", 400);
+  // Credentials live in Vault. Until the Vault migration has run (or if the
+  // RPC is unavailable) fall back to the legacy column so nothing breaks.
+  let secret = (vaulted ?? null) as Secret | null;
+  if (!secret) {
+    const { data: legacy } = await admin.from("tool_connection_secrets").select("secret").eq("connection_id", connectionId).maybeSingle();
+    secret = (legacy?.secret ?? null) as Secret | null;
+    if (!secret && vaultErr) console.error("[connectors] vault read failed", { connectionId, error: vaultErr.message });
+  }
+  if (!secret) throw new ConnectorError("This connection has no credentials saved. Edit it and add them.", 400);
   if (row.status === "paused") throw new ConnectorError("This connection is paused.", 400);
   return {
     row: { ...row, config: row.config ?? {}, scope: row.scope ?? {}, capabilities: row.capabilities ?? ["read"] },
-    secret: sec.secret as Secret,
+    secret,
   };
 }
 

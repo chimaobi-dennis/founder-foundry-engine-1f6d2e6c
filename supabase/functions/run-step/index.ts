@@ -338,7 +338,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       return { ...gate, stepsRun };
     }
 
-    if (step.type === "connector" && isConnectorWrite(step.input?.action) && !step.input?.approved) {
+    if (step.type === "connector" && isConnectorWrite(step.input?.action) && !step.input?.approved && !step.input?.dry_run) {
       // Plan policy: writes run unreviewed only under an autonomous policy on
       // a plan that includes it, and never for publishing. Otherwise the
       // write itself becomes the thing the founder approves.
@@ -622,6 +622,11 @@ async function runConnectorStep(admin: Admin, run: any, step: any, all: any[]): 
   const ctx = { brandId: run.brand_id, userId: run.user_id, runId: run.id, stepId: step.id };
   const prevAgent = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task");
 
+  // Dry run: say what would happen, call nothing, record nothing.
+  if (step.input?.dry_run && isConnectorWrite(step.input?.action)) {
+    return dryRunReport(step.input.action, loaded, prevAgent, all, step);
+  }
+
   switch (step.input?.action) {
     case "list_records": {
       const records = await runConnector(loaded.row, loaded.secret, { action: "list_records", limit: Number(step.input.limit) || 25 });
@@ -692,6 +697,28 @@ async function runConnectorStep(admin: Admin, run: any, step: any, all: any[]): 
     default:
       throw new ConnectorError(`Unknown connector action ${step.input?.action}`, 400);
   }
+}
+
+/** What a write step would have done, without doing it. */
+function dryRunReport(action: string, loaded: Awaited<ReturnType<typeof loadConnection>>, prevAgent: any, all: any[], step: any): Record<string, unknown> {
+  const out = (prevAgent?.output ?? {}) as any;
+  const name = loaded.row.display_name;
+  if (action === "apply_changes") {
+    const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.records));
+    const d = diffLines((read?.output?.records ?? []) as NormalizedRecord[], (out.changes ?? []) as ProposedChange[], loaded.row.provider, allowedFields(loaded.row.provider, loaded.row.scope));
+    return { dry_run: true, would_change: d.lines, rejected: d.rejected, summary: `Dry run: ${d.lines.length} field change${d.lines.length === 1 ? "" : "s"} across ${d.applied.length} record${d.applied.length === 1 ? "" : "s"} in ${name}. Nothing was written.` };
+  }
+  if (action === "create_draft") {
+    const item = (out.items ?? [])[0];
+    return { dry_run: true, would_create: item ? { title: String(item.title ?? ""), excerpt: String(item.excerpt ?? "") } : null, summary: `Dry run: would create "${String(item?.title ?? "a draft")}" in ${name}. Nothing was created.` };
+  }
+  if (action === "open_pr") {
+    const allowed = (loaded.row.scope?.paths?.length ? loaded.row.scope.paths : DEFAULT_ALLOWED_PATHS) as string[];
+    const v = validateEdit((out.changes ?? []) as any[], allowed);
+    return { dry_run: true, would_open_pr: { title: String(out.pr_title ?? ""), files: v.accepted.map((a) => ({ path: a.path, action: a.action })), rejected: v.rejected }, summary: `Dry run: would open a pull request touching ${v.accepted.length} file${v.accepted.length === 1 ? "" : "s"} in ${name}. Nothing was pushed.` };
+  }
+  const items = ((out.items ?? []) as any[]).filter((it) => it && typeof it === "object");
+  return { dry_run: true, would_publish: items.map((it) => ({ platform: it.platform ?? null, title: it.title ?? null })), summary: `Dry run: would publish ${items.length} post${items.length === 1 ? "" : "s"} via ${name}. Nothing was posted.` };
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

@@ -293,6 +293,8 @@ export interface RecipeInput extends TaskInput {
   schedule_at?: string;
   /** For code_change: files visible under the allowed paths; sizes the quote */
   repo_files?: number;
+  /** Read and propose as usual, but change nothing: write steps only report what they would do */
+  dry_run?: boolean;
 }
 
 /**
@@ -300,6 +302,20 @@ export interface RecipeInput extends TaskInput {
  * Reversible data writes can skip the approval under an autonomous policy;
  * the write step itself still records a change set for one-tap revert.
  */
+/**
+ * A dry run keeps the reads and the agent's proposal but never writes: write
+ * steps are flagged, and review steps are dropped because nothing will change.
+ */
+export function applyDryRun(steps: PlannedStep[]): PlannedStep[] {
+  return steps
+    .filter((s) => s.type !== "approval")
+    .map((s, i) => ({
+      ...s,
+      step_index: i,
+      input: s.type === "connector" && isConnectorWrite(s.input?.action) ? { ...s.input, dry_run: true } : s.input,
+    }));
+}
+
 function planRecipeRunRaw(recipe: RecipeKey, agent: AgentDefinition, input: RecipeInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
   const limit = Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
   const steps: PlannedStep[] = [];
@@ -666,7 +682,8 @@ export function planSingleAgentRun(agent: AgentDefinition, input: TaskInput, pol
   return withActionClasses(planSingleAgentRunRaw(agent, input, policy));
 }
 export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: RecipeInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
-  return withActionClasses(planRecipeRunRaw(recipe, agent, input, policy));
+  const raw = planRecipeRunRaw(recipe, agent, input, policy);
+  return withActionClasses(input.dry_run ? applyDryRun(raw) : raw);
 }
 export function planHiveRun(stages: HiveStage[], input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
   return withActionClasses(planHiveRunRaw(stages, input, policy));

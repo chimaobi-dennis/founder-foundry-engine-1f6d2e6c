@@ -333,6 +333,7 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
     return () => { active = false; };
   }, [recipe, connection.id]);
   const [autonomous, setAutonomous] = useState(false);
+  const [dryRun, setDryRun] = useState(false);
   const linked = Array.isArray((connection.config as any).linked_platforms) ? ((connection.config as any).linked_platforms as string[]) : null;
   const platformChoices = linked && linked.length ? SOCIAL_PLATFORMS.filter((p) => linked.includes(p === "x" ? "twitter" : p)) : SOCIAL_PLATFORMS;
   const [platforms, setPlatforms] = useState<string[]>(platformChoices.slice(0, 1));
@@ -395,7 +396,11 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
               </div>
             </>
           )}
-          {spec.irreversible ? (
+          <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
+            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} className="mt-0.5" />
+            <span>Dry run. Read and propose as usual, then show me what would change. Nothing is written, drafted or published. The agent's work is still charged.</span>
+          </label>
+          {dryRun ? null : spec.irreversible ? (
             <p className="font-ui text-[12px] text-muted-foreground">Publishing can't be undone, so you approve each post before it goes out.</p>
           ) : (
             <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
@@ -414,7 +419,7 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
             onClick={async () => {
               setSubmitting(true);
               const schedule_at = scheduleAt ? new Date(scheduleAt).toISOString() : undefined;
-              const r = await startRecipe({ recipe, brandId, userId, agent, connection, name: `${spec.name} · ${connection.display_name}`, input: { brief: brief.trim(), connection_id: connection.id, record_limit: limit, platforms, schedule_at, repo_files: repoFiles }, policy: { approval: autonomous ? "autonomous" : "review_first" } });
+              const r = await startRecipe({ recipe, brandId, userId, agent, connection, name: `${spec.name} · ${connection.display_name}`, input: { brief: brief.trim(), connection_id: connection.id, record_limit: limit, platforms, schedule_at, repo_files: repoFiles, dry_run: dryRun || undefined }, policy: { approval: autonomous ? "autonomous" : "review_first" } });
               setSubmitting(false);
               if (!r.success) { toast.error(r.error ?? "Could not start"); return; }
               toast(`${agent.name} is on it`);
