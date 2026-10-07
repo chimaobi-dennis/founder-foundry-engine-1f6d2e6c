@@ -396,7 +396,7 @@ function SettingsSection() {
 function GrantsSection() {
   const [userId, setUserId] = useState('');
   const [amount, setAmount] = useState('');
-  const [grantType, setGrantType] = useState<'bonus' | 'adjustment' | 'topup'>('bonus');
+  const [grantType, setGrantType] = useState<'manual_adjustment' | 'credit_purchase' | 'refund'>('manual_adjustment');
   const [description, setDescription] = useState('');
   const [granting, setGranting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; balanceAfter?: number } | null>(null);
@@ -443,9 +443,9 @@ function GrantsSection() {
             <label className="text-[11px] font-ui" style={{ color: '#6B7A8D' }}>Type</label>
             <select value={grantType} onChange={e => setGrantType(e.target.value as any)}
               className="w-full mt-1 px-3 py-2 rounded-lg text-[13px] font-ui" style={{ background: '#1A2530', border: '0.5px solid #2A3A4A', color: '#F5F0E8' }}>
-              <option value="bonus">Bonus</option>
-              <option value="adjustment">Adjustment</option>
-              <option value="topup">Top-up</option>
+              <option value="manual_adjustment">Manual adjustment</option>
+              <option value="credit_purchase">Credit purchase</option>
+              <option value="refund">Refund</option>
             </select>
           </div>
           <div>

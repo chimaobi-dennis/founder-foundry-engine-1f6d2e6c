@@ -276,7 +276,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   captured AS (
     SELECT created_at::date AS day, sum(-amount) AS credits_captured
     FROM public.wallet_transactions
-    WHERE transaction_type IN ('reservation_capture', 'charge', 'capture', 'deduction')
+    WHERE transaction_type IN ('reservation_capture', 'generation_charge')
       AND created_at >= now() - make_interval(days => p_days)
     GROUP BY 1
   ),

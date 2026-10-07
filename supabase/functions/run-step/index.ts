@@ -285,14 +285,20 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       const remaining = Number(run.credits_reserved) - creditsCaptured;
       toCapture = Math.min(toCapture, Math.max(0, remaining));
       let captured = 0;
+      let captureError: string | null = null;
       if (toCapture > 0 && run.generation_id) {
-        const { data: cap } = await admin.rpc("capture_reserved_credits", {
+        const { data: cap, error: capErr } = await admin.rpc("capture_reserved_credits", {
           p_generation_id: run.generation_id,
           p_capture_amount: toCapture,
           p_ai_provider: result.providerUsed ?? null,
           p_ai_model: result.modelUsed ?? null,
         });
+        if (capErr) captureError = capErr.message;
+        else if (!cap?.success) captureError = cap?.error ?? "capture rejected";
         captured = cap?.success ? Number(cap.credits_captured) || 0 : 0;
+        // The work is done and the provider was paid; a billing failure must
+        // be visible, not silent.
+        if (captureError) console.error("[run-step] capture failed", { runId: run.id, stepId: step.id, toCapture, captureError });
       }
       creditsCaptured += captured;
       lastOutput = parsed.value;
@@ -300,6 +306,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       await admin.from("automation_run_steps").update({
         status: "done",
         output: parsed.value,
+        error: captureError ? `Billing: ${captureError}` : null,
         credits_captured: captured,
         cost_usd: Number(result.costUsd) || 0,
         usage_log_id: result.usageLogId ?? null,
