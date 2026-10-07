@@ -13,7 +13,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { ConnectorError, runConnector } from "../_shared/connectors.ts";
-import { loadConnection, revertChangeSet, trimRecords } from "../_shared/connectorOps.ts";
+import { loadConnection, pullRequestStatus, revertChangeSet, trimRecords } from "../_shared/connectorOps.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -31,7 +31,7 @@ serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  let body: { connectionId?: string; changeSetId?: string; action?: string; limit?: number };
+  let body: { connectionId?: string; changeSetId?: string; action?: string; limit?: number; prNumber?: number };
   try {
     body = await req.json();
   } catch {
@@ -67,6 +67,12 @@ serve(async (req) => {
     if (body.action === "list_records") {
       const records = await runConnector(loaded.row, loaded.secret, { action: "list_records", limit: body.limit ?? 10 });
       return json({ success: true, records: trimRecords(records, 300) });
+    }
+
+    if (body.action === "pr_status") {
+      if (!body.prNumber) return json({ success: false, error: "prNumber is required" }, 400);
+      const status = await pullRequestStatus(loaded, Number(body.prNumber));
+      return json({ success: true, status });
     }
 
     return json({ success: false, error: `Unknown action ${body.action}` }, 400);

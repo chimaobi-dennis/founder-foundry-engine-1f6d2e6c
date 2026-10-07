@@ -37,7 +37,7 @@ export interface ChangeSet {
   connection_id: string | null;
   run_id: string | null;
   provider: string;
-  action: 'update_record' | 'create_record' | 'publish_post';
+  action: 'update_record' | 'create_record' | 'publish_post' | 'open_pr';
   target_type: string;
   target_id: string;
   target_label: string | null;
@@ -69,6 +69,8 @@ export interface CreateConnectionInput {
   allowWrites: boolean;
   fields?: string[];
   maxRecordsPerRun?: number;
+  /** code connections: globs the Developer may write under */
+  paths?: string[];
 }
 
 export async function createConnection(input: CreateConnectionInput): Promise<{ success: boolean; error?: string; connection?: ToolConnection }> {
@@ -82,7 +84,7 @@ export async function createConnection(input: CreateConnectionInput): Promise<{ 
       provider: input.provider,
       display_name: input.displayName.trim() || spec.name,
       capabilities: capabilitiesFor(input.provider, input.allowWrites),
-      scope: { fields: input.fields?.length ? input.fields : undefined, max_records_per_run: input.maxRecordsPerRun ?? 50 },
+      scope: { fields: input.fields?.length ? input.fields : undefined, max_records_per_run: input.maxRecordsPerRun ?? 50, paths: input.paths?.length ? input.paths : undefined },
       config: input.config,
       status: 'active',
     })
@@ -100,14 +102,18 @@ export async function createConnection(input: CreateConnectionInput): Promise<{ 
 
 /** Publishing connections get "publish" instead of data_write; the runner checks the right one. */
 export function capabilitiesFor(provider: ConnectorProvider, allowWrites: boolean): Capability[] {
-  if (PROVIDERS[provider]?.kind === 'publish') return allowWrites ? ['read', 'publish'] : ['read'];
+  const kind = PROVIDERS[provider]?.kind;
+  if (kind === 'publish') return allowWrites ? ['read', 'publish'] : ['read'];
+  if (kind === 'code') return allowWrites ? ['read', 'code_write'] : ['read'];
   return allowWrites ? ['read', 'data_write'] : ['read'];
 }
 
 /** Does this connection allow the recipe's write (data_write or publish)? */
 export function connectionAllowsWrites(c: Pick<ToolConnection, 'provider' | 'capabilities'>): boolean {
   const kind = PROVIDERS[c.provider]?.kind;
-  return kind === 'publish' ? c.capabilities.includes('publish') : c.capabilities.includes('data_write');
+  if (kind === 'publish') return c.capabilities.includes('publish');
+  if (kind === 'code') return c.capabilities.includes('code_write');
+  return c.capabilities.includes('data_write');
 }
 
 export async function updateConnectionScope(id: string, patch: { allowWrites?: boolean; fields?: string[]; maxRecordsPerRun?: number; status?: 'active' | 'paused' }): Promise<boolean> {
@@ -167,6 +173,19 @@ export async function revertChange(changeSetId: string): Promise<{ success: bool
   return callConnectorAction({ changeSetId, action: 'revert' });
 }
 
+export interface PrStatus {
+  state: string;
+  merged: boolean;
+  mergeable: boolean | null;
+  html_url: string;
+  head: string;
+  checks: { total: number; success: number; failure: number; pending: number; names: string[] };
+}
+
+export async function pullRequestStatus(connectionId: string, prNumber: number): Promise<{ success: boolean; error?: string; status?: PrStatus }> {
+  return callConnectorAction({ connectionId, action: 'pr_status', prNumber });
+}
+
 // ─── Change sets ────────────────────────────────────────────
 
 export async function listChangeSets(brandId: string, limit = 50): Promise<ChangeSet[]> {
@@ -207,7 +226,7 @@ export async function startRecipe(params: StartRecipeInput): Promise<{ success: 
   const spec = RECIPES[recipe];
   if (!spec) return { success: false, error: 'Unknown recipe' };
   if (connection.provider !== spec.provider) return { success: false, error: `${spec.name} needs a ${PROVIDERS[spec.provider].name} connection.` };
-  if (!connectionAllowsWrites(connection)) return { success: false, error: `Allow ${spec.irreversible ? 'publishing' : 'changes'} on "${connection.display_name}" first.` };
+  if (!connectionAllowsWrites(connection)) return { success: false, error: `Allow ${spec.irreversible ? 'publishing' : spec.provider === 'github' ? 'code changes' : 'changes'} on "${connection.display_name}" first.` };
   // Irreversible recipes are always reviewed, whatever the caller asked for.
   const policy: RunPolicy = spec.irreversible ? DEFAULT_POLICY : (params.policy ?? DEFAULT_POLICY);
   const quote = await quoteRecipe(recipe, agent, input);

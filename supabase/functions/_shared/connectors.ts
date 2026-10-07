@@ -1,3 +1,4 @@
+import { github, parseRepo } from "./github.ts";
 /**
  * Connectors — provider catalog, adapters and change-set helpers.
  *
@@ -5,15 +6,16 @@
  * frontend. The adapters only run in edge functions, where the secret is.
  */
 
-export type ConnectorProvider = "wordpress" | "shopify" | "notion" | "ayrshare";
+export type ConnectorProvider = "wordpress" | "shopify" | "notion" | "ayrshare" | "github";
 export type Capability = "read" | "data_write" | "code_write" | "publish";
 
 /**
  * records:  a system of records agents read and update (Shopify, WordPress)
  * delivery: a place agents deliver new things to (Notion)
  * publish:  irreversible outward actions (social posts); always reviewed
+ * code:     a repository; changes arrive as pull requests on a branch
  */
-export type ProviderKind = "records" | "delivery" | "publish";
+export type ProviderKind = "records" | "delivery" | "publish" | "code";
 
 export interface ConnectorField {
   key: string;
@@ -27,7 +29,7 @@ export interface ProviderSpec {
   provider: ConnectorProvider;
   name: string;
   kind: ProviderKind;
-  targetType: "post" | "product" | "page" | "social_post";
+  targetType: "post" | "product" | "page" | "social_post" | "pull_request";
   targetLabel: string;
   /** Config the UI collects (non-secret) */
   config: { key: string; label: string; placeholder: string }[];
@@ -99,6 +101,20 @@ export const PROVIDERS: Record<ConnectorProvider, ProviderSpec> = {
     fields: [],
     help: "Ayrshare publishes to Instagram, LinkedIn, X, Facebook and TikTok from one key. Link your social accounts in the Ayrshare dashboard first. Posting is irreversible, so it is always reviewed; reverting deletes the post where the network allows it.",
   },
+  github: {
+    provider: "github",
+    name: "GitHub",
+    kind: "code",
+    targetType: "pull_request",
+    targetLabel: "pull requests",
+    config: [
+      { key: "repo", label: "Repository", placeholder: "owner/name or https://github.com/owner/name" },
+      { key: "base_branch", label: "Base branch (optional)", placeholder: "defaults to the repo's default branch" },
+    ],
+    secret: [{ key: "token", label: "Fine-grained personal access token", placeholder: "github_pat_…" }],
+    fields: [],
+    help: "Create a fine-grained token (Settings → Developer settings) limited to this repository with Contents: read & write and Pull requests: read & write. The Developer never pushes to your base branch; every change is a pull request you merge. Secrets, CI, lockfiles and migrations are always off limits.",
+  },
 };
 
 /** Platform names agents use → Ayrshare platform ids. */
@@ -129,6 +145,8 @@ export const DEFAULT_MAX_RECORDS = 50;
 export interface ConnectionScope {
   fields?: string[];
   max_records_per_run?: number;
+  /** code connections: globs the Developer may write under */
+  paths?: string[];
 }
 
 /** Fields the connection may change: the scope's list, else the provider defaults. */
@@ -549,6 +567,18 @@ export async function runConnector(conn: ConnectionRow, secret: Secret, act: Con
       case "list_records": return [];
       default: throw new ConnectorError(`Notion connections only create pages (${act.action} not supported).`, 400);
     }
+  }
+  if (conn.provider === "github") {
+    // Everything beyond "test" goes through connectorOps (branch/PR workflow).
+    if (act.action === "test") {
+      const c = parseRepo(conn.config.repo ?? "");
+      if (!c) throw new ConnectorError("GitHub: repository must be owner/name", 400);
+      const info = await github.repoInfo(secret.token ?? "", c);
+      if (!info.permissions?.push) throw new ConnectorError("GitHub: this token cannot write to the repository (needs Contents: read & write).", 401);
+      return { account: info.full_name, default_branch: info.default_branch, private: info.private };
+    }
+    if (act.action === "list_records") return [];
+    throw new ConnectorError(`GitHub connections work through the Developer agent (${act.action} not supported here).`, 400);
   }
   if (conn.provider === "ayrshare") {
     switch (act.action) {
