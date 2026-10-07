@@ -29,7 +29,8 @@ import { calculateGenerationCredits } from "@/utils/calculateGenerationCredits";
 import { useContentStudioRule } from "@/hooks/use-pricing";
 import { QuoteChip } from "@/components/billing/QuoteChip";
 import { useSearchParams } from "react-router-dom";
-import { getRun, outputToText } from "@/services/agentService";
+import { getRun, outputToText, listAgents, createAutomation } from "@/services/agentService";
+import { toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useCreditBalance } from "@/hooks/use-credit-balance";
 import { usePricingModal } from "@/contexts/PricingModalContext";
@@ -52,7 +53,6 @@ const goals = [
 
 const intervals = [
   { value: "daily", label: "Daily" },
-  { value: "every_48h", label: "Every 48h" },
   { value: "weekly", label: "Weekly" },
   { value: "biweekly", label: "Biweekly" },
   { value: "monthly", label: "Monthly" },
@@ -216,8 +216,8 @@ export default function ContentStudioNew() {
         name: name.trim(),
         brief: briefText.trim() || undefined,
         campaign_goal: campaignGoal,
-        is_series: isSeries,
-        series_interval: isSeries ? seriesInterval : undefined,
+        // Repeats run through the agent runner (an automation), not the old cron.
+        is_series: false,
         selected_platform_ids: selectedPlatformIds,
         // AI Workspace Configuration
         visual_direction: visualDirection,
@@ -229,6 +229,29 @@ export default function ContentStudioNew() {
         // Selected library assets for visual context
         selected_library_assets: selectedLibraryAssets.length > 0 ? selectedLibraryAssets : undefined,
       });
+
+      // A series becomes a scheduled Copywriter automation, reviewed on Your team.
+      if (isSeries) {
+        try {
+          const agents = await listAgents();
+          const copywriter = agents.find((a) => a.slug === "copywriter");
+          const names = platforms.filter((p) => selectedPlatformIds.includes(p.id)).map((p) => String(p.slug ?? p.name).toLowerCase());
+          if (!copywriter) throw new Error("The Copywriter agent is not available.");
+          const r = await createAutomation({
+            brandId: activeBrand.id,
+            userId: user.id,
+            agent: copywriter,
+            name: `${name.trim()} (series)`,
+            input: { brief: (briefText.trim() || campaignGoal || name).toString(), units: Math.max(1, names.length), platforms: names },
+            interval: seriesInterval as "daily" | "weekly" | "biweekly" | "monthly",
+            runNow: false,
+          });
+          if (r.success) sonnerToast("Series scheduled. Each run is quoted and waits for your review on Your team.");
+          else sonnerToast.error(r.error?.replace(/^PLAN_LIMIT:\s*/, "") ?? "Could not schedule the series. Your first content is still being created.");
+        } catch (e: any) {
+          sonnerToast.error(e?.message ?? "Could not schedule the series. Your first content is still being created.");
+        }
+      }
 
       // Show charged status
       setBillingStatus('charged');
@@ -567,7 +590,7 @@ export default function ContentStudioNew() {
                   Content series
                 </p>
                 <p className="text-[12px] font-ui text-muted-foreground mt-0.5">
-                  Auto-generate new content on a schedule
+                  Repeat on a schedule through your Copywriter
                 </p>
               </div>
               <span
@@ -608,8 +631,8 @@ export default function ContentStudioNew() {
                   ))}
                 </div>
                 <p className="text-[12px] font-ui text-muted-foreground mt-2">
-                  AI will automatically generate new content at this interval and
-                  notify you to review.
+                  Your Copywriter writes new copy at this interval. Each run is
+                  quoted first and waits for your review on Your team.
                 </p>
               </div>
             )}

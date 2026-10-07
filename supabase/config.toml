@@ -1,14 +1,5 @@
 project_id = "wayprzekrmgocjdjnfjw"
 
-[functions.mentor-chat]
-verify_jwt = false
-
-[functions.detect-milestone]
-verify_jwt = false
-
-[functions.content-series-cron]
-verify_jwt = false
-
 [functions.ai-gateway]
 # The function checks the user JWT (or the service role) itself so that
 # server-to-server callers (Phase 1 runner) can use the service key.
