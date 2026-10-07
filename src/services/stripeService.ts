@@ -27,6 +27,12 @@ export interface CreditPackage {
   // Subscription metadata (optional — present when backend supports it)
   isSubscription: boolean;
   monthlyCredits: number | null;
+  /** 'month' for plans and seats, 'one_time' for top-ups */
+  billingInterval: 'one_time' | 'month';
+  /** 'agent_seat' | 'member_seat' for seat add-ons, else null */
+  addonKind: 'agent_seat' | 'member_seat' | null;
+  limits: Record<string, unknown>;
+  tagline: string | null;
   watermarkExports: boolean;
   priorityGeneration: boolean;
   maxWorkspaces: number | null;
@@ -84,6 +90,10 @@ export async function getCreditPackages(): Promise<CreditPackage[]> {
     sortOrder: Number(row.sort_order ?? 0),
     isSubscription: !!row.is_subscription,
     monthlyCredits: row.monthly_credits != null ? Number(row.monthly_credits) : null,
+    billingInterval: row.billing_interval === 'month' ? 'month' : 'one_time',
+    addonKind: row.addon_kind === 'agent_seat' || row.addon_kind === 'member_seat' ? row.addon_kind : null,
+    limits: row.limits ?? {},
+    tagline: row.tagline ?? null,
     watermarkExports: !!row.watermark_exports,
     priorityGeneration: !!row.priority_generation,
     maxWorkspaces: row.max_workspaces != null ? Number(row.max_workspaces) : null,

@@ -16,6 +16,7 @@ import {
   type ToolConnection, type ChangeSet, type ConnectorProvider, type RecipeKey, type NormalizedRecord, type PrStatus,
 } from "@/services/connectionService";
 import { DEFAULT_ALLOWED_PATHS } from "@shared/github";
+import { planLimitMessage } from "@/services/subscriptionService";
 
 const SOCIAL_PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok"];
 
@@ -264,7 +265,7 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
             onClick={async () => {
               setSubmitting(true);
               const r = await createConnection({ brandId, userId, provider, displayName: name, config, secret, allowWrites, fields, paths: provider === "github" ? paths.split(/\n+/).map((x) => x.trim()).filter(Boolean) : undefined });
-              if (!r.success) { setSubmitting(false); toast.error(r.error ?? "Could not connect"); return; }
+              if (!r.success) { setSubmitting(false); toast.error(planLimitMessage(r.error) ?? r.error ?? "Could not connect"); return; }
               const t = await testConnection(r.connection!.id);
               setSubmitting(false);
               if (t.success) toast(`Connected as ${(t.info as any)?.account ?? "ok"}`); else toast.error(`Saved, but the test failed: ${t.error}`);

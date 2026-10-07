@@ -119,7 +119,7 @@ export function PricingModal() {
       (p.badge || '').toLowerCase().includes('popular')
     );
     if (popular) return popular.id;
-    const subs = packages.filter((p) => p.isSubscription && p.priceUsd > 0);
+    const subs = packages.filter((p) => p.isSubscription && p.priceUsd > 0 && !p.addonKind);
     if (subs.length >= 2) {
       const sorted = [...subs].sort((a, b) => a.priceUsd - b.priceUsd);
       return sorted[Math.floor(sorted.length / 2)].id;

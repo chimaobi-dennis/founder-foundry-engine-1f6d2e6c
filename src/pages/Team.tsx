@@ -29,6 +29,7 @@ import { ConnectionsSection, DiffTable, CodeReview } from "@/components/team/Con
 import { DescribeIt } from "@/components/team/DescribeIt";
 import { listConnections, type ToolConnection } from "@/services/connectionService";
 import { SUPABASE_CONFIG } from "@/config/supabaseConfig";
+import { getEntitlements, planAllows, planLimitMessage, type Entitlements } from "@/services/subscriptionService";
 
 const PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok", "email"];
 
@@ -71,6 +72,7 @@ export default function Team() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [connections, setConnections] = useState<ToolConnection[]>([]);
+  const [ent, setEnt] = useState<Entitlements | null>(null);
   const [loading, setLoading] = useState(true);
   const [taskAgent, setTaskAgent] = useState<Agent | null>(null);
   const [openRunId, setOpenRunId] = useState<string | null>(params.get("run"));
@@ -79,7 +81,8 @@ export default function Team() {
 
   const reload = useCallback(async () => {
     if (!brandId) return;
-    const [a, h, r, ap, au, co] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId), listAutomations(brandId), listConnections(brandId)]);
+    const [a, h, r, ap, au, co, en] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId), listAutomations(brandId), listConnections(brandId), user?.id ? getEntitlements(user.id) : Promise.resolve(null)]);
+    setEnt(en);
     setAgents(a);
     setHires(h);
     setRuns(r);
@@ -123,9 +126,16 @@ export default function Team() {
             Hire an agent, give it a task, review the result. Every task shows its cost before it runs.
           </p>
         </div>
-        <button onClick={() => { reload(); refetchBalance(); }} className="inline-flex items-center gap-1.5 text-[12px] font-ui text-muted-foreground hover:text-foreground">
-          <RefreshCw size={12} /> Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          {ent && (
+            <button onClick={() => navigate("/billing")} className="font-ui text-[11px] text-muted-foreground hover:text-foreground" title="Your plan">
+              {ent.plan_name} · {hires.filter((h) => h.status === "active").length}/{ent.agents < 0 ? "∞" : ent.agents + ent.extra_agent_seats} agents
+            </button>
+          )}
+          <button onClick={() => { reload(); refetchBalance(); }} className="inline-flex items-center gap-1.5 text-[12px] font-ui text-muted-foreground hover:text-foreground">
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
       </header>
 
       {loading ? (
@@ -231,8 +241,13 @@ export default function Team() {
                     </p>
                     <button
                       onClick={async () => {
+                        if (ent) {
+                          const v = planAllows(ent, "agents", hires.filter((h) => h.status === "active").length);
+                          if (v.ok === false) { toast.error(v.reason, { action: { label: "Plans", onClick: () => navigate("/billing") } }); return; }
+                        }
                         const r = await hireAgent(brandId!, user!.id, a.id);
-                        if (r.success) { toast(`${a.name} joined your team`); reload(); } else toast.error(r.error ?? "Could not hire");
+                        if (r.success) { toast(`${a.name} joined your team`); reload(); }
+                        else toast.error(planLimitMessage(r.error) ?? r.error ?? "Could not hire", planLimitMessage(r.error) ? { action: { label: "Plans", onClick: () => navigate("/billing") } } : undefined);
                       }}
                       className="mt-auto inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui hover:border-primary"
                     >
@@ -305,7 +320,7 @@ export default function Team() {
             const policy = { approval: autonomous ? "autonomous" : "review_first" } as const;
             if (repeat !== "once") {
               const r = await createAutomation({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, interval: repeat === "webhook" ? "weekly" : repeat, trigger: repeat === "webhook" ? "webhook" : "schedule", policy });
-              if (!r.success) { toast.error(r.error ?? "Could not set up the schedule"); return false; }
+              if (!r.success) { toast.error(planLimitMessage(r.error) ?? r.error ?? "Could not set up the schedule"); return false; }
               toast(repeat === "webhook" ? "Webhook ready; copy its URL from the schedule list" : `${taskAgent.name} will do this ${SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase() ?? repeat}`);
               setTaskAgent(null);
               if (r.run) setOpenRunId(r.run.id);
