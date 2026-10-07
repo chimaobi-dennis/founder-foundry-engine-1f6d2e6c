@@ -23,3 +23,10 @@ verify_jwt = false
 
 [functions.manage-subscription]
 verify_jwt = false
+
+[functions.stripe-webhook]
+# Stripe signs requests; there is no user JWT. Signature is verified in code.
+verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = false

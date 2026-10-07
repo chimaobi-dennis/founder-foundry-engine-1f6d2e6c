@@ -12,6 +12,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { corsHeaders, json } from "../_shared/cors.ts";
+import { syncSubscription, grantForPeriod } from "../_shared/stripeSync.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -31,7 +32,7 @@ serve(async (req) => {
   if (!user) return json({ success: false, error: "Unauthorized" }, 401);
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  let body: { action?: string; agentSeats?: number; memberSeats?: number; packageId?: string; returnUrl?: string };
+  let body: { action?: string; agentSeats?: number; memberSeats?: number; packageId?: string; returnUrl?: string; sessionId?: string };
   try {
     body = await req.json();
   } catch {
@@ -50,6 +51,21 @@ serve(async (req) => {
   const origin = body.returnUrl ? new URL(body.returnUrl).origin : req.headers.get("origin") || "https://app.kinika.co";
 
   try {
+    if (body.action === "sync_checkout") {
+      // The success redirect: confirm the session belongs to this user, then
+      // mirror the subscription and grant credits (idempotent) without
+      // waiting for the webhook.
+      if (!body.sessionId) return json({ success: false, error: "sessionId is required" }, 400);
+      const session = await stripe.checkout.sessions.retrieve(body.sessionId);
+      if (session.metadata?.user_id !== user.id) return json({ success: false, error: "Not your checkout session" }, 403);
+      if (session.mode !== "subscription" || !session.subscription) return json({ success: true, kind: session.mode });
+      const stripeSubFull = await stripe.subscriptions.retrieve(session.subscription as string, { expand: ["items.data.price.product"] });
+      const saved = await syncSubscription(admin, stripeSubFull, user.id);
+      let grant: unknown = null;
+      if (saved && ["active", "trialing"].includes(stripeSubFull.status)) grant = await grantForPeriod(admin, saved.id, saved.current_period_start);
+      return json({ success: true, status: stripeSubFull.status, plan: stripeSubFull.metadata?.plan_slug ?? null, grant });
+    }
+
     if (body.action === "portal") {
       const customerId = sub?.stripe_customer_id ?? (await admin.from("stripe_customers").select("stripe_customer_id").eq("user_id", user.id).maybeSingle()).data?.stripe_customer_id;
       if (!customerId) return json({ success: false, error: "No billing account yet. Pick a plan first." }, 404);

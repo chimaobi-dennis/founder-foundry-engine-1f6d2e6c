@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { syncSubscription, grantForPeriod } from "../_shared/stripeSync.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,60 +53,8 @@ serve(async (req) => {
     // ── Service client for DB mutations ──
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // ── Subscription helpers ──
-    const syncSubscription = async (sub: Stripe.Subscription, userIdHint?: string) => {
-      const md = sub.metadata ?? {};
-      const userId = md.user_id || userIdHint;
-      if (!userId) {
-        console.error("[stripe-webhook] subscription without user_id metadata:", sub.id);
-        return null;
-      }
-      let agentSeats = 0, memberSeats = 0;
-      let planPackageId: string | null = md.package_id || null;
-      let planSlug: string = md.plan_slug || "";
-      for (const item of sub.items.data) {
-        const pm = (item.price.product as any)?.metadata ?? item.price.metadata ?? {};
-        // product metadata is only inlined when expanded; fall back to the subscription metadata
-        const kind = pm.addon_kind;
-        if (kind === "agent_seat") agentSeats += item.quantity ?? 0;
-        else if (kind === "member_seat") memberSeats += item.quantity ?? 0;
-        else if (pm.package_id) { planPackageId = pm.package_id; planSlug = pm.plan_slug || planSlug; }
-      }
-      if (!agentSeats && md.agent_seats) agentSeats = Number(md.agent_seats) || 0;
-      if (!memberSeats && md.member_seats) memberSeats = Number(md.member_seats) || 0;
-      const { data: pkg } = planPackageId
-        ? await supabaseAdmin.from("credit_packages").select("id, slug, monthly_credits").eq("id", planPackageId).maybeSingle()
-        : await supabaseAdmin.from("credit_packages").select("id, slug, monthly_credits").eq("slug", planSlug).maybeSingle();
-      const status = (["trialing", "active", "past_due", "canceled", "incomplete", "unpaid"].includes(sub.status) ? sub.status : "incomplete") as string;
-      const row = {
-        user_id: userId,
-        package_id: pkg?.id ?? null,
-        plan_slug: pkg?.slug ?? planSlug ?? "unknown",
-        stripe_subscription_id: sub.id,
-        stripe_customer_id: typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
-        status,
-        monthly_credits: pkg?.monthly_credits ?? 0,
-        extra_agent_seats: agentSeats,
-        extra_member_seats: memberSeats,
-        current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-        cancel_at_period_end: !!sub.cancel_at_period_end,
-      };
-      // A founder has one live subscription; a new one supersedes a canceled one.
-      const { data: saved, error } = await supabaseAdmin
-        .from("subscriptions")
-        .upsert(row, { onConflict: "stripe_subscription_id" })
-        .select("id, current_period_start")
-        .single();
-      if (error) console.error("[stripe-webhook] subscription upsert failed:", error.message);
-      return saved;
-    };
-
-    const grantForPeriod = async (subscriptionRowId: string, periodStart: string) => {
-      const { data, error } = await supabaseAdmin.rpc("grant_subscription_credits", { p_subscription_id: subscriptionRowId, p_period_start: periodStart });
-      if (error) console.error("[stripe-webhook] grant_subscription_credits failed:", error.message);
-      else console.log("[stripe-webhook] monthly credits:", data);
-    };
+    const syncSub = (sub: Stripe.Subscription, hint?: string) => syncSubscription(supabaseAdmin, sub, hint);
+    const grantFor = (id: string, start: string) => grantForPeriod(supabaseAdmin, id, start);
 
     // ── Handle relevant events ──
     switch (event.type) {
@@ -114,8 +63,8 @@ serve(async (req) => {
 
         if (session.mode === "subscription" && session.subscription) {
           const sub = await stripe.subscriptions.retrieve(session.subscription as string, { expand: ["items.data.price.product"] });
-          const saved = await syncSubscription(sub, session.metadata?.user_id);
-          if (saved && ["active", "trialing"].includes(sub.status)) await grantForPeriod(saved.id, saved.current_period_start);
+          const saved = await syncSub(sub, session.metadata?.user_id);
+          if (saved && ["active", "trialing"].includes(sub.status)) await grantFor(saved.id, saved.current_period_start);
           break;
         }
 
@@ -225,7 +174,7 @@ serve(async (req) => {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = await stripe.subscriptions.retrieve((event.data.object as Stripe.Subscription).id, { expand: ["items.data.price.product"] });
-        await syncSubscription(sub);
+        await syncSub(sub);
         break;
       }
 
@@ -241,8 +190,8 @@ serve(async (req) => {
         const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
         if (subId && invoice.billing_reason && invoice.billing_reason !== "subscription_create") {
           const sub = await stripe.subscriptions.retrieve(subId, { expand: ["items.data.price.product"] });
-          const saved = await syncSubscription(sub);
-          if (saved) await grantForPeriod(saved.id, saved.current_period_start);
+          const saved = await syncSub(sub);
+          if (saved) await grantFor(saved.id, saved.current_period_start);
         }
         break;
       }

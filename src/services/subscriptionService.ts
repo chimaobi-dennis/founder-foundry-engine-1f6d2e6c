@@ -124,6 +124,11 @@ export async function changePlan(packageId: string): Promise<{ success: boolean;
   return manage({ action: 'change_plan', packageId });
 }
 
+/** After the Stripe success redirect: mirror the subscription now rather than waiting for the webhook. */
+export async function syncCheckoutSession(sessionId: string): Promise<{ success: boolean; error?: string; status?: string; plan?: string | null }> {
+  return manage({ action: 'sync_checkout', sessionId });
+}
+
 /** Friendly reading of a PLAN_LIMIT database error. */
 export function planLimitMessage(err: unknown): string | null {
   const msg = typeof err === 'string' ? err : (err as any)?.message ?? '';
