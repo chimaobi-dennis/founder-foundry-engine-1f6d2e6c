@@ -493,7 +493,7 @@ function ApprovalCard({ approval, userId, onDecided, onOpenRun }: { approval: Ap
         <button onClick={() => decide("rejected")} disabled={!!busy} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui disabled:opacity-50">
           {busy === "rejected" ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} Send back
         </button>
-        <span className="text-[11px] font-ui text-muted-foreground">{(approval.payload as any)?.diff ? "Approving applies these changes; each one can be reverted afterwards." : "Approving keeps the result; sending back cancels the run."} Credits already used stay used.</span>
+        <span className="text-[11px] font-ui text-muted-foreground">{approval.kind === "review_publish" ? "Approving publishes these posts to your linked accounts. Deleting them afterwards works only where the network allows it." : (approval.payload as any)?.diff ? "Approving applies these changes; each one can be reverted afterwards." : "Approving keeps the result; sending back cancels the run."} Credits already used stay used.</span>
       </div>
     </div>
   );

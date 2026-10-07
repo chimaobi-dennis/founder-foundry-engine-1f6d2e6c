@@ -7,13 +7,13 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
-import { PROVIDERS, allowedFields, type ConnectorProvider, type ConnectionScope, type Capability, type NormalizedRecord } from '@shared/connectors';
+import { PROVIDERS, allowedFields, toAyrsharePlatforms, type ConnectorProvider, type ConnectionScope, type Capability, type NormalizedRecord, type ProviderKind } from '@shared/connectors';
 import { RECIPES, planRecipeRun, recipeUnits, normalizeUnits, DEFAULT_BUDGET, DEFAULT_POLICY, type RecipeKey, type RecipeInput, type RunPolicy, type RunBudget } from '@shared/runner';
 import { quoteAction, type Quote } from './pricingService';
 import { kickRun, type Agent, type AutomationRun } from './agentService';
 
-export { PROVIDERS, RECIPES, allowedFields };
-export type { ConnectorProvider, ConnectionScope, Capability, NormalizedRecord, RecipeKey, RecipeInput };
+export { PROVIDERS, RECIPES, allowedFields, toAyrsharePlatforms };
+export type { ConnectorProvider, ConnectionScope, Capability, NormalizedRecord, RecipeKey, RecipeInput, ProviderKind };
 
 const db = supabase as any;
 
@@ -37,7 +37,7 @@ export interface ChangeSet {
   connection_id: string | null;
   run_id: string | null;
   provider: string;
-  action: 'update_record' | 'create_record';
+  action: 'update_record' | 'create_record' | 'publish_post';
   target_type: string;
   target_id: string;
   target_label: string | null;
@@ -81,7 +81,7 @@ export async function createConnection(input: CreateConnectionInput): Promise<{ 
       user_id: input.userId,
       provider: input.provider,
       display_name: input.displayName.trim() || spec.name,
-      capabilities: input.allowWrites ? ['read', 'data_write'] : ['read'],
+      capabilities: capabilitiesFor(input.provider, input.allowWrites),
       scope: { fields: input.fields?.length ? input.fields : undefined, max_records_per_run: input.maxRecordsPerRun ?? 50 },
       config: input.config,
       status: 'active',
@@ -98,9 +98,24 @@ export async function createConnection(input: CreateConnectionInput): Promise<{ 
   return { success: true, connection: data };
 }
 
+/** Publishing connections get "publish" instead of data_write; the runner checks the right one. */
+export function capabilitiesFor(provider: ConnectorProvider, allowWrites: boolean): Capability[] {
+  if (PROVIDERS[provider]?.kind === 'publish') return allowWrites ? ['read', 'publish'] : ['read'];
+  return allowWrites ? ['read', 'data_write'] : ['read'];
+}
+
+/** Does this connection allow the recipe's write (data_write or publish)? */
+export function connectionAllowsWrites(c: Pick<ToolConnection, 'provider' | 'capabilities'>): boolean {
+  const kind = PROVIDERS[c.provider]?.kind;
+  return kind === 'publish' ? c.capabilities.includes('publish') : c.capabilities.includes('data_write');
+}
+
 export async function updateConnectionScope(id: string, patch: { allowWrites?: boolean; fields?: string[]; maxRecordsPerRun?: number; status?: 'active' | 'paused' }): Promise<boolean> {
   const update: Record<string, unknown> = {};
-  if (patch.allowWrites != null) update.capabilities = patch.allowWrites ? ['read', 'data_write'] : ['read'];
+  if (patch.allowWrites != null) {
+    const { data: cur } = await db.from('tool_connections').select('provider').eq('id', id).maybeSingle();
+    update.capabilities = capabilitiesFor(cur?.provider ?? 'wordpress', patch.allowWrites);
+  }
   if (patch.fields || patch.maxRecordsPerRun != null) {
     const { data: cur } = await db.from('tool_connections').select('scope').eq('id', id).maybeSingle();
     update.scope = { ...(cur?.scope ?? {}), ...(patch.fields ? { fields: patch.fields } : {}), ...(patch.maxRecordsPerRun != null ? { max_records_per_run: patch.maxRecordsPerRun } : {}) };
@@ -192,8 +207,9 @@ export async function startRecipe(params: StartRecipeInput): Promise<{ success: 
   const spec = RECIPES[recipe];
   if (!spec) return { success: false, error: 'Unknown recipe' };
   if (connection.provider !== spec.provider) return { success: false, error: `${spec.name} needs a ${PROVIDERS[spec.provider].name} connection.` };
-  if (!connection.capabilities.includes('data_write')) return { success: false, error: `Allow data writes on "${connection.display_name}" first; this recipe changes records.` };
-  const policy = params.policy ?? DEFAULT_POLICY;
+  if (!connectionAllowsWrites(connection)) return { success: false, error: `Allow ${spec.irreversible ? 'publishing' : 'changes'} on "${connection.display_name}" first.` };
+  // Irreversible recipes are always reviewed, whatever the caller asked for.
+  const policy: RunPolicy = spec.irreversible ? DEFAULT_POLICY : (params.policy ?? DEFAULT_POLICY);
   const quote = await quoteRecipe(recipe, agent, input);
   if (!quote.fromRule) return { success: false, error: `No pricing rule for ${agent.name}.` };
   const budget: RunBudget = { ...DEFAULT_BUDGET, credits_per_run: Math.min(DEFAULT_BUDGET.credits_per_run, agent.per_run_credit_ceiling), ...(params.budget ?? {}) };

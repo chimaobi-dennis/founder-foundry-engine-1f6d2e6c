@@ -5,8 +5,15 @@
  * frontend. The adapters only run in edge functions, where the secret is.
  */
 
-export type ConnectorProvider = "wordpress" | "shopify";
-export type Capability = "read" | "data_write" | "code_write";
+export type ConnectorProvider = "wordpress" | "shopify" | "notion" | "ayrshare";
+export type Capability = "read" | "data_write" | "code_write" | "publish";
+
+/**
+ * records:  a system of records agents read and update (Shopify, WordPress)
+ * delivery: a place agents deliver new things to (Notion)
+ * publish:  irreversible outward actions (social posts); always reviewed
+ */
+export type ProviderKind = "records" | "delivery" | "publish";
 
 export interface ConnectorField {
   key: string;
@@ -19,7 +26,8 @@ export interface ConnectorField {
 export interface ProviderSpec {
   provider: ConnectorProvider;
   name: string;
-  targetType: "post" | "product";
+  kind: ProviderKind;
+  targetType: "post" | "product" | "page" | "social_post";
   targetLabel: string;
   /** Config the UI collects (non-secret) */
   config: { key: string; label: string; placeholder: string }[];
@@ -33,6 +41,7 @@ export const PROVIDERS: Record<ConnectorProvider, ProviderSpec> = {
   wordpress: {
     provider: "wordpress",
     name: "WordPress",
+    kind: "records",
     targetType: "post",
     targetLabel: "posts",
     config: [{ key: "site_url", label: "Site URL", placeholder: "https://yourblog.com" }],
@@ -51,6 +60,7 @@ export const PROVIDERS: Record<ConnectorProvider, ProviderSpec> = {
   shopify: {
     provider: "shopify",
     name: "Shopify",
+    kind: "records",
     targetType: "product",
     targetLabel: "products",
     config: [{ key: "shop_domain", label: "Shop domain", placeholder: "your-store.myshopify.com" }],
@@ -64,7 +74,55 @@ export const PROVIDERS: Record<ConnectorProvider, ProviderSpec> = {
     ],
     help: "Create a custom app in Shopify admin (Settings → Apps → Develop apps) with read_products and write_products scopes, then install it to get the token.",
   },
+  notion: {
+    provider: "notion",
+    name: "Notion",
+    kind: "delivery",
+    targetType: "page",
+    targetLabel: "pages",
+    config: [{ key: "database_id", label: "Database ID", placeholder: "32-character id from the database URL" }],
+    secret: [{ key: "token", label: "Internal integration token", placeholder: "ntn_… or secret_…" }],
+    fields: [
+      { key: "title", label: "Page title", defaultAllowed: true, maxLength: 200 },
+      { key: "content", label: "Page body", defaultAllowed: true },
+    ],
+    help: "Create an internal integration at notion.so/my-integrations, then share the target database with it (••• → Connections). Agents create pages there; reverting archives the page.",
+  },
+  ayrshare: {
+    provider: "ayrshare",
+    name: "Social (Ayrshare)",
+    kind: "publish",
+    targetType: "social_post",
+    targetLabel: "posts",
+    config: [],
+    secret: [{ key: "api_key", label: "Ayrshare API key", placeholder: "from app.ayrshare.com → API Key" }],
+    fields: [],
+    help: "Ayrshare publishes to Instagram, LinkedIn, X, Facebook and TikTok from one key. Link your social accounts in the Ayrshare dashboard first. Posting is irreversible, so it is always reviewed; reverting deletes the post where the network allows it.",
+  },
 };
+
+/** Platform names agents use → Ayrshare platform ids. */
+export const AYRSHARE_PLATFORMS: Record<string, string> = {
+  instagram: "instagram",
+  linkedin: "linkedin",
+  x: "twitter",
+  twitter: "twitter",
+  facebook: "facebook",
+  tiktok: "tiktok",
+  youtube: "youtube",
+  pinterest: "pinterest",
+  threads: "threads",
+  bluesky: "bluesky",
+};
+
+export function toAyrsharePlatforms(platforms: string[] | null | undefined): string[] {
+  const out = new Set<string>();
+  for (const p of platforms ?? []) {
+    const k = AYRSHARE_PLATFORMS[String(p).toLowerCase().trim()];
+    if (k) out.add(k);
+  }
+  return [...out];
+}
 
 export const DEFAULT_MAX_RECORDS = 50;
 
@@ -335,6 +393,132 @@ const shopify = {
   },
 };
 
+// Notion ────────────────────────────────────────────────────────────────────
+
+const NOTION_VERSION = "2022-06-28";
+
+function notionHeaders(secret: Secret): Record<string, string> {
+  return { Authorization: `Bearer ${secret.token ?? ""}`, "Notion-Version": NOTION_VERSION, "content-type": "application/json" };
+}
+
+/** Plain text → Notion paragraph/heading blocks (2000-char rich-text limit per block). */
+export function textToNotionBlocks(text: string): any[] {
+  const blocks: any[] = [];
+  for (const raw of String(text ?? "").split(/\n{2,}/)) {
+    const para = raw.trim();
+    if (!para) continue;
+    const heading = para.match(/^#{1,3}\s+(.*)$/);
+    if (heading && para.split("\n").length === 1) {
+      blocks.push({ object: "block", type: "heading_2", heading_2: { rich_text: [{ type: "text", text: { content: heading[1].slice(0, 2000) } }] } });
+      continue;
+    }
+    for (let i = 0; i < para.length; i += 2000) {
+      blocks.push({ object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: para.slice(i, i + 2000) } }] } });
+    }
+    if (blocks.length >= 100) break; // API limit per request
+  }
+  return blocks;
+}
+
+const notion = {
+  async test(conn: ConnectionRow, secret: Secret) {
+    const res = await fetch(`https://api.notion.com/v1/databases/${encodeURIComponent(conn.config.database_id ?? "")}`, { headers: notionHeaders(secret) });
+    const body = await readJson(res);
+    if (!res.ok) fail("Notion", res, body);
+    const title = (body?.title ?? []).map((t: any) => t.plain_text).join("") || "database";
+    const titleProp = Object.entries(body?.properties ?? {}).find(([, v]: any) => v.type === "title")?.[0] ?? "Name";
+    return { account: title, title_property: titleProp };
+  },
+  async titleProperty(conn: ConnectionRow, secret: Secret): Promise<string> {
+    const info = await notion.test(conn, secret);
+    return info.title_property;
+  },
+  async create(conn: ConnectionRow, secret: Secret, fields: Record<string, string>): Promise<NormalizedRecord> {
+    const titleProp = await notion.titleProperty(conn, secret);
+    const res = await fetch("https://api.notion.com/v1/pages", {
+      method: "POST",
+      headers: notionHeaders(secret),
+      body: JSON.stringify({
+        parent: { database_id: conn.config.database_id },
+        properties: { [titleProp]: { title: [{ type: "text", text: { content: String(fields.title ?? "Untitled").slice(0, 200) } }] } },
+        children: textToNotionBlocks([fields.excerpt, fields.content].filter(Boolean).join("\n\n")),
+      }),
+    });
+    const body = await readJson(res);
+    if (!res.ok) fail("Notion", res, body);
+    return { id: String(body.id), label: String(fields.title ?? "Untitled"), url: body.url, fields: { title: String(fields.title ?? ""), content: String(fields.content ?? "") } };
+  },
+  async archive(conn: ConnectionRow, secret: Secret, id: string): Promise<void> {
+    const res = await fetch(`https://api.notion.com/v1/pages/${encodeURIComponent(id)}`, { method: "PATCH", headers: notionHeaders(secret), body: JSON.stringify({ archived: true }) });
+    const body = await readJson(res);
+    if (!res.ok) fail("Notion", res, body);
+  },
+};
+
+// Ayrshare (social publishing aggregator) ───────────────────────────────────
+
+function ayrHeaders(secret: Secret): Record<string, string> {
+  return { Authorization: `Bearer ${secret.api_key ?? ""}`, "content-type": "application/json" };
+}
+
+export interface PublishResult {
+  id: string;
+  platforms: string[];
+  post_ids: Record<string, string>;
+  urls: Record<string, string>;
+  status: string;
+}
+
+const ayrshare = {
+  async test(_conn: ConnectionRow, secret: Secret) {
+    const res = await fetch("https://api.ayrshare.com/api/user", { headers: ayrHeaders(secret) });
+    const body = await readJson(res);
+    if (!res.ok) fail("Ayrshare", res, body);
+    return { account: body?.title ?? body?.email ?? "ok", linked_platforms: body?.activeSocialAccounts ?? [] };
+  },
+  async publish(_conn: ConnectionRow, secret: Secret, text: string, platforms: string[], scheduleDate?: string): Promise<PublishResult> {
+    if (!platforms.length) throw new ConnectorError("No supported platforms selected for this post.", 400);
+    const res = await fetch("https://api.ayrshare.com/api/post", {
+      method: "POST",
+      headers: ayrHeaders(secret),
+      body: JSON.stringify({ post: text, platforms, ...(scheduleDate ? { scheduleDate } : {}) }),
+    });
+    const body = await readJson(res);
+    if (!res.ok || body?.status === "error") fail("Ayrshare", res, body);
+    const post_ids: Record<string, string> = {};
+    const urls: Record<string, string> = {};
+    for (const p of body?.postIds ?? []) {
+      if (p?.platform) {
+        if (p.id) post_ids[p.platform] = String(p.id);
+        if (p.postUrl) urls[p.platform] = String(p.postUrl);
+      }
+    }
+    return { id: String(body?.id ?? ""), platforms, post_ids, urls, status: String(body?.status ?? "success") };
+  },
+  async remove(_conn: ConnectionRow, secret: Secret, id: string): Promise<void> {
+    const res = await fetch("https://api.ayrshare.com/api/post", { method: "DELETE", headers: ayrHeaders(secret), body: JSON.stringify({ id }) });
+    const body = await readJson(res);
+    if (!res.ok || body?.status === "error") fail("Ayrshare", res, body);
+  },
+};
+
+export interface PublishItem {
+  platform?: string;
+  platforms?: string[];
+  title?: string;
+  body?: string;
+  hashtags?: string[];
+  cta?: string;
+}
+
+/** The text a social post is published with. */
+export function composePostText(item: PublishItem): string {
+  const parts = [String(item.body ?? "").trim()];
+  if (item.cta) parts.push(String(item.cta).trim());
+  if (item.hashtags?.length) parts.push(item.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" "));
+  return parts.filter(Boolean).join("\n\n").trim();
+}
+
 // Dispatch ──────────────────────────────────────────────────────────────────
 
 export type ConnectorAction =
@@ -343,13 +527,37 @@ export type ConnectorAction =
   | { action: "get_record"; id: string }
   | { action: "update_record"; id: string; fields: Record<string, string> }
   | { action: "create_record"; fields: Record<string, string> }
-  | { action: "delete_record"; id: string };
+  | { action: "delete_record"; id: string }
+  | { action: "publish_post"; text: string; platforms: string[]; scheduleDate?: string }
+  | { action: "delete_post"; id: string };
 
 export async function runConnector(conn: ConnectionRow, secret: Secret, act: ConnectorAction): Promise<any> {
   const limit = Math.max(1, Math.min(conn.scope?.max_records_per_run ?? DEFAULT_MAX_RECORDS, (act as any).limit ?? DEFAULT_MAX_RECORDS));
   const needsWrite = act.action === "update_record" || act.action === "create_record" || act.action === "delete_record";
   if (needsWrite && !conn.capabilities.includes("data_write")) {
     throw new ConnectorError("This connection is read-only. Allow data writes on the connection to let agents change records.", 403);
+  }
+  const needsPublish = act.action === "publish_post" || act.action === "delete_post";
+  if (needsPublish && !conn.capabilities.includes("publish")) {
+    throw new ConnectorError("Publishing is not enabled on this connection.", 403);
+  }
+  if (conn.provider === "notion") {
+    switch (act.action) {
+      case "test": return notion.test(conn, secret);
+      case "create_record": return notion.create(conn, secret, act.fields);
+      case "delete_record": return notion.archive(conn, secret, act.id);
+      case "list_records": return [];
+      default: throw new ConnectorError(`Notion connections only create pages (${act.action} not supported).`, 400);
+    }
+  }
+  if (conn.provider === "ayrshare") {
+    switch (act.action) {
+      case "test": return ayrshare.test(conn, secret);
+      case "publish_post": return ayrshare.publish(conn, secret, act.text, act.platforms, act.scheduleDate);
+      case "delete_post": return ayrshare.remove(conn, secret, act.id);
+      case "list_records": return [];
+      default: throw new ConnectorError(`Social connections only publish (${act.action} not supported).`, 400);
+    }
   }
   if (conn.provider === "wordpress") {
     switch (act.action) {

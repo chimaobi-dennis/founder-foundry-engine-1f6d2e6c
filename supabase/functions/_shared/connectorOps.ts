@@ -9,10 +9,14 @@ import {
   ConnectorError,
   diffLines,
   runConnector,
+  toAyrsharePlatforms,
   type ConnectionRow,
   type NormalizedRecord,
   type ProposedChange,
+  type PublishResult,
   type Secret,
+  composePostText,
+  type PublishItem,
 } from "./connectors.ts";
 import { PROVIDERS } from "./connectors.ts";
 
@@ -116,6 +120,47 @@ export async function createRecord(admin: SupabaseClient, ctx: ApplyContext, loa
   return { change_set_id: cs?.id, record };
 }
 
+export interface PublishOutcome {
+  published: { change_set_id: string; platforms: string[]; urls: Record<string, string>; text: string }[];
+  failed: { platforms: string[]; error: string; text: string }[];
+}
+
+/** Publish each item through a social connection; one change set per post. */
+export async function publishItems(admin: SupabaseClient, ctx: ApplyContext, loaded: LoadedConnection, items: PublishItem[], scheduleDate?: string): Promise<PublishOutcome> {
+  const { row, secret } = loaded;
+  const out: PublishOutcome = { published: [], failed: [] };
+  for (const item of items) {
+    const platforms = toAyrsharePlatforms(item.platforms?.length ? item.platforms : item.platform ? [item.platform] : []);
+    const text = composePostText(item);
+    if (!text) continue;
+    if (!platforms.length) {
+      out.failed.push({ platforms: [], error: `No supported platform on "${item.title ?? text.slice(0, 40)}"`, text });
+      continue;
+    }
+    try {
+      const res = (await runConnector(row, secret, { action: "publish_post", text, platforms, scheduleDate })) as PublishResult;
+      const { data: cs } = await admin.from("change_sets").insert({
+        brand_id: ctx.brandId,
+        user_id: ctx.userId,
+        connection_id: row.id,
+        run_id: ctx.runId ?? null,
+        step_id: ctx.stepId ?? null,
+        provider: row.provider,
+        action: "publish_post",
+        target_type: "social_post",
+        target_id: res.id || `${Date.now()}`,
+        target_label: item.title || text.slice(0, 60),
+        before: {},
+        after: { text, platforms: platforms.join(", "), ...(scheduleDate ? { scheduled_for: scheduleDate } : {}), ...Object.fromEntries(Object.entries(res.urls).map(([k, v]) => [`url_${k}`, v])) },
+      }).select("id").single();
+      out.published.push({ change_set_id: cs?.id, platforms, urls: res.urls, text });
+    } catch (e) {
+      out.failed.push({ platforms, error: (e as Error).message, text });
+    }
+  }
+  return out;
+}
+
 /** Put the before values back (or trash a created record). Idempotent. */
 export async function revertChangeSet(admin: SupabaseClient, changeSetId: string, userId: string): Promise<{ success: boolean; error?: string }> {
   const { data: cs } = await admin.from("change_sets").select("*").eq("id", changeSetId).maybeSingle();
@@ -127,6 +172,8 @@ export async function revertChangeSet(admin: SupabaseClient, changeSetId: string
     const loaded = await loadConnection(admin, cs.connection_id);
     if (cs.action === "create_record") {
       await runConnector(loaded.row, loaded.secret, { action: "delete_record", id: cs.target_id });
+    } else if (cs.action === "publish_post") {
+      await runConnector(loaded.row, loaded.secret, { action: "delete_post", id: cs.target_id });
     } else {
       await runConnector(loaded.row, loaded.secret, { action: "update_record", id: cs.target_id, fields: cs.before as Record<string, string> });
     }

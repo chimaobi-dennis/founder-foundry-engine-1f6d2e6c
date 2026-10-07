@@ -10,11 +10,13 @@ import { QuoteChip } from "@/components/billing/QuoteChip";
 import type { Quote } from "@/services/pricingService";
 import type { Agent } from "@/services/agentService";
 import {
-  PROVIDERS, RECIPES, allowedFields,
+  PROVIDERS, RECIPES, allowedFields, connectionAllowsWrites,
   listConnections, createConnection, updateConnectionScope, removeConnection, testConnection, previewRecords,
   listChangeSets, revertChange, quoteRecipe, startRecipe,
   type ToolConnection, type ChangeSet, type ConnectorProvider, type RecipeKey, type NormalizedRecord,
 } from "@/services/connectionService";
+
+const SOCIAL_PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok"];
 
 const SHORT = (s: string, n = 90) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
@@ -60,7 +62,7 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
         {connections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/70 p-5">
             <p className="font-display text-[15px] text-foreground">Nothing connected yet.</p>
-            <p className="font-ui text-[13px] text-muted-foreground mt-1">Connect your Shopify store or WordPress site and agents can refresh product SEO or draft posts straight into it. Every change is reviewed first and can be reverted.</p>
+            <p className="font-ui text-[13px] text-muted-foreground mt-1">Connect Shopify, WordPress, Notion or your social accounts and agents can work straight into them. Changes are reviewed first and can be reverted; publishing is always approved by you.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -109,9 +111,11 @@ function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connec
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<NormalizedRecord[] | null>(null);
   const spec = PROVIDERS[c.provider];
-  const writes = c.capabilities.includes("data_write");
+  const writes = connectionAllowsWrites(c);
   const recipes = Object.values(RECIPES).filter((r) => r.provider === c.provider && agents.some((a) => a.slug === r.agentSlug));
   const fields = allowedFields(c.provider, c.scope);
+  const isPublish = spec.kind === "publish";
+  const linked = Array.isArray((c.config as any).linked_platforms) ? ((c.config as any).linked_platforms as string[]) : null;
 
   const act = async (what: string, fn: () => Promise<unknown>) => { setBusy(what); await fn(); setBusy(null); await onChanged(); };
 
@@ -125,7 +129,10 @@ function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connec
             {c.status === "error" && <span className="inline-flex items-center gap-1 text-[11px] font-ui text-destructive"><AlertTriangle size={11} /> needs attention</span>}
             {c.status === "paused" && <span className="text-[11px] font-ui text-muted-foreground">paused</span>}
           </div>
-          <p className="font-ui text-[12px] text-muted-foreground mt-0.5 truncate">{c.config.site_url ?? c.config.shop_domain}</p>
+          <p className="font-ui text-[12px] text-muted-foreground mt-0.5 truncate">
+            {c.config.site_url ?? c.config.shop_domain ?? (c.config.database_id ? `Database ${String(c.config.database_id).slice(0, 8)}…` : null) ?? c.config.account ?? ""}
+            {isPublish && linked ? (linked.length ? ` · linked: ${linked.join(", ")}` : " · no social accounts linked yet") : ""}
+          </p>
         </div>
         <button onClick={() => act("toggle", () => updateConnectionScope(c.id, { status: c.status === "paused" ? "active" : "paused" }))} className="text-muted-foreground hover:text-foreground" title={c.status === "paused" ? "Resume" : "Pause"} aria-label={c.status === "paused" ? "Resume connection" : "Pause connection"}>
           {c.status === "paused" ? <Play size={14} /> : <Pause size={14} />}
@@ -137,9 +144,15 @@ function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connec
       <div className="font-ui text-[12px] text-muted-foreground">
         <label className="inline-flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={writes} onChange={(e) => act("writes", () => updateConnectionScope(c.id, { allowWrites: e.target.checked }))} />
-          Agents may change: <span className="text-foreground">{fields.map((f) => spec.fields.find((x) => x.key === f)?.label ?? f).join(", ")}</span>
+          {isPublish ? (
+            <>Agents may publish here <span className="text-foreground">(every post approved by you first)</span></>
+          ) : spec.kind === "delivery" ? (
+            <>Agents may create {spec.targetLabel} here</>
+          ) : (
+            <>Agents may change: <span className="text-foreground">{fields.map((f) => spec.fields.find((x) => x.key === f)?.label ?? f).join(", ")}</span></>
+          )}
         </label>
-        {!writes && <span className="block text-[11px] mt-0.5">Read-only until you tick this. Writes are always reviewed and revertible.</span>}
+        {!writes && <span className="block text-[11px] mt-0.5">{isPublish ? "Nothing is published until you tick this." : "Read-only until you tick this. Writes are always reviewed and revertible."}</span>}
       </div>
 
       {preview && (
@@ -158,9 +171,11 @@ function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connec
         <button disabled={!!busy} onClick={() => act("test", async () => { const r = await testConnection(c.id); if (r.success) toast(`Connected as ${(r.info as any)?.account ?? "ok"}`); else toast.error(r.error ?? "Connection failed"); })} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-ui">
           {busy === "test" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Test
         </button>
-        <button disabled={!!busy} onClick={async () => { setBusy("preview"); const r = await previewRecords(c.id, 5); setBusy(null); if (r.success) setPreview(r.records ?? []); else toast.error(r.error ?? "Could not read"); }} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-ui">
-          {busy === "preview" ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Preview
-        </button>
+        {spec.kind === "records" && (
+          <button disabled={!!busy} onClick={async () => { setBusy("preview"); const r = await previewRecords(c.id, 5); setBusy(null); if (r.success) setPreview(r.records ?? []); else toast.error(r.error ?? "Could not read"); }} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-ui">
+            {busy === "preview" ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Preview
+          </button>
+        )}
         <button disabled={!!busy} onClick={() => act("remove", async () => { if (await removeConnection(c.id)) toast("Connection removed"); })} className="ml-auto text-muted-foreground hover:text-destructive" aria-label="Remove connection" title="Remove">
           <Trash2 size={14} />
         </button>
@@ -214,6 +229,7 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
               <Input id={`conn-${s.key}`} type="password" value={secret[s.key] ?? ""} onChange={(e) => setSecret({ ...secret, [s.key]: e.target.value })} placeholder={s.placeholder} className="mt-1" autoComplete="new-password" />
             </div>
           ))}
+          {spec.fields.length > 0 && (
           <div>
             <Label className="text-[12px]">Fields agents may change</Label>
             <div className="flex flex-wrap gap-1.5 mt-1">
@@ -223,9 +239,10 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
               })}
             </div>
           </div>
+          )}
           <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
             <input type="checkbox" checked={allowWrites} onChange={(e) => setAllowWrites(e.target.checked)} className="mt-0.5" />
-            <span>Allow agents to change these fields (after your review). Leave off to start read-only.</span>
+            <span>{spec.kind === "publish" ? "Allow agents to publish here. Every post is approved by you before it goes out." : spec.kind === "delivery" ? "Allow agents to create pages here (after your review)." : "Allow agents to change these fields (after your review). Leave off to start read-only."}</span>
           </label>
         </div>
         <DialogFooter>
@@ -262,15 +279,19 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
   const [brief, setBrief] = useState("");
   const [limit, setLimit] = useState(10);
   const [autonomous, setAutonomous] = useState(false);
+  const linked = Array.isArray((connection.config as any).linked_platforms) ? ((connection.config as any).linked_platforms as string[]) : null;
+  const platformChoices = linked && linked.length ? SOCIAL_PLATFORMS.filter((p) => linked.includes(p === "x" ? "twitter" : p)) : SOCIAL_PLATFORMS;
+  const [platforms, setPlatforms] = useState<string[]>(platformChoices.slice(0, 1));
+  const [scheduleAt, setScheduleAt] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!agent) return;
     let active = true;
-    quoteRecipe(recipe, agent, { brief, connection_id: connection.id, record_limit: limit }).then((q) => { if (active) setQuote(q); });
+    quoteRecipe(recipe, agent, { brief, connection_id: connection.id, record_limit: limit, platforms }).then((q) => { if (active) setQuote(q); });
     return () => { active = false; };
-  }, [agent, recipe, limit, brief, connection.id]);
+  }, [agent, recipe, limit, brief, connection.id, platforms]);
 
   if (!agent) {
     return (
@@ -293,8 +314,8 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
             {agent.name} on <span className="text-foreground">{connection.display_name}</span>. May change: {allowedFields(connection.provider, connection.scope).join(", ")}.
           </p>
           <div>
-            <Label htmlFor="recipe-brief" className="text-[12px]">{recipe === "blog_draft" ? "What should the post be about?" : "Anything the agent should know? (optional)"}</Label>
-            <Textarea id="recipe-brief" rows={3} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder={recipe === "blog_draft" ? "e.g. Why we started the association, and what new students can expect this term" : "e.g. Focus on the autumn collection; keep 'hand-glazed' in every title"} className="mt-1" />
+            <Label htmlFor="recipe-brief" className="text-[12px]">{recipe === "seo_refresh" ? "Anything the agent should know? (optional)" : "What should it be about?"}</Label>
+            <Textarea id="recipe-brief" rows={3} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder={recipe === "social_publish" ? "e.g. Announce Saturday's cultural night: food, music, dance, 18:00 at the student union" : recipe === "seo_refresh" ? "e.g. Focus on the autumn collection; keep 'hand-glazed' in every title" : "e.g. Why we started the association, and what new students can expect this term"} className="mt-1" />
           </div>
           {recipe === "seo_refresh" && (
             <div>
@@ -302,10 +323,32 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
               <Input id="recipe-limit" type="number" min={1} max={250} value={limit} onChange={(e) => setLimit(Math.max(1, Math.min(250, Number(e.target.value) || 1)))} className="mt-1 w-32" />
             </div>
           )}
-          <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
-            <input type="checkbox" checked={autonomous} onChange={(e) => setAutonomous(e.target.checked)} className="mt-0.5" />
-            <span>Apply without my review. Changes are still logged and revertible one by one.</span>
-          </label>
+          {recipe === "social_publish" && (
+            <>
+              <div>
+                <Label className="text-[12px]">Platforms</Label>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {platformChoices.map((p) => {
+                    const on = platforms.includes(p);
+                    return <button key={p} type="button" onClick={() => setPlatforms(on ? platforms.filter((x) => x !== p) : [...platforms, p])} className={cn("px-2.5 py-1 rounded-full text-[11px] font-ui border capitalize", on ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground")}>{p}</button>;
+                  })}
+                </div>
+                {linked && !linked.length && <p className="font-ui text-[11px] text-muted-foreground mt-1">No social accounts are linked in Ayrshare yet; link them there, then Test this connection.</p>}
+              </div>
+              <div>
+                <Label htmlFor="recipe-schedule" className="text-[12px]">Schedule for (optional, leave empty to post right after approval)</Label>
+                <Input id="recipe-schedule" type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} className="mt-1 w-60" />
+              </div>
+            </>
+          )}
+          {spec.irreversible ? (
+            <p className="font-ui text-[12px] text-muted-foreground">Publishing can't be undone, so you approve each post before it goes out.</p>
+          ) : (
+            <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
+              <input type="checkbox" checked={autonomous} onChange={(e) => setAutonomous(e.target.checked)} className="mt-0.5" />
+              <span>Apply without my review. Changes are still logged and revertible one by one.</span>
+            </label>
+          )}
           {quote && (
             <QuoteChip estimate={quote.estimate} max={quote.max} mode={quote.mode} balance={balance} balanceLoading={balanceLoading} retailUsd={quote.retailUsd} breakdown={quote.breakdown} onTopUp={onTopUp} />
           )}
@@ -313,10 +356,11 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
         <DialogFooter>
           <button onClick={onClose} className="px-3 py-2 rounded-lg text-[12px] font-ui text-muted-foreground">Cancel</button>
           <button
-            disabled={submitting || !quote || insufficient || (recipe === "blog_draft" && !brief.trim())}
+            disabled={submitting || !quote || insufficient || ((recipe === "blog_draft" || recipe === "notion_draft" || recipe === "social_publish") && !brief.trim()) || (recipe === "social_publish" && platforms.length === 0)}
             onClick={async () => {
               setSubmitting(true);
-              const r = await startRecipe({ recipe, brandId, userId, agent, connection, name: `${spec.name} · ${connection.display_name}`, input: { brief: brief.trim(), connection_id: connection.id, record_limit: limit }, policy: { approval: autonomous ? "autonomous" : "review_first" } });
+              const schedule_at = scheduleAt ? new Date(scheduleAt).toISOString() : undefined;
+              const r = await startRecipe({ recipe, brandId, userId, agent, connection, name: `${spec.name} · ${connection.display_name}`, input: { brief: brief.trim(), connection_id: connection.id, record_limit: limit, platforms, schedule_at }, policy: { approval: autonomous ? "autonomous" : "review_first" } });
               setSubmitting(false);
               if (!r.success) { toast.error(r.error ?? "Could not start"); return; }
               toast(`${agent.name} is on it`);
@@ -341,7 +385,7 @@ function ChangeRow({ change: ch, onChanged }: { change: ChangeSet; onChanged: ()
     <div className="rounded-lg border border-border/60 bg-card/30 px-4 py-2.5 flex items-start gap-3 flex-wrap">
       <div className="min-w-0 flex-1">
         <p className="font-ui text-[13px] text-foreground truncate">
-          {ch.action === "create_record" ? "Created" : "Updated"} <span className="font-medium">{ch.target_label ?? ch.target_id}</span>
+          {ch.action === "create_record" ? "Created" : ch.action === "publish_post" ? (ch.after.scheduled_for ? "Scheduled" : "Published") : "Updated"} <span className="font-medium">{ch.target_label ?? ch.target_id}</span>
           <span className="text-muted-foreground"> · {ch.provider} · {new Date(ch.created_at).toLocaleString()}</span>
           {ch.reverted_at && <span className="text-muted-foreground"> · reverted</span>}
         </p>
@@ -352,11 +396,17 @@ function ChangeRow({ change: ch, onChanged }: { change: ChangeSet; onChanged: ()
             ))}
           </ul>
         )}
+        {ch.action === "publish_post" && (
+          <p className="font-ui text-[12px] text-muted-foreground mt-1">
+            {ch.after.platforms}{ch.after.scheduled_for ? ` · for ${new Date(ch.after.scheduled_for).toLocaleString()}` : ""}
+            {Object.entries(ch.after).filter(([k]) => k.startsWith("url_")).map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer" className="ml-2 underline">{k.slice(4)}</a>)}
+          </p>
+        )}
         {ch.revert_error && <p className="font-ui text-[11px] text-destructive mt-1">Revert failed: {SHORT(ch.revert_error, 140)}</p>}
       </div>
       {!ch.reverted_at && (
         <button disabled={busy} onClick={async () => { setBusy(true); const r = await revertChange(ch.id); setBusy(false); if (r.success) toast("Reverted"); else toast.error(r.error ?? "Could not revert"); await onChanged(); }} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border text-[12px] font-ui hover:border-primary disabled:opacity-50">
-          {busy ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} Revert
+          {busy ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />} {ch.action === "publish_post" ? "Delete post" : "Revert"}
         </button>
       )}
       {ch.reverted_at && <X size={14} className="text-muted-foreground mt-1" aria-hidden />}
