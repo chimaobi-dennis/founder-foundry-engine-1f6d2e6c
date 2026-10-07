@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { ensureStripeProduct, monthlyPriceData } from "../_shared/stripeProducts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,19 +120,18 @@ serve(async (req) => {
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const { data: addons } = await supabaseAdmin.from("credit_packages").select("id, name, price_usd, addon_kind, monthly_credits").eq("active", true).not("addon_kind", "is", null);
-      const seatLine = (kind: string, qty: number) => {
+      const { data: addons } = await supabaseAdmin.from("credit_packages").select("id, name, slug, description, price_usd, addon_kind, monthly_credits, stripe_product_id").eq("active", true).not("addon_kind", "is", null);
+      const seatLine = async (kind: string, qty: number) => {
         const a = (addons ?? []).find((x: any) => x.addon_kind === kind);
         if (!a || qty <= 0) return null;
-        return {
-          price_data: { currency: "usd", recurring: { interval: "month" }, product_data: { name: a.name, metadata: { package_id: a.id, addon_kind: kind } }, unit_amount: Math.round(a.price_usd * 100) },
-          quantity: Math.min(50, Math.floor(qty)),
-        };
+        const productId = await ensureStripeProduct(stripe, supabaseAdmin, a);
+        return { price_data: monthlyPriceData(productId, Number(a.price_usd)), quantity: Math.min(50, Math.floor(qty)) };
       };
+      const planProductId = await ensureStripeProduct(stripe, supabaseAdmin, pkg);
       const lineItems = [
-        { price_data: { currency: "usd", recurring: { interval: "month" }, product_data: { name: `Kinika ${pkg.name}`, description: pkg.description || undefined, metadata: { package_id: pkg.id, plan_slug: pkg.slug } }, unit_amount: Math.round(pkg.price_usd * 100) }, quantity: 1 },
-        seatLine("agent_seat", Number(agentSeats)),
-        seatLine("member_seat", Number(memberSeats)),
+        { price_data: monthlyPriceData(planProductId, Number(pkg.price_usd)), quantity: 1 },
+        await seatLine("agent_seat", Number(agentSeats)),
+        await seatLine("member_seat", Number(memberSeats)),
       ].filter(Boolean);
 
       const session = await stripe.checkout.sessions.create({
