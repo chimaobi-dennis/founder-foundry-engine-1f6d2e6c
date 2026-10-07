@@ -12,7 +12,7 @@ import type { Agent } from "@/services/agentService";
 import {
   PROVIDERS, RECIPES, allowedFields, connectionAllowsWrites,
   listConnections, createConnection, updateConnectionScope, removeConnection, testConnection, previewRecords,
-  listChangeSets, revertChange, quoteRecipe, startRecipe, pullRequestStatus,
+  listChangeSets, revertChange, quoteRecipe, startRecipe, pullRequestStatus, mergePullRequest,
   type ToolConnection, type ChangeSet, type ConnectorProvider, type RecipeKey, type NormalizedRecord, type PrStatus,
 } from "@/services/connectionService";
 import { DEFAULT_ALLOWED_PATHS } from "@shared/github";
@@ -22,7 +22,7 @@ const SOCIAL_PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok"];
 
 const SHORT = (s: string, n = 90) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-export function ConnectionsSection({ brandId, userId, agents, balance, balanceLoading, onTopUp, onRunStarted, canConnect = true, canRun = true, autonomousAllowed = false }: {
+export function ConnectionsSection({ brandId, userId, agents, balance, balanceLoading, onTopUp, onRunStarted, canConnect = true, canRun = true, autonomousAllowed = false, enterprise = false }: {
   brandId: string;
   userId: string;
   /** owner only: credentials are stored under the owner's account */
@@ -36,6 +36,8 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
   onRunStarted: (runId: string) => void;
   /** The owner's plan includes unreviewed changes */
   autonomousAllowed?: boolean;
+  /** Enterprise: database connections and auto-merge */
+  enterprise?: boolean;
 }) {
   const [connections, setConnections] = useState<ToolConnection[]>([]);
   const [changes, setChanges] = useState<ChangeSet[]>([]);
@@ -72,7 +74,7 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
         {connections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/70 p-5">
             <p className="font-display text-[15px] text-foreground">Nothing connected yet.</p>
-            <p className="font-ui text-[13px] text-muted-foreground mt-1">Connect Shopify, WordPress, Notion or your social accounts and agents can work straight into them. Changes are reviewed first and can be reverted; publishing is always approved by you.</p>
+            <p className="font-ui text-[13px] text-muted-foreground mt-1">Connect Shopify, WordPress, Notion, GitHub, a database or your social accounts and agents can work straight into them. Changes are reviewed first and can be reverted; publishing is always approved by you.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -96,7 +98,7 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
         </section>
       )}
 
-      {adding && <AddConnectionDialog brandId={brandId} userId={userId} onClose={() => setAdding(false)} onCreated={() => { setAdding(false); reload(); }} />}
+      {adding && <AddConnectionDialog enterprise={enterprise} brandId={brandId} userId={userId} onClose={() => setAdding(false)} onCreated={() => { setAdding(false); reload(); }} />}
       {recipeFor && (
         <RecipeDialog autonomousAllowed={autonomousAllowed}
           brandId={brandId}
@@ -140,7 +142,9 @@ function ConnectionCard({ connection: c, agents, canManage = true, canRun = true
             {c.status === "paused" && <span className="text-[11px] font-ui text-muted-foreground">paused</span>}
           </div>
           <p className="font-ui text-[12px] text-muted-foreground mt-0.5 truncate">
-            {c.config.site_url ?? c.config.shop_domain ?? c.config.repo ?? (c.config.database_id ? `Database ${String(c.config.database_id).slice(0, 8)}…` : null) ?? c.config.account ?? ""}
+            {c.config.site_url ?? c.config.shop_domain ?? c.config.repo ?? c.config.table ?? (c.config.database_id ? `Database ${String(c.config.database_id).slice(0, 8)}…` : null) ?? c.config.account ?? ""}
+            {c.provider === "postgres" && c.config.account ? ` · ${c.config.account}` : ""}
+            {spec.kind === "code" && c.scope.auto_merge_paths?.length ? ` · auto-merge under ${c.scope.auto_merge_paths.join(", ")}` : ""}
             {spec.kind === "code" && (c.config as any).default_branch ? ` · base ${c.config.base_branch || (c.config as any).default_branch}` : ""}
             {isPublish && linked ? (linked.length ? ` · linked: ${linked.join(", ")}` : " · no social accounts linked yet") : ""}
           </p>
@@ -201,8 +205,10 @@ function ConnectionCard({ connection: c, agents, canManage = true, canRun = true
 
 // ─── Add connection ─────────────────────────────────────────
 
-function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId: string; userId: string; onClose: () => void; onCreated: () => void }) {
+function AddConnectionDialog({ brandId, userId, onClose, onCreated, enterprise = false }: { brandId: string; userId: string; onClose: () => void; onCreated: () => void; enterprise?: boolean }) {
   const [provider, setProvider] = useState<ConnectorProvider>("shopify");
+  const [columns, setColumns] = useState("");
+  const [autoMergePaths, setAutoMergePaths] = useState("");
   const [name, setName] = useState("");
   const [config, setConfig] = useState<Record<string, string>>({});
   const [secret, setSecret] = useState<Record<string, string>>({});
@@ -213,7 +219,9 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
   const spec = PROVIDERS[provider];
 
   const pick = (p: ConnectorProvider) => { setProvider(p); setConfig({}); setSecret({}); setFields(PROVIDERS[p].fields.filter((f) => f.defaultAllowed).map((f) => f.key)); };
-  const ready = spec.config.every((c) => (config[c.key] ?? "").trim()) && spec.secret.every((s) => (secret[s.key] ?? "").trim());
+  const optionalConfig = new Set(["base_branch", "key_column", "label_column"]);
+  const columnList = columns.split(/[\n,]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const ready = spec.config.every((c) => optionalConfig.has(c.key) || (config[c.key] ?? "").trim()) && spec.secret.every((s) => (secret[s.key] ?? "").trim()) && (provider !== "postgres" || columnList.length > 0);
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -225,10 +233,11 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
         <div className="space-y-4">
           <div className="flex gap-2">
             {(Object.keys(PROVIDERS) as ConnectorProvider[]).map((p) => (
-              <button key={p} type="button" onClick={() => pick(p)} className={cn("px-3 py-1.5 rounded-full text-[12px] font-ui border", provider === p ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground")}>{PROVIDERS[p].name}</button>
+              <button key={p} type="button" onClick={() => pick(p)} className={cn("px-3 py-1.5 rounded-full text-[12px] font-ui border", provider === p ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground")}>{PROVIDERS[p].name}{p === "postgres" && !enterprise ? " · Enterprise" : ""}</button>
             ))}
           </div>
           <p className="font-ui text-[12px] text-muted-foreground">{spec.help}</p>
+          {provider === "postgres" && !enterprise && <p className="font-ui text-[12px] text-amber-600">Database connections come with the Enterprise plan. You can fill this in, but connecting will be refused until you upgrade on Billing.</p>}
           <div>
             <Label htmlFor="conn-name" className="text-[12px]">Name</Label>
             <Input id="conn-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={`My ${spec.name}`} className="mt-1" />
@@ -250,6 +259,20 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
               <Label htmlFor="conn-paths" className="text-[12px]">Paths the Developer may change (one glob per line)</Label>
               <Textarea id="conn-paths" rows={4} value={paths} onChange={(e) => setPaths(e.target.value)} className="mt-1 font-mono text-[12px]" />
               <p className="font-ui text-[11px] text-muted-foreground mt-1">Secrets, CI, lockfiles, dependencies and migrations are always off limits, whatever you list here.</p>
+            </div>
+          )}
+          {spec.kind === "code" && enterprise && (
+            <div>
+              <Label htmlFor="conn-automerge" className="text-[12px]">Paths where an autonomous pull request may merge itself (optional, one glob per line)</Label>
+              <Textarea id="conn-automerge" rows={3} value={autoMergePaths} onChange={(e) => setAutoMergePaths(e.target.value)} placeholder={"content/**\npublic/**"} className="mt-1 font-mono text-[12px]" />
+              <p className="font-ui text-[11px] text-muted-foreground mt-1">Only when you skip review and every file sits under these paths, and only after every check passes. Leave empty to always merge by hand.</p>
+            </div>
+          )}
+          {provider === "postgres" && (
+            <div>
+              <Label htmlFor="conn-columns" className="text-[12px]">Columns agents may change (one per line)</Label>
+              <Textarea id="conn-columns" rows={3} value={columns} onChange={(e) => setColumns(e.target.value)} placeholder={"name\ndescription\nmeta_description"} className="mt-1 font-mono text-[12px]" />
+              <p className="font-ui text-[11px] text-muted-foreground mt-1">Rows are read and updated by the primary key only. Nothing outside these columns is ever written.</p>
             </div>
           )}
           {spec.fields.length > 0 && (
@@ -274,7 +297,7 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
             disabled={submitting || !ready}
             onClick={async () => {
               setSubmitting(true);
-              const r = await createConnection({ brandId, userId, provider, displayName: name, config, secret, allowWrites, fields, paths: provider === "github" ? paths.split(/\n+/).map((x) => x.trim()).filter(Boolean) : undefined });
+              const r = await createConnection({ brandId, userId, provider, displayName: name, config, secret, allowWrites, fields: provider === "postgres" ? columnList : fields, paths: provider === "github" ? paths.split(/\n+/).map((x) => x.trim()).filter(Boolean) : undefined, autoMergePaths: provider === "github" && enterprise ? autoMergePaths.split(/\n+/).map((x) => x.trim()).filter(Boolean) : undefined });
               if (!r.success) { setSubmitting(false); toast.error(planLimitMessage(r.error) ?? r.error ?? "Could not connect"); return; }
               const t = await testConnection(r.connection!.id);
               setSubmitting(false);
@@ -467,7 +490,15 @@ export function DiffTable({ diff }: { diff: { lines: { target_label: string; fie
 function PrLine({ change: ch }: { change: ChangeSet }) {
   const [status, setStatus] = useState<PrStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [merged, setMerged] = useState<boolean>(!!ch.after.merged_at);
   const url = ch.after.pr_url;
+  const canMerge = !!status && status.state === "open" && !status.merged && !merged && !status.checks.failure && !status.checks.pending && status.mergeable !== false;
+  const merge = async () => {
+    setBusy(true);
+    const r = await mergePullRequest(ch.id);
+    setBusy(false);
+    if (r.success) { setMerged(true); toast(`PR #${ch.target_id} merged`); } else toast.error(r.error ?? "Could not merge");
+  };
   const check = async () => {
     if (!ch.connection_id) return;
     setBusy(true);
@@ -480,9 +511,12 @@ function PrLine({ change: ch }: { change: ChangeSet }) {
       <GitPullRequest size={12} />
       {url && <a href={url} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">#{ch.target_id} <ExternalLink size={10} /></a>}
       <span className="truncate">{ch.after.files}</span>
-      <button onClick={check} disabled={busy} className="underline disabled:opacity-50">{busy ? "checking…" : "checks?"}</button>
+      {merged ? <span className="text-emerald-500">merged</span> : <button onClick={check} disabled={busy} className="underline disabled:opacity-50">{busy ? "checking…" : "checks?"}</button>}
+      {canMerge && <button onClick={merge} disabled={busy} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary text-primary-foreground text-[11px] font-medium disabled:opacity-50">Merge</button>}
+      {ch.after.auto_merge === true && !merged && <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted">merges itself after checks</span>}
+      {ch.after.auto_merge_note ? <span className="text-amber-600">{String(ch.after.auto_merge_note)}</span> : null}
       {status?.preview?.url && <a href={status.preview.url} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">preview <ExternalLink size={10} /></a>}
-      {status && (
+      {status && !merged && (
         <span className={cn(status.merged ? "text-emerald-500" : status.checks.failure ? "text-destructive" : status.checks.pending ? "text-amber-500" : "text-foreground")}>
           {status.merged ? "merged" : status.state === "closed" ? "closed" : status.checks.total === 0 ? "no checks" : status.checks.failure ? `${status.checks.failure} failing (${status.checks.names.join(", ")})` : status.checks.pending ? `${status.checks.pending} pending` : `${status.checks.success}/${status.checks.total} passing`}
         </span>

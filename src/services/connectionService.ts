@@ -43,7 +43,7 @@ export interface ChangeSet {
   target_id: string;
   target_label: string | null;
   before: Record<string, string>;
-  after: Record<string, string>;
+  after: Record<string, any>;
   reverted_at: string | null;
   revert_error: string | null;
   created_at: string;
@@ -72,6 +72,8 @@ export interface CreateConnectionInput {
   maxRecordsPerRun?: number;
   /** code connections: globs the Developer may write under */
   paths?: string[];
+  /** Enterprise code connections: globs under which autonomous PRs merge themselves */
+  autoMergePaths?: string[];
 }
 
 export async function createConnection(input: CreateConnectionInput): Promise<{ success: boolean; error?: string; connection?: ToolConnection }> {
@@ -85,7 +87,7 @@ export async function createConnection(input: CreateConnectionInput): Promise<{ 
       provider: input.provider,
       display_name: input.displayName.trim() || spec.name,
       capabilities: capabilitiesFor(input.provider, input.allowWrites),
-      scope: { fields: input.fields?.length ? input.fields : undefined, max_records_per_run: input.maxRecordsPerRun ?? 50, paths: input.paths?.length ? input.paths : undefined },
+      scope: { fields: input.fields?.length ? input.fields : undefined, max_records_per_run: input.maxRecordsPerRun ?? 50, paths: input.paths?.length ? input.paths : undefined, auto_merge_paths: input.autoMergePaths?.length ? input.autoMergePaths : undefined },
       config: input.config,
       status: 'active',
     })
@@ -186,6 +188,11 @@ export interface PrStatus {
 
 export async function pullRequestStatus(connectionId: string, prNumber: number): Promise<{ success: boolean; error?: string; status?: PrStatus }> {
   return callConnectorAction({ connectionId, action: 'pr_status', prNumber });
+}
+
+/** Squash-merge the Developer's PR from Kinika (checks must not be failing). */
+export async function mergePullRequest(changeSetId: string): Promise<{ success: boolean; error?: string; already?: boolean }> {
+  return callConnectorAction({ changeSetId, action: 'merge_pr' });
 }
 
 // ─── Change sets ────────────────────────────────────────────

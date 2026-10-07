@@ -20,7 +20,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
-import { applyChanges, createRecord, loadConnection, openPullRequest, publishItems, readRepoFiles, repoSnapshot, trimRecords } from "../_shared/connectorOps.ts";
+import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullRequest, publishItems, pullRequestStatus, readRepoFiles, repoSnapshot, trimRecords } from "../_shared/connectorOps.ts";
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import {
   approvalKindFor,
@@ -113,7 +113,45 @@ async function tick(admin: Admin) {
     }
   }
   const digests = await weeklyDigest(admin);
-  return { enqueued: enqueued?.length ?? 0, advanced, digests };
+  const merged = await autoMergeDue(admin);
+  return { enqueued: enqueued?.length ?? 0, advanced, digests, merged };
+}
+
+/**
+ * Enterprise auto-merge: pull requests opened under an autonomous policy on
+ * allowlisted paths merge once every check passes. Failing checks, conflicts
+ * or a closed PR turn auto-merge off and tell the founder.
+ */
+async function autoMergeDue(admin: Admin): Promise<number> {
+  const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data: pending } = await admin.from("change_sets").select("*").eq("provider", "github").eq("action", "open_pr").is("reverted_at", null).contains("after", { auto_merge: true }).gte("created_at", since).order("created_at").limit(10);
+  let merged = 0;
+  for (const cs of pending ?? []) {
+    const after = (cs.after ?? {}) as Record<string, unknown>;
+    if (after.merged_at || !cs.connection_id) continue;
+    const who = { user_id: cs.user_id, brand_id: cs.brand_id, id: cs.run_id ?? cs.id, name: cs.target_label ?? `PR #${cs.target_id}` };
+    const stop = async (note: string, tell: boolean) => {
+      await admin.from("change_sets").update({ after: { ...after, auto_merge: false, auto_merge_note: note } }).eq("id", cs.id);
+      if (tell) await notify(admin, who, "agent_needs_you", `PR #${cs.target_id} needs you`, `${note} Merge it by hand or revert it from Connections.`, null);
+    };
+    try {
+      const loaded = await loadConnection(admin, cs.connection_id);
+      const st = await pullRequestStatus(loaded, Number(cs.target_id));
+      if (st.merged) { await admin.from("change_sets").update({ after: { ...after, merged_at: new Date().toISOString(), auto_merge_note: "merged outside Kinika" } }).eq("id", cs.id); continue; }
+      if (st.state !== "open") { await stop("The pull request was closed before it could merge.", false); continue; }
+      if (st.checks.failure) { await stop(`Checks failed (${st.checks.names.join(", ") || st.checks.failure}).`, true); continue; }
+      if (st.checks.pending) continue;
+      const ageMin = (Date.now() - new Date(cs.created_at).getTime()) / 60_000;
+      if (st.checks.total === 0 && ageMin < 10) continue; // give CI a chance to start
+      if (st.mergeable === false) { await stop("The pull request has conflicts with the base branch.", true); continue; }
+      await mergePullRequest(admin, loaded, cs);
+      merged++;
+      await notify(admin, who, "agent_run_completed", `PR #${cs.target_id} merged`, `${cs.target_label ?? "The change"} merged itself after checks passed. ${String(after.pr_url ?? "")}`.trim(), null);
+    } catch (e) {
+      await stop(`Auto-merge failed: ${(e as Error).message.slice(0, 200)}`, true);
+    }
+  }
+  return merged;
 }
 
 /**
@@ -567,6 +605,14 @@ async function runConnectorStep(admin: Admin, run: any, step: any, all: any[]): 
       const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.files) && s.output?.files?.[0]?.sha);
       const known: Record<string, string> = {};
       for (const f of (read?.output?.files ?? []) as { path: string; sha: string }[]) known[f.path] = f.sha;
+      // Enterprise + autonomous: the PR may merge itself once checks pass,
+      // but only when every touched path is under the connection's
+      // auto-merge globs (checked inside openPullRequest).
+      let autoMerge = false;
+      if (run.policy?.approval === "autonomous" && loaded.row.scope?.auto_merge_paths?.length) {
+        const { data: ent } = await admin.rpc("get_entitlements", { p_user_id: run.user_id });
+        autoMerge = !!(ent as any)?.enterprise;
+      }
       const r = await openPullRequest(admin, ctx, loaded, {
         changes: out.changes ?? [],
         commit_message: String(out.commit_message ?? ""),
@@ -574,8 +620,9 @@ async function runConnectorStep(admin: Admin, run: any, step: any, all: any[]): 
         pr_body: String(out.pr_body ?? ""),
         known,
         branch: String(read?.output?.branch ?? ""),
+        auto_merge: autoMerge,
       });
-      return { ...r, summary: `Pull request #${r.pr_number} opened with ${r.files.length} file${r.files.length === 1 ? "" : "s"}: ${r.pr_url}` };
+      return { ...r, summary: `Pull request #${r.pr_number} opened with ${r.files.length} file${r.files.length === 1 ? "" : "s"}${r.auto_merge ? ", merges itself once checks pass" : ""}: ${r.pr_url}` };
     }
     case "publish_items": {
       const items = (((prevAgent?.output as any)?.items ?? []) as any[]).filter((it) => it && typeof it === "object");

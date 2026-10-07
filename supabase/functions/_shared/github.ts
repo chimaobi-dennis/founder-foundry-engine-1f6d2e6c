@@ -127,6 +127,16 @@ export function validateEdit(changes: ProposedFileChange[], allowed: string[]): 
   return out;
 }
 
+/**
+ * Enterprise auto-merge: every file the PR touches must sit under one of the
+ * connection's auto-merge globs; an empty list means never.
+ */
+export function autoMergeEligible(paths: string[], autoMergeGlobs: string[] | null | undefined): boolean {
+  const globs = (autoMergeGlobs ?? []).map((g) => String(g).trim()).filter(Boolean);
+  if (!globs.length || !paths.length) return false;
+  return paths.every((p) => !isProtectedPath(p) && matchesAny(p, globs));
+}
+
 export function slugifyBranch(s: string): string {
   const base = s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "change";
   return `kinika/${base}-${Date.now().toString(36).slice(-5)}`;
@@ -213,6 +223,10 @@ export const github = {
   async createPR(token: string, c: GitHubConn, head: string, base: string, title: string, body: string): Promise<{ number: number; html_url: string }> {
     const r = await gh(token, "POST", `/repos/${c.owner}/${c.repo}/pulls`, { title, body, head, base });
     return { number: r.number, html_url: r.html_url };
+  },
+  async mergePR(token: string, c: GitHubConn, number: number, title?: string): Promise<{ sha: string; merged: boolean }> {
+    const r = await gh(token, "PUT", `/repos/${c.owner}/${c.repo}/pulls/${number}/merge`, { merge_method: "squash", ...(title ? { commit_title: title.slice(0, 72) } : {}) });
+    return { sha: String(r.sha ?? ""), merged: !!r.merged };
   },
   async closePR(token: string, c: GitHubConn, number: number): Promise<void> {
     await gh(token, "PATCH", `/repos/${c.owner}/${c.repo}/pulls/${number}`, { state: "closed" });

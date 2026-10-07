@@ -220,13 +220,13 @@ export function agentSuitsStage(suited: string[] | null | undefined, stage: stri
 
 // ── Recipes (connector + agent plans) ───────────────────────────────────────
 
-export type RecipeKey = "seo_refresh" | "blog_draft" | "notion_draft" | "social_publish" | "code_change";
+export type RecipeKey = "seo_refresh" | "blog_draft" | "notion_draft" | "social_publish" | "code_change" | "table_refresh";
 
 export interface RecipeSpec {
   key: RecipeKey;
   name: string;
   description: string;
-  provider: "shopify" | "wordpress" | "notion" | "ayrshare" | "github";
+  provider: "shopify" | "wordpress" | "notion" | "ayrshare" | "github" | "postgres";
   agentSlug: string;
   unitLabel: string;
   /** Irreversible outward action: always reviewed, never autonomous. */
@@ -267,6 +267,14 @@ export const RECIPES: Record<RecipeKey, RecipeSpec> = {
     unitLabel: "post",
     irreversible: true,
   },
+  table_refresh: {
+    key: "table_refresh",
+    name: "Improve rows in a table",
+    description: "Reads rows from your database table, proposes better values for the columns you allow (names, descriptions, meta text) in your voice, applies them after you approve the diff. Every row change is revertible.",
+    provider: "postgres",
+    agentSlug: "seo_specialist",
+    unitLabel: "row",
+  },
   code_change: {
     key: "code_change",
     name: "Change my site's code",
@@ -295,8 +303,8 @@ export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: 
   const steps: PlannedStep[] = [];
   let i = 0;
 
-  if (recipe === "seo_refresh") {
-    steps.push({ step_index: i++, type: "connector", name: `Read up to ${limit} products`, input: { connection_id: input.connection_id, action: "list_records", limit } });
+  if (recipe === "seo_refresh" || recipe === "table_refresh") {
+    steps.push({ step_index: i++, type: "connector", name: `Read up to ${limit} ${recipe === "table_refresh" ? "rows" : "products"}`, input: { connection_id: input.connection_id, action: "list_records", limit } });
     steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: propose changes`, input: { agent_id: agent.id, units: limit, brief: input.brief, use_previous: "records", connection_id: input.connection_id } });
     if (policy.approval === "review_first") {
       steps.push({ step_index: i++, type: "approval", name: "Review the changes", input: { kind: "review_changes", connection_id: input.connection_id } });
@@ -342,7 +350,7 @@ export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: 
 
 /** Units a recipe is quoted on (the agent step is what costs credits). */
 export function recipeUnits(recipe: RecipeKey, input: RecipeInput): number {
-  if (recipe === "seo_refresh") return Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
+  if (recipe === "seo_refresh" || recipe === "table_refresh") return Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
   if (recipe === "social_publish") return Math.max(1, (input.platforms ?? []).filter(Boolean).length);
   return 1;
 }
