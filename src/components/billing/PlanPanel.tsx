@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Crown, Loader2, Minus, Plus, ExternalLink, AlertTriangle, Check } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { getCreditPackages, type CreditPackage } from '@/services/stripeService';
 import {
-  getEntitlements, getSubscription, splitPackages, startPlanCheckout, openBillingPortal, setSeats, setCancelAtPeriodEnd, changePlan, isActiveStatus,
+  getEntitlements, getSubscription, splitPackages, startPlanCheckout, openBillingPortal, setSeats, setCancelAtPeriodEnd, changePlan, isActiveStatus, syncCheckoutSession,
   type Entitlements, type Subscription,
 } from '@/services/subscriptionService';
 
@@ -31,8 +32,32 @@ export function PlanPanel({ onChanged }: { onChanged?: () => void }) {
     setSub(s);
     setPackages(p);
   };
+  const [params, setParams] = useSearchParams();
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [user?.id]);
+
+  // Coming back from Stripe: confirm the purchase straight away.
+  useEffect(() => {
+    const sessionId = params.get('session_id');
+    if (params.get('subscription') !== 'success' || !sessionId || !user?.id) return;
+    let active = true;
+    syncCheckoutSession(sessionId).then(async (r) => {
+      if (!active) return;
+      if (r.success) {
+        toast({ title: 'Plan active', description: 'Your monthly credits have been added.' });
+        await load();
+        onChanged?.();
+      } else {
+        toast({ title: 'Payment received, syncing…', description: r.error ?? 'Your plan will appear shortly.' });
+      }
+      params.delete('session_id');
+      params.delete('subscription');
+      setParams(params, { replace: true });
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   if (!ent) return null;
   const { plans, seats } = splitPackages(packages);
