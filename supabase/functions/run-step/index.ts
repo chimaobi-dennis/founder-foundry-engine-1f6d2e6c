@@ -20,7 +20,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
-import { applyChanges, createRecord, loadConnection, trimRecords } from "../_shared/connectorOps.ts";
+import { applyChanges, createRecord, loadConnection, publishItems, trimRecords } from "../_shared/connectorOps.ts";
 import {
   buildTaskPrompt,
   checkBudget,
@@ -108,7 +108,40 @@ async function tick(admin: Admin) {
       advanced[id] = `error: ${(e as Error).message}`;
     }
   }
-  return { enqueued: enqueued?.length ?? 0, advanced };
+  const digests = await weeklyDigest(admin);
+  return { enqueued: enqueued?.length ?? 0, advanced, digests };
+}
+
+/**
+ * Once a week per founder with work waiting: one notification that sums it
+ * up, so someone who doesn't open the app still hears "3 things need you".
+ */
+async function weeklyDigest(admin: Admin): Promise<number> {
+  const { data: pending } = await admin.from("approvals").select("user_id, brand_id").eq("status", "pending");
+  if (!pending?.length) return 0;
+  const byUser = new Map<string, { brand_id: string; count: number }>();
+  for (const p of pending) {
+    const cur = byUser.get(p.user_id) ?? { brand_id: p.brand_id, count: 0 };
+    cur.count++;
+    byUser.set(p.user_id, cur);
+  }
+  const since = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+  let sent = 0;
+  for (const [userId, info] of byUser) {
+    const { data: recent } = await admin.from("notifications").select("id").eq("user_id", userId).eq("type", "agent_digest").gte("created_at", since).limit(1);
+    if (recent?.length) continue;
+    const { error } = await admin.from("notifications").insert({
+      user_id: userId,
+      brand_id: info.brand_id,
+      type: "agent_digest",
+      title: `${info.count} item${info.count === 1 ? "" : "s"} waiting for your review`,
+      body: "Your agents finished work that needs a yes from you. Approve all of it in a minute on the Team page.",
+      action_url: "/team",
+      related_type: "digest",
+    });
+    if (!error) sent++;
+  }
+  return sent;
 }
 
 // ── advance one run ──────────────────────────────────────────────────────────
@@ -423,6 +456,14 @@ async function runConnectorStep(admin: Admin, run: any, step: any, all: any[]): 
       };
       const { change_set_id, record } = await createRecord(admin, ctx, loaded, fields, fields.title);
       return { created: { id: record.id, label: record.label, url: record.url }, change_set_id, summary: `Draft "${record.label}" created in ${loaded.row.display_name}.` };
+    }
+    case "publish_items": {
+      const items = (((prevAgent?.output as any)?.items ?? []) as any[]).filter((it) => it && typeof it === "object");
+      if (!items.length) throw new ConnectorError("The agent did not produce any posts to publish.", 400);
+      const scheduleAt = step.input?.schedule_at ? String(step.input.schedule_at) : undefined;
+      const out = await publishItems(admin, ctx, loaded, items, scheduleAt);
+      const n = out.published.length;
+      return { ...out, summary: `${n} post${n === 1 ? "" : "s"} ${scheduleAt ? "scheduled" : "published"} via ${loaded.row.display_name}${out.failed.length ? `, ${out.failed.length} failed` : ""}.` };
     }
     default:
       throw new ConnectorError(`Unknown connector action ${step.input?.action}`, 400);

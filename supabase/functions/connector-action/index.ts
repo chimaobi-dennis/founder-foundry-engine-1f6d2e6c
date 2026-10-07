@@ -52,7 +52,10 @@ serve(async (req) => {
     if (body.action === "test") {
       try {
         const info = await runConnector(loaded.row, loaded.secret, { action: "test" });
-        await admin.from("tool_connections").update({ status: "active", last_tested_at: new Date().toISOString(), last_error: null }).eq("id", loaded.row.id);
+        // Remember what the test learned (account label, linked platforms) so
+        // the card can show it without another round trip.
+        const config = { ...loaded.row.config, account: info?.account ?? loaded.row.config.account, ...(info?.linked_platforms ? { linked_platforms: info.linked_platforms } : {}) };
+        await admin.from("tool_connections").update({ status: "active", last_tested_at: new Date().toISOString(), last_error: null, config }).eq("id", loaded.row.id);
         return json({ success: true, info });
       } catch (e) {
         const msg = (e as Error).message;

@@ -220,9 +220,20 @@ export function agentSuitsStage(suited: string[] | null | undefined, stage: stri
 
 // ── Recipes (connector + agent plans) ───────────────────────────────────────
 
-export type RecipeKey = "seo_refresh" | "blog_draft";
+export type RecipeKey = "seo_refresh" | "blog_draft" | "notion_draft" | "social_publish";
 
-export const RECIPES: Record<RecipeKey, { key: RecipeKey; name: string; description: string; provider: "shopify" | "wordpress"; agentSlug: string; unitLabel: string }> = {
+export interface RecipeSpec {
+  key: RecipeKey;
+  name: string;
+  description: string;
+  provider: "shopify" | "wordpress" | "notion" | "ayrshare";
+  agentSlug: string;
+  unitLabel: string;
+  /** Irreversible outward action: always reviewed, never autonomous. */
+  irreversible?: boolean;
+}
+
+export const RECIPES: Record<RecipeKey, RecipeSpec> = {
   seo_refresh: {
     key: "seo_refresh",
     name: "Refresh product SEO",
@@ -239,12 +250,31 @@ export const RECIPES: Record<RecipeKey, { key: RecipeKey; name: string; descript
     agentSlug: "copywriter",
     unitLabel: "post",
   },
+  notion_draft: {
+    key: "notion_draft",
+    name: "Write a page in Notion",
+    description: "The Copywriter writes from your brief and brand context; the result lands as a new page in your Notion database. Reverting archives the page.",
+    provider: "notion",
+    agentSlug: "copywriter",
+    unitLabel: "page",
+  },
+  social_publish: {
+    key: "social_publish",
+    name: "Write and publish to social",
+    description: "The Copywriter writes one post per platform; you approve each before anything is published. Posts go out through your linked social accounts.",
+    provider: "ayrshare",
+    agentSlug: "copywriter",
+    unitLabel: "post",
+    irreversible: true,
+  },
 };
 
 export interface RecipeInput extends TaskInput {
   connection_id: string;
   /** For seo_refresh: how many records to fetch and consider */
   record_limit?: number;
+  /** For social_publish: ISO datetime to schedule instead of posting now */
+  schedule_at?: string;
 }
 
 /**
@@ -267,12 +297,23 @@ export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: 
     return steps;
   }
 
-  if (recipe === "blog_draft") {
-    steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: write the post`, input: { agent_id: agent.id, units: 1, brief: input.brief, platforms: ["blog"], output_hint: "blog_post" } });
+  if (recipe === "blog_draft" || recipe === "notion_draft") {
+    const where = recipe === "notion_draft" ? "Notion" : "WordPress";
+    steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: write the ${recipe === "notion_draft" ? "page" : "post"}`, input: { agent_id: agent.id, units: 1, brief: input.brief, platforms: ["blog"], output_hint: "blog_post" } });
     if (policy.approval === "review_first") {
       steps.push({ step_index: i++, type: "approval", name: "Review the draft", input: { kind: "review_output", connection_id: input.connection_id } });
     }
-    steps.push({ step_index: i++, type: "connector", name: "Create the draft in WordPress", input: { connection_id: input.connection_id, action: "create_draft", from_step_type: "agent_task" } });
+    steps.push({ step_index: i++, type: "connector", name: `Create the ${recipe === "notion_draft" ? "page" : "draft"} in ${where}`, input: { connection_id: input.connection_id, action: "create_draft", from_step_type: "agent_task" } });
+    return steps;
+  }
+
+  if (recipe === "social_publish") {
+    const platforms = (input.platforms ?? []).filter(Boolean);
+    const units = Math.max(1, platforms.length);
+    steps.push({ step_index: i++, type: "agent_task", name: `${agent.name}: write ${units} post${units === 1 ? "" : "s"}`, input: { agent_id: agent.id, units, brief: input.brief, platforms } });
+    // Publishing is irreversible: the review step is not optional.
+    steps.push({ step_index: i++, type: "approval", name: "Approve before publishing", input: { kind: "review_publish", connection_id: input.connection_id } });
+    steps.push({ step_index: i++, type: "connector", name: input.schedule_at ? "Schedule the posts" : "Publish the posts", input: { connection_id: input.connection_id, action: "publish_items", from_step_type: "agent_task", schedule_at: input.schedule_at ?? null } });
     return steps;
   }
 
@@ -282,5 +323,6 @@ export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: 
 /** Units a recipe is quoted on (the agent step is what costs credits). */
 export function recipeUnits(recipe: RecipeKey, input: RecipeInput): number {
   if (recipe === "seo_refresh") return Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
+  if (recipe === "social_publish") return Math.max(1, (input.platforms ?? []).filter(Boolean).length);
   return 1;
 }

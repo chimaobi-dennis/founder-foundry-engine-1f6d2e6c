@@ -77,3 +77,37 @@ describe('planRecipeRun', () => {
     expect(recipeUnits('blog_draft', { brief: '', connection_id: 'c' })).toBe(1);
   });
 });
+
+import { toAyrsharePlatforms, composePostText, textToNotionBlocks } from '@shared/connectors';
+
+describe('publishing helpers', () => {
+  it('maps agent platform names to Ayrshare ids and drops unknown ones', () => {
+    expect(toAyrsharePlatforms(['instagram', 'X', 'email', 'LinkedIn', 'x'])).toEqual(['instagram', 'twitter', 'linkedin']);
+    expect(toAyrsharePlatforms(undefined)).toEqual([]);
+  });
+  it('composes post text from body, cta and hashtags', () => {
+    expect(composePostText({ body: 'Hello ', cta: 'Join us', hashtags: ['asa', '#lnu'] })).toBe('Hello\n\nJoin us\n\n#asa #lnu');
+    expect(composePostText({ body: '' })).toBe('');
+  });
+  it('turns paragraphs and headings into Notion blocks under the limits', () => {
+    const blocks = textToNotionBlocks('# Title\n\nFirst para.\n\n' + 'x'.repeat(4500));
+    expect(blocks[0].type).toBe('heading_2');
+    expect(blocks[1].type).toBe('paragraph');
+    expect(blocks.length).toBe(5); // heading + para + 3 chunks of ≤2000
+    expect(blocks[2].paragraph.rich_text[0].text.content.length).toBe(2000);
+  });
+});
+
+describe('publishing recipe', () => {
+  it('social_publish always reviews, quotes per platform', () => {
+    const steps = planRecipeRun('social_publish', agent, { brief: 'b', connection_id: 'c1', platforms: ['instagram', 'x'] }, { approval: 'autonomous' });
+    expect(steps.map((s) => s.type)).toEqual(['agent_task', 'approval', 'connector']);
+    expect(steps[2].input).toMatchObject({ action: 'publish_items' });
+    expect(recipeUnits('social_publish', { brief: '', connection_id: 'c', platforms: ['instagram', 'x'] })).toBe(2);
+  });
+  it('notion_draft creates a page after review', () => {
+    const steps = planRecipeRun('notion_draft', agent, { brief: 'b', connection_id: 'c1' });
+    expect(steps.map((s) => s.type)).toEqual(['agent_task', 'approval', 'connector']);
+    expect(steps[2].name).toContain('Notion');
+  });
+});
