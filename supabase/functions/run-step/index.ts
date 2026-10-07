@@ -448,7 +448,8 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       lastOutput = parsed.value;
       // Marketplace: a creator-made agent earns its share of what was captured.
       if ((agent as any)?.creator_id) {
-        await admin.rpc("bump_agent_uses", { p_agent_id: agent.id });
+        const { error: bumpErr } = await admin.rpc("bump_agent_uses", { p_agent_id: agent.id });
+        if (bumpErr) console.error("[run-step] uses_count not bumped", { agentId: agent.id, error: bumpErr.message });
         if (captured > 0) {
           const { data: econ } = await admin.from("platform_settings").select("setting_value").eq("setting_key", "credit_economics").maybeSingle();
           const retail = Number((econ?.setting_value as any)?.retail_usd_per_credit) || 0.02;
