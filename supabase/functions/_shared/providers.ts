@@ -225,7 +225,11 @@ export async function callGoogle(cfg: ProviderConfig, req: ProviderRequest): Pro
   if (!req.stream) {
     const data = await res.json();
     const text = extract(data);
-    if (!text) throw new ProviderError("Google AI returned an empty response");
+    if (!text) {
+      // Usually the output budget was spent on thinking: say so in the log.
+      const reason = data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason ?? "unknown";
+      throw new ProviderError(`Google AI returned an empty response (finishReason=${reason}; raise maxTokens if MAX_TOKENS)`);
+    }
     return { text, usage: normalizeUsage("google", data.usageMetadata), raw: data };
   }
 

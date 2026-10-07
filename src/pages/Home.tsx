@@ -12,6 +12,7 @@ import { getOrCreateConversation, getMessages } from "@/services/mentorService";
 import { getLibraryAssets, type Asset } from "@/services/assetService";
 import { getCalendarPostsForRange, type CalendarPost } from "@/services/calendarService";
 import { getBrandStageData, getAllStageFields, type StageField } from "@/services/journeyDataService";
+import { PlanGlance } from "@/components/plan/PlanGlance";
 
 // ── Helpers ────────────────────────────────────────────────
 function getGreeting() {
@@ -294,6 +295,13 @@ const Home = () => {
                 );
               })}
             </div>
+          </section>
+        )}
+
+        {/* ── The plan: what to do next ── */}
+        {hasBrand && viewState !== "early" && (
+          <section className="px-4 md:px-8 pb-10 max-w-[1180px] mx-auto">
+            <PlanGlance brandId={activeBrand?.id} />
           </section>
         )}
 

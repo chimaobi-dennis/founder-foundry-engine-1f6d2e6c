@@ -47,6 +47,7 @@ import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
 import CreatorTemplateEditor from "./pages/CreatorTemplateEditor";
 import CreatorAgentEditor from "./pages/CreatorAgentEditor";
+import Plan from "./pages/Plan";
 import VariantStudio from "./pages/VariantStudio";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -165,6 +166,7 @@ const App = () => (
                         <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
                         <Route path="/home" element={<Home />} />
                         <Route path="/team" element={<Team />} />
+                        <Route path="/plan" element={<Plan />} />
                         <Route path="/invite/:token" element={<AcceptInvite />} />
                         <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />
