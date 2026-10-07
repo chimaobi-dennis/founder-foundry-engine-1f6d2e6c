@@ -13,7 +13,7 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 DO $$
-DECLARE k text := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwd2ZydWFuZmNhbGV1cWhnc2t3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDY0MDE3MSwiZXhwIjoyMDkwMjE2MTcxfQ.AwwkYiTSKulsScDaI45tZSnP3SLMuW1ONeyqnE7ZcvI';
+DECLARE k text := '<SERVICE_ROLE_KEY>';
         existing uuid;
 BEGIN
   IF k LIKE '<%' THEN RAISE EXCEPTION 'Replace <SERVICE_ROLE_KEY> with the service_role key first'; END IF;
