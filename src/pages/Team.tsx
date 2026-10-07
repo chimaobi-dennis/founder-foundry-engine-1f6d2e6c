@@ -21,8 +21,8 @@ import {
   listAgents, listHires, hireAgent, setHireStatus, removeHire,
   quoteAgentTask, createRun, listRuns, getRun, resumeRun, cancelRun, kickRun,
   listPendingApprovals, decideApproval, outputItems, outputToText,
-  listAutomations, createAutomation, setAutomationStatus, runAutomationNow, SCHEDULE_INTERVALS,
-  type Agent, type AgentHire, type AutomationRun, type Approval, type RunStep, type Automation, type ScheduleInterval,
+  listAutomations, createAutomation, setAutomationStatus, runAutomationNow, SCHEDULE_INTERVALS, EVENT_TYPES,
+  type Agent, type AgentHire, type AutomationRun, type Approval, type RunStep, type Automation, type ScheduleInterval, type EventType, type EventCondition,
 } from "@/services/agentService";
 import type { Quote } from "@/services/pricingService";
 import { ConnectionsSection, DiffTable, CodeReview } from "@/components/team/Connections";
@@ -344,12 +344,15 @@ export default function Team() {
           balanceLoading={balanceLoading}
           onClose={() => setTaskAgent(null)}
           onTopUp={() => openPricingModal({ currentBalance: balance })}
-          onCreate={async (name, input, autonomous, repeat) => {
+          onCreate={async (name, input, autonomous, repeat, conditions) => {
             const policy = { approval: autonomous ? "autonomous" : "review_first" } as const;
             if (repeat !== "once") {
-              const r = await createAutomation({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, interval: repeat === "webhook" ? "weekly" : repeat, trigger: repeat === "webhook" ? "webhook" : "schedule", policy });
+              const isEvent = repeat.startsWith("event:");
+              const eventType = isEvent ? (repeat.slice(6) as EventType) : undefined;
+              const interval = repeat === "webhook" || isEvent ? "weekly" : (repeat as ScheduleInterval);
+              const r = await createAutomation({ brandId: brandId!, userId: user!.id, agent: taskAgent, name, input, interval, trigger: repeat === "webhook" ? "webhook" : isEvent ? "event" : "schedule", eventType, conditions, policy, runNow: !isEvent });
               if (!r.success) { toast.error(planLimitMessage(r.error) ?? r.error ?? "Could not set up the schedule"); return false; }
-              toast(repeat === "webhook" ? "Webhook ready; copy its URL from the schedule list" : `${taskAgent.name} will do this ${SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase() ?? repeat}`);
+              toast(repeat === "webhook" ? "Webhook ready; copy its URL from the schedule list" : isEvent ? `${taskAgent.name} will do this ${EVENT_TYPES.find((e) => e.value === eventType)?.label.toLowerCase()}` : `${taskAgent.name} will do this ${SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase() ?? repeat}`);
               setTaskAgent(null);
               if (r.run) setOpenRunId(r.run.id);
               reload();
@@ -381,16 +384,19 @@ function SectionTitle({ icon, title, count }: { icon: React.ReactNode; title: st
 
 // ─── Task dialog ────────────────────────────────────────────
 
+type TaskRepeat = ScheduleInterval | "once" | "webhook" | `event:${EventType}`;
+
 function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate }: {
   agent: Agent;
   balance: number;
   balanceLoading: boolean;
   onClose: () => void;
   onTopUp: () => void;
-  onCreate: (name: string, input: { brief: string; units: number; platforms: string[] }, autonomous: boolean, repeat: ScheduleInterval | "once" | "webhook") => Promise<boolean>;
+  onCreate: (name: string, input: { brief: string; units: number; platforms: string[] }, autonomous: boolean, repeat: TaskRepeat, conditions: EventCondition[]) => Promise<boolean>;
 }) {
   const [brief, setBrief] = useState("");
-  const [repeat, setRepeat] = useState<ScheduleInterval | "once" | "webhook">("once");
+  const [repeat, setRepeat] = useState<TaskRepeat>("once");
+  const [stage, setStage] = useState("");
   const [name, setName] = useState("");
   const [units, setUnits] = useState(agent.slug === "copywriter" ? 3 : 1);
   const [platforms, setPlatforms] = useState<string[]>(agent.slug === "researcher" ? [] : ["instagram"]);
@@ -466,14 +472,26 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
             <select
               id="task-repeat"
               value={repeat}
-              onChange={(e) => setRepeat(e.target.value as ScheduleInterval | "once" | "webhook")}
+              onChange={(e) => setRepeat(e.target.value as TaskRepeat)}
               className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] font-ui"
             >
               <option value="once">Just once</option>
               {SCHEDULE_INTERVALS.map((i) => <option key={i.value} value={i.value}>{i.label}</option>)}
               <option value="webhook">When a webhook fires</option>
+              {EVENT_TYPES.map((e) => <option key={e.value} value={`event:${e.value}`}>{e.label}</option>)}
             </select>
-            {repeat === "webhook" ? (
+            {repeat === "event:milestone_reached" && (
+              <div className="mt-2">
+                <Label htmlFor="task-stage" className="text-[11px]">Only for this journey stage (optional)</Label>
+                <select id="task-stage" value={stage} onChange={(e) => setStage(e.target.value)} className="mt-1 w-full h-9 rounded-md border border-input bg-background px-3 text-[13px] font-ui">
+                  <option value="">Any stage</option>
+                  {["spark", "shape", "validate", "brand", "launch", "grow"].map((k) => <option key={k} value={k}>{k[0].toUpperCase() + k.slice(1)}</option>)}
+                </select>
+              </div>
+            )}
+            {repeat.startsWith("event:") ? (
+              <p className="font-ui text-[11px] text-muted-foreground mt-1">Starts a run each time it happens, with the details attached. Each run is quoted first and reviewed the same way; pause it any time.</p>
+            ) : repeat === "webhook" ? (
               <p className="font-ui text-[11px] text-muted-foreground mt-1">Creates a webhook URL you can call from another system (Zapier, a form, your app). Each call starts one run with the call's data attached.</p>
             ) : repeat !== "once" && (
               <p className="font-ui text-[11px] text-muted-foreground mt-1">Runs now, then {SCHEDULE_INTERVALS.find((i) => i.value === repeat)?.label.toLowerCase()}. Each run is quoted and reviewed the same way; pause it any time.</p>
@@ -505,14 +523,15 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
             disabled={submitting || !brief.trim() || !quote || insufficient}
             onClick={async () => {
               setSubmitting(true);
-              const ok = await onCreate(name, { brief: brief.trim(), units: effectiveUnits, platforms }, autonomous, repeat);
+              const conditions: EventCondition[] = repeat === "event:milestone_reached" && stage ? [{ field: "stage_key", op: "eq", value: stage }] : [];
+              const ok = await onCreate(name, { brief: brief.trim(), units: effectiveUnits, platforms }, autonomous, repeat, conditions);
               setSubmitting(false);
               if (!ok) return;
             }}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50"
           >
             {submitting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            {insufficient ? "Top up to run" : repeat === "once" ? "Run" : repeat === "webhook" ? "Create webhook" : "Run and schedule"}
+            {insufficient ? "Top up to run" : repeat === "once" ? "Run" : repeat === "webhook" ? "Create webhook" : repeat.startsWith("event:") ? "Create trigger" : "Run and schedule"}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -568,7 +587,10 @@ function ApprovalCard({ approval, userId, canDecide = true, onDecided, onOpenRun
 function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automation: Automation; userId: string; onChanged: () => void; onOpenRun: (runId: string) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const isWebhook = automation.trigger_type === "webhook";
-  const label = isWebhook ? "Webhook" : SCHEDULE_INTERVALS.find((i) => i.value === automation.schedule_interval)?.label ?? automation.schedule_interval ?? "";
+  const isEvent = automation.trigger_type === "event";
+  const eventLabel = isEvent ? EVENT_TYPES.find((e) => e.value === automation.event_type)?.label ?? "On an event" : "";
+  const condText = isEvent && automation.conditions?.length ? ` (${automation.conditions.map((c) => `${c.field} ${c.op === "eq" ? "is" : c.op === "neq" ? "is not" : "contains"} ${c.value}`).join(", ")})` : "";
+  const label = isWebhook ? "Webhook" : isEvent ? `${eventLabel}${condText}` : SCHEDULE_INTERVALS.find((i) => i.value === automation.schedule_interval)?.label ?? automation.schedule_interval ?? "";
   const next = automation.next_run_at ? new Date(automation.next_run_at) : null;
   const paused = automation.status === "paused";
   const webhookUrl = isWebhook && automation.webhook_secret ? `${SUPABASE_CONFIG.url}/functions/v1/webhook-trigger?automation=${automation.id}&key=${automation.webhook_secret}` : null;
@@ -595,7 +617,7 @@ function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automatio
         )}
         <p className="font-ui text-[12px] text-muted-foreground mt-0.5 truncate">
           {automation.agent?.name ?? "Agent"} · {automation.task_input.units ?? 1} {automation.agent?.unit_label ?? "item"}{(automation.task_input.units ?? 1) === 1 ? "" : "s"}
-          {next && !paused && !isWebhook ? ` · next ${next.toLocaleString()}` : ""}
+          {next && !paused && !isWebhook && !isEvent ? ` · next ${next.toLocaleString()}` : ""}
           {automation.last_run_at ? ` · last ${new Date(automation.last_run_at).toLocaleDateString()}` : ""}
         </p>
       </div>

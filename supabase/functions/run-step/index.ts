@@ -20,9 +20,10 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
-import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullRequest, publishItems, pullRequestStatus, readRepoFiles, repoSnapshot, trimRecords } from "../_shared/connectorOps.ts";
+import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullRequest, publishItems, readRepoFiles, repoSnapshot, settlePull, trimRecords } from "../_shared/connectorOps.ts";
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import {
+  planSingleAgentRun,
   creatorEarning,
   approvalKindFor,
   isConnectorWrite,
@@ -114,14 +115,46 @@ async function tick(admin: Admin) {
     }
   }
   const digests = await weeklyDigest(admin);
+  const readied = await settleOpenPulls(admin);
   const merged = await autoMergeDue(admin);
-  return { enqueued: enqueued?.length ?? 0, advanced, digests, merged };
+  return { enqueued: enqueued?.length ?? 0, advanced, digests, readied, merged };
+}
+
+/**
+ * Build first: a Developer pull request is only reported to the founder once
+ * its checks have run. Pending PRs are watched until they pass, fail or
+ * close; failing ones are re-read for a few days in case CI is re-run.
+ */
+async function settleOpenPulls(admin: Admin): Promise<number> {
+  const since = new Date(Date.now() - 3 * 86_400_000).toISOString();
+  const { data: pending } = await admin.from("change_sets").select("*").eq("provider", "github").eq("action", "open_pr").is("reverted_at", null).gte("created_at", since).order("created_at").limit(40);
+  let readied = 0;
+  for (const cs of pending ?? []) {
+    const after = (cs.after ?? {}) as Record<string, unknown>;
+    const current = after.checks as string | undefined;
+    if (after.merged_at || !cs.connection_id || !(current === "pending" || current === "failed")) continue;
+    const who = { user_id: cs.user_id, brand_id: cs.brand_id, id: cs.run_id ?? cs.id, name: cs.target_label ?? `PR #${cs.target_id}` };
+    try {
+      const loaded = await loadConnection(admin, cs.connection_id);
+      const r = await settlePull(admin, loaded, cs);
+      if (!r.changed) continue;
+      if (r.state === "passed" || r.state === "none") {
+        readied++;
+        await notify(admin, who, "agent_needs_you", `PR #${cs.target_id} is ready to merge`, `${cs.target_label ?? "The change"}: ${r.state === "passed" ? "all checks passed." : "no checks ran on this repository."} Review the preview and merge it from Connections.`, null);
+      } else if (r.state === "failed" && current !== "failed") {
+        await notify(admin, who, "agent_needs_you", `PR #${cs.target_id} failed its checks`, `${cs.target_label ?? "The change"}: ${r.names.join(", ") || "a check"} failed. Fix it on GitHub, or revert it from Connections.`, null);
+      }
+    } catch (e) {
+      console.error("[run-step] settle failed", { changeSetId: cs.id, error: (e as Error).message });
+    }
+  }
+  return readied;
 }
 
 /**
  * Enterprise auto-merge: pull requests opened under an autonomous policy on
- * allowlisted paths merge once every check passes. Failing checks, conflicts
- * or a closed PR turn auto-merge off and tell the founder.
+ * allowlisted paths merge once their checks have settled green. Failing
+ * checks, conflicts or a closed PR turn auto-merge off and tell the founder.
  */
 async function autoMergeDue(admin: Admin): Promise<number> {
   const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
@@ -137,15 +170,13 @@ async function autoMergeDue(admin: Admin): Promise<number> {
     };
     try {
       const loaded = await loadConnection(admin, cs.connection_id);
-      const st = await pullRequestStatus(loaded, Number(cs.target_id));
-      if (st.merged) { await admin.from("change_sets").update({ after: { ...after, merged_at: new Date().toISOString(), auto_merge_note: "merged outside Kinika" } }).eq("id", cs.id); continue; }
-      if (st.state !== "open") { await stop("The pull request was closed before it could merge.", false); continue; }
-      if (st.checks.failure) { await stop(`Checks failed (${st.checks.names.join(", ") || st.checks.failure}).`, true); continue; }
-      if (st.checks.pending) continue;
-      const ageMin = (Date.now() - new Date(cs.created_at).getTime()) / 60_000;
-      if (st.checks.total === 0 && ageMin < 10) continue; // give CI a chance to start
-      if (st.mergeable === false) { await stop("The pull request has conflicts with the base branch.", true); continue; }
-      await mergePullRequest(admin, loaded, cs);
+      const r = await settlePull(admin, loaded, cs);
+      if (r.state === "merged") { await admin.from("change_sets").update({ after: { ...after, checks: "merged", merged_at: new Date().toISOString(), auto_merge_note: "merged outside Kinika" } }).eq("id", cs.id); continue; }
+      if (r.state === "closed") { await stop("The pull request was closed before it could merge.", false); continue; }
+      if (r.state === "failed") { await stop(`Checks failed (${r.names.join(", ") || "a check"}).`, true); continue; }
+      if (r.state === "pending") continue;
+      if (r.mergeable === false) { await stop("The pull request has conflicts with the base branch.", true); continue; }
+      await mergePullRequest(admin, loaded, { ...cs, after: { ...after, checks: r.state } });
       merged++;
       await notify(admin, who, "agent_run_completed", `PR #${cs.target_id} merged`, `${cs.target_label ?? "The change"} merged itself after checks passed. ${String(after.pr_url ?? "")}`.trim(), null);
     } catch (e) {
@@ -205,6 +236,16 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
   const agent = runAgent;
   const budget: RunBudget = { ...DEFAULT_BUDGET, ...(run.budget ?? {}) };
   let stepsRun = 0;
+
+  // ── runs queued by SQL (schedule and event triggers) have no steps yet ──
+  if (run.status === "queued" && runAgent) {
+    const { count: stepCount } = await admin.from("automation_run_steps").select("id", { count: "exact", head: true }).eq("run_id", run.id);
+    if (!stepCount) {
+      const planned = planSingleAgentRun(runAgent, (run.input ?? {}) as any, (run.policy ?? undefined) as any);
+      const { error: planErr } = await admin.from("automation_run_steps").insert(planned.map((st) => ({ run_id: run.id, step_index: st.step_index, type: st.type, name: st.name, input: st.input })));
+      if (planErr) throw new Error(`could not plan steps: ${planErr.message}`);
+    }
+  }
 
   // ── reserve on first touch ──
   if (run.status === "queued") {

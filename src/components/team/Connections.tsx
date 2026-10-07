@@ -12,7 +12,7 @@ import type { Agent } from "@/services/agentService";
 import {
   PROVIDERS, RECIPES, allowedFields, connectionAllowsWrites,
   listConnections, createConnection, updateConnectionScope, removeConnection, testConnection, previewRecords,
-  listChangeSets, revertChange, quoteRecipe, startRecipe, pullRequestStatus, mergePullRequest,
+  listChangeSets, revertChange, quoteRecipe, startRecipe, pullRequestStatus, mergePullRequest, repoSize,
   type ToolConnection, type ChangeSet, type ConnectorProvider, type RecipeKey, type NormalizedRecord, type PrStatus,
 } from "@/services/connectionService";
 import { DEFAULT_ALLOWED_PATHS } from "@shared/github";
@@ -324,6 +324,14 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
   const agent = agents.find((a) => a.slug === spec.agentSlug);
   const [brief, setBrief] = useState("");
   const [limit, setLimit] = useState(10);
+  const [repoFiles, setRepoFiles] = useState<number | undefined>(undefined);
+  // The Developer's quote scales with the repository it has to read.
+  useEffect(() => {
+    if (recipe !== "code_change") return;
+    let active = true;
+    repoSize(connection.id).then((n) => { if (active && n != null) setRepoFiles(n); });
+    return () => { active = false; };
+  }, [recipe, connection.id]);
   const [autonomous, setAutonomous] = useState(false);
   const linked = Array.isArray((connection.config as any).linked_platforms) ? ((connection.config as any).linked_platforms as string[]) : null;
   const platformChoices = linked && linked.length ? SOCIAL_PLATFORMS.filter((p) => linked.includes(p === "x" ? "twitter" : p)) : SOCIAL_PLATFORMS;
@@ -335,9 +343,9 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
   useEffect(() => {
     if (!agent) return;
     let active = true;
-    quoteRecipe(recipe, agent, { brief, connection_id: connection.id, record_limit: limit, platforms }).then((q) => { if (active) setQuote(q); });
+    quoteRecipe(recipe, agent, { brief, connection_id: connection.id, record_limit: limit, platforms, repo_files: repoFiles }).then((q) => { if (active) setQuote(q); });
     return () => { active = false; };
-  }, [agent, recipe, limit, brief, connection.id, platforms]);
+  }, [agent, recipe, limit, brief, connection.id, platforms, repoFiles]);
 
   if (!agent) {
     return (
@@ -406,7 +414,7 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
             onClick={async () => {
               setSubmitting(true);
               const schedule_at = scheduleAt ? new Date(scheduleAt).toISOString() : undefined;
-              const r = await startRecipe({ recipe, brandId, userId, agent, connection, name: `${spec.name} · ${connection.display_name}`, input: { brief: brief.trim(), connection_id: connection.id, record_limit: limit, platforms, schedule_at }, policy: { approval: autonomous ? "autonomous" : "review_first" } });
+              const r = await startRecipe({ recipe, brandId, userId, agent, connection, name: `${spec.name} · ${connection.display_name}`, input: { brief: brief.trim(), connection_id: connection.id, record_limit: limit, platforms, schedule_at, repo_files: repoFiles }, policy: { approval: autonomous ? "autonomous" : "review_first" } });
               setSubmitting(false);
               if (!r.success) { toast.error(r.error ?? "Could not start"); return; }
               toast(`${agent.name} is on it`);
@@ -492,7 +500,8 @@ function PrLine({ change: ch }: { change: ChangeSet }) {
   const [busy, setBusy] = useState(false);
   const [merged, setMerged] = useState<boolean>(!!ch.after.merged_at);
   const url = ch.after.pr_url;
-  const canMerge = !!status && status.state === "open" && !status.merged && !merged && !status.checks.failure && !status.checks.pending && status.mergeable !== false;
+  const settled = !ch.after.checks || ch.after.checks === "passed" || ch.after.checks === "none";
+  const canMerge = settled && !!status && status.state === "open" && !status.merged && !merged && !status.checks.failure && !status.checks.pending && status.mergeable !== false;
   const merge = async () => {
     setBusy(true);
     const r = await mergePullRequest(ch.id);
@@ -513,6 +522,8 @@ function PrLine({ change: ch }: { change: ChangeSet }) {
       <span className="truncate">{ch.after.files}</span>
       {merged ? <span className="text-emerald-500">merged</span> : <button onClick={check} disabled={busy} className="underline disabled:opacity-50">{busy ? "checking…" : "checks?"}</button>}
       {canMerge && <button onClick={merge} disabled={busy} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary text-primary-foreground text-[11px] font-medium disabled:opacity-50">Merge</button>}
+      {!merged && ch.after.checks === "pending" && <span className="text-amber-500">waiting for checks before it is ready</span>}
+      {!merged && ch.after.checks === "failed" && <span className="text-destructive">checks failed{Array.isArray(ch.after.checks_failed) && ch.after.checks_failed.length ? ` (${ch.after.checks_failed.join(", ")})` : ""}</span>}
       {ch.after.auto_merge === true && !merged && <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted">merges itself after checks</span>}
       {ch.after.auto_merge_note ? <span className="text-amber-600">{String(ch.after.auto_merge_note)}</span> : null}
       {status?.preview?.url && <a href={status.preview.url} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">preview <ExternalLink size={10} /></a>}

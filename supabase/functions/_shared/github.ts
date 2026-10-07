@@ -224,6 +224,9 @@ export const github = {
     const r = await gh(token, "POST", `/repos/${c.owner}/${c.repo}/pulls`, { title, body, head, base });
     return { number: r.number, html_url: r.html_url };
   },
+  async updatePR(token: string, c: GitHubConn, number: number, patch: { title?: string; body?: string }): Promise<void> {
+    await gh(token, "PATCH", `/repos/${c.owner}/${c.repo}/pulls/${number}`, patch);
+  },
   async mergePR(token: string, c: GitHubConn, number: number, title?: string): Promise<{ sha: string; merged: boolean }> {
     const r = await gh(token, "PUT", `/repos/${c.owner}/${c.repo}/pulls/${number}/merge`, { merge_method: "squash", ...(title ? { commit_title: title.slice(0, 72) } : {}) });
     return { sha: String(r.sha ?? ""), merged: !!r.merged };

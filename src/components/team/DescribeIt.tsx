@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Sparkles, Loader2, Wand2, AlertTriangle, Repeat, Webhook, Users } from "lucide-react";
+import { Sparkles, Loader2, Wand2, AlertTriangle, Repeat, Webhook, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { QuoteChip } from "@/components/billing/QuoteChip";
-import { draftPlan, executeDraft, type PlanDraft } from "@/services/plannerService";
+import { draftPlan, executeDraft, describeDraftSteps, type PlanDraft } from "@/services/plannerService";
 import type { Quote } from "@/services/pricingService";
 import type { Agent } from "@/services/agentService";
 import type { ToolConnection } from "@/services/connectionService";
-import { RECIPES, SCHEDULE_INTERVALS } from "@shared/runner";
+import { ACTION_CLASS_LABEL, EVENT_TYPES, RECIPES, SCHEDULE_INTERVALS, type ActionClass } from "@shared/runner";
 
 /**
  * "Describe it": plain language in, a reviewed plan out. Nothing is created
@@ -50,13 +50,25 @@ export function DescribeIt({ brandId, userId, agents, connections, stage, balanc
     const r = await executeDraft(draft, brandId, userId, agents, connections);
     setBusy(null);
     if (!r.success) { toast.error(r.error ?? "Could not start"); return; }
-    toast(draft.schedule === "once" ? "On it" : draft.schedule === "webhook" ? "Webhook ready; copy its URL from the schedule list" : "Scheduled");
+    toast(draft.schedule === "once" ? "On it" : draft.schedule === "webhook" ? "Webhook ready; copy its URL from the schedule list" : draft.schedule === "event" ? "Trigger created" : "Scheduled");
     setDraft(null);
     setText("");
     onCreated(r.run?.id);
   };
 
-  const scheduleLabel = draft ? (draft.schedule === "once" ? "Once, now" : draft.schedule === "webhook" ? "When a webhook fires" : SCHEDULE_INTERVALS.find((i) => i.value === draft.schedule)?.label ?? draft.schedule) : "";
+  const eventText = draft?.schedule === "event" && draft.event
+    ? `${EVENT_TYPES.find((e) => e.value === draft.event)?.label ?? "On an event"}${draft.conditions.length ? ` (${draft.conditions.map((c) => `${c.field} ${c.op === "eq" ? "is" : c.op === "neq" ? "is not" : "contains"} ${c.value}`).join(", ")})` : ""}`
+    : "";
+  const scheduleLabel = draft ? (draft.schedule === "once" ? "Once, now" : draft.schedule === "webhook" ? "When a webhook fires" : draft.schedule === "event" ? eventText : SCHEDULE_INTERVALS.find((i) => i.value === draft.schedule)?.label ?? draft.schedule) : "";
+  const steps = draft ? describeDraftSteps(draft, agents) : [];
+  const classStyle: Record<ActionClass, string> = {
+    read: "bg-muted text-muted-foreground",
+    generate: "bg-muted text-muted-foreground",
+    review: "bg-primary/10 text-primary",
+    data_write: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    code_change: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    publish: "bg-destructive/10 text-destructive",
+  };
 
   return (
     <section className="rounded-xl border border-primary/25 bg-primary/[0.03] p-5">
@@ -94,12 +106,23 @@ export function DescribeIt({ brandId, userId, agents, connections, stage, balanc
               {draft.kind === "recipe" && draft.recipe ? `${RECIPES[draft.recipe].name} · ${connections.find((c) => c.id === draft.connection_id)?.display_name ?? ""}` : draft.agents.map((s) => bySlug.get(s)?.name ?? s).join(" → ")}
             </li>
             <li className="text-muted-foreground">{draft.units} {draft.units === 1 ? "item" : "items"}{draft.platforms.length ? ` · ${draft.platforms.join(", ")}` : ""}</li>
-            <li className="flex items-center gap-2 text-muted-foreground">{draft.schedule === "webhook" ? <Webhook size={12} /> : <Repeat size={12} />} {scheduleLabel} · {draft.approval === "autonomous" ? "no review" : "you review first"}</li>
+            <li className="flex items-center gap-2 text-muted-foreground">{draft.schedule === "webhook" ? <Webhook size={12} /> : draft.schedule === "event" ? <Zap size={12} /> : <Repeat size={12} />} {scheduleLabel} · {draft.approval === "autonomous" ? "no review" : "you review first"}</li>
             {draft.warnings.map((w, i) => <li key={i} className="flex items-start gap-2 text-amber-600 dark:text-amber-400"><AlertTriangle size={12} className="mt-0.5" /> {w}</li>)}
           </ul>
+          {steps.length > 0 && (
+            <ol className="font-ui text-[12px] space-y-1 border-t border-border/60 pt-3">
+              {steps.map((st, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="w-4 text-muted-foreground">{i + 1}.</span>
+                  <span className="text-foreground flex-1 min-w-0 truncate">{st.name}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${classStyle[st.action_class]}`}>{ACTION_CLASS_LABEL[st.action_class]}</span>
+                </li>
+              ))}
+            </ol>
+          )}
           <div className="flex items-center gap-2">
             <button onClick={run} disabled={busy === "run" || insufficient} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50">
-              {busy === "run" ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} {insufficient ? "Top up to run" : draft.schedule === "once" ? "Confirm and run" : "Confirm and schedule"}
+              {busy === "run" ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />} {insufficient ? "Top up to run" : draft.schedule === "once" ? "Confirm and run" : draft.schedule === "event" ? "Confirm trigger" : "Confirm and schedule"}
             </button>
             <button onClick={() => setDraft(null)} className="px-3 py-2 rounded-lg text-[12px] font-ui text-muted-foreground">Change the description</button>
           </div>
