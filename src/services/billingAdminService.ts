@@ -351,7 +351,8 @@ export async function grantFreeTrialCredits(userId: string): Promise<{ success: 
 export async function grantCreditsToUser(params: {
   userId: string;
   amount: number;
-  type?: 'topup' | 'adjustment' | 'refund';
+  /** Must be one of the live wallet_transaction_type_check values. */
+  type?: 'manual_adjustment' | 'credit_purchase' | 'refund';
   description?: string;
   adminUserId?: string;
 }): Promise<{ success: boolean; error?: string; transactionId?: string; balanceAfter?: number }> {
@@ -361,7 +362,9 @@ export async function grantCreditsToUser(params: {
   const { data, error } = await db.rpc('grant_credits_admin', {
     p_user_id: params.userId,
     p_amount: params.amount,
-    p_type: params.type || 'topup',
+    // wallet_transaction_type_check on the live DB only accepts the billing
+    // vocabulary; 'manual_adjustment' is the admin-grant type.
+    p_type: params.type || 'manual_adjustment',
     p_description: params.description || 'Admin credit grant',
     p_admin_user_id: params.adminUserId || null,
     p_idempotency_key: idempotencyKey,

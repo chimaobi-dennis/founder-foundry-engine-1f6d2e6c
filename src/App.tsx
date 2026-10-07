@@ -60,6 +60,7 @@ import AdminBilling from "./pages/admin/AdminBilling";
 import Billing from "./pages/Billing";
 import Studio from "./pages/Studio";
 import LogoStudio from "./pages/LogoStudio";
+import Team from "./pages/Team";
 
 const queryClient = new QueryClient();
 
@@ -149,6 +150,7 @@ const App = () => (
                         <Route path="/pro-studio/editor" element={<ProStudioEditor />} />
                         <Route path="/content-studio/:briefId" element={<ContentStudioEditor />} />
                         <Route path="/home" element={<Home />} />
+                        <Route path="/team" element={<Team />} />
                         <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />
                         <Route path="/pro-studio/:brandId" element={<ProStudio />} />

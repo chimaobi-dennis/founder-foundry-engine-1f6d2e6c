@@ -9,3 +9,4 @@ export { FeatureComparison } from './FeatureComparison';
 export { StripeCheckoutButton } from './StripeCheckoutButton';
 export { WalletWidget } from './WalletWidget';
 export type { BillingStatus } from './BillingStatusToast';
+export { QuoteChip } from './QuoteChip';

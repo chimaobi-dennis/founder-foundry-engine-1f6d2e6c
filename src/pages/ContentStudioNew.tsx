@@ -28,6 +28,8 @@ import {
 import { calculateGenerationCredits } from "@/utils/calculateGenerationCredits";
 import { useContentStudioRule } from "@/hooks/use-pricing";
 import { QuoteChip } from "@/components/billing/QuoteChip";
+import { useSearchParams } from "react-router-dom";
+import { getRun, outputToText } from "@/services/agentService";
 import { cn } from "@/lib/utils";
 import { useCreditBalance } from "@/hooks/use-credit-balance";
 import { usePricingModal } from "@/contexts/PricingModalContext";
@@ -99,6 +101,20 @@ export default function ContentStudioNew() {
   // Core fields
   const [name, setName] = useState("");
   const [briefText, setBriefText] = useState("");
+  const [searchParams] = useSearchParams();
+
+  // "Create campaign from this" on a Designer run: prefill the brief with the
+  // agent's creative direction so nothing it produced is a dead end.
+  useEffect(() => {
+    const fromRun = searchParams.get("fromRun");
+    if (!fromRun) return;
+    getRun(fromRun).then((run) => {
+      if (!run?.output) return;
+      setName((n) => n || run.name);
+      setBriefText((b) => b || outputToText(run.output));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [campaignGoal, setCampaignGoal] = useState(goals[0]);
   const [platforms, setPlatforms] = useState<any[]>([]);
   const [selectedPlatformIds, setSelectedPlatformIds] = useState<string[]>([]);
