@@ -1,4 +1,5 @@
 import { github, parseRepo } from "./github.ts";
+import { pg } from "./postgres.ts";
 /**
  * Connectors — provider catalog, adapters and change-set helpers.
  *
@@ -6,7 +7,7 @@ import { github, parseRepo } from "./github.ts";
  * frontend. The adapters only run in edge functions, where the secret is.
  */
 
-export type ConnectorProvider = "wordpress" | "shopify" | "notion" | "ayrshare" | "github";
+export type ConnectorProvider = "wordpress" | "shopify" | "notion" | "ayrshare" | "github" | "postgres";
 export type Capability = "read" | "data_write" | "code_write" | "publish";
 
 /**
@@ -14,6 +15,7 @@ export type Capability = "read" | "data_write" | "code_write" | "publish";
  * delivery: a place agents deliver new things to (Notion)
  * publish:  irreversible outward actions (social posts); always reviewed
  * code:     a repository; changes arrive as pull requests on a branch
+ * (postgres is a "records" provider over one table; Enterprise only)
  */
 export type ProviderKind = "records" | "delivery" | "publish" | "code";
 
@@ -29,7 +31,7 @@ export interface ProviderSpec {
   provider: ConnectorProvider;
   name: string;
   kind: ProviderKind;
-  targetType: "post" | "product" | "page" | "social_post" | "pull_request";
+  targetType: "post" | "product" | "page" | "social_post" | "pull_request" | "row";
   targetLabel: string;
   /** Config the UI collects (non-secret) */
   config: { key: string; label: string; placeholder: string }[];
@@ -115,6 +117,21 @@ export const PROVIDERS: Record<ConnectorProvider, ProviderSpec> = {
     fields: [],
     help: "Create a fine-grained token (Settings → Developer settings) limited to this repository with Contents: read & write and Pull requests: read & write. The Developer never pushes to your base branch; every change is a pull request you merge. Secrets, CI, lockfiles and migrations are always off limits.",
   },
+  postgres: {
+    provider: "postgres",
+    name: "Database",
+    kind: "records",
+    targetType: "row",
+    targetLabel: "rows",
+    config: [
+      { key: "table", label: "Table", placeholder: "products or shop.products" },
+      { key: "key_column", label: "Primary key column", placeholder: "id" },
+      { key: "label_column", label: "Column to show as the row's name (optional)", placeholder: "name" },
+    ],
+    secret: [{ key: "connection_string", label: "Connection string", placeholder: "postgres://user:password@host:5432/db" }],
+    fields: [],
+    help: "Enterprise. Agents read and update one table through a Postgres connection string, by primary key, only in the columns you list. Use a database role that has SELECT and UPDATE on that table and nothing else; Kinika never runs schema changes.",
+  },
 };
 
 /** Platform names agents use → Ayrshare platform ids. */
@@ -143,15 +160,22 @@ export function toAyrsharePlatforms(platforms: string[] | null | undefined): str
 export const DEFAULT_MAX_RECORDS = 50;
 
 export interface ConnectionScope {
+  /** records: fields (or, for a database, columns) agents may change */
   fields?: string[];
   max_records_per_run?: number;
   /** code connections: globs the Developer may write under */
   paths?: string[];
+  /** Enterprise: globs under which an autonomous PR may merge itself once checks pass */
+  auto_merge_paths?: string[];
 }
 
 /** Fields the connection may change: the scope's list, else the provider defaults. */
 export function allowedFields(provider: ConnectorProvider, scope: ConnectionScope | null | undefined): string[] {
   const spec = PROVIDERS[provider];
+  if (provider === "postgres") {
+    // Columns are whatever the founder listed; the adapter validates names.
+    return [...new Set((scope?.fields ?? []).map((f) => String(f).toLowerCase().trim()).filter((f) => /^[a-z_][a-z0-9_]{0,62}$/.test(f)))];
+  }
   const known = new Set(spec.fields.map((f) => f.key));
   const fromScope = (scope?.fields ?? []).filter((f) => known.has(f));
   if (fromScope.length) return fromScope;
@@ -597,6 +621,15 @@ export async function runConnector(conn: ConnectionRow, secret: Secret, act: Con
       case "update_record": return wordpress.update(conn, secret, act.id, act.fields);
       case "create_record": return wordpress.createDraft(conn, secret, act.fields);
       case "delete_record": return wordpress.trash(conn, secret, act.id);
+    }
+  }
+  if (conn.provider === "postgres") {
+    switch (act.action) {
+      case "test": return pg.test(conn, secret);
+      case "list_records": return pg.list(conn, secret, limit);
+      case "get_record": return pg.get(conn, secret, act.id);
+      case "update_record": return pg.update(conn, secret, act.id, act.fields);
+      default: throw new ConnectorError(`Database connections only read and update rows (${act.action} not supported).`, 400);
     }
   }
   if (conn.provider === "shopify") {

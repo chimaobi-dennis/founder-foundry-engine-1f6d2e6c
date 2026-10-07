@@ -287,6 +287,7 @@ export default function Team() {
             brandId={brandId!}
             userId={user!.id}
             autonomousAllowed={!!ent?.autonomous_publishing}
+            enterprise={!!ent?.enterprise}
             canConnect={isOwner}
             canRun={canEdit}
             agents={agents}

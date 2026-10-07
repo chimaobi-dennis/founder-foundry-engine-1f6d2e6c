@@ -28,6 +28,7 @@ import {
   parseRepo,
   slugifyBranch,
   validateEdit,
+  autoMergeEligible,
   GitHubError,
   type FileContent,
   type ProposedFileChange,
@@ -189,6 +190,7 @@ export async function revertChangeSet(admin: SupabaseClient, changeSetId: string
     } else if (cs.action === "publish_post") {
       await runConnector(loaded.row, loaded.secret, { action: "delete_post", id: cs.target_id });
     } else if (cs.action === "open_pr") {
+      if ((cs.after as any)?.merged_at) return { success: false, error: "This pull request was merged; revert the commit in GitHub." };
       const c = repoOf(loaded);
       const token = loaded.secret.token ?? "";
       await github.closePR(token, c, Number(cs.target_id));
@@ -263,6 +265,8 @@ export async function readRepoFiles(loaded: LoadedConnection, branch: string, pa
 }
 
 export interface OpenPrInput {
+  /** Enterprise + autonomous: merge itself once checks pass, if every path is under scope.auto_merge_paths */
+  auto_merge?: boolean;
   changes: ProposedFileChange[];
   commit_message: string;
   pr_title: string;
@@ -273,6 +277,7 @@ export interface OpenPrInput {
 }
 
 export interface OpenPrResult {
+  auto_merge: boolean;
   change_set_id: string;
   pr_number: number;
   pr_url: string;
@@ -314,7 +319,10 @@ export async function openPullRequest(admin: SupabaseClient, ctx: ApplyContext, 
     }
   }
 
-  const footer = "\n\n---\nOpened by the Kinika Developer agent. Review the preview, then merge. Closing this PR reverts the change.";
+  const autoMerge = !!input.auto_merge && autoMergeEligible(accepted.map((a) => a.path), loaded.row.scope?.auto_merge_paths);
+  const footer = autoMerge
+    ? "\n\n---\nOpened by the Kinika Developer agent under an autonomous policy. It merges itself once checks pass; close it to stop that."
+    : "\n\n---\nOpened by the Kinika Developer agent. Review the preview, then merge. Closing this PR reverts the change.";
   const pr = await github.createPR(token, c, branch, base, (input.pr_title || message).slice(0, 70), (input.pr_body || "") + footer);
 
   const { data: cs } = await admin.from("change_sets").insert({
@@ -329,10 +337,25 @@ export async function openPullRequest(admin: SupabaseClient, ctx: ApplyContext, 
     target_id: String(pr.number),
     target_label: input.pr_title || message,
     before: { base },
-    after: { pr_url: pr.html_url, branch, files: accepted.map((a) => `${a.action}:${a.path}`).join(", ") },
+    after: { pr_url: pr.html_url, branch, files: accepted.map((a) => `${a.action}:${a.path}`).join(", "), ...(autoMerge ? { auto_merge: true } : {}) },
   }).select("id").single();
 
-  return { change_set_id: cs?.id, pr_number: pr.number, pr_url: pr.html_url, branch, files: accepted.map((a) => ({ path: a.path, action: a.action })), rejected };
+  return { change_set_id: cs?.id, pr_number: pr.number, pr_url: pr.html_url, branch, files: accepted.map((a) => ({ path: a.path, action: a.action })), rejected, auto_merge: autoMerge };
+}
+
+/** Squash-merge the change set's PR and remember it; the revert path then refuses. */
+export async function mergePullRequest(admin: SupabaseClient, loaded: LoadedConnection, cs: { id: string; target_id: string; target_label: string | null; after: Record<string, unknown> }): Promise<{ sha: string }> {
+  const token = loaded.secret.token ?? "";
+  const c = repoOf(loaded);
+  const r = await github.mergePR(token, c, Number(cs.target_id), cs.target_label ?? undefined);
+  if (!r.merged) throw new GitHubError("GitHub did not merge the pull request.", 502);
+  try {
+    await github.deleteBranch(token, c, String((cs.after as any)?.branch ?? ""));
+  } catch {
+    /* branch protection or already gone */
+  }
+  await admin.from("change_sets").update({ after: { ...(cs.after ?? {}), merged_at: new Date().toISOString(), merge_sha: r.sha } }).eq("id", cs.id);
+  return { sha: r.sha };
 }
 
 export async function pullRequestStatus(loaded: LoadedConnection, number: number) {
