@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { getWalletBalance, type WalletBalance } from '@/services/generationCreditService';
 import { claimTrialCredits } from '@/services/trialService';
+import { useVisibleInterval } from '@/hooks/use-visible-interval';
 
 interface UseCreditBalanceReturn {
   balance: number;
@@ -58,12 +59,9 @@ export function useCreditBalance(): UseCreditBalanceReturn {
     claimTrialCredits(user.id).then((granted) => { if (granted > 0) fetchBalance(); });
   }, [user?.id, fetchBalance]);
 
-  // Poll every 30 seconds
-  useEffect(() => {
-    if (!billingUserId) return;
-    const interval = setInterval(fetchBalance, 30_000);
-    return () => clearInterval(interval);
-  }, [billingUserId, fetchBalance]);
+  // Poll every minute, only while the tab is visible. Actions that spend
+  // credits call refresh() themselves.
+  useVisibleInterval(fetchBalance, 60_000, !!billingUserId);
 
   const hasSufficientCredits = useCallback(
     (cost: number) => (wallet?.availableBalance ?? 0) >= cost,

@@ -117,10 +117,14 @@ async function tick(admin: Admin) {
       advanced[id] = `error: ${(e as Error).message}`;
     }
   }
-  const digests = await weeklyDigest(admin);
-  const readied = await settleOpenPulls(admin);
-  const merged = await autoMergeDue(admin);
-  return { enqueued: enqueued?.length ?? 0, advanced, digests, readied, merged };
+  // The slower housekeeping (digest, PR checks, auto-merge) runs a few times
+  // an hour, not every minute: the tick should cost almost nothing when idle.
+  const minute = new Date().getUTCMinutes();
+  const housekeeping = minute % 5 === 0;
+  const digests = housekeeping ? await weeklyDigest(admin) : 0;
+  const readied = housekeeping ? await settleOpenPulls(admin) : 0;
+  const merged = housekeeping ? await autoMergeDue(admin) : 0;
+  return { enqueued: enqueued?.length ?? 0, advanced, digests, readied, merged, housekeeping };
 }
 
 /**
