@@ -53,6 +53,24 @@ const MAX_STEPS_PER_INVOCATION = 6;
 
 type Admin = SupabaseClient;
 
+/**
+ * Is this the service role? The cron tick sends the key stored in Vault,
+ * which may be a different format from the one injected here (legacy JWT vs
+ * secret key), so compare by capability, not by string: only the service
+ * role can list users.
+ */
+async function isServiceToken(token: string): Promise<boolean> {
+  if (!token) return false;
+  if (token === SERVICE_ROLE_KEY) return true;
+  if (token.length < 32 || (!token.startsWith("eyJ") && !token.startsWith("sb_secret_"))) return false;
+  try {
+    const { error } = await createClient(SUPABASE_URL, token, { auth: { persistSession: false } }).auth.admin.listUsers({ page: 1, perPage: 1 });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ success: false, error: "POST only" }, 405);
@@ -60,7 +78,7 @@ serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  const isService = !!token && token === SERVICE_ROLE_KEY;
+  const isService = await isServiceToken(token);
   let userId: string | null = null;
   if (!isService && token) {
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
