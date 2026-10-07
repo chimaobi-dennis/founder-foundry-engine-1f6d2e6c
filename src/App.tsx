@@ -46,6 +46,7 @@ import Onboarding from "./pages/Onboarding";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
 import CreatorTemplateEditor from "./pages/CreatorTemplateEditor";
+import CreatorAgentEditor from "./pages/CreatorAgentEditor";
 import VariantStudio from "./pages/VariantStudio";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -57,6 +58,7 @@ import AdminJourneyStages from "./pages/admin/AdminJourneyStages";
 import AdminErrorLogs from "./pages/admin/AdminErrorLogs";
 import AdminRuntimeSettings from "./pages/admin/AdminRuntimeSettings";
 import AdminBilling from "./pages/admin/AdminBilling";
+import AdminAgents from "./pages/admin/AdminAgents";
 import Billing from "./pages/Billing";
 import Studio from "./pages/Studio";
 import LogoStudio from "./pages/LogoStudio";
@@ -148,6 +150,7 @@ const App = () => (
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="product/templates" element={<AdminTemplates />} />
                         <Route path="product/applications" element={<AdminApplications />} />
+                        <Route path="product/agents" element={<AdminAgents />} />
                         <Route path="product/ai-models" element={<AdminAIModels />} />
                         <Route path="knowledge-base" element={<AdminKnowledgeBase />} />
                         <Route path="journey-stages" element={<AdminJourneyStages />} />
@@ -187,6 +190,8 @@ const App = () => (
                         <Route path="/billing" element={<Billing />} />
                         <Route path="/creator/apply" element={<CreatorApply />} />
                         <Route path="/creator" element={<CreatorStudio />} />
+                        <Route path="/creator/agents/new" element={<CreatorAgentEditor />} />
+                        <Route path="/creator/agents/:id" element={<CreatorAgentEditor />} />
                         <Route path="/creator/templates/new" element={<CreatorTemplateEditor />} />
                         <Route path="/creator/templates/:id" element={<CreatorTemplateEditor />} />
                         <Route path="/creator/templates/:templateId/variants/new" element={<VariantStudio />} />

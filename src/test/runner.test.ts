@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
+  creatorAgentSlug,
+  creatorEarning,
+  customActionType,
   approvalKindFor,
   isConnectorWrite,
   writeMayRunUnreviewed,
@@ -202,5 +205,23 @@ describe('connector write review policy', () => {
 
   it('never publishes without a review', () => {
     expect(writeMayRunUnreviewed('publish_items', 'autonomous', true)).toBe(false);
+  });
+});
+
+describe('marketplace helpers', () => {
+  it('quotes creator agents on the shared tier rules', () => {
+    expect(customActionType('fast')).toBe('agent_custom_fast');
+    expect(customActionType('reasoning')).toBe('agent_custom_reasoning');
+    expect(customActionType('weird' as any)).toBe('agent_custom_standard');
+  });
+  it('pays the creator their share of retail, 4 dp, clamped', () => {
+    expect(creatorEarning(18, 30, 0.02)).toBe(0.108);
+    expect(creatorEarning(0, 30, 0.02)).toBe(0);
+    expect(creatorEarning(10, 200, 0.02)).toBe(0.18);
+    expect(creatorEarning(-5, 30, 0.02)).toBe(0);
+  });
+  it('makes a url-safe slug with a seed', () => {
+    expect(creatorAgentSlug('Newsletter Writer!', 'abc123-zzz')).toBe('newsletter-writer-abc123');
+    expect(creatorAgentSlug('', 'x')).toBe('agent-x');
   });
 });

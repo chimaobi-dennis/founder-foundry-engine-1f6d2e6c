@@ -258,6 +258,7 @@ export default function Team() {
                       <h3 className="font-display text-lg text-foreground">{a.name}</h3>
                       <CostDots n={a.cost_indicator} />
                     </div>
+                    {a.creator?.display_name && <p className="font-ui text-[11px] text-primary">Community agent · by {a.creator.display_name}</p>}
                     <p className="font-ui text-[12px] text-muted-foreground leading-relaxed">{a.description}</p>
                     <p className="font-ui text-[11px] text-muted-foreground/80">
                       {a.cost_indicator === 3 ? "Uses more credits: reads and checks more before answering." : a.cost_indicator === 2 ? "Standard credit use." : "Light on credits."}

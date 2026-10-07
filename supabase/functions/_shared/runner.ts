@@ -560,3 +560,26 @@ export function writeMayRunUnreviewed(action: ConnectorWriteAction, policyApprov
   if (action === "publish_items") return false;
   return policyApproval === "autonomous" && planAllowsAutonomous;
 }
+
+// ── Marketplace ─────────────────────────────────────────────────────────────
+
+export const CUSTOM_AGENT_TIERS = ["fast", "standard", "reasoning"] as const;
+
+/** Pricing key a creator-made agent is quoted on; the DB trigger sets the same. */
+export function customActionType(tier: AgentDefinition["model_tier"]): string {
+  return `agent_custom_${CUSTOM_AGENT_TIERS.includes(tier) ? tier : "standard"}`;
+}
+
+/** The creator's cut of one captured step, in dollars (4 dp). */
+export function creatorEarning(credits: number, sharePct: number, retailUsdPerCredit: number): number {
+  const c = Math.max(0, Math.floor(Number(credits) || 0));
+  const pct = Math.min(90, Math.max(0, Number(sharePct) || 0));
+  const retail = Math.max(0, Number(retailUsdPerCredit) || 0);
+  return Math.round(c * retail * (pct / 100) * 10_000) / 10_000;
+}
+
+/** A URL-safe, unique-enough slug for a creator agent. */
+export function creatorAgentSlug(name: string, seed: string): string {
+  const base = String(name ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "agent";
+  return `${base}-${String(seed).replace(/[^a-z0-9]/gi, "").slice(0, 6).toLowerCase() || "x"}`;
+}
