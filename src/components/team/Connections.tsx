@@ -22,9 +22,13 @@ const SOCIAL_PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok"];
 
 const SHORT = (s: string, n = 90) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-export function ConnectionsSection({ brandId, userId, agents, balance, balanceLoading, onTopUp, onRunStarted }: {
+export function ConnectionsSection({ brandId, userId, agents, balance, balanceLoading, onTopUp, onRunStarted, canConnect = true, canRun = true }: {
   brandId: string;
   userId: string;
+  /** owner only: credentials are stored under the owner's account */
+  canConnect?: boolean;
+  /** editors and owners */
+  canRun?: boolean;
   agents: Agent[];
   balance: number;
   balanceLoading: boolean;
@@ -57,9 +61,11 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
             <h2 className="font-ui text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Connected tools</h2>
             {connections.length > 0 && <span className="font-ui text-[11px] text-muted-foreground">· {connections.length}</span>}
           </div>
-          <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-[12px] font-ui text-muted-foreground hover:text-foreground">
-            <Plus size={12} /> Connect a tool
-          </button>
+          {canConnect && (
+            <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-[12px] font-ui text-muted-foreground hover:text-foreground">
+              <Plus size={12} /> Connect a tool
+            </button>
+          )}
         </div>
         {connections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/70 p-5">
@@ -69,7 +75,7 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {connections.map((c) => (
-              <ConnectionCard key={c.id} connection={c} agents={agents} onChanged={reload} onRecipe={(recipe) => setRecipeFor({ connection: c, recipe })} />
+              <ConnectionCard key={c.id} connection={c} agents={agents} canManage={canConnect} canRun={canRun} onChanged={reload} onRecipe={(recipe) => setRecipeFor({ connection: c, recipe })} />
             ))}
           </div>
         )}
@@ -109,7 +115,7 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
 
 // ─── Connection card ────────────────────────────────────────
 
-function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connection: ToolConnection; agents: Agent[]; onChanged: () => Promise<void>; onRecipe: (r: RecipeKey) => void }) {
+function ConnectionCard({ connection: c, agents, canManage = true, canRun = true, onChanged, onRecipe }: { connection: ToolConnection; agents: Agent[]; canManage?: boolean; canRun?: boolean; onChanged: () => Promise<void>; onRecipe: (r: RecipeKey) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<NormalizedRecord[] | null>(null);
   const spec = PROVIDERS[c.provider];
@@ -146,7 +152,7 @@ function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connec
 
       <div className="font-ui text-[12px] text-muted-foreground">
         <label className="inline-flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={writes} onChange={(e) => act("writes", () => updateConnectionScope(c.id, { allowWrites: e.target.checked }))} />
+          <input type="checkbox" checked={writes} disabled={!canManage} onChange={(e) => act("writes", () => updateConnectionScope(c.id, { allowWrites: e.target.checked }))} />
           {isPublish ? (
             <>Agents may publish here <span className="text-foreground">(every post approved by you first)</span></>
           ) : spec.kind === "delivery" ? (
@@ -169,7 +175,7 @@ function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connec
 
       <div className="flex items-center gap-2 flex-wrap mt-auto">
         {recipes.map((r) => (
-          <button key={r.key} onClick={() => onRecipe(r.key)} disabled={!writes || c.status !== "active"} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50" title={!writes ? "Allow changes first" : undefined}>
+          <button key={r.key} onClick={() => onRecipe(r.key)} disabled={!writes || c.status !== "active" || !canRun} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50" title={!writes ? "Allow changes first" : undefined}>
             <Sparkles size={12} /> {r.name}
           </button>
         ))}
@@ -181,9 +187,11 @@ function ConnectionCard({ connection: c, agents, onChanged, onRecipe }: { connec
             {busy === "preview" ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />} Preview
           </button>
         )}
-        <button disabled={!!busy} onClick={() => act("remove", async () => { if (await removeConnection(c.id)) toast("Connection removed"); })} className="ml-auto text-muted-foreground hover:text-destructive" aria-label="Remove connection" title="Remove">
-          <Trash2 size={14} />
-        </button>
+        {canManage && (
+          <button disabled={!!busy} onClick={() => act("remove", async () => { if (await removeConnection(c.id)) toast("Connection removed"); })} className="ml-auto text-muted-foreground hover:text-destructive" aria-label="Remove connection" title="Remove">
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

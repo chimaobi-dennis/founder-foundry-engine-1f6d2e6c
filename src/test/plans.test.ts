@@ -32,3 +32,17 @@ describe('entitlements', () => {
     expect(isActiveStatus('free')).toBe(false);
   });
 });
+
+import { roleAtLeast, ROLE_LABEL } from '@shared/plans';
+
+describe('workspace roles', () => {
+  it('ranks owner > editor > viewer and rejects unknown', () => {
+    expect(roleAtLeast('owner', 'editor')).toBe(true);
+    expect(roleAtLeast('editor', 'editor')).toBe(true);
+    expect(roleAtLeast('viewer', 'editor')).toBe(false);
+    expect(roleAtLeast('editor', 'owner')).toBe(false);
+    expect(roleAtLeast(null, 'viewer')).toBe(false);
+    expect(roleAtLeast('admin' as never, 'viewer')).toBe(false);
+    expect(Object.keys(ROLE_LABEL)).toEqual(['owner', 'editor', 'viewer']);
+  });
+});

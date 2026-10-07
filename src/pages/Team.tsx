@@ -29,7 +29,10 @@ import { ConnectionsSection, DiffTable, CodeReview } from "@/components/team/Con
 import { DescribeIt } from "@/components/team/DescribeIt";
 import { listConnections, type ToolConnection } from "@/services/connectionService";
 import { SUPABASE_CONFIG } from "@/config/supabaseConfig";
-import { getEntitlements, planAllows, planLimitMessage, type Entitlements } from "@/services/subscriptionService";
+import { getEntitlements, planAllows, planLimitMessage, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
+import { getMyRole, roleAtLeast, type BrandRole } from "@/services/teamMembersService";
+import { PeopleSection } from "@/components/team/People";
+import { useProfile } from "@/hooks/use-profile";
 
 const PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok", "email"];
 
@@ -73,6 +76,8 @@ export default function Team() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [connections, setConnections] = useState<ToolConnection[]>([]);
   const [ent, setEnt] = useState<Entitlements | null>(null);
+  const [myRole, setMyRole] = useState<BrandRole | null>(null);
+  const { profile } = useProfile();
   const [loading, setLoading] = useState(true);
   const [taskAgent, setTaskAgent] = useState<Agent | null>(null);
   const [openRunId, setOpenRunId] = useState<string | null>(params.get("run"));
@@ -81,15 +86,17 @@ export default function Team() {
 
   const reload = useCallback(async () => {
     if (!brandId) return;
-    const [a, h, r, ap, au, co, en] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId), listAutomations(brandId), listConnections(brandId), user?.id ? getEntitlements(user.id) : Promise.resolve(null)]);
+    const [a, h, r, ap, au, co, en, role] = await Promise.all([listAgents(), listHires(brandId), listRuns(brandId), listPendingApprovals(brandId), listAutomations(brandId), listConnections(brandId), activeBrand?.user_id ? getEntitlements(activeBrand.user_id) : Promise.resolve(null), getMyRole(brandId, true)]);
     setEnt(en);
+    setMyRole(role);
     setAgents(a);
     setHires(h);
     setRuns(r);
     setApprovals(ap);
     setAutomations(au);
     setConnections(co);
-  }, [brandId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandId, activeBrand?.user_id]);
 
   useEffect(() => {
     setLoading(true);
@@ -104,6 +111,11 @@ export default function Team() {
     return () => clearInterval(t);
   }, [inFlight, reload, refetchBalance]);
 
+  // Until the membership migration is applied the role RPC is absent; the
+  // brand's owner must still be treated as the owner.
+  const effectiveRole: BrandRole | null = myRole ?? (activeBrand && user?.id && activeBrand.user_id === user.id ? "owner" : null);
+  const canEdit = roleAtLeast(effectiveRole, "editor");
+  const isOwner = effectiveRole === "owner";
   const hiredIds = useMemo(() => new Set(hires.map((h) => h.agent_id)), [hires]);
   const available = agents.filter((a) => !hiredIds.has(a.id));
 
@@ -123,7 +135,7 @@ export default function Team() {
           <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{activeBrand.name}</span>
           <h1 className="font-display text-3xl text-foreground mt-1">Your team</h1>
           <p className="font-ui text-[13px] text-muted-foreground mt-1 max-w-xl">
-            Hire an agent, give it a task, review the result. Every task shows its cost before it runs.
+            {effectiveRole === "viewer" ? "You can see everything here. Ask the owner for the editor role to give tasks or approve work." : "Hire an agent, give it a task, review the result. Every task shows its cost before it runs."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -143,7 +155,7 @@ export default function Team() {
       ) : (
         <>
           {/* ── Describe it ── */}
-          <DescribeIt
+          {canEdit && <DescribeIt
             brandId={brandId!}
             userId={user!.id}
             agents={hires.filter((h) => h.status === "active").map((h) => h.agent)}
@@ -153,6 +165,16 @@ export default function Team() {
             balanceLoading={balanceLoading}
             onTopUp={() => openPricingModal({ currentBalance: balance })}
             onCreated={(id) => { if (id) setOpenRunId(id); reload(); refetchBalance(); }}
+          />}
+
+          {/* ── People ── */}
+          <PeopleSection
+            brandId={brandId!}
+            userId={user!.id}
+            myRole={effectiveRole}
+            ownerName={isOwner ? (profile?.full_name || "You") : "Workspace owner"}
+            memberLimit={ent ? effectiveLimit(ent, "members") : 1}
+            onChanged={() => reload()}
           />
 
           {/* ── Needs you ── */}
@@ -165,6 +187,7 @@ export default function Team() {
                     key={ap.id}
                     approval={ap}
                     userId={user!.id}
+                    canDecide={canEdit}
                     onDecided={() => { reload(); refetchBalance(); }}
                     onOpenRun={() => setOpenRunId(ap.run_id)}
                   />
@@ -206,7 +229,7 @@ export default function Team() {
                     <div className="flex items-center gap-2 mt-auto">
                       <button
                         onClick={() => setTaskAgent(h.agent)}
-                        disabled={h.status !== "active"}
+                        disabled={h.status !== "active" || !canEdit}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50"
                       >
                         <Sparkles size={12} /> Give a task
@@ -225,7 +248,7 @@ export default function Team() {
           </section>
 
           {/* ── Hire ── */}
-          {available.length > 0 && (
+          {canEdit && available.length > 0 && (
             <section>
               <SectionTitle icon={<Plus size={14} className="text-muted-foreground" />} title="Hire" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -263,6 +286,8 @@ export default function Team() {
           <ConnectionsSection
             brandId={brandId!}
             userId={user!.id}
+            canConnect={isOwner}
+            canRun={canEdit}
             agents={agents}
             balance={balance}
             balanceLoading={balanceLoading}
@@ -494,7 +519,7 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
 
 // ─── Approval card ──────────────────────────────────────────
 
-function ApprovalCard({ approval, userId, onDecided, onOpenRun }: { approval: Approval; userId: string; onDecided: () => void; onOpenRun: () => void }) {
+function ApprovalCard({ approval, userId, canDecide = true, onDecided, onOpenRun }: { approval: Approval; userId: string; canDecide?: boolean; onDecided: () => void; onOpenRun: () => void }) {
   const [busy, setBusy] = useState<"approved" | "rejected" | null>(null);
   const [note, setNote] = useState("");
   const items = outputItems(approval.payload?.output);
@@ -523,10 +548,10 @@ function ApprovalCard({ approval, userId, onDecided, onOpenRun }: { approval: Ap
       {(approval.payload as any)?.code ? <CodeReview code={(approval.payload as any).code} /> : (approval.payload as any)?.diff ? <DiffTable diff={(approval.payload as any).diff} /> : <OutputView output={approval.payload?.output ?? null} compact />}
       <div className="mt-3 flex items-center gap-2 flex-wrap">
         <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the log" className="max-w-xs h-8 text-[12px]" />
-        <button onClick={() => decide("approved")} disabled={!!busy} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50">
+        <button onClick={() => decide("approved")} disabled={!!busy || !canDecide} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50">
           {busy === "approved" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Approve
         </button>
-        <button onClick={() => decide("rejected")} disabled={!!busy} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui disabled:opacity-50">
+        <button onClick={() => decide("rejected")} disabled={!!busy || !canDecide} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui disabled:opacity-50">
           {busy === "rejected" ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} Send back
         </button>
         <span className="text-[11px] font-ui text-muted-foreground">{approval.kind === "review_publish" ? "Approving publishes these posts to your linked accounts. Deleting them afterwards works only where the network allows it." : approval.kind === "review_code" ? "Approving opens the pull request; closing it later reverts everything." : (approval.payload as any)?.diff ? "Approving applies these changes; each one can be reverted afterwards." : "Approving keeps the result; sending back cancels the run."} Credits already used stay used.</span>

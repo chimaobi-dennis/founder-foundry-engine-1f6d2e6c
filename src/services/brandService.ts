@@ -189,12 +189,14 @@ export interface BrandDNA {
   product_positioning?: string;
 }
 
-// Get all brands for a user
-export const getUserBrands = async (userId: string): Promise<Brand[]> => {
+const MEMBER_ACTIVE_KEY = 'kinika.activeBrand.member';
+
+// Get all brands a user can see: their own plus workspaces they were invited
+// to. Row-level security does the filtering (brands owned, or brand_members).
+export const getUserBrands = async (_userId: string): Promise<Brand[]> => {
   const { data, error } = await (supabase as any)
     .from('brands')
     .select('*')
-    .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -216,14 +218,21 @@ export const getActiveBrand = async (userId: string): Promise<Brand | null> => {
 
   if (data) return data;
 
-  // Fall back to most recent brand
+  // Members: a workspace they picked earlier, else the first they can see.
+  let remembered: string | null = null;
+  try { remembered = localStorage.getItem(MEMBER_ACTIVE_KEY); } catch { /* storage unavailable */ }
+  if (remembered) {
+    const { data: picked } = await (supabase as any).from('brands').select('*').eq('id', remembered).maybeSingle();
+    if (picked) return picked;
+  }
+
+  // Fall back to most recent brand the user can see (own or member)
   const { data: fallback } = await (supabase as any)
     .from('brands')
     .select('*')
-    .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   return fallback ?? null;
 };
@@ -233,6 +242,14 @@ export const setActiveBrand = async (
   userId: string,
   brandId: string
 ): Promise<{ success: boolean; error?: string }> => {
+  // A member's choice must not flip the owner's is_active flag; keep it local.
+  const { data: target } = await (supabase as any).from('brands').select('user_id').eq('id', brandId).maybeSingle();
+  if (target && target.user_id !== userId) {
+    try { localStorage.setItem(MEMBER_ACTIVE_KEY, brandId); } catch { /* storage unavailable */ }
+    return { success: true };
+  }
+  try { localStorage.removeItem(MEMBER_ACTIVE_KEY); } catch { /* storage unavailable */ }
+
   // Deactivate all brands for this user
   await (supabase as any)
     .from('brands')

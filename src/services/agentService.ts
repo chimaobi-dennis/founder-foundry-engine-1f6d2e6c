@@ -12,6 +12,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 import { quoteAction, type Quote } from './pricingService';
+import { getBrandOwnerId } from './teamMembersService';
 import {
   planSingleAgentRun,
   planHiveRun,
@@ -140,10 +141,16 @@ export async function listHires(brandId: string): Promise<AgentHire[]> {
   return (data ?? []).filter((h: any) => h.agent);
 }
 
+/** Billing rows carry the workspace owner's id so plan limits and the wallet are the owner's. */
+async function billingUser(brandId: string, actorId: string): Promise<string> {
+  return (await getBrandOwnerId(brandId)) ?? actorId;
+}
+
 export async function hireAgent(brandId: string, userId: string, agentId: string): Promise<{ success: boolean; error?: string; hire?: AgentHire }> {
+  const owner = await billingUser(brandId, userId);
   const { data, error } = await db
     .from('agent_hires')
-    .upsert({ brand_id: brandId, user_id: userId, agent_id: agentId, status: 'active' }, { onConflict: 'brand_id,agent_id' })
+    .upsert({ brand_id: brandId, user_id: owner, agent_id: agentId, status: 'active' }, { onConflict: 'brand_id,agent_id' })
     .select('*, agent:agents(*)')
     .single();
   if (error) return { success: false, error: error.message };
@@ -197,11 +204,13 @@ export async function createRun(params: CreateRunInput): Promise<{ success: bool
   };
   const steps = planSingleAgentRun(agent, input, policy);
 
+  const owner = await billingUser(brandId, userId);
   const { data: run, error } = await db
     .from('automation_runs')
     .insert({
       brand_id: brandId,
-      user_id: userId,
+      user_id: owner,
+      created_by: userId,
       agent_id: agent.id,
       automation_id: params.automationId ?? null,
       name: name.trim() || `${agent.name} task`,
@@ -441,11 +450,13 @@ export async function createAutomation(params: CreateAutomationInput): Promise<{
   };
   const trigger = params.trigger ?? 'schedule';
   const runNow = trigger === 'schedule' && params.runNow !== false;
+  const owner = await billingUser(brandId, userId);
   const { data, error } = await db
     .from('automations')
     .insert({
       brand_id: brandId,
-      user_id: userId,
+      user_id: owner,
+      created_by: userId,
       agent_id: agent.id,
       name: name.trim() || `${agent.name} · ${trigger === 'webhook' ? 'webhook' : interval}`,
       trigger_type: trigger,
@@ -541,11 +552,13 @@ export async function createHiveRun(params: CreateHiveInput): Promise<{ success:
   const steps = planHiveRun(stages, input, policy);
   const budget = hiveBudget(stages);
 
+  const owner = await billingUser(brandId, userId);
   const { data: run, error } = await db
     .from('automation_runs')
     .insert({
       brand_id: brandId,
-      user_id: userId,
+      user_id: owner,
+      created_by: userId,
       agent_id: stages[0].agent.id,
       name: name.trim() || stages.map((s) => s.agent.name).join(' → '),
       trigger_type: 'manual',

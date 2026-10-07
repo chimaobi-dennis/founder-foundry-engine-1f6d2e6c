@@ -11,6 +11,7 @@ import { PROVIDERS, allowedFields, toAyrsharePlatforms, type ConnectorProvider, 
 import { RECIPES, planRecipeRun, recipeUnits, normalizeUnits, DEFAULT_BUDGET, DEFAULT_POLICY, type RecipeKey, type RecipeInput, type RunPolicy, type RunBudget } from '@shared/runner';
 import { quoteAction, type Quote } from './pricingService';
 import { kickRun, type Agent, type AutomationRun } from './agentService';
+import { getBrandOwnerId } from './teamMembersService';
 
 export { PROVIDERS, RECIPES, allowedFields, toAyrsharePlatforms };
 export type { ConnectorProvider, ConnectionScope, Capability, NormalizedRecord, RecipeKey, RecipeInput, ProviderKind };
@@ -235,11 +236,13 @@ export async function startRecipe(params: StartRecipeInput): Promise<{ success: 
   const budget: RunBudget = { ...DEFAULT_BUDGET, credits_per_run: Math.min(DEFAULT_BUDGET.credits_per_run, agent.per_run_credit_ceiling), ...(params.budget ?? {}) };
   const steps = planRecipeRun(recipe, agent, { ...input, connection_id: connection.id }, policy);
 
+  const owner = (await getBrandOwnerId(brandId)) ?? userId;
   const { data: run, error } = await db
     .from('automation_runs')
     .insert({
       brand_id: brandId,
-      user_id: userId,
+      user_id: owner,
+      created_by: userId,
       agent_id: agent.id,
       name: name.trim() || `${spec.name} · ${connection.display_name}`,
       trigger_type: 'manual',
