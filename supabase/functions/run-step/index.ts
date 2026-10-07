@@ -384,7 +384,7 @@ async function finishRun(admin: Admin, run: any, status: "completed" | "failed" 
 }
 
 async function notify(admin: Admin, run: any, type: string, title: string, body: string, approvalId: string | null) {
-  await admin.from("notifications").insert({
+  const { error } = await admin.from("notifications").insert({
     user_id: run.user_id,
     brand_id: run.brand_id,
     type,
@@ -394,4 +394,6 @@ async function notify(admin: Admin, run: any, type: string, title: string, body:
     related_id: run.id,
     related_type: "automation_run",
   });
+  // A notification is a courtesy; never let it break a run, but say so.
+  if (error) console.error("[run-step] notification failed", { runId: run.id, type, error: error.message });
 }
