@@ -180,6 +180,7 @@ export interface PrStatus {
   html_url: string;
   head: string;
   checks: { total: number; success: number; failure: number; pending: number; names: string[] };
+  preview?: { url: string; state: string; environment: string } | null;
 }
 
 export async function pullRequestStatus(connectionId: string, prNumber: number): Promise<{ success: boolean; error?: string; status?: PrStatus }> {

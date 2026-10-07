@@ -236,6 +236,21 @@ export const github = {
     } catch {
       // check-runs may be unavailable on the token's scopes; status stays unknown
     }
-    return { state: pr.state as string, merged: !!pr.merged, mergeable: pr.mergeable as boolean | null, html_url: pr.html_url as string, head: pr.head.ref as string, checks };
+    // Preview deploys (Vercel, Netlify, …) report through the Deployments API.
+    let preview: { url: string; state: string; environment: string } | null = null;
+    try {
+      const deps = await gh(token, "GET", `/repos/${c.owner}/${c.repo}/deployments?ref=${encodeURIComponent(pr.head.ref)}&per_page=5`);
+      for (const d of deps ?? []) {
+        const st = await gh(token, "GET", `/repos/${c.owner}/${c.repo}/deployments/${d.id}/statuses?per_page=1`);
+        const latest = st?.[0];
+        if (latest?.environment_url) {
+          preview = { url: latest.environment_url, state: latest.state, environment: String(d.environment ?? "preview") };
+          break;
+        }
+      }
+    } catch {
+      // no deployments integration or no permission; preview stays null
+    }
+    return { state: pr.state as string, merged: !!pr.merged, mergeable: pr.mergeable as boolean | null, html_url: pr.html_url as string, head: pr.head.ref as string, checks, preview };
   },
 };

@@ -159,7 +159,8 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
     return { status: run.status, stepsRun: 0 };
   }
 
-  const agent = run.agents as AgentDefinition | null;
+  const runAgent = run.agents as AgentDefinition | null;
+  const agent = runAgent;
   const budget: RunBudget = { ...DEFAULT_BUDGET, ...(run.budget ?? {}) };
   let stepsRun = 0;
 
@@ -285,6 +286,12 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
     }
 
     if (step.type === "agent_task") {
+      // Hives: each step may name its own agent; the run's agent is the default.
+      let agent = runAgent;
+      if (step.input?.agent_id && step.input.agent_id !== runAgent?.id) {
+        const { data: a } = await admin.from("agents").select("*").eq("id", step.input.agent_id).maybeSingle();
+        if (a) agent = a as AgentDefinition;
+      }
       if (!agent) {
         await failRun(admin, run, step, "This run has no agent attached.");
         return { status: "failed", stepsRun };
@@ -318,6 +325,15 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
           `RECORDS (${records.length}):`,
           JSON.stringify(records.map((r) => ({ id: r.id, label: r.label, ...r.fields })), null, 0).slice(0, 60_000),
         ].join("\n");
+      } else if (step.input?.use_previous === "output") {
+        const prevAgentStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
+        if (prevAgentStep) {
+          const { data: prevAgentRow } = prevAgentStep.input?.agent_id ? await admin.from("agents").select("name, role").eq("id", prevAgentStep.input.agent_id).maybeSingle() : { data: null };
+          extra = [
+            `HANDOFF FROM ${prevAgentRow?.name ?? "the previous agent"} (${prevAgentRow?.role ?? "teammate"}). Build on this; do not repeat it verbatim:`,
+            JSON.stringify(prevAgentStep.output).slice(0, 40_000),
+          ].join("\n");
+        }
       } else if (step.input?.use_previous === "snapshot") {
         const snap = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.files));
         const files = ((snap?.output?.files ?? []) as { path: string; size: number }[]).map((f) => `${f.path} (${f.size}b)`);

@@ -346,3 +346,179 @@ export function recipeUnits(recipe: RecipeKey, input: RecipeInput): number {
   if (recipe === "social_publish") return Math.max(1, (input.platforms ?? []).filter(Boolean).length);
   return 1;
 }
+
+// ── Hives (multi-agent handoffs) ─────────────────────────────────────────────
+
+export interface HiveStage {
+  agent: AgentDefinition;
+  units?: number;
+  platforms?: string[];
+  /** Stage-specific instruction; the founder's brief is always included too */
+  instruction?: string;
+}
+
+export const MAX_HIVE_STAGES = 4;
+
+/**
+ * A hive is a linear handoff: each agent gets the founder's brief plus the
+ * previous agent's structured output. One review at the end under
+ * review_first. Budget is the sum of the stages' ceilings (capped per run).
+ */
+export function planHiveRun(stages: HiveStage[], input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+  const steps: PlannedStep[] = [];
+  const list = stages.slice(0, MAX_HIVE_STAGES);
+  list.forEach((st, i) => {
+    const units = normalizeUnits(st.units ?? input.units);
+    steps.push({
+      step_index: i,
+      type: "agent_task",
+      name: `${st.agent.name}: ${units} ${st.agent.unit_label}${units === 1 ? "" : "s"}`,
+      input: {
+        agent_id: st.agent.id,
+        units,
+        brief: [input.brief, st.instruction].filter(Boolean).join("\n\n"),
+        platforms: st.platforms ?? input.platforms ?? [],
+        ...(i > 0 ? { use_previous: "output" } : {}),
+      },
+    });
+  });
+  if (policy.approval === "review_first") {
+    steps.push({ step_index: list.length, type: "approval", name: "Review the team's result", input: { kind: "review_output" } });
+  }
+  return steps;
+}
+
+export function hiveBudget(stages: HiveStage[]): RunBudget {
+  const sum = stages.slice(0, MAX_HIVE_STAGES).reduce((a, s) => a + s.agent.per_run_credit_ceiling, 0);
+  return { credits_per_run: Math.min(600, Math.max(DEFAULT_BUDGET.credits_per_run, sum)), max_steps: MAX_HIVE_STAGES + 2 };
+}
+
+// ── Natural-language authoring ───────────────────────────────────────────────
+
+export interface PlanDraft {
+  kind: "task" | "hive" | "recipe";
+  name: string;
+  brief: string;
+  /** task: one slug; hive: ordered slugs */
+  agents: string[];
+  recipe?: RecipeKey;
+  connection_id?: string;
+  units: number;
+  platforms: string[];
+  schedule: "once" | ScheduleInterval | "webhook";
+  approval: "review_first" | "autonomous";
+  /** One or two sentences the founder reads before confirming */
+  explanation: string;
+  /** Anything the planner could not honour */
+  warnings: string[];
+}
+
+export interface PlannerContext {
+  agents: { slug: string; name: string; tagline?: string | null; unit_label: string }[];
+  connections: { id: string; provider: string; display_name: string }[];
+  stage?: string | null;
+}
+
+export function plannerSystemPrompt(ctx: PlannerContext): string {
+  const agents = ctx.agents.map((a) => `- ${a.slug}: ${a.name} (${a.unit_label}s). ${a.tagline ?? ""}`).join("\n");
+  const recipes = Object.values(RECIPES).map((r) => `- ${r.key}: ${r.name} (needs a ${r.provider} connection; agent ${r.agentSlug})`).join("\n");
+  const conns = ctx.connections.length ? ctx.connections.map((c) => `- ${c.id}: ${c.display_name} (${c.provider})`).join("\n") : "(none)";
+  return `You turn a founder's request into one plan for their AI team. Choose only from the agents, recipes and connections listed. Never invent ids. If something cannot be done with what exists, say so in "warnings" and plan the closest thing that can.
+
+AGENTS
+${agents}
+
+RECIPES (use when the request needs an external tool)
+${recipes}
+
+CONNECTIONS
+${conns}
+
+RULES
+- "task": one agent. "hive": 2-4 agents in order, each building on the previous (e.g. researcher then copywriter). "recipe": one of the recipes above with a matching connection.
+- units: how many ${"things"} to produce (1-20). platforms: lowercase names (instagram, linkedin, x, facebook, tiktok, email, blog) when relevant, else [].
+- schedule: "once", or "daily" | "weekly" | "biweekly" | "monthly" when the founder wants it repeated, or "webhook" when they want it triggered by another system.
+- approval: "review_first" unless the founder clearly says they do not want to review; publishing and code changes are always reviewed anyway.
+- name: short, specific. explanation: one or two plain sentences of what will happen.
+
+Return ONLY a JSON object:
+{ "kind": "task|hive|recipe", "name": "...", "brief": "the task in the founder's words, cleaned up", "agents": ["slug", ...], "recipe": "recipe key or omit", "connection_id": "id or omit", "units": 3, "platforms": [], "schedule": "once", "approval": "review_first", "explanation": "...", "warnings": [] }`;
+}
+
+const INTERVALS: ScheduleInterval[] = ["daily", "weekly", "biweekly", "monthly"];
+
+/**
+ * Make a model's draft safe: only known agents/recipes/connections, bounded
+ * numbers, forced review for irreversible recipes. Returns null when nothing
+ * usable survives.
+ */
+export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const known = new Set(ctx.agents.map((a) => a.slug));
+  const warnings: string[] = Array.isArray(r.warnings) ? (r.warnings as unknown[]).map(String).slice(0, 5) : [];
+  const str = (v: unknown, max = 400) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+  let kind: PlanDraft["kind"] = r.kind === "hive" ? "hive" : r.kind === "recipe" ? "recipe" : "task";
+  let agents = (Array.isArray(r.agents) ? (r.agents as unknown[]).map(String) : []).filter((s) => known.has(s));
+  const dropped = (Array.isArray(r.agents) ? (r.agents as unknown[]).map(String) : []).filter((s) => !known.has(s));
+  if (dropped.length) warnings.push(`Unknown agent${dropped.length === 1 ? "" : "s"} ignored: ${dropped.join(", ")}.`);
+
+  let recipe: RecipeKey | undefined;
+  let connection_id: string | undefined;
+  if (kind === "recipe") {
+    const key = str(r.recipe, 40) as RecipeKey;
+    const spec = (RECIPES as Record<string, RecipeSpec>)[key];
+    if (!spec) {
+      warnings.push("The requested recipe does not exist; planned a plain task instead.");
+      kind = "task";
+    } else {
+      recipe = spec.key;
+      const conn = ctx.connections.find((c) => c.id === str(r.connection_id, 80)) ?? ctx.connections.find((c) => c.provider === spec.provider);
+      if (!conn) {
+        warnings.push(`${spec.name} needs a ${spec.provider} connection; connect one first.`);
+        kind = "task";
+        recipe = undefined;
+      } else {
+        if (conn.provider !== spec.provider) {
+          warnings.push(`${spec.name} needs a ${spec.provider} connection, not ${conn.provider}.`);
+          kind = "task";
+          recipe = undefined;
+        } else {
+          connection_id = conn.id;
+          agents = known.has(spec.agentSlug) ? [spec.agentSlug] : [];
+        }
+      }
+    }
+  }
+  if (kind === "hive") {
+    agents = agents.slice(0, MAX_HIVE_STAGES);
+    if (agents.length < 2) {
+      kind = "task";
+      if (agents.length === 1) warnings.push("Only one usable agent; running it as a single task.");
+    }
+  }
+  if (kind === "task") agents = agents.slice(0, 1);
+  if (!agents.length) return null;
+
+  const schedRaw = str(r.schedule, 20);
+  const schedule: PlanDraft["schedule"] = schedRaw === "webhook" ? "webhook" : (INTERVALS as string[]).includes(schedRaw) ? (schedRaw as ScheduleInterval) : "once";
+  const irreversible = recipe ? !!RECIPES[recipe].irreversible : false;
+  const approval: PlanDraft["approval"] = r.approval === "autonomous" && !irreversible ? "autonomous" : "review_first";
+  const platforms = (Array.isArray(r.platforms) ? (r.platforms as unknown[]).map((p) => String(p).toLowerCase().trim()) : []).filter(Boolean).slice(0, 8);
+
+  return {
+    kind,
+    name: str(r.name, 80) || "New task",
+    brief: str(r.brief, 2000),
+    agents,
+    recipe,
+    connection_id,
+    units: normalizeUnits(r.units),
+    platforms,
+    schedule,
+    approval,
+    explanation: str(r.explanation, 400),
+    warnings,
+  };
+}

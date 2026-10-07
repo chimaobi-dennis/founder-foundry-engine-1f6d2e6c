@@ -120,3 +120,57 @@ describe('schedules and stage matching', () => {
     expect(agentSuitsStage(['brand'], null)).toBe(false);
   });
 });
+
+import { planHiveRun, hiveBudget, coercePlanDraft, plannerSystemPrompt } from '@shared/runner';
+
+describe('hives', () => {
+  const researcher: AgentDefinition = { ...agent, id: 'r', slug: 'researcher', name: 'Researcher', unit_label: 'brief', per_run_credit_ceiling: 160 };
+  it('hands off output between stages and reviews once', () => {
+    const steps = planHiveRun([{ agent: researcher, units: 1 }, { agent, units: 3, platforms: ['linkedin'] }], { brief: 'Student events' });
+    expect(steps.map((s) => s.type)).toEqual(['agent_task', 'agent_task', 'approval']);
+    expect(steps[0].input.use_previous).toBeUndefined();
+    expect(steps[1].input).toMatchObject({ use_previous: 'output', units: 3, platforms: ['linkedin'] });
+    expect(hiveBudget([{ agent: researcher }, { agent }])).toEqual({ credits_per_run: 280, max_steps: 6 });
+  });
+});
+
+describe('coercePlanDraft', () => {
+  const ctx = {
+    agents: [{ slug: 'copywriter', name: 'Copywriter', unit_label: 'caption' }, { slug: 'researcher', name: 'Researcher', unit_label: 'brief' }, { slug: 'seo_specialist', name: 'SEO', unit_label: 'product' }],
+    connections: [{ id: 'c-shop', provider: 'shopify', display_name: 'Store' }],
+  };
+  it('keeps a valid hive and bounds numbers', () => {
+    const d = coercePlanDraft({ kind: 'hive', name: 'Weekly posts', brief: 'b', agents: ['researcher', 'copywriter', 'ghost'], units: 99, platforms: ['LinkedIn'], schedule: 'weekly', approval: 'autonomous', explanation: 'e' }, ctx)!;
+    expect(d.kind).toBe('hive');
+    expect(d.agents).toEqual(['researcher', 'copywriter']);
+    expect(d.units).toBe(20);
+    expect(d.platforms).toEqual(['linkedin']);
+    expect(d.schedule).toBe('weekly');
+    expect(d.approval).toBe('autonomous');
+    expect(d.warnings.some((w) => w.includes('ghost'))).toBe(true);
+  });
+  it('downgrades a one-agent hive to a task and rejects unknown-only agents', () => {
+    expect(coercePlanDraft({ kind: 'hive', agents: ['copywriter'] }, ctx)!.kind).toBe('task');
+    expect(coercePlanDraft({ kind: 'task', agents: ['nobody'] }, ctx)).toBeNull();
+  });
+  it('binds a recipe to a matching connection, or falls back with a warning', () => {
+    const ok = coercePlanDraft({ kind: 'recipe', recipe: 'seo_refresh', agents: [], units: 10 }, ctx)!;
+    expect(ok.kind).toBe('recipe');
+    expect(ok.connection_id).toBe('c-shop');
+    expect(ok.agents).toEqual(['seo_specialist']);
+    const no = coercePlanDraft({ kind: 'recipe', recipe: 'blog_draft', agents: ['copywriter'] }, ctx)!;
+    expect(no.kind).toBe('task');
+    expect(no.warnings[0]).toContain('wordpress');
+  });
+  it('never lets an irreversible recipe run without review', () => {
+    const d = coercePlanDraft({ kind: 'recipe', recipe: 'social_publish', agents: [], approval: 'autonomous' }, { ...ctx, connections: [{ id: 'c-soc', provider: 'ayrshare', display_name: 'Social' }] })!;
+    expect(d.kind).toBe('recipe');
+    expect(d.approval).toBe('review_first');
+  });
+  it('planner prompt lists only what exists', () => {
+    const p = plannerSystemPrompt(ctx);
+    expect(p).toContain('copywriter');
+    expect(p).toContain('c-shop');
+    expect(p).toContain('seo_refresh');
+  });
+});
