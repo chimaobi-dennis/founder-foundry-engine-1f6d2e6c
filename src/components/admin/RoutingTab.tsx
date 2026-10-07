@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, Loader2, Plus, Trash2, Zap } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Loader2, Plus, Trash2, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AIModel, AIProvider } from "@/services/aiService";
-import { activateProfile, blendedPer1M, createProfile, deleteProfile, getRoutingSnapshot, setClassRule, setTaskClass, setTaskOverride, type RoutingSnapshot } from "@/services/modelRoutingService";
+import { activateProfile, addTaskType, blendedPer1M, createProfile, deleteProfile, deleteTaskType, getRoutingSnapshot, setClassRule, setTaskClass, setTaskRoute, type RoutingSnapshot } from "@/services/modelRoutingService";
 
 const NONE = "__none__";
 
@@ -21,6 +21,9 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
   const [busy, setBusy] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newForm, setNewForm] = useState({ name: "", slug: "", copy: true });
+  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState({ taskType: "", classSlug: "writing", description: "" });
+  const [adding, setAdding] = useState<string | null>(null);
 
   const load = async () => {
     const s = await getRoutingSnapshot();
@@ -40,7 +43,7 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
   if (!snap) return <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
   const profile = snap.profiles.find((p) => p.id === selected) ?? null;
   const rulesFor = (classSlug: string) => snap.rules.find((r) => r.profile_id === profile?.id && r.class_slug === classSlug);
-  const overrideFor = (t: string) => snap.overrides.find((o) => o.profile_id === profile?.id && o.task_type === t);
+  const routeFor = (t: string) => snap.routes.find((o) => o.profile_id === profile?.id && o.task_type === t);
 
   const act = async (key: string, fn: () => Promise<{ success: boolean; error?: string }>, okMsg?: string) => {
     setBusy(key);
@@ -96,7 +99,7 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
           {/* ── Class rules ── */}
           <div>
             <h3 className="font-ui text-[13px] font-semibold text-foreground">Classes of work · {profile.name}{profile.is_active ? "" : " (not active)"}</h3>
-            <p className="text-[12px] text-muted-foreground mb-2">Primary model and fallbacks per class. The gateway retries a provider once on rate limits or outages, then moves to the next fallback. Changes apply to the next call.</p>
+            <p className="text-[12px] text-muted-foreground mb-2">The default list for every task type in a class that has no models of its own. The gateway retries a provider once on rate limits or outages, then moves to the next fallback. Changes apply to the next call.</p>
             <div className="border border-border rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-muted/50"><tr>
@@ -145,41 +148,71 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
 
           {/* ── Task types ── */}
           <div>
-            <h3 className="font-ui text-[13px] font-semibold text-foreground">Task types</h3>
-            <p className="text-[12px] text-muted-foreground mb-2">Every call names a task type. Move a task between classes, or pin it to one model inside this profile. New task types register themselves on first use.</p>
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div>
+                <h3 className="font-ui text-[13px] font-semibold text-foreground">Task types · {profile.name}</h3>
+                <p className="text-[12px] text-muted-foreground">Every call names a task type. Give a task its own models here, in the order to try them; a task with none follows its class. Add your own task types and call the gateway with that name.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => { setTaskForm({ taskType: "", classSlug: "writing", description: "" }); setTaskOpen(true); }}><Plus size={14} className="mr-1" /> New task type</Button>
+            </div>
             <div className="border border-border rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-muted/50"><tr>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Task type</th>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Class</th>
-                  <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Routes to</th>
-                  <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Pin in {profile.name}</th>
+                  <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Models, in order</th>
                 </tr></thead>
                 <tbody>
                   {snap.classes.flatMap((c) => snap.taskTypes.filter((t) => t.class_slug === c.slug)).concat(snap.taskTypes.filter((t) => !t.class_slug)).map((t) => {
-                    const ov = overrideFor(t.task_type);
+                    const route = routeFor(t.task_type);
+                    const ids = route?.model_ids ?? [];
                     const rule = t.class_slug ? rulesFor(t.class_slug) : undefined;
+                    const key = `route-${t.task_type}`;
+                    const save = (next: string[]) => act(key, () => setTaskRoute(profile.id, t.task_type, next));
                     return (
-                      <tr key={t.task_type} className="border-t border-border">
+                      <tr key={t.task_type} className="border-t border-border align-top">
                         <td className="px-3 py-2">
                           <p className="font-mono text-[12px] text-foreground">{t.task_type}</p>
                           <p className="text-[11px] text-muted-foreground">{t.description}{t.last_seen_at ? ` · seen ${new Date(t.last_seen_at).toLocaleDateString()}` : ""}</p>
+                          {!t.is_system && <button onClick={() => { if (confirm(`Remove task type "${t.task_type}"? Calls using it will fall back to system_ai.`)) act(`del-${t.task_type}`, () => deleteTaskType(t.task_type), "Task type removed"); }} className="mt-1 text-[11px] text-muted-foreground hover:text-destructive inline-flex items-center gap-1"><Trash2 size={11} /> remove</button>}
                         </td>
-                        <td className="px-3 py-2 w-44">
+                        <td className="px-3 py-2 w-40">
                           <Select value={t.class_slug ?? undefined} onValueChange={(v) => act(`class-${t.task_type}`, () => setTaskClass(t.task_type, v))}>
                             <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Class" /></SelectTrigger>
                             <SelectContent>{snap.classes.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}</SelectContent>
                           </Select>
                         </td>
-                        <td className="px-3 py-2 text-[12px] font-ui text-muted-foreground">{ov ? <span className="text-foreground">{modelLabel(ov.model_id)} <span className="text-muted-foreground">(pinned)</span></span> : modelLabel(rule?.model_id)}</td>
-                        <td className="px-3 py-2 w-56">
-                          <Select value={ov?.model_id ?? NONE} onValueChange={(v) => act(`pin-${t.task_type}`, () => setTaskOverride(profile.id, t.task_type, v === NONE ? null : v))}>
-                            <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NONE}>Follow the class</SelectItem>
-                              {usable.map((m) => <SelectItem key={m.id} value={m.id}>{m.name} · {m.providerName}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                        <td className="px-3 py-2">
+                          {ids.length === 0 ? (
+                            <p className="text-[12px] font-ui text-muted-foreground mb-1">Follows the {snap.classes.find((c) => c.slug === t.class_slug)?.name ?? "class"} list: {modelLabel(rule?.model_id)}{(rule?.fallback_model_ids?.length ?? 0) > 0 ? ` → ${rule!.fallback_model_ids.map((id) => modelLabel(id)).join(" → ")}` : ""}</p>
+                          ) : (
+                            <ol className="space-y-1 mb-1">
+                              {ids.map((id, i) => {
+                                const warn = readiness(id);
+                                return (
+                                  <li key={id} className="flex items-center gap-2 text-[12px] font-ui">
+                                    <span className="w-4 text-muted-foreground">{i + 1}.</span>
+                                    <span className="text-foreground">{modelLabel(id)}</span>
+                                    {warn && <span className="text-amber-600 text-[11px]">({warn})</span>}
+                                    <span className="ml-auto inline-flex items-center gap-1">
+                                      <button disabled={i === 0 || busy === key} onClick={() => { const n = [...ids]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; save(n); }} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Move up"><ArrowUp size={12} /></button>
+                                      <button disabled={i === ids.length - 1 || busy === key} onClick={() => { const n = [...ids]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; save(n); }} className="text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Move down"><ArrowDown size={12} /></button>
+                                      <button disabled={busy === key} onClick={() => save(ids.filter((x) => x !== id))} className="text-muted-foreground hover:text-destructive" aria-label="Remove"><X size={12} /></button>
+                                    </span>
+                                  </li>
+                                );
+                              })}
+                            </ol>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Select value={adding === t.task_type ? undefined : ""} onValueChange={(v) => { setAdding(null); if (v && !ids.includes(v)) save([...ids, v]); }}>
+                              <SelectTrigger className="h-8 text-[12px] w-72"><SelectValue placeholder={ids.length ? "Add a fallback…" : "Add a model for this task…"} /></SelectTrigger>
+                              <SelectContent>
+                                {usable.filter((m) => !ids.includes(m.id)).map((m) => <SelectItem key={m.id} value={m.id}>{m.name} · {m.providerName}{m.ready ? "" : m.hasKey ? " (provider off)" : " (no key)"}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            {ids.length > 0 && <button onClick={() => save([])} className="text-[11px] text-muted-foreground hover:text-foreground underline">follow the class instead</button>}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -190,6 +223,23 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
           </div>
         </>
       )}
+
+      <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>New task type</DialogTitle><DialogDescription>Code calls the gateway with this name as its taskType. It starts by following its class; give it its own models above.</DialogDescription></DialogHeader>
+          <div className="space-y-3 py-2">
+            <div><Label htmlFor="tt-name">Name</Label><Input id="tt-name" value={taskForm.taskType} onChange={(e) => setTaskForm({ ...taskForm, taskType: e.target.value })} placeholder="email_subject_lines" /><p className="text-[11px] text-muted-foreground mt-1">Lowercase letters, digits and underscores.</p></div>
+            <div><Label htmlFor="tt-class">Class</Label>
+              <Select value={taskForm.classSlug} onValueChange={(v) => setTaskForm({ ...taskForm, classSlug: v })}><SelectTrigger id="tt-class" className="h-9"><SelectValue /></SelectTrigger><SelectContent>{snap.classes.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}</SelectContent></Select>
+            </div>
+            <div><Label htmlFor="tt-desc">What it is for</Label><Input id="tt-desc" value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} placeholder="Subject lines for the newsletter agent" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskOpen(false)}>Cancel</Button>
+            <Button disabled={busy === "task"} onClick={async () => { const ok = await act("task", () => addTaskType(taskForm), "Task type added"); if (ok) setTaskOpen(false); }}>Add</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
         <DialogContent className="max-w-md">

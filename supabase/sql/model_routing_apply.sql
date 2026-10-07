@@ -1,23 +1,25 @@
 -- Kinika · Model routing — paste into Supabase → SQL Editor → Run.
 -- Safe to run more than once. Then redeploy: supabase functions deploy ai-gateway
--- Nothing changes for callers until a profile is switched in Admin → AI Models → Routing.
+-- Nothing changes for callers until a profile is switched or a task's models are set in Admin → AI Models → Routing.
 
 BEGIN;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Model routing — switch models per kind of work, from Admin, at any time
 --
--- Every AI call names a task type (mentor_chat, agent_copywriter, …). Task
--- types belong to a CLASS of work (fast, writing, reasoning, coding, vision).
--- A ROUTING PROFILE maps every class to a primary model and ordered fallbacks.
--- Exactly one profile is active; switching profiles moves every call at once
--- (open-source models in development, proprietary ones in production). A
--- task type can also be pinned to a model inside a profile.
+-- Every AI call names a task type (mentor_chat, agent_copywriter, …). Admins
+-- manage task types and can add their own. Inside a ROUTING PROFILE, each
+-- task type has its own ORDERED LIST of models (primary first, then
+-- fallbacks); a task with no list follows its CLASS of work (fast, writing,
+-- reasoning, coding, vision), which also has an ordered list. Exactly one
+-- profile is active; switching profiles moves every call at once
+-- (open-source models in development, a mix in production).
 --
 -- Resolution, in resolve_ai_route(): the caller's own preference (existing)
--- → task pin in the active profile → the task's class rule → the tier's class
--- rule → the legacy ai_task_defaults row → system_ai. The gateway tries the
--- candidates in order and retries on rate limits and provider outages.
+-- → the task's own list in the active profile → the task's class list → the
+-- tier's class list → the legacy ai_task_defaults row → system_ai. The
+-- gateway tries the candidates in order and retries on rate limits and
+-- provider outages.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ── Model capabilities the router and the gateway need ──────────────────────
@@ -72,6 +74,22 @@ INSERT INTO public.ai_task_types (task_type, class_slug, description, is_system)
   ('agent_developer',     'coding',    'Developer agent', true)
 ON CONFLICT (task_type) DO NOTHING;
 
+-- Admins add their own task types (used from the API with that taskType).
+CREATE OR REPLACE FUNCTION public.upsert_ai_task_type(p_task_type text, p_class_slug text, p_description text DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_key text := lower(regexp_replace(trim(p_task_type), '[^a-zA-Z0-9_]+', '_', 'g'));
+BEGIN
+  IF NOT public.is_admin() THEN RETURN jsonb_build_object('success', false, 'error', 'NOT_ALLOWED'); END IF;
+  IF v_key = '' THEN RETURN jsonb_build_object('success', false, 'error', 'EMPTY_NAME'); END IF;
+  INSERT INTO public.ai_task_types (task_type, class_slug, description)
+  VALUES (v_key, p_class_slug, p_description)
+  ON CONFLICT (task_type) DO UPDATE SET class_slug = EXCLUDED.class_slug, description = COALESCE(EXCLUDED.description, public.ai_task_types.description);
+  RETURN jsonb_build_object('success', true, 'task_type', v_key);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.upsert_ai_task_type(text, text, text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.upsert_ai_task_type(text, text, text) TO authenticated;
+
 -- The gateway registers task types it has not seen, in the class of the tier
 -- they asked for (or writing), so admins always see the full list.
 CREATE OR REPLACE FUNCTION public.register_ai_task_type(p_task_type text, p_tier text DEFAULT NULL)
@@ -107,11 +125,13 @@ CREATE TABLE IF NOT EXISTS public.ai_routing_rules (
   UNIQUE (profile_id, class_slug)
 );
 
-CREATE TABLE IF NOT EXISTS public.ai_task_overrides (
+-- A task type's own ordered models inside a profile (primary first).
+CREATE TABLE IF NOT EXISTS public.ai_task_routes (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id  uuid NOT NULL REFERENCES public.ai_routing_profiles(id) ON DELETE CASCADE,
   task_type   text NOT NULL REFERENCES public.ai_task_types(task_type) ON DELETE CASCADE,
-  model_id    uuid NOT NULL REFERENCES public.ai_models(id) ON DELETE CASCADE,
+  model_ids   uuid[] NOT NULL DEFAULT '{}',
+  updated_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE (profile_id, task_type)
 );
 
@@ -123,7 +143,7 @@ ALTER TABLE public.ai_task_overrides ENABLE ROW LEVEL SECURITY;
 DO $$
 DECLARE t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['ai_task_classes', 'ai_task_types', 'ai_routing_profiles', 'ai_routing_rules', 'ai_task_overrides'] LOOP
+  FOREACH t IN ARRAY ARRAY['ai_task_classes', 'ai_task_types', 'ai_routing_profiles', 'ai_routing_rules', 'ai_task_routes'] LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Authenticated read %1$s" ON public.%1$I', t);
     EXECUTE format('CREATE POLICY "Authenticated read %1$s" ON public.%1$I FOR SELECT TO authenticated USING (true)', t);
     EXECUTE format('DROP POLICY IF EXISTS "Admins manage %1$s" ON public.%1$I', t);
@@ -138,10 +158,20 @@ DECLARE v_missing text[];
 BEGIN
   IF NOT public.is_admin() THEN RETURN jsonb_build_object('success', false, 'error', 'NOT_ALLOWED'); END IF;
   IF NOT EXISTS (SELECT 1 FROM public.ai_routing_profiles WHERE id = p_profile_id) THEN RETURN jsonb_build_object('success', false, 'error', 'PROFILE_NOT_FOUND'); END IF;
-  -- Every class must route somewhere usable, or calls in it would fail.
+  -- Every class that some task still relies on must route somewhere usable.
   SELECT array_agg(c.slug ORDER BY c.sort_order) INTO v_missing
   FROM public.ai_task_classes c
-  WHERE NOT EXISTS (
+  WHERE EXISTS (
+    SELECT 1 FROM public.ai_task_types t
+    WHERE t.class_slug = c.slug
+      AND NOT EXISTS (
+        SELECT 1 FROM public.ai_task_routes tr
+        JOIN public.ai_models m ON m.id = ANY (tr.model_ids) AND m.is_enabled
+        JOIN public.ai_providers p ON p.id = m.provider_id AND COALESCE(p.is_enabled, true)
+        WHERE tr.profile_id = p_profile_id AND tr.task_type = t.task_type
+      )
+  )
+  AND NOT EXISTS (
     SELECT 1 FROM public.ai_routing_rules r
     JOIN public.ai_models m ON m.id = r.model_id AND m.is_enabled
     JOIN public.ai_providers p ON p.id = m.provider_id AND COALESCE(p.is_enabled, true)
@@ -168,6 +198,7 @@ DECLARE
   v_class text;
   v_tier_class text;
   v_ids uuid[] := '{}';
+  v_task_ids uuid[];
   v_source text := 'none';
   v_tmp uuid;
   v_rule record;
@@ -183,9 +214,12 @@ BEGIN
   END IF;
 
   IF v_profile.id IS NOT NULL THEN
-    -- 2. a pin for this task in the active profile
-    SELECT model_id INTO v_tmp FROM public.ai_task_overrides WHERE profile_id = v_profile.id AND task_type = p_task_type;
-    IF v_tmp IS NOT NULL THEN v_ids := array_append(v_ids, v_tmp); IF v_source = 'none' THEN v_source := 'task_pin'; END IF; END IF;
+    -- 2. the task's own ordered list in the active profile
+    SELECT model_ids INTO v_task_ids FROM public.ai_task_routes WHERE profile_id = v_profile.id AND task_type = p_task_type;
+    IF v_task_ids IS NOT NULL AND array_length(v_task_ids, 1) > 0 THEN
+      v_ids := v_ids || v_task_ids;
+      IF v_source = 'none' THEN v_source := 'task_route'; END IF;
+    END IF;
     -- 3. the task's class, else the tier's class
     SELECT * INTO v_rule FROM public.ai_routing_rules WHERE profile_id = v_profile.id AND class_slug = COALESCE(v_class, v_tier_class);
     IF v_rule.id IS NOT NULL THEN

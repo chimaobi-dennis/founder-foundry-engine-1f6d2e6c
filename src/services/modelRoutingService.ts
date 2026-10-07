@@ -16,14 +16,14 @@ export interface TaskClass { slug: string; name: string; description: string | n
 export interface TaskTypeRow { task_type: string; class_slug: string | null; description: string | null; is_system: boolean; last_seen_at: string | null }
 export interface RoutingProfile { id: string; slug: string; name: string; description: string | null; is_active: boolean }
 export interface RoutingRule { id: string; profile_id: string; class_slug: string; model_id: string; fallback_model_ids: string[] }
-export interface TaskOverride { id: string; profile_id: string; task_type: string; model_id: string }
+export interface TaskRoute { id: string; profile_id: string; task_type: string; model_ids: string[] }
 
 export interface RoutingSnapshot {
   classes: TaskClass[];
   taskTypes: TaskTypeRow[];
   profiles: RoutingProfile[];
   rules: RoutingRule[];
-  overrides: TaskOverride[];
+  routes: TaskRoute[];
 }
 
 export async function getRoutingSnapshot(): Promise<RoutingSnapshot> {
@@ -32,9 +32,9 @@ export async function getRoutingSnapshot(): Promise<RoutingSnapshot> {
     db.from('ai_task_types').select('*').order('task_type'),
     db.from('ai_routing_profiles').select('*').order('created_at'),
     db.from('ai_routing_rules').select('*'),
-    db.from('ai_task_overrides').select('*'),
+    db.from('ai_task_routes').select('*'),
   ]);
-  return { classes: c.data ?? [], taskTypes: t.data ?? [], profiles: p.data ?? [], rules: r.data ?? [], overrides: o.data ?? [] };
+  return { classes: c.data ?? [], taskTypes: t.data ?? [], profiles: p.data ?? [], rules: r.data ?? [], routes: o.data ?? [] };
 }
 
 export async function activateProfile(profileId: string): Promise<{ success: boolean; error?: string; classes?: string[] }> {
@@ -53,8 +53,8 @@ export async function createProfile(input: { slug: string; name: string; descrip
   if (input.copyFromProfileId) {
     const { data: rules } = await db.from('ai_routing_rules').select('class_slug, model_id, fallback_model_ids').eq('profile_id', input.copyFromProfileId);
     if (rules?.length) await db.from('ai_routing_rules').insert(rules.map((r: any) => ({ ...r, profile_id: data.id })));
-    const { data: ov } = await db.from('ai_task_overrides').select('task_type, model_id').eq('profile_id', input.copyFromProfileId);
-    if (ov?.length) await db.from('ai_task_overrides').insert(ov.map((r: any) => ({ ...r, profile_id: data.id })));
+    const { data: tr } = await db.from('ai_task_routes').select('task_type, model_ids').eq('profile_id', input.copyFromProfileId);
+    if (tr?.length) await db.from('ai_task_routes').insert(tr.map((r: any) => ({ ...r, profile_id: data.id })));
   }
   return { success: true, profile: data };
 }
@@ -70,12 +70,26 @@ export async function setClassRule(profileId: string, classSlug: string, modelId
   return error ? { success: false, error: error.message } : { success: true };
 }
 
-export async function setTaskOverride(profileId: string, taskType: string, modelId: string | null): Promise<{ success: boolean; error?: string }> {
-  if (!modelId) {
-    const { error } = await db.from('ai_task_overrides').delete().eq('profile_id', profileId).eq('task_type', taskType);
+/** The task's own ordered models in a profile (primary first). An empty list means "follow the class". */
+export async function setTaskRoute(profileId: string, taskType: string, modelIds: string[]): Promise<{ success: boolean; error?: string }> {
+  const ids = modelIds.filter((id, i, arr) => id && arr.indexOf(id) === i);
+  if (!ids.length) {
+    const { error } = await db.from('ai_task_routes').delete().eq('profile_id', profileId).eq('task_type', taskType);
     return error ? { success: false, error: error.message } : { success: true };
   }
-  const { error } = await db.from('ai_task_overrides').upsert({ profile_id: profileId, task_type: taskType, model_id: modelId }, { onConflict: 'profile_id,task_type' });
+  const { error } = await db.from('ai_task_routes').upsert({ profile_id: profileId, task_type: taskType, model_ids: ids, updated_at: new Date().toISOString() }, { onConflict: 'profile_id,task_type' });
+  return error ? { success: false, error: error.message } : { success: true };
+}
+
+/** Admins add task types; code then calls the gateway with that taskType. */
+export async function addTaskType(input: { taskType: string; classSlug: string; description?: string }): Promise<{ success: boolean; error?: string; taskType?: string }> {
+  const { data, error } = await db.rpc('upsert_ai_task_type', { p_task_type: input.taskType, p_class_slug: input.classSlug, p_description: input.description ?? null });
+  if (error) return { success: false, error: error.message };
+  return data?.success ? { success: true, taskType: data.task_type } : { success: false, error: data?.error === 'EMPTY_NAME' ? 'Give the task type a name' : data?.error ?? 'Could not add' };
+}
+
+export async function deleteTaskType(taskType: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await db.from('ai_task_types').delete().eq('task_type', taskType).eq('is_system', false);
   return error ? { success: false, error: error.message } : { success: true };
 }
 
