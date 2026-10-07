@@ -84,9 +84,18 @@ function rowFrom(creatorId: string, a: CreatorAgentInput, seed: string) {
   };
 }
 
+/** Make sure the signed-in creator/admin has the creator_profiles row agents point at. */
+export async function ensureCreatorProfile(): Promise<{ success: boolean; error?: string }> {
+  const { data, error } = await db.rpc('ensure_creator_profile');
+  if (error) return { success: false, error: error.message };
+  return data?.success ? { success: true } : { success: false, error: data?.error ?? 'Could not set up your creator profile' };
+}
+
 export async function createMyAgent(creatorId: string, a: CreatorAgentInput, submit = false): Promise<{ success: boolean; error?: string; agent?: CreatorAgent }> {
   const v = validateAgentInput(a);
   if (v) return { success: false, error: v };
+  const cp = await ensureCreatorProfile();
+  if (!cp.success) return cp;
   const seed = crypto.randomUUID();
   const { data, error } = await db.from('agents').insert({ ...rowFrom(creatorId, a, seed), status: submit ? 'pending_review' : 'draft' }).select('*').single();
   if (error) return { success: false, error: friendly(error.message) };
@@ -109,6 +118,7 @@ export async function setMyAgentStatus(id: string, status: 'published' | 'unpubl
 }
 
 function friendly(msg: string): string {
+  if (/agents_creator_id_fkey/i.test(msg)) return 'Your creator profile is missing. Reload and try again, or apply from the Creator page.';
   if (/creator_profiles|row-level security/i.test(msg)) return 'Only approved creators can publish agents. Apply from the Creator page first.';
   if (/agents_slug_key/i.test(msg)) return 'An agent with that name already exists; pick another.';
   return msg;
