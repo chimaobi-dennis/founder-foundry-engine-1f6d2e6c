@@ -286,6 +286,7 @@ export default function Team() {
           <ConnectionsSection
             brandId={brandId!}
             userId={user!.id}
+            autonomousAllowed={!!ent?.autonomous_publishing}
             canConnect={isOwner}
             canRun={canEdit}
             agents={agents}
@@ -478,7 +479,7 @@ function TaskDialog({ agent, balance, balanceLoading, onClose, onTopUp, onCreate
           </div>
           <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
             <input type="checkbox" checked={autonomous} onChange={(e) => setAutonomous(e.target.checked)} className="mt-0.5" />
-            <span>Skip my review. The result lands in Recent work without waiting for me. (Nothing is published either way in this phase.)</span>
+            <span>Skip my review. The result lands in Recent work without waiting for me. Anything that publishes or changes a connected tool is still held for approval unless your plan includes autonomous changes.</span>
           </label>
           {quote && (
             <div className="flex items-center justify-between gap-3 flex-wrap">

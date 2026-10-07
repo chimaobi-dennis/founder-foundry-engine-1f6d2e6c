@@ -22,7 +22,7 @@ const SOCIAL_PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok"];
 
 const SHORT = (s: string, n = 90) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-export function ConnectionsSection({ brandId, userId, agents, balance, balanceLoading, onTopUp, onRunStarted, canConnect = true, canRun = true }: {
+export function ConnectionsSection({ brandId, userId, agents, balance, balanceLoading, onTopUp, onRunStarted, canConnect = true, canRun = true, autonomousAllowed = false }: {
   brandId: string;
   userId: string;
   /** owner only: credentials are stored under the owner's account */
@@ -34,6 +34,8 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
   balanceLoading: boolean;
   onTopUp: () => void;
   onRunStarted: (runId: string) => void;
+  /** The owner's plan includes unreviewed changes */
+  autonomousAllowed?: boolean;
 }) {
   const [connections, setConnections] = useState<ToolConnection[]>([]);
   const [changes, setChanges] = useState<ChangeSet[]>([]);
@@ -96,7 +98,7 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
 
       {adding && <AddConnectionDialog brandId={brandId} userId={userId} onClose={() => setAdding(false)} onCreated={() => { setAdding(false); reload(); }} />}
       {recipeFor && (
-        <RecipeDialog
+        <RecipeDialog autonomousAllowed={autonomousAllowed}
           brandId={brandId}
           userId={userId}
           connection={recipeFor.connection}
@@ -291,9 +293,9 @@ function AddConnectionDialog({ brandId, userId, onClose, onCreated }: { brandId:
 
 // ─── Recipe dialog ──────────────────────────────────────────
 
-function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, balanceLoading, onTopUp, onClose, onStarted }: {
+function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, balanceLoading, onTopUp, onClose, onStarted, autonomousAllowed = false }: {
   brandId: string; userId: string; connection: ToolConnection; recipe: RecipeKey; agents: Agent[];
-  balance: number; balanceLoading: boolean; onTopUp: () => void; onClose: () => void; onStarted: (runId: string) => void;
+  balance: number; balanceLoading: boolean; onTopUp: () => void; onClose: () => void; onStarted: (runId: string) => void; autonomousAllowed?: boolean;
 }) {
   const spec = RECIPES[recipe];
   const agent = agents.find((a) => a.slug === spec.agentSlug);
@@ -367,7 +369,7 @@ function RecipeDialog({ brandId, userId, connection, recipe, agents, balance, ba
           ) : (
             <label className="flex items-start gap-2 text-[12px] font-ui text-muted-foreground">
               <input type="checkbox" checked={autonomous} onChange={(e) => setAutonomous(e.target.checked)} className="mt-0.5" />
-              <span>Apply without my review. Changes are still logged and revertible one by one.</span>
+              <span>Apply without my review. Changes are still logged and revertible one by one.{!autonomousAllowed && autonomous ? " Your plan reviews every change, so this run will still stop for your approval before it applies. Startup and Enterprise skip that stop." : ""}</span>
             </label>
           )}
           {quote && (

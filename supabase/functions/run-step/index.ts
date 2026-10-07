@@ -23,6 +23,9 @@ import { allowedFields, diffLines, ConnectorError, runConnector, type Normalized
 import { applyChanges, createRecord, loadConnection, openPullRequest, publishItems, readRepoFiles, repoSnapshot, trimRecords } from "../_shared/connectorOps.ts";
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import {
+  approvalKindFor,
+  isConnectorWrite,
+  writeMayRunUnreviewed,
   buildTaskPrompt,
   checkBudget,
   DEFAULT_BUDGET,
@@ -227,8 +230,16 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         await finishRun(admin, run, "cancelled", { summary: `Cancelled by the founder${approval.note ? `: ${approval.note}` : "."}` });
         return { status: "cancelled", stepsRun };
       }
-      await admin.from("automation_run_steps").update({ status: "done", output: { decision: "approved", note: approval.note }, finished_at: new Date().toISOString() }).eq("id", waiting.id);
-      waiting.status = "done";
+      if (waiting.type === "connector") {
+        // A write that was held for review: approved, so let it run now.
+        const input = { ...(waiting.input ?? {}), approved: true, approval_note: approval.note ?? null };
+        await admin.from("automation_run_steps").update({ status: "pending", input, started_at: null }).eq("id", waiting.id);
+        waiting.status = "pending";
+        waiting.input = input;
+      } else {
+        await admin.from("automation_run_steps").update({ status: "done", output: { decision: "approved", note: approval.note }, finished_at: new Date().toISOString() }).eq("id", waiting.id);
+        waiting.status = "done";
+      }
       await admin.from("automation_runs").update({ status: "running" }).eq("id", run.id);
       run.status = "running";
     }
@@ -243,46 +254,25 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
     if (stepsRun >= MAX_STEPS_PER_INVOCATION) break;
 
     if (step.type === "approval") {
-      const prev = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task");
-      let diff: Record<string, unknown> | null = null;
-      if (step.input?.kind === "review_changes" && step.input?.connection_id) {
-        // Show the founder exactly what will change, field by field, against
-        // what was read, so the approval is a diff table, not a blob.
-        const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.records));
-        const { data: connRow } = await admin.from("tool_connections").select("provider, scope, display_name").eq("id", step.input.connection_id).maybeSingle();
-        if (read && connRow) {
-          const allowed = allowedFields(connRow.provider, connRow.scope);
-          const d = diffLines(read.output.records as NormalizedRecord[], ((prev?.output as any)?.changes ?? []) as ProposedChange[], connRow.provider, allowed);
-          diff = { lines: d.lines, rejected: d.rejected, applied_count: d.applied.length, connection_name: connRow.display_name, provider: connRow.provider };
+      const gate = await openApproval(admin, run, agent, step, all, lastOutput, step.input?.kind ?? "review_output", step.input?.connection_id ?? null);
+      return { ...gate, stepsRun };
+    }
+
+    if (step.type === "connector" && isConnectorWrite(step.input?.action) && !step.input?.approved) {
+      // Plan policy: writes run unreviewed only under an autonomous policy on
+      // a plan that includes it, and never for publishing. Otherwise the
+      // write itself becomes the thing the founder approves.
+      const reviewedEarlier = all.some((s: any) => s.type === "approval" && s.status === "done" && s.step_index < step.step_index);
+      if (!reviewedEarlier) {
+        const { data: entRaw } = await admin.rpc("get_entitlements", { p_user_id: run.user_id });
+        const allows = !!(entRaw as any)?.autonomous_publishing;
+        if (!writeMayRunUnreviewed(step.input.action, run.policy?.approval, allows)) {
+          const kind = approvalKindFor(step.input.action);
+          const reason = run.policy?.approval === "autonomous" && !allows ? "Your plan reviews every change before it goes out. Approve to continue, or upgrade for autonomous runs." : null;
+          const gate = await openApproval(admin, run, agent, step, all, lastOutput, kind, step.input?.connection_id ?? null, reason);
+          return { ...gate, stepsRun };
         }
       }
-      let code: Record<string, unknown> | null = null;
-      if (step.input?.kind === "review_code" && step.input?.connection_id) {
-        const { data: connRow } = await admin.from("tool_connections").select("scope, display_name").eq("id", step.input.connection_id).maybeSingle();
-        const allowed = (connRow?.scope?.paths?.length ? connRow.scope.paths : DEFAULT_ALLOWED_PATHS) as string[];
-        const v = validateEdit(((prev?.output as any)?.changes ?? []) as any[], allowed);
-        code = {
-          connection_name: connRow?.display_name ?? null,
-          commit_message: (prev?.output as any)?.commit_message ?? null,
-          pr_title: (prev?.output as any)?.pr_title ?? null,
-          pr_body: (prev?.output as any)?.pr_body ?? null,
-          files: v.accepted.map((a) => ({ path: a.path, action: a.action, bytes: a.content ? new TextEncoder().encode(a.content).length : 0, preview: (a.content ?? "").slice(0, 600) })),
-          rejected: v.rejected,
-        };
-      }
-      await admin.from("automation_run_steps").update({ status: "waiting", started_at: new Date().toISOString() }).eq("id", step.id);
-      const { data: ap } = await admin.from("approvals").insert({
-        run_id: run.id,
-        step_id: step.id,
-        brand_id: run.brand_id,
-        user_id: run.user_id,
-        kind: step.input?.kind ?? "review_output",
-        title: `${agent?.name ?? "Agent"} finished "${run.name}"`,
-        payload: { output: code ? null : (prev?.output ?? lastOutput ?? null), step_name: prev?.name ?? null, diff, code },
-      }).select("id").single();
-      await admin.from("automation_runs").update({ status: "waiting_approval", current_step: step.step_index }).eq("id", run.id);
-      await notify(admin, run, "agent_needs_you", `${agent?.name ?? "An agent"} needs your review`, `"${run.name}" is ready to review.`, ap?.id ?? null);
-      return { status: "waiting_approval", stepsRun };
     }
 
     if (step.type === "agent_task") {
@@ -468,6 +458,56 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
   await finishRun(admin, run, "completed", finalOutput);
   await notify(admin, run, "agent_run_completed", `${agent?.name ?? "Agent"} finished "${run.name}"`, summary, null);
   return { status: "completed", stepsRun };
+}
+
+// ── approvals ────────────────────────────────────────────────────────────────
+
+/**
+ * Put the run on hold at `step` and ask the founder. For an approval step
+ * the step itself waits; for a gated connector write the write step waits and
+ * resumes as pending once approved.
+ */
+async function openApproval(admin: Admin, run: any, agent: AgentDefinition | null, step: any, all: any[], lastOutput: Record<string, unknown> | null, kind: string, connectionId: string | null, reason: string | null = null): Promise<{ status: string; stepsRun: number; reason?: string }> {
+      const prev = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task");
+      let diff: Record<string, unknown> | null = null;
+      if (kind === "review_changes" && connectionId) {
+        // Show the founder exactly what will change, field by field, against
+        // what was read, so the approval is a diff table, not a blob.
+        const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.records));
+        const { data: connRow } = await admin.from("tool_connections").select("provider, scope, display_name").eq("id", connectionId).maybeSingle();
+        if (read && connRow) {
+          const allowed = allowedFields(connRow.provider, connRow.scope);
+          const d = diffLines(read.output.records as NormalizedRecord[], ((prev?.output as any)?.changes ?? []) as ProposedChange[], connRow.provider, allowed);
+          diff = { lines: d.lines, rejected: d.rejected, applied_count: d.applied.length, connection_name: connRow.display_name, provider: connRow.provider };
+        }
+      }
+      let code: Record<string, unknown> | null = null;
+      if (kind === "review_code" && connectionId) {
+        const { data: connRow } = await admin.from("tool_connections").select("scope, display_name").eq("id", connectionId).maybeSingle();
+        const allowed = (connRow?.scope?.paths?.length ? connRow.scope.paths : DEFAULT_ALLOWED_PATHS) as string[];
+        const v = validateEdit(((prev?.output as any)?.changes ?? []) as any[], allowed);
+        code = {
+          connection_name: connRow?.display_name ?? null,
+          commit_message: (prev?.output as any)?.commit_message ?? null,
+          pr_title: (prev?.output as any)?.pr_title ?? null,
+          pr_body: (prev?.output as any)?.pr_body ?? null,
+          files: v.accepted.map((a) => ({ path: a.path, action: a.action, bytes: a.content ? new TextEncoder().encode(a.content).length : 0, preview: (a.content ?? "").slice(0, 600) })),
+          rejected: v.rejected,
+        };
+      }
+      await admin.from("automation_run_steps").update({ status: "waiting", started_at: new Date().toISOString() }).eq("id", step.id);
+      const { data: ap } = await admin.from("approvals").insert({
+        run_id: run.id,
+        step_id: step.id,
+        brand_id: run.brand_id,
+        user_id: run.user_id,
+        kind,
+        title: `${agent?.name ?? "Agent"} finished "${run.name}"`,
+        payload: { output: code ? null : (prev?.output ?? lastOutput ?? null), step_name: prev?.name ?? null, diff, code, reason },
+      }).select("id").single();
+      await admin.from("automation_runs").update({ status: "waiting_approval", current_step: step.step_index }).eq("id", run.id);
+      await notify(admin, run, "agent_needs_you", `${agent?.name ?? "An agent"} needs your review`, `"${run.name}" is ready to review.`, ap?.id ?? null);
+      return { status: "waiting_approval", stepsRun: 0, reason: reason ?? undefined };
 }
 
 // ── connector steps ──────────────────────────────────────────────────────────

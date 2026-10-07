@@ -522,3 +522,33 @@ export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | 
     warnings,
   };
 }
+
+// ── Review policy for connector writes ──────────────────────────────────────
+
+/** Connector actions that change something outside Kinika. */
+export const CONNECTOR_WRITE_ACTIONS = ["apply_changes", "create_draft", "open_pr", "publish_items"] as const;
+export type ConnectorWriteAction = (typeof CONNECTOR_WRITE_ACTIONS)[number];
+
+export function isConnectorWrite(action: unknown): action is ConnectorWriteAction {
+  return typeof action === "string" && (CONNECTOR_WRITE_ACTIONS as readonly string[]).includes(action);
+}
+
+/** The approval kind the UI renders for a given write. */
+export function approvalKindFor(action: ConnectorWriteAction): "review_changes" | "review_code" | "review_publish" | "review_output" {
+  switch (action) {
+    case "apply_changes": return "review_changes";
+    case "open_pr": return "review_code";
+    case "publish_items": return "review_publish";
+    default: return "review_output";
+  }
+}
+
+/**
+ * Whether a write may run without a founder's approval in this run.
+ * Publishing never may; everything else needs both the autonomous policy
+ * and a plan that includes autonomous changes.
+ */
+export function writeMayRunUnreviewed(action: ConnectorWriteAction, policyApproval: string | undefined, planAllowsAutonomous: boolean): boolean {
+  if (action === "publish_items") return false;
+  return policyApproval === "autonomous" && planAllowsAutonomous;
+}
