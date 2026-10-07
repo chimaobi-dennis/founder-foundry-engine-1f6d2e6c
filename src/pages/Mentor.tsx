@@ -2140,6 +2140,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
               dataRefreshTrigger={forceRefresh}
               onUpdateContext={() => { handleOpenUpdateContext(); setLeftOpen(false); }}
             />
+            <RecommendedAgents brandId={activeBrand?.id} stage={activeBrand?.journey_stage} />
           </SheetContent>
         </Sheet>
       )}
