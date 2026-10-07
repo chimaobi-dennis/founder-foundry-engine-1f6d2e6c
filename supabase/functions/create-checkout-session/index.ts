@@ -46,7 +46,7 @@ serve(async (req) => {
     }
 
     // ── Parse request ──
-    const { packageId, successUrl, cancelUrl } = await req.json();
+    const { packageId, successUrl, cancelUrl, agentSeats = 0, memberSeats = 0 } = await req.json();
 
     if (!packageId) {
       return new Response(
@@ -102,6 +102,60 @@ serve(async (req) => {
           user_id: user.id,
           stripe_customer_id: stripeCustomerId,
         }, { onConflict: "user_id" });
+    }
+
+    // ── Subscriptions: plans and seats bill monthly through Stripe ──
+    if (pkg.billing_interval === "month" && pkg.price_usd > 0 && !pkg.addon_kind) {
+      const origin = successUrl ? new URL(successUrl).origin : req.headers.get("origin") || "https://app.kinika.co";
+      const { data: live } = await supabaseAdmin
+        .from("subscriptions")
+        .select("id, status, stripe_subscription_id")
+        .eq("user_id", user.id)
+        .in("status", ["trialing", "active", "past_due"])
+        .maybeSingle();
+      if (live?.stripe_subscription_id) {
+        return new Response(
+          JSON.stringify({ error: "You already have a plan. Change it from Billing → Manage plan." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const { data: addons } = await supabaseAdmin.from("credit_packages").select("id, name, price_usd, addon_kind, monthly_credits").eq("active", true).not("addon_kind", "is", null);
+      const seatLine = (kind: string, qty: number) => {
+        const a = (addons ?? []).find((x: any) => x.addon_kind === kind);
+        if (!a || qty <= 0) return null;
+        return {
+          price_data: { currency: "usd", recurring: { interval: "month" }, product_data: { name: a.name, metadata: { package_id: a.id, addon_kind: kind } }, unit_amount: Math.round(a.price_usd * 100) },
+          quantity: Math.min(50, Math.floor(qty)),
+        };
+      };
+      const lineItems = [
+        { price_data: { currency: "usd", recurring: { interval: "month" }, product_data: { name: `Kinika ${pkg.name}`, description: pkg.description || undefined, metadata: { package_id: pkg.id, plan_slug: pkg.slug } }, unit_amount: Math.round(pkg.price_usd * 100) }, quantity: 1 },
+        seatLine("agent_seat", Number(agentSeats)),
+        seatLine("member_seat", Number(memberSeats)),
+      ].filter(Boolean);
+
+      const session = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        mode: "subscription",
+        line_items: lineItems as any,
+        allow_promotion_codes: true,
+        subscription_data: {
+          metadata: { user_id: user.id, package_id: pkg.id, plan_slug: pkg.slug ?? "", agent_seats: String(agentSeats || 0), member_seats: String(memberSeats || 0) },
+        },
+        metadata: { kind: "subscription", user_id: user.id, package_id: pkg.id, plan_slug: pkg.slug ?? "" },
+        success_url: successUrl || `${origin}/billing?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: cancelUrl || `${origin}/billing?subscription=cancelled`,
+      });
+      return new Response(
+        JSON.stringify({ sessionId: session.id, url: session.url, kind: "subscription" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (pkg.addon_kind) {
+      return new Response(
+        JSON.stringify({ error: "Seats are added from Billing → Manage plan once you have a plan." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // ── Create pending purchase record ──

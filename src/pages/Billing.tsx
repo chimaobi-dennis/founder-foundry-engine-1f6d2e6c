@@ -13,6 +13,7 @@ import { useCreditBalance } from '@/hooks/use-credit-balance';
 import { getPurchaseHistory, type CreditPurchase } from '@/services/stripeService';
 import { getTransactionHistory, type CreditTransaction } from '@/services/generationCreditService';
 import { usePricingModal } from '@/contexts/PricingModalContext';
+import { PlanPanel } from '@/components/billing/PlanPanel';
 
 // ═══════════════════════════════════════════════════════════════
 // BILLING PAGE
@@ -91,6 +92,9 @@ export default function Billing() {
             Buy Credits
           </button>
         </div>
+
+        {/* Plan */}
+        <PlanPanel onChanged={refreshBalance} />
 
         {/* Wallet Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

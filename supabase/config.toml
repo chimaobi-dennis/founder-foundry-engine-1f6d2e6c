@@ -20,3 +20,6 @@ verify_jwt = false
 [functions.webhook-trigger]
 # Credential is the per-automation secret, not a user JWT.
 verify_jwt = false
+
+[functions.manage-subscription]
+verify_jwt = false
