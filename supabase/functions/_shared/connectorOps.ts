@@ -323,7 +323,10 @@ export async function openPullRequest(admin: SupabaseClient, ctx: ApplyContext, 
   const footer = autoMerge
     ? "\n\n---\nOpened by the Kinika Developer agent under an autonomous policy. It merges itself once checks pass; close it to stop that."
     : "\n\n---\nOpened by the Kinika Developer agent. Review the preview, then merge. Closing this PR reverts the change.";
-  const pr = await github.createPR(token, c, branch, base, (input.pr_title || message).slice(0, 70), (input.pr_body || "") + footer);
+  // Build first: the PR is titled as waiting until its checks have run. Kinika
+  // tells the founder it is ready only once they pass (settlePull, on the tick).
+  const cleanTitle = (input.pr_title || message).slice(0, 70);
+  const pr = await github.createPR(token, c, branch, base, CHECKS_PENDING_PREFIX + cleanTitle, (input.pr_body || "") + footer);
 
   const { data: cs } = await admin.from("change_sets").insert({
     brand_id: ctx.brandId,
@@ -337,16 +340,67 @@ export async function openPullRequest(admin: SupabaseClient, ctx: ApplyContext, 
     target_id: String(pr.number),
     target_label: input.pr_title || message,
     before: { base },
-    after: { pr_url: pr.html_url, branch, files: accepted.map((a) => `${a.action}:${a.path}`).join(", "), ...(autoMerge ? { auto_merge: true } : {}) },
+    after: { pr_url: pr.html_url, branch, files: accepted.map((a) => `${a.action}:${a.path}`).join(", "), checks: "pending", title: cleanTitle, ...(autoMerge ? { auto_merge: true } : {}) },
   }).select("id").single();
 
   return { change_set_id: cs?.id, pr_number: pr.number, pr_url: pr.html_url, branch, files: accepted.map((a) => ({ path: a.path, action: a.action })), rejected, auto_merge: autoMerge };
+}
+
+export const CHECKS_PENDING_PREFIX = "[Kinika: waiting for checks] ";
+export const CHECKS_FAILING_PREFIX = "[Kinika: checks failing] ";
+export type ChecksState = "pending" | "passed" | "none" | "failed" | "closed" | "merged";
+
+/** How long a PR with no checks at all waits before it counts as ready. */
+export const NO_CHECKS_GRACE_MIN = 3;
+
+/** Pure decision, so it can be tested: what state does this PR snapshot mean? */
+export function decideChecksState(st: { state: string; merged: boolean; checks: { total: number; failure: number; pending: number } }, ageMinutes: number): ChecksState {
+  if (st.merged) return "merged";
+  if (st.state !== "open") return "closed";
+  if (st.checks.failure > 0) return "failed";
+  if (st.checks.pending > 0) return "pending";
+  if (st.checks.total === 0) return ageMinutes < NO_CHECKS_GRACE_MIN ? "pending" : "none";
+  return "passed";
+}
+
+/**
+ * Read a PR's checks, retitle it to match, and record the state on its change
+ * set. Returns the new state and whether it changed (so the caller can tell
+ * the founder once).
+ */
+export async function settlePull(
+  admin: SupabaseClient,
+  loaded: LoadedConnection,
+  cs: { id: string; target_id: string; target_label: string | null; created_at: string; after: Record<string, unknown> },
+): Promise<{ state: ChecksState; changed: boolean; names: string[]; mergeable: boolean | null }> {
+  const st = await pullRequestStatus(loaded, Number(cs.target_id));
+  const after = (cs.after ?? {}) as Record<string, unknown>;
+  const previous = (after.checks as ChecksState | undefined) ?? "pending";
+  const age = (Date.now() - new Date(cs.created_at).getTime()) / 60_000;
+  const state = decideChecksState(st, age);
+  if (state === previous) return { state, changed: false, names: st.checks.names, mergeable: st.mergeable };
+
+  const clean = String(after.title ?? cs.target_label ?? "").slice(0, 70);
+  const token = loaded.secret.token ?? "";
+  try {
+    if (state === "passed" || state === "none") await github.updatePR(token, repoOf(loaded), Number(cs.target_id), { title: clean });
+    else if (state === "failed") await github.updatePR(token, repoOf(loaded), Number(cs.target_id), { title: CHECKS_FAILING_PREFIX + clean });
+  } catch {
+    /* a retitle is cosmetic; the state below is what Kinika acts on */
+  }
+  await admin.from("change_sets").update({ after: { ...after, checks: state, ...(state === "failed" ? { checks_failed: st.checks.names } : {}) } }).eq("id", cs.id);
+  return { state, changed: true, names: st.checks.names, mergeable: st.mergeable };
 }
 
 /** Squash-merge the change set's PR and remember it; the revert path then refuses. */
 export async function mergePullRequest(admin: SupabaseClient, loaded: LoadedConnection, cs: { id: string; target_id: string; target_label: string | null; after: Record<string, unknown> }): Promise<{ sha: string }> {
   const token = loaded.secret.token ?? "";
   const c = repoOf(loaded);
+  try {
+    await github.updatePR(token, c, Number(cs.target_id), { title: String((cs.after as any)?.title ?? cs.target_label ?? "").slice(0, 70) });
+  } catch {
+    /* cosmetic */
+  }
   const r = await github.mergePR(token, c, Number(cs.target_id), cs.target_label ?? undefined);
   if (!r.merged) throw new GitHubError("GitHub did not merge the pull request.", 502);
   try {

@@ -30,10 +30,12 @@ import {
   type StepStatus,
   type StepType,
   type TaskInput,
+  type EventType,
+  type EventCondition,
 } from '@shared/runner';
 
-export type { AgentDefinition, RunPolicy, RunBudget, TaskInput, RunStatus, StepStatus, ScheduleInterval, HiveStage } from '@shared/runner';
-export { SCHEDULE_INTERVALS } from '@shared/runner';
+export type { AgentDefinition, RunPolicy, RunBudget, TaskInput, RunStatus, StepStatus, ScheduleInterval, HiveStage, EventType, EventCondition } from '@shared/runner';
+export { SCHEDULE_INTERVALS, EVENT_TYPES } from '@shared/runner';
 
 const db = supabase as any;
 
@@ -391,9 +393,11 @@ export interface Automation {
   user_id: string;
   agent_id: string | null;
   name: string;
-  trigger_type: 'manual' | 'schedule' | 'webhook';
+  trigger_type: 'manual' | 'schedule' | 'webhook' | 'event';
   schedule_interval: ScheduleInterval | null;
   webhook_secret: string | null;
+  event_type?: EventType | null;
+  conditions?: EventCondition[];
   next_run_at: string | null;
   task_input: TaskInput;
   policy: RunPolicy;
@@ -425,8 +429,10 @@ export interface CreateAutomationInput {
   name: string;
   input: TaskInput;
   interval: ScheduleInterval;
-  /** schedule (default) fires on the interval; webhook fires when another system calls in */
-  trigger?: 'schedule' | 'webhook';
+  /** schedule (default) fires on the interval; webhook when another system calls in; event when something happens in Kinika */
+  trigger?: 'schedule' | 'webhook' | 'event';
+  eventType?: EventType;
+  conditions?: EventCondition[];
   policy?: RunPolicy;
   budget?: Partial<RunBudget>;
   /** Also start the first run right away (default true). */
@@ -462,8 +468,10 @@ export async function createAutomation(params: CreateAutomationInput): Promise<{
       user_id: owner,
       created_by: userId,
       agent_id: agent.id,
-      name: name.trim() || `${agent.name} · ${trigger === 'webhook' ? 'webhook' : interval}`,
+      name: name.trim() || `${agent.name} · ${trigger === 'webhook' ? 'webhook' : trigger === 'event' ? 'on event' : interval}`,
       trigger_type: trigger,
+      event_type: trigger === 'event' ? params.eventType ?? null : null,
+      conditions: trigger === 'event' ? params.conditions ?? [] : [],
       schedule_interval: trigger === 'schedule' ? interval : null,
       next_run_at: trigger === 'schedule' ? nextRunAt(interval, new Date()).toISOString() : null,
       webhook_secret: trigger === 'webhook' ? newWebhookSecret() : null,

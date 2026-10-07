@@ -8,7 +8,7 @@
  */
 
 import { callAI } from './aiService';
-import { plannerSystemPrompt, coercePlanDraft, parseStructuredOutput, RECIPES, type PlanDraft, type PlannerContext, type HiveStage } from '@shared/runner';
+import { plannerSystemPrompt, coercePlanDraft, declineReason, parseStructuredOutput, planSingleAgentRun, planRecipeRun, planHiveRun, RECIPES, type ActionClass, type PlanDraft, type PlannerContext, type HiveStage } from '@shared/runner';
 import { quoteAction, type Quote } from './pricingService';
 import { createRun, createAutomation, createHiveRun, quoteHive, type Agent, type AutomationRun, type Automation } from './agentService';
 import { startRecipe, quoteRecipe, type ToolConnection } from './connectionService';
@@ -26,7 +26,11 @@ export interface DraftResult {
 export async function draftPlan(description: string, agents: Agent[], connections: ToolConnection[], stage: string | null | undefined, userId: string): Promise<DraftResult> {
   const text = description.trim();
   if (!text) return { success: false, error: 'Describe what you want first.' };
+  // Schema changes are declined up front, before any model call.
+  const declined = declineReason(text);
+  if (declined) return { success: false, error: declined };
   const ctx: PlannerContext = {
+    request: text,
     agents: agents.map((a) => ({ slug: a.slug, name: a.name, tagline: a.tagline, unit_label: a.unit_label })),
     connections: connections.filter((c) => c.status === 'active').map((c) => ({ id: c.id, provider: c.provider, display_name: c.display_name })),
     stage,
@@ -97,5 +101,34 @@ export async function executeDraft(draft: PlanDraft, brandId: string, userId: st
   if (draft.schedule === 'once') {
     return createRun({ brandId, userId, agent, name: draft.name, input, policy });
   }
-  return createAutomation({ brandId, userId, agent, name: draft.name, input, interval: draft.schedule === 'webhook' ? 'weekly' : draft.schedule, trigger: draft.schedule === 'webhook' ? 'webhook' : 'schedule', policy, runNow: draft.schedule !== 'webhook' });
+  if (draft.schedule === 'event' && draft.event) {
+    return createAutomation({ brandId, userId, agent, name: draft.name, input, interval: 'weekly', trigger: 'event', eventType: draft.event, conditions: draft.conditions, policy, runNow: false });
+  }
+  return createAutomation({ brandId, userId, agent, name: draft.name, input, interval: draft.schedule === 'webhook' || draft.schedule === 'event' ? 'weekly' : draft.schedule, trigger: draft.schedule === 'webhook' ? 'webhook' : 'schedule', policy, runNow: draft.schedule !== 'webhook' });
+}
+
+export interface DraftStep {
+  name: string;
+  action_class: ActionClass;
+}
+
+/** The readable checklist of what a confirmed draft will do, each step with its class. */
+export function describeDraftSteps(draft: PlanDraft, agents: Agent[]): DraftStep[] {
+  const bySlug = new Map(agents.map((a) => [a.slug, a]));
+  const policy = { approval: draft.approval } as const;
+  const input = { brief: draft.brief, units: draft.units, platforms: draft.platforms };
+  let steps;
+  if (draft.kind === 'recipe' && draft.recipe) {
+    const agent = bySlug.get(RECIPES[draft.recipe].agentSlug);
+    if (!agent) return [];
+    steps = planRecipeRun(draft.recipe, agent, { ...input, connection_id: draft.connection_id ?? '', record_limit: draft.units }, policy);
+  } else if (draft.kind === 'hive') {
+    const stages: HiveStage[] = draft.agents.map((s) => ({ agent: bySlug.get(s)!, units: draft.units, platforms: draft.platforms })).filter((s) => s.agent);
+    steps = planHiveRun(stages, input, policy);
+  } else {
+    const agent = bySlug.get(draft.agents[0]);
+    if (!agent) return [];
+    steps = planSingleAgentRun(agent, input, policy);
+  }
+  return steps.map((s) => ({ name: s.name, action_class: s.input.action_class as ActionClass }));
 }

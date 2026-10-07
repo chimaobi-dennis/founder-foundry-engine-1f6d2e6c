@@ -62,7 +62,7 @@ export function normalizeUnits(units: unknown, max = 20): number {
  * The plan for a single-agent task: produce, then (review_first) wait for the
  * founder. Hives (multi-agent handoffs) extend this in Phase 3.
  */
-export function planSingleAgentRun(agent: AgentDefinition, input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+function planSingleAgentRunRaw(agent: AgentDefinition, input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
   const units = normalizeUnits(input.units);
   const steps: PlannedStep[] = [
     {
@@ -291,6 +291,8 @@ export interface RecipeInput extends TaskInput {
   record_limit?: number;
   /** For social_publish: ISO datetime to schedule instead of posting now */
   schedule_at?: string;
+  /** For code_change: files visible under the allowed paths; sizes the quote */
+  repo_files?: number;
 }
 
 /**
@@ -298,7 +300,7 @@ export interface RecipeInput extends TaskInput {
  * Reversible data writes can skip the approval under an autonomous policy;
  * the write step itself still records a change set for one-tap revert.
  */
-export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: RecipeInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+function planRecipeRunRaw(recipe: RecipeKey, agent: AgentDefinition, input: RecipeInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
   const limit = Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
   const steps: PlannedStep[] = [];
   let i = 0;
@@ -351,6 +353,7 @@ export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: 
 /** Units a recipe is quoted on (the agent step is what costs credits). */
 export function recipeUnits(recipe: RecipeKey, input: RecipeInput): number {
   if (recipe === "seo_refresh" || recipe === "table_refresh") return Math.max(1, Math.min(250, Math.floor(Number(input.record_limit) || 25)));
+  if (recipe === "code_change") return codeChangeUnits(Number(input.repo_files));
   if (recipe === "social_publish") return Math.max(1, (input.platforms ?? []).filter(Boolean).length);
   return 1;
 }
@@ -372,7 +375,7 @@ export const MAX_HIVE_STAGES = 4;
  * previous agent's structured output. One review at the end under
  * review_first. Budget is the sum of the stages' ceilings (capped per run).
  */
-export function planHiveRun(stages: HiveStage[], input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+function planHiveRunRaw(stages: HiveStage[], input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
   const steps: PlannedStep[] = [];
   const list = stages.slice(0, MAX_HIVE_STAGES);
   list.forEach((st, i) => {
@@ -413,8 +416,13 @@ export interface PlanDraft {
   connection_id?: string;
   units: number;
   platforms: string[];
-  schedule: "once" | ScheduleInterval | "webhook";
+  schedule: "once" | ScheduleInterval | "webhook" | "event";
+  /** Set when schedule is "event" */
+  event?: EventType;
+  conditions: EventCondition[];
   approval: "review_first" | "autonomous";
+  /** The riskiest thing this plan does, decided in code from the recipe */
+  action_class: ActionClass;
   /** One or two sentences the founder reads before confirming */
   explanation: string;
   /** Anything the planner could not honour */
@@ -422,6 +430,8 @@ export interface PlanDraft {
 }
 
 export interface PlannerContext {
+  /** The founder's own words; lets code enforce routing whatever the model said */
+  request?: string;
   agents: { slug: string; name: string; tagline?: string | null; unit_label: string }[];
   connections: { id: string; provider: string; display_name: string }[];
   stage?: string | null;
@@ -442,15 +452,19 @@ ${recipes}
 CONNECTIONS
 ${conns}
 
+ROUTING (enforced again in code)
+- If a data connection can do the job (a store or table: change fields one by one, each revertible), use its recipe. Use "code_change" only when no data path exists, for layout, styling and structure.
+- Never plan database schema changes (tables, columns, indexes, migrations). Say so in "warnings".
+
 RULES
 - "task": one agent. "hive": 2-4 agents in order, each building on the previous (e.g. researcher then copywriter). "recipe": one of the recipes above with a matching connection.
 - units: how many ${"things"} to produce (1-20). platforms: lowercase names (instagram, linkedin, x, facebook, tiktok, email, blog) when relevant, else [].
-- schedule: "once", or "daily" | "weekly" | "biweekly" | "monthly" when the founder wants it repeated, or "webhook" when they want it triggered by another system.
+- schedule: "once", or "daily" | "weekly" | "biweekly" | "monthly" when the founder wants it repeated, or "webhook" when they want it triggered by another system, or "event" when it should run when something happens in Kinika: set "event" to "milestone_reached" or "campaign_created" and optionally "conditions" such as [{"field":"stage_key","op":"eq","value":"brand"}].
 - approval: "review_first" unless the founder clearly says they do not want to review; publishing and code changes are always reviewed anyway.
 - name: short, specific. explanation: one or two plain sentences of what will happen.
 
 Return ONLY a JSON object:
-{ "kind": "task|hive|recipe", "name": "...", "brief": "the task in the founder's words, cleaned up", "agents": ["slug", ...], "recipe": "recipe key or omit", "connection_id": "id or omit", "units": 3, "platforms": [], "schedule": "once", "approval": "review_first", "explanation": "...", "warnings": [] }`;
+{ "kind": "task|hive|recipe", "name": "...", "brief": "the task in the founder's words, cleaned up", "agents": ["slug", ...], "recipe": "recipe key or omit", "connection_id": "id or omit", "units": 3, "platforms": [], "schedule": "once", "event": "omit unless schedule is event", "conditions": [], "approval": "review_first", "explanation": "...", "warnings": [] }`;
 }
 
 const INTERVALS: ScheduleInterval[] = ["daily", "weekly", "biweekly", "monthly"];
@@ -509,8 +523,33 @@ export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | 
   if (kind === "task") agents = agents.slice(0, 1);
   if (!agents.length) return null;
 
+  // Routing is decided in code, not by the model: data path first, code only
+  // when no data path exists.
+  if (ctx.request && recipe === "code_change") {
+    const rerouted = routeToDataRecipe(ctx.request, ctx, known);
+    if (rerouted) {
+      recipe = rerouted.recipe;
+      connection_id = rerouted.connection_id;
+      agents = [RECIPES[rerouted.recipe].agentSlug];
+      kind = "recipe";
+      warnings.push(`Planned through your ${rerouted.provider} connection instead of a code change: it changes fields one by one and every change can be reverted.`);
+    }
+  }
+
   const schedRaw = str(r.schedule, 20);
-  const schedule: PlanDraft["schedule"] = schedRaw === "webhook" ? "webhook" : (INTERVALS as string[]).includes(schedRaw) ? (schedRaw as ScheduleInterval) : "once";
+  let event: EventType | undefined;
+  let conditions: EventCondition[] = [];
+  let schedule: PlanDraft["schedule"] = schedRaw === "webhook" ? "webhook" : (INTERVALS as string[]).includes(schedRaw) ? (schedRaw as ScheduleInterval) : "once";
+  if (schedRaw === "event") {
+    const ev = str(r.event, 40) as EventType;
+    if (EVENT_TYPES.some((e) => e.value === ev)) {
+      event = ev;
+      schedule = "event";
+      conditions = sanitizeConditions(r.conditions, ev);
+    } else {
+      warnings.push("The event you asked for is not available; planned a single run instead.");
+    }
+  }
   const irreversible = recipe ? !!RECIPES[recipe].irreversible : false;
   const approval: PlanDraft["approval"] = r.approval === "autonomous" && !irreversible ? "autonomous" : "review_first";
   const platforms = (Array.isArray(r.platforms) ? (r.platforms as unknown[]).map((p) => String(p).toLowerCase().trim()) : []).filter(Boolean).slice(0, 8);
@@ -525,7 +564,10 @@ export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | 
     units: normalizeUnits(r.units),
     platforms,
     schedule,
+    event,
+    conditions,
     approval,
+    action_class: draftActionClass(kind, recipe),
     explanation: str(r.explanation, 400),
     warnings,
   };
@@ -582,4 +624,141 @@ export function creatorEarning(credits: number, sharePct: number, retailUsdPerCr
 export function creatorAgentSlug(name: string, seed: string): string {
   const base = String(name ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "agent";
   return `${base}-${String(seed).replace(/[^a-z0-9]/gi, "").slice(0, 6).toLowerCase() || "x"}`;
+}
+
+
+// ── Action classes and routing ──────────────────────────────────────────────
+
+/** What a step does to the world, so the founder can read a plan at a glance. */
+export type ActionClass = "read" | "generate" | "review" | "data_write" | "code_change" | "publish";
+
+export const ACTION_CLASS_LABEL: Record<ActionClass, string> = {
+  read: "Reads",
+  generate: "Writes",
+  review: "Waits for you",
+  data_write: "Changes data",
+  code_change: "Changes code",
+  publish: "Publishes",
+};
+
+export function classifyStep(step: Pick<PlannedStep, "type" | "input">): ActionClass {
+  if (step.type === "agent_task") return "generate";
+  if (step.type === "approval") return "review";
+  switch (step.input?.action) {
+    case "apply_changes":
+    case "create_draft":
+      return "data_write";
+    case "open_pr":
+      return "code_change";
+    case "publish_items":
+      return "publish";
+    default:
+      return "read";
+  }
+}
+
+/** Stamp every planned step with its class (stored in the step's input). */
+export function withActionClasses(steps: PlannedStep[]): PlannedStep[] {
+  return steps.map((s) => ({ ...s, input: { ...s.input, action_class: classifyStep(s) } }));
+}
+
+export function planSingleAgentRun(agent: AgentDefinition, input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+  return withActionClasses(planSingleAgentRunRaw(agent, input, policy));
+}
+export function planRecipeRun(recipe: RecipeKey, agent: AgentDefinition, input: RecipeInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+  return withActionClasses(planRecipeRunRaw(recipe, agent, input, policy));
+}
+export function planHiveRun(stages: HiveStage[], input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
+  return withActionClasses(planHiveRunRaw(stages, input, policy));
+}
+
+const RECIPE_CLASS: Record<RecipeKey, ActionClass> = {
+  seo_refresh: "data_write",
+  table_refresh: "data_write",
+  blog_draft: "data_write",
+  notion_draft: "data_write",
+  social_publish: "publish",
+  code_change: "code_change",
+};
+
+/** The riskiest thing a draft does. */
+export function draftActionClass(kind: PlanDraft["kind"], recipe?: RecipeKey): ActionClass {
+  return kind === "recipe" && recipe ? RECIPE_CLASS[recipe] : "generate";
+}
+
+const SCHEMA_CHANGE_RE = /\b(alter table|drop table|drop column|truncate table|add (a |an )?(new )?(column|table|index)|create (a |an )?(new )?(table|index)|rename (a |the )?(column|table)|database schema|db schema|run (a |the )?migrations?|migrate (the |my )?database)\b/i;
+
+/** Schema changes are never planned. Checked before the model is called. */
+export function declineReason(request: string): string | null {
+  return SCHEMA_CHANGE_RE.test(String(request ?? ""))
+    ? "Kinika doesn't change database schemas (tables, columns, indexes, migrations). Do that in your own database tools. I can update rows or page content instead."
+    : null;
+}
+
+const DATA_INTENT_RE = /\b(seo|meta (titles?|descriptions?)|search titles?|page titles?|alt[- ]?text|product (titles?|descriptions?|tags?|names?)|descriptions?|excerpts?)\b/i;
+const CODE_ONLY_RE = /\b(css|html|layout|theme|colou?rs?|fonts?|header|footer|banner|navbar|component|section|button|template|code|animation|responsive)\b/i;
+
+/**
+ * When a request is about field content and a data connection exists, the
+ * data recipe wins over a code change. Layout and styling stay code.
+ */
+export function routeToDataRecipe(
+  request: string,
+  ctx: Pick<PlannerContext, "connections">,
+  knownAgents: Set<string>,
+): { recipe: RecipeKey; connection_id: string; provider: string } | null {
+  if (!DATA_INTENT_RE.test(request) || CODE_ONLY_RE.test(request)) return null;
+  for (const [provider, recipe] of [["shopify", "seo_refresh"], ["postgres", "table_refresh"]] as const) {
+    const conn = ctx.connections.find((c) => c.provider === provider);
+    if (conn && knownAgents.has(RECIPES[recipe].agentSlug)) return { recipe, connection_id: conn.id, provider: conn.display_name };
+  }
+  return null;
+}
+
+// ── Event triggers ──────────────────────────────────────────────────────────
+
+export type EventType = "milestone_reached" | "campaign_created";
+
+export const EVENT_TYPES: { value: EventType; label: string; fields: { key: string; label: string }[] }[] = [
+  { value: "milestone_reached", label: "When a milestone is reached", fields: [{ key: "stage_key", label: "Journey stage" }, { key: "category", label: "Category" }, { key: "name", label: "Milestone name" }] },
+  { value: "campaign_created", label: "When a campaign is created", fields: [{ key: "name", label: "Campaign name" }, { key: "status", label: "Status" }] },
+];
+
+export interface EventCondition {
+  field: string;
+  op: "eq" | "neq" | "contains";
+  value: string;
+}
+
+/** Keep only conditions on fields this event actually carries. */
+export function sanitizeConditions(raw: unknown, event: EventType): EventCondition[] {
+  const allowed = new Set(EVENT_TYPES.find((e) => e.value === event)?.fields.map((f) => f.key) ?? []);
+  if (!Array.isArray(raw)) return [];
+  const out: EventCondition[] = [];
+  for (const c of raw.slice(0, 4)) {
+    const o = (c ?? {}) as Record<string, unknown>;
+    const field = String(o.field ?? "");
+    const op = o.op === "neq" ? "neq" : o.op === "contains" ? "contains" : "eq";
+    const value = String(o.value ?? "").trim().slice(0, 120);
+    if (allowed.has(field) && value) out.push({ field, op, value });
+  }
+  return out;
+}
+
+/** Same rule the database applies in event_conditions_match(), for tests and previews. */
+export function conditionsMatch(conditions: EventCondition[], payload: Record<string, unknown>): boolean {
+  return conditions.every((c) => {
+    const have = String(payload?.[c.field] ?? "").toLowerCase();
+    const want = c.value.toLowerCase();
+    return c.op === "eq" ? have === want : c.op === "neq" ? have !== want : have.includes(want);
+  });
+}
+
+// ── Code-change sizing ──────────────────────────────────────────────────────
+
+/** Bigger repositories cost more to read and plan over; quoted in whole units. */
+export function codeChangeUnits(repoFiles: number): number {
+  const n = Math.floor(Number(repoFiles));
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.max(1, Math.min(4, Math.ceil(n / 150)));
 }

@@ -186,6 +186,12 @@ export interface PrStatus {
   preview?: { url: string; state: string; environment: string } | null;
 }
 
+/** Files visible under a code connection's allowed paths; sizes the Developer's quote. */
+export async function repoSize(connectionId: string): Promise<number | null> {
+  const r = await callConnectorAction({ connectionId, action: 'repo_size' });
+  return r?.success && Number.isFinite(Number(r.files)) ? Number(r.files) : null;
+}
+
 export async function pullRequestStatus(connectionId: string, prNumber: number): Promise<{ success: boolean; error?: string; status?: PrStatus }> {
   return callConnectorAction({ connectionId, action: 'pr_status', prNumber });
 }

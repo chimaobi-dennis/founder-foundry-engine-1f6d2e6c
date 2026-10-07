@@ -9,12 +9,13 @@
  *   { connectionId, action: "list_records", limit? }      → preview what an agent would read
  *   { changeSetId,  action: "revert" }                     → put the before values back
  *   { changeSetId,  action: "merge_pr" }                   → squash-merge the Developer's PR from Kinika
+ *   { connectionId, action: "repo_size" }                  → files visible under the allowed paths (sizes the quote)
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { ConnectorError, runConnector } from "../_shared/connectors.ts";
-import { loadConnection, mergePullRequest, pullRequestStatus, revertChangeSet, trimRecords } from "../_shared/connectorOps.ts";
+import { loadConnection, mergePullRequest, pullRequestStatus, repoSnapshot, revertChangeSet, trimRecords } from "../_shared/connectorOps.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -84,6 +85,12 @@ serve(async (req) => {
     if (body.action === "list_records") {
       const records = await runConnector(loaded.row, loaded.secret, { action: "list_records", limit: body.limit ?? 10 });
       return json({ success: true, records: trimRecords(records, 300) });
+    }
+
+    if (body.action === "repo_size") {
+      if (loaded.row.provider !== "github") return json({ success: false, error: "Not a code connection" }, 400);
+      const snap = await repoSnapshot(loaded);
+      return json({ success: true, files: snap.total, truncated: snap.truncated });
     }
 
     if (body.action === "pr_status") {
