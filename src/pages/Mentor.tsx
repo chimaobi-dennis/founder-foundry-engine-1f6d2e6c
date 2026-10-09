@@ -964,6 +964,12 @@ Be selective — only mark significant shifts, not minor tangents.`,
         setForceRefresh(n => n + 1);
       }
 
+      // Plan changed from the conversation → say so, refresh the plan glance
+      if (response.planEdits?.length) {
+        toast(response.planEdits.join(" · "), { duration: 4000 });
+        setForceRefresh(n => n + 1);
+      }
+
       // Detect milestone in background (fire and forget)
       detectMilestone(brandId, aiMsgId, allMessages, response.text);
 

@@ -7,6 +7,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
+import { matchByTitle, type PlanEditOp, type PlaybookChoice } from '@shared/plan';
 
 const db = supabase as any;
 
@@ -107,8 +108,8 @@ async function callPlanFunction(body: Record<string, unknown>): Promise<{ succes
 }
 
 /** Ask Mentor to write a plan from everything the brand has told it. Replaces any existing plan. */
-export function buildPlan(brandId: string, note?: string) {
-  return callPlanFunction({ action: 'build', brandId, note });
+export function buildPlan(brandId: string, note?: string, playbook: PlaybookChoice = 'auto') {
+  return callPlanFunction({ action: 'build', brandId, note, playbook });
 }
 
 /** Revise the plan with a note; done tasks and the founder's edits are kept. */
@@ -171,4 +172,43 @@ export function planProgress(plan: FounderPlan | null): { done: number; total: n
   if (!plan) return { done: 0, total: 0 };
   const all = plan.targets.flatMap((t) => t.tasks).filter((k) => k.status !== 'skipped');
   return { done: all.filter((k) => k.status === 'done').length, total: all.length };
+}
+
+/**
+ * Apply edits Mentor made in chat (<PLAN_EDIT> ops). Titles are matched to
+ * the plan's rows; anything that does not match is skipped. Returns one short
+ * line per change for the founder.
+ */
+export async function applyPlanEdits(brandId: string, ops: PlanEditOp[]): Promise<string[]> {
+  const plan = await getPlan(brandId);
+  if (!plan) return [];
+  const done: string[] = [];
+  const allTasks = () => plan.targets.flatMap((t) => t.tasks);
+  for (const op of ops) {
+    if (op.op === 'revise') {
+      const r = await revisePlan(brandId, op.note);
+      if (r.success) done.push('Revised the plan');
+      continue;
+    }
+    if (op.op === 'add') {
+      const target = (op.target && matchByTitle(op.target, plan.targets)) || plan.targets.find((t) => t.status === 'current') || plan.targets[0];
+      if (!target) continue;
+      const task = await addTask(plan, target.id, op.task, target.tasks.length);
+      if (task) {
+        if (op.owner === 'agent' || op.detail) await updateTask(task.id, { detail: op.detail || null, owner: op.owner, agent_slug: op.agent_slug, agent_brief: op.owner === 'agent' ? op.detail || op.task : null });
+        target.tasks.push({ ...task, owner: op.owner, agent_slug: op.agent_slug });
+        done.push(`Added "${op.task}" to ${target.title}`);
+      }
+      continue;
+    }
+    const task = matchByTitle(op.task, allTasks());
+    if (!task) continue;
+    if (op.op === 'remove') {
+      if (await deleteTask(task.id)) { for (const t of plan.targets) t.tasks = t.tasks.filter((k) => k.id !== task.id); done.push(`Removed "${task.title}"`); }
+      continue;
+    }
+    const status: TaskStatus = op.op === 'done' ? 'done' : op.op === 'skip' ? 'skipped' : 'todo';
+    if (task.status !== status && (await setTaskStatus(task, status))) { task.status = status; done.push(`${op.op === 'done' ? 'Marked' : op.op === 'skip' ? 'Skipped' : 'Reopened'} "${task.title}"${op.op === 'done' ? ' done' : ''}`); }
+  }
+  return done;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { agentsBlock, checkinSummary, coercePlan, founderTypeFrom, planSystemPrompt } from '@shared/plan';
+import { agentsBlock, checkinSummary, coercePlan, founderTypeFrom, matchByTitle, parsePlanEdits, planPromptBlock, planSystemPrompt, playbookBlock, playbookFrom } from '@shared/plan';
 
 const agents = [{ slug: 'copywriter', name: 'Copywriter', tagline: 'Captions', hired: true }, { slug: 'developer', name: 'Developer', hired: false }];
 
@@ -70,5 +70,37 @@ describe('checkinSummary', () => {
     const done = checkinSummary({ title: 'Launch the shop', targets: [{ title: 'T', status: 'done', position: 0, tasks: [task('A', 'done', { done_at: days(1) })] }] }, now);
     expect(done).toMatchObject({ complete: true, title: 'Your plan is complete' });
     expect(done.body).toContain('"Launch the shop"');
+  });
+});
+
+describe('playbooks and in-chat plan edits', () => {
+  it('parses PLAN_EDIT blocks, coerces ops and strips them from the reply', () => {
+    const reply = 'Great, that is done.\n\n<PLAN_EDIT>{ "ops": [ { "op": "DONE", "task": "Talk to 10 customers" }, { "op": "add", "target": "Validate", "task": "Write a survey", "owner": "agent", "agent_slug": "Copywriter" }, { "op": "add", "task": "" }, { "op": "revise", "note": "We pivoted to B2B" }, { "op": "nonsense", "task": "x" } ] }</PLAN_EDIT>';
+    const { text, ops } = parsePlanEdits(reply);
+    expect(text).toBe('Great, that is done.');
+    expect(ops).toEqual([
+      { op: 'done', task: 'Talk to 10 customers' },
+      { op: 'add', target: 'Validate', task: 'Write a survey', detail: '', owner: 'agent', agent_slug: 'copywriter' },
+      { op: 'revise', note: 'We pivoted to B2B' },
+    ]);
+    expect(parsePlanEdits('plain <PLAN_EDIT>not json</PLAN_EDIT> text')).toEqual({ text: 'plain  text', ops: [] });
+  });
+  it('matches titles exactly, by containment, then by shared words', () => {
+    const items = [{ title: 'Talk to 10 customers' }, { title: 'Write the landing page copy' }, { title: 'Set up payments' }];
+    expect(matchByTitle('talk to 10 customers', items)?.title).toBe('Talk to 10 customers');
+    expect(matchByTitle('landing page', items)?.title).toBe('Write the landing page copy');
+    expect(matchByTitle('write landing copy', items)?.title).toBe('Write the landing page copy');
+    expect(matchByTitle('raise a seed round', items)).toBeNull();
+    expect(matchByTitle('', items)).toBeNull();
+  });
+  it('builds the playbook paragraph and the plan block for Mentor', () => {
+    expect(playbookFrom('Creator')).toBe('creator');
+    expect(playbookFrom('x')).toBe('auto');
+    expect(playbookBlock('idea')).toMatch(/PLAYBOOK — Validate an idea/);
+    expect(playbookBlock('auto')).toMatch(/- running \(/);
+    const block = planPromptBlock({ title: 'Launch', targets: [{ title: 'Validate', status: 'current', tasks: [{ title: 'Talk to 10 customers', status: 'todo', owner: 'agent' }] }] });
+    expect(block).toContain('1. Validate [current]');
+    expect(block).toContain('- Talk to 10 customers [todo, agent]');
+    expect(block).toContain('<PLAN_EDIT>');
   });
 });

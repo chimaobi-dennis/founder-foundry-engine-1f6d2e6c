@@ -1,5 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { callAI, type TaskType, getSystemPrompt, injectPromptVariables } from './aiService';
+import { applyPlanEdits, getPlan } from './planService';
+import { parsePlanEdits, planPromptBlock } from '@shared/plan';
 import { logAIError } from './errorService';
 import { getAssetsForAIContext } from './projectAssetsService';
 import { isUntitledProject, updateProjectName, getAllJourneyStages } from './brandService';
@@ -57,6 +59,8 @@ export interface MentorAIResult {
     dnaField: string | null;
     options: { label: string; value: string; description?: string }[];
   } | null;
+  /** Short lines describing plan changes Mentor made in this reply. */
+  planEdits?: string[];
   capturedField?: {
     fieldKey: string;
     value: string;
@@ -456,6 +460,12 @@ export const getMentorAIResponse = async (
     systemPrompt += assetsContext;
   }
 
+  // The founder's plan, and how Mentor may change it from the conversation.
+  const plan = brand?.id ? await getPlan(brand.id) : null;
+  if (plan) {
+    systemPrompt += '\n\n' + planPromptBlock(plan);
+  }
+
   // If the founder just shared prior context during onboarding, prompt the
   // mentor to acknowledge it briefly in the first response. Only fires on the
   // very first exchange and when context_source indicates real input.
@@ -575,6 +585,16 @@ export const getMentorAIResponse = async (
     cleanText = cleanText.replace(/SAVE_PROMPT:\{.*?\}/s, '').trim();
   }
 
+  // Plan edits Mentor made in this reply: strip the block, apply the ops.
+  let planEdits: string[] = [];
+  if (plan) {
+    const parsed = parsePlanEdits(cleanText);
+    cleanText = parsed.text;
+    if (parsed.ops.length) {
+      planEdits = await applyPlanEdits(brand.id, parsed.ops).catch(() => []);
+    }
+  }
+
   // cleanText is what gets saved to the database
   // choicePrompt is the extracted structured data
   // capturedField contains auto-saved brand_stage_data info
@@ -606,7 +626,7 @@ export const getMentorAIResponse = async (
     });
   }
 
-  return { text: cleanText, choicePrompt, capturedField };
+  return { text: cleanText, choicePrompt, capturedField, planEdits };
 };
 
 // ─── Choice Prompts ─────────────────────────────────────────

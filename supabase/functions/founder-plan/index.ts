@@ -1,7 +1,7 @@
 /**
  * founder-plan — Mentor builds or revises the founder's plan.
  *
- * POST (user JWT): { action: "build" | "revise", brandId, note?: string }
+ * POST (user JWT): { action: "build" | "revise", brandId, note?: string, playbook?: "auto"|"idea"|"running"|"creator" }
  *   build:  a fresh plan from the brand context (replaces any existing plan)
  *   revise: the existing plan plus a note from the founder; done tasks and
  *           the founder's own edits are kept.
@@ -12,6 +12,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildOrRevisePlan } from "../_shared/planBuild.ts";
+import { playbookFrom } from "../_shared/plan.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -28,7 +29,7 @@ serve(async (req) => {
   if (!userId) return json({ success: false, error: "Unauthorized" }, 401);
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  let body: { action?: string; brandId?: string; note?: string };
+  let body: { action?: string; brandId?: string; note?: string; playbook?: string };
   try { body = await req.json(); } catch { return json({ success: false, error: "Invalid JSON body" }, 400); }
   if (!body.brandId) return json({ success: false, error: "brandId is required" }, 400);
   const action = body.action === "revise" ? "revise" : "build";
@@ -41,7 +42,7 @@ serve(async (req) => {
 
   const note = body.note ? String(body.note) : undefined;
   try {
-    const r = await buildOrRevisePlan(admin, brand, action, note, action === "revise" && note ? `You asked: ${note.slice(0, 200)}` : undefined);
+    const r = await buildOrRevisePlan(admin, brand, action, note, action === "revise" && note ? `You asked: ${note.slice(0, 200)}` : undefined, playbookFrom(body.playbook));
     if (!r.success) return json({ success: false, error: r.error }, r.status);
     return json(r);
   } catch (e) {
