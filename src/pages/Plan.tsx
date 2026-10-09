@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { listAgents, listHires, type Agent } from "@/services/agentService";
 import { getMyRole } from "@/services/teamMembersService";
 import { roleAtLeast } from "@shared/plans";
+import { PLAYBOOKS, type PlaybookChoice } from "@shared/plan";
 import { addTask, buildPlan, delegateUrl, deleteTask, getPlan, planProgress, revisePlan, setAutoRevise, setTaskStatus, type FounderPlan, type PlanTask, type PlanTarget, type TaskStatus } from "@/services/planService";
 
 /**
@@ -30,6 +31,7 @@ export default function Plan() {
   const [canEdit, setCanEdit] = useState(true);
   const [note, setNote] = useState("");
   const [revising, setRevising] = useState(false);
+  const [playbook, setPlaybook] = useState<PlaybookChoice>("auto");
 
   const reload = async () => {
     if (!brandId) return;
@@ -49,7 +51,7 @@ export default function Plan() {
   const build = async (fresh: boolean) => {
     if (!brandId) return;
     setBusy(fresh ? "build" : "revise");
-    const r = fresh ? await buildPlan(brandId) : await revisePlan(brandId, note.trim());
+    const r = fresh ? await buildPlan(brandId, undefined, playbook) : await revisePlan(brandId, note.trim());
     setBusy(null);
     if (!r.success) { toast.error(r.error ?? "Kinika could not write the plan"); return; }
     toast(fresh ? `Plan ready: ${r.targets} targets, ${r.tasks} tasks` : "Plan revised");
@@ -69,7 +71,16 @@ export default function Plan() {
         <p className="font-ui text-[14px] text-muted-foreground mt-3 max-w-prose leading-relaxed">
           Kinika turns what you have told it about {activeBrand.name} into the next few targets and a checklist for each. Tasks an agent can do on its own are marked, so you can hand them off in one click. You edit everything.
         </p>
-        <div className="mt-6 flex items-center gap-3 flex-wrap">
+        <div className="mt-6">
+          <p className="font-ui text-[10px] uppercase tracking-[0.16em] text-muted-foreground mb-2">Start from</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {([["auto", "Let Kinika decide"], ...Object.entries(PLAYBOOKS).map(([k, p]) => [k, p.label])] as [PlaybookChoice, string][]).map(([k, label]) => (
+              <button key={k} onClick={() => setPlaybook(k)} className={cn("px-3 py-1.5 rounded-lg border font-ui text-[12px]", playbook === k ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:border-primary")}>{label}</button>
+            ))}
+          </div>
+          {playbook !== "auto" && <p className="font-ui text-[11px] text-muted-foreground mt-2">{PLAYBOOKS[playbook].targets.join(" · ")}</p>}
+        </div>
+        <div className="mt-5 flex items-center gap-3 flex-wrap">
           <button disabled={!canEdit || busy === "build"} onClick={() => build(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium disabled:opacity-50">
             {busy === "build" ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} Write my plan
           </button>
