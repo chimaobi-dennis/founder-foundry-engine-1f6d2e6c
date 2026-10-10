@@ -11,7 +11,7 @@ describe('coerceReadback', () => {
         { key: 'what', value: 'Sourdough and buns.', source: 'site', confidence: 'high' },
         { key: 'who', value: 'Families and offices.', source: 'Instagram', confidence: 'fairly sure' },
         { key: 'bogus', value: 'x' },
-        { key: 'voice', value: '', source: 'site' },
+        { key: 'voice', value: 'Not specified', source: 'none' },
         { key: 'stage', value: 'Three years in, one shop.', confidence: 'guess' },
       ],
       not_known: ['Prices', '', 'Delivery', 'a', 'b', 'c', 'd'],
