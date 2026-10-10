@@ -45,6 +45,7 @@ import VerifyEmail from "./pages/VerifyEmail";
 import Onboarding from "./pages/Onboarding";
 import Start from "./pages/Start";
 import Work from "./pages/Work";
+import Board from "./pages/Board";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
 import CreatorTemplateEditor from "./pages/CreatorTemplateEditor";
@@ -171,6 +172,7 @@ const App = () => (
                         <Route path="/team" element={<Team />} />
                         <Route path="/plan" element={<Plan />} />
                         <Route path="/work/:taskId" element={<Work />} />
+                        <Route path="/board/:automationId" element={<Board />} />
                         <Route path="/invite/:token" element={<AcceptInvite />} />
                         <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />

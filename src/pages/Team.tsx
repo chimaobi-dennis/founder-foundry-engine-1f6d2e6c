@@ -604,6 +604,7 @@ function ApprovalCard({ approval, userId, canDecide = true, onDecided, onOpenRun
 // ─── Automation row ─────────────────────────────────────────
 
 function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automation: Automation; userId: string; onChanged: () => void; onOpenRun: (runId: string) => void }) {
+  const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
   const isWebhook = automation.trigger_type === "webhook";
   const isEvent = automation.trigger_type === "event";
@@ -641,6 +642,7 @@ function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automatio
         </p>
       </div>
       <div className="flex items-center gap-2">
+        <button onClick={() => navigate(`/board/${automation.id}`)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui hover:border-primary">Open board</button>
         <button
           disabled={!!busy || paused}
           onClick={() => act("run", async () => { const r = await runAutomationNow(automation, userId); if (!r.success) toast.error(r.error ?? "Could not start"); else if (r.run) onOpenRun(r.run.id); })}
