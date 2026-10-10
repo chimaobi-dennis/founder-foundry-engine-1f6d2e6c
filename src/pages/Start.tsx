@@ -121,7 +121,7 @@ export default function Start() {
     if (!readback || !brandId) return;
     const chosen = (ownGoal.trim() || goal).trim();
     setBusy("approve");
-    const r = await approveUnderstanding(brandId, readback, chosen || undefined, chosen ? horizon : undefined);
+    const r = await approveUnderstanding(brandId, readback, chosen || undefined, chosen ? horizon : undefined, { site: !!sourcesRead?.site, chat: !!sourcesRead?.chat, documents: sourcesRead?.documents ?? 0, pasted: !!pasted.trim() });
     if (!r.success) { setBusy(null); toast.error(r.error); return; }
     // The profile's own onboarding is this flow now; trial credits are granted once.
     if (user) {

@@ -46,8 +46,8 @@ export function draftUnderstanding(brandId: string, input: DraftInput) {
 }
 
 /** Approve the (possibly edited) read-back; writes the brand record, the stage, the kind and the goal. */
-export function approveUnderstanding(brandId: string, readback: Readback, goal?: string, goalHorizon?: string) {
-  return call<{ kind: BusinessKind; stage: string }>({ action: 'approve', brandId, readback, goal, goalHorizon });
+export function approveUnderstanding(brandId: string, readback: Readback, goal?: string, goalHorizon?: string, sources?: { site?: boolean; chat?: boolean; documents?: number; pasted?: boolean }) {
+  return call<{ kind: BusinessKind; stage: string }>({ action: 'approve', brandId, readback, goal, goalHorizon, sources });
 }
 
 /** Read a text-like file in the browser for the draft (PDF and images are not read here). */

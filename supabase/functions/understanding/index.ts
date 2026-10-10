@@ -4,7 +4,7 @@
  * POST (user JWT), editors and owners:
  *   { action: "draft", brandId, text, kind?, websiteUrl?, chatUrl?, pasted?, documents?: string[] }
  *     → { success, readback }   nothing is written
- *   { action: "approve", brandId, readback, goal?, goalHorizon? }
+ *   { action: "approve", brandId, readback, goal?, goalHorizon?, sources?: { site, chat, documents, pasted } }
  *     → { success }             writes brand_dna, the stage, the kind, the goal,
  *                               and marks the brand understood
  * The model call goes through ai-gateway as task type `understanding`.
@@ -112,6 +112,9 @@ serve(async (req) => {
     if (error) return json({ success: false, error: error.message }, 500);
   }
 
+  // brands.context_source is constrained; pick from what was read.
+  const src = body.sources ?? {};
+  const contextSource = src.site && (src.documents || src.chat || src.pasted) ? "mixed" : src.site ? "website_url" : src.documents ? "document_upload" : "text_paste";
   const goal = body.goal ? String(body.goal).slice(0, 300) : null;
   const goalHorizon = body.goalHorizon ? String(body.goalHorizon).slice(0, 40) : null;
   const nameIsPlaceholder = !brand.name || /untitled/i.test(brand.name);
@@ -122,7 +125,7 @@ serve(async (req) => {
     journey_stage_updated_at: new Date().toISOString(),
     understanding_approved_at: new Date().toISOString(),
     onboarding_completed: true,
-    context_source: "text",
+    context_source: contextSource,
     ...(goal ? { goal, goal_horizon: goalHorizon } : {}),
     updated_at: new Date().toISOString(),
   }).eq("id", brand.id);
