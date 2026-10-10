@@ -2,555 +2,172 @@
 
 # Kinika
 
-AI-Native Brand Intelligence & Creative Operating System
+The workspace that knows your business. Kinika understands a business, writes its plan, hires agents for the work, and the founder approves.
 
-Last Updated: May 2026
+Last Updated: 10 October 2026
+
+Design source of truth: the "Kinika — full flow v1" canvas (https://claude.ai/artifact/SYEctJAfdTd5JyZ5JsBJXm) and the research + decision log (https://claude.ai/code/artifact/39339aa1-f925-4a91-b069-c6c89f2d576e). When this file and those disagree, the decision log wins; update this file.
 
 ---
 
 # What is Kinika?
 
-Kinika is an AI-native operating system for founders, startups, creators, agencies, and modern brands.
+Kinika is for shops, services, consultants, creators and people who are just starting — not only "builders".
 
-Most businesses currently use:
+The founder hands over operations and runs the business by talking to Kinika: it reads what comes in (email, Slack, social comments), drafts what goes out, reports, keeps the plan current, and asks before anything is sent, published or changed.
 
-* ChatGPT
-* Canva
-* Notion
-* Google Docs
-* Hootsuite
-* Buffer
-* CapCut
-* Brand Guidelines PDFs
+Replaces the pile of ChatGPT, Canva, Notion, Docs, Hootsuite, Buffer, CapCut and brand PDFs with one workspace that remembers.
 
-to accomplish work that should exist inside a single intelligent workspace.
+The long-term vision:
 
-Kinika unifies:
-
-* Brand Intelligence
-* Content Generation
-* Creative Production
-* Publishing
-* Strategic Planning
-* Knowledge Capture
-* Business Validation
-* AI Agents
-
-inside one connected ecosystem.
-
-The long-term vision is:
-
-> Every founder should have an AI-native operating system that understands their business better over time.
+> Every founder should have an operating system that understands their business better over time.
 
 ---
 
-# Product Philosophy
+# Framing (locked 10 Oct 2026)
 
-Kinika is NOT:
+**Kinika is the business manager. Agents are Kinika's staff.**
 
-* another AI wrapper
-* another Canva clone
-* another content generator
-* another prompt marketplace
+* Kinika understands the business, writes and revises the plan, names the roles it needs, hires and briefs them, reports back, remembers everything, and is the only one the founder talks to. Kinika never does the specialist work itself.
+* Agents do tasks on surfaces. The founder watches, takes over, approves, or leaves a note on the work. Feedback goes to Kinika or onto the work, never a chat with an agent.
+* Chips read "Researcher · hired by Kinika". The team page is "Kinika's team". The input box is "Tell Kinika".
+* **No pronoun for Kinika, ever.** Not "she", not "it" as a subject. Write "Kinika".
 
-Kinika IS:
+## Vocabulary (use these five; introduce any other term on the screen where it first does something)
 
-* a business memory system
-* a creative operating system
-* a brand intelligence engine
-* a contextual AI workspace
+Kinika · your plan · Kinika's team · agent · brand
 
-Every action should strengthen the brand memory.
+Retired from first-run screens: Mentor, Journey Record, stage, captured, DNA, alignment score, workflow, hive, Describe it.
 
-Every module should contribute to shared business intelligence.
+## Two currencies, never mixed
+
+* **Seats** = how many agents can be on the team at once.
+* **Credits** = how much work gets done.
+
+Never say "budget" for both. "This plan needs three roles. Your plan has one seat." vs "This task will use about 3 credits."
+
+---
+
+# The first run (every founder)
+
+Understanding comes before anything else. Nothing else in Kinika exists until step 3 is approved.
+
+1. **Tell Kinika about your business** — one question in plain words; situation chips (thinking of starting · already running · creating content and an audience · something else) are a hint, not a gate.
+2. **Connect what Kinika will run** — website (read), email, Slack, Instagram, TikTok, Notion, Shopify, WordPress, GitHub. Connections are real OAuth, kept, read *and* write. Each shows its permission in plain words. Skip is always available; connect later from the plan. ("Thinking of starting" goes to 2b: a loose goal and a business-development road instead.)
+3. **Your business, as Kinika understands it** — the trust moment. Headings fit the business type; each section says where it came from and how sure Kinika is (sure · fairly sure · a guess); every line editable. "Yes, that is my business" writes the brand record.
+4. **What do you want to achieve?** — three suggested goals from the understanding, or their own words; loose is fine.
+5. **Kinika writes the plan** — targets, tasks, and the roles Kinika would hire.
+6. **Your plan and Kinika's team** — on the trial: "This plan needs three roles. Your trial has no agent seats yet." with Add seats or Keep going without agents (the card collapses; the founder works the plan with Kinika). Agent tasks stay visible as the reason to upgrade.
+7. **Seats** — Kinika hires the roster in one confirmation. Fewer seats than roles: Kinika sequences roles, one at a time.
+8. **Workspace** — the agent works where the founder can see it; approval happens *in the workspace*, never on a separate page.
+9. Kinika's one-time note after the first approval ("That is how Kinika's team works").
+10. **Home** — today on the plan first, then what waits for you, Kinika's team, brand and outputs. Sidebar: Home, Your plan, Kinika's team, Kinika, Brand. Studio, Calendar, Documents, Reels and Library appear on first use. No tour, no modal, no blank screens.
+
+Activation on the paid path = the first approved agent result. On the trial, the plan is the product.
 
 ---
 
 # Core Product Pillars
 
-## 1. Brand Memory
+## 1. Understanding first
 
-Everything revolves around brand context.
+The brand record (brands, brand_dna, brand_stage_data, brand_memories) is what every agent reads. It is built from the founder's words, connected tools and documents, shown back for approval, and compounds with every run.
 
-The system continuously learns:
+## 2. Human-editable AI
 
-* tone of voice
-* audience
-* products
-* goals
-* positioning
-* market
-* visual identity
-* previous campaigns
+AI generates. Humans edit. Any element an agent made can be taken over mid-run; the agent never overwrites the founder's edits. Every generated asset is editable.
 
-Brand memory is the foundation of all generation.
+## 3. Structured generation
 
----
+Copy, visuals, campaigns, strategies, reels and documents are structured editable objects: scenes, nodes, layouts, assets, blocks. Never text blobs.
 
-## 2. Human Editable AI
+## 4. Approval is what makes hand-over safe
 
-AI generates.
+Connections have three permission levels: **read · draft · act after your yes**. A fourth, *act without asking*, is per action class, off by default, Enterprise-only at first. The approve step is never removable for anything that sends, publishes or changes a connected system. This is never loosened for growth.
 
-Humans edit.
+## 5. Context persistence
 
-Humans remain in control.
-
-Never lock users into AI outputs.
-
-Every generated asset must be editable.
+The more a founder works in Kinika, the better Kinika knows the business.
 
 ---
 
-## 3. Structured Generation
+# The workspace
 
-Kinika should generate:
-
-* copy
-* visuals
-* campaigns
-* strategies
-* reels
-* documents
-
-as structured editable objects.
-
-Never store only text blobs.
-
-Prefer:
-
-* scenes
-* nodes
-* layouts
-* assets
-* blocks
+* **Opens only from a plan task.** There is no blank surface anywhere in Kinika.
+* **One shell, surfaces by output type**: Canvas (designs, UI, social visuals — the scene editor), Document (reports, briefs, contracts), Board (workflows that run on a schedule or event: monitor → summarise → draft → approve → publish/report). Table later if needed. Studio, DocStudio, Calendar and ReelBuilder become surfaces inside this shell, not pages.
+* **Shell**: top-left who is working and on what, with Take over; top-centre the surface's own tools; top-right History, Share, Approve. Left rail: the plan task this work comes from, what Kinika is using, versions, Tell Kinika.
+* **Tabs are outputs, not agents.** A task with several outputs opens one workspace with a tab per output, each naming its agent.
+* Anything an agent cannot decide (a price, a date) becomes a "your decision" chip. Never an invented number.
 
 ---
 
-## 4. Context Persistence
+# Current systems
 
-Context should compound over time.
-
-The more users work inside Kinika:
-
-The smarter Kinika becomes.
-
----
-
-# Current Modules
-
-## Mentor
-
-Founder guidance system.
-
-Helps users move from:
-
-Idea
-→ Validation
-→ Brand
-→ Launch
-→ Growth
-
-Uses structured milestone progression.
-
-Contains:
-
-* stages
-* conversations
-* memory
-* validation framework
+* **Kinika (chat)** — `mentor_*` tables and `src/pages/Mentor.tsx`. Sees the plan; edits it from conversation via `<PLAN_EDIT>` ops.
+* **Plan** — `brand_plans`, `plan_targets`, `plan_tasks`; `founder-plan` function; playbooks (idea · running · creator); milestone- and stage-driven revisions; weekly check-in (daily once connections exist).
+* **Agents and runs** — `agents`, `agent_hires`, `automations`, `automation_runs`, `automation_run_steps`, `approvals`; `run-step` runner (tick every minute via pg_cron); action classes; build-first PRs; team memory.
+* **Connections** — `tool_connections` + Vault secrets; connectors for Notion, Shopify, WordPress, GitHub, Ayrshare (social). OAuth flows, Slack and Gmail are planned (S5).
+* **Brand record** — `brands`, `brand_dna`, `brand_stage_data`, `brand_memories`; `buildContextPack`.
+* **Editor** — Scene → Nodes → Assets. Everything stays editable. Autosave exists; version history uses snapshots and diffs, never a version per keystroke.
+* **Model routing** — `ai-gateway`; admin-managed task types, classes, profiles, failover.
 
 ---
 
-## Brand DNA
+# Billing
 
-Stores:
+Wallet-based. Credits are the usage currency (wallets, wallet_transactions, generations, generation_billing_events, credit_packages). Reservation billing: reserve → AI call → capture → complete; failure before the call releases, after the call stays captured.
 
-* vision
-* mission
-* values
-* positioning
-* customer profiles
-* visual identity
-* voice
+Seats live on the subscription (`extra_agent_seats`, `effectiveLimit("agents")`).
 
-Acts as the source of truth.
+## Plans
 
----
+* **Free trial** — plans and consultation, **no agent seats**. 50 credits fund understanding, the plan, revisions and Kinika; they do not fund agent runs. Agent tasks stay visible in the plan as the reason to upgrade; Kinika says so inside the plan, never a wall.
+* **Solo** — 1 seat; Kinika hires one role at a time. [price and credits TBD]
+* **Startup** — 3 seats; all roles at once; invite 2 people. [price and credits TBD]
+* **Enterprise** — seats per business, several businesses, act-without-asking on chosen classes, own connectors.
 
-## ContentStudio
-
-Multi-platform content generation system.
-
-Generates:
-
-* Instagram Posts
-* Instagram Stories
-* Facebook Posts
-* LinkedIn Posts
-* X Posts
-* TikTok Captions
-
-Uses editable scene architecture.
-
-Current direction:
-
-Canva + AI + structured editor.
+Billing and credits are always server-verified.
 
 ---
 
-## ContentCalendar
+# Design language — Theme A (locked)
 
-Publishing and scheduling system.
+Dependable software, not a magazine.
 
-Provides:
+Tokens: canvas `#F5F7FA` · surface `#FFFFFF` · ink `#0B1220` · text `#3F4756` · muted `#5B6472` · border `#DDE3EC` · divider `#E9EEF4` · primary `#1E4ED8` (white text) · primary text `#1E40AF` · primary soft `#EAF0FF` with border `#C7D7FF` (active nav, tabs, selection) · rail `#F0F3F7` · good `#157347` on `#E6F4EC` · needs-you `#8A5A00` on `#FFF1D6`.
 
-* planning
-* campaign timelines
-* scheduling
+Type: headings Plus Jakarta Sans 600; body DM Sans.
 
-Future:
+Rules: status colours (green done, amber needs-you) are never used for decoration; no AI-specific colour or gradients; text contrast ≥ 4.5:1; buttons name the result ("Write my plan", "Approve the brief"), never "Submit"; costs shown before the click in credits with the balance after; every empty state has three lines (what appears here, how it gets here, one action).
 
-* social integrations
-* approval workflows
+Avoid: gradients, neon, gaming UI, serif display type, warm cream/gold (retired).
 
 ---
 
-## DocStudio
+# Mobile
 
-Document generation system.
-
-Future:
-
-* proposals
-* business plans
-* reports
-* grant applications
-* investor decks
+Desktop-first. Separate DesktopShell and MobileShell; do not patch responsive bugs one by one. First-run screens are single-column and work at 320 px.
 
 ---
 
-## ReelBuilder
+# Technical principles
 
-Video and reel generation.
+1. Never break existing flows; backward compatibility matters.
+2. Avoid duplicate systems; extend what exists (wallets, generations, assets, scenes, versions, plans, runs, connections). Check before adding a table.
+3. Business logic in service layers, not components.
+4. Database truth; frontend state is never the source of truth.
+5. Optimistic UI carefully; billing always server-verified.
+6. Production is on nano compute: no new polling; use the visible-tab interval; the tick does the work.
+7. Secrets never reach the browser or the repo. Paste-ready SQL files in `supabase/sql/` are filled in locally by the user; stage commits by path, never `git add -A`.
 
-Future:
+# AI principles
 
-* AI video workflows
-* scene editing
-* timeline editing
-
----
-
-## ProStudio
-
-Advanced creative workspace.
-
-Long-term:
-
-Figma + Canva + AI.
+Every AI interaction consumes context, produces structured output, improves memory, and stays editable. Nothing an agent makes is a dead end.
 
 ---
 
-# Editor Architecture
+# If you are a new developer
 
-Current editor uses:
+Understand first: the brand record and `buildContextPack`; the plan and `founder-plan`; the runner (`run-step`), approvals and action classes; wallet billing and seats; the scene editor. Read the decision log linked at the top before changing a flow.
 
-Scene
-→ Nodes
-→ Assets
-
-A Scene contains:
-
-* dimensions
-* metadata
-* node tree
-
-Nodes contain:
-
-* content
-* styling
-* positioning
-
-Everything should remain editable.
-
----
-
-# Versioning System
-
-Current status:
-
-Autosave exists.
-
-Next phase:
-
-Version History.
-
-Requirements:
-
-* Snapshot versions
-* Restore points
-* Restore safety
-* Version timeline
-* Save indicators
-
-Autosave != Version
-
-Never create full versions on every keystroke.
-
-Use snapshots and diffs.
-
----
-
-# Billing Architecture
-
-Kinika uses wallet-based billing.
-
-Credits are the universal usage currency.
-
-Current architecture includes:
-
-wallets
-wallet_transactions
-generations
-generation_assets
-generation_billing_events
-credit_packages
-
----
-
-## Reservation Billing
-
-Generation lifecycle:
-
-Reserve Credits
-→ AI Call
-→ Capture Credits
-→ Complete Generation
-
-If failure occurs:
-
-Before AI call:
-Release reservation
-
-After AI call:
-Credits remain captured
-
-Reason:
-
-Provider costs already incurred.
-
----
-
-# Subscription Plans
-
-Current plans:
-
-## Free Trial
-
-50 credits
-
-Includes:
-
-* watermark exports
-* limited AI access
-* 1 workspace
-
----
-
-## Explore
-
-$15/month
-
-200 credits
-
-For early-stage founders.
-
----
-
-## Pro
-
-$30/month
-
-500 credits
-
-Priority generation
-No watermarks
-Multiple workspaces
-
----
-
-Future:
-
-Enterprise
-
----
-
-# Design Language
-
-Kinika uses:
-
-Editorial + Premium + Calm
-
-Avoid:
-
-* excessive gradients
-* neon startup aesthetics
-* gaming UI
-
-Prefer:
-
-* typography first
-* whitespace
-* premium print-inspired layouts
-* warm gold accents
-
-Visual references:
-
-* Linear
-* Notion
-* Framer
-* Stripe
-* Apple
-* Arc Browser
-
----
-
-# Mobile Philosophy
-
-Desktop-first product.
-
-Mobile is important but should not compromise desktop architecture.
-
-Rules:
-
-Desktop layouts and mobile layouts should be separated.
-
-Do not continuously patch responsive bugs.
-
-Prefer:
-
-DesktopShell
-MobileShell
-
-instead of massive conditional logic.
-
----
-
-# Technical Principles
-
-## 1
-
-Never break existing flows.
-
-Backward compatibility matters.
-
----
-
-## 2
-
-Avoid duplicate systems.
-
-Extend existing architecture.
-
----
-
-## 3
-
-Prefer service layers.
-
-Business logic should not live in components.
-
----
-
-## 4
-
-Prefer database truth.
-
-Frontend state should never be the source of truth.
-
----
-
-## 5
-
-Use optimistic UI carefully.
-
-Billing and credits must always be server verified.
-
----
-
-# Database Principles
-
-Before adding tables:
-
-Check existing architecture.
-
-Avoid duplicates.
-
-Prefer extending:
-
-* wallets
-* generations
-* assets
-* scenes
-* versions
-
-instead of introducing new concepts.
-
----
-
-# AI Principles
-
-Every AI interaction should:
-
-1. Consume context
-2. Produce structured output
-3. Improve memory
-4. Remain editable
-
-Never generate content that becomes a dead end.
-
----
-
-# Future Vision
-
-Kinika evolves into:
-
-The Operating System for Business Creation.
-
-A founder should be able to:
-
-* discover problems
-* validate ideas
-* build brands
-* create content
-* launch products
-* manage knowledge
-
-without leaving Kinika.
-
-Everything should become progressively more intelligent as usage grows.
-
----
-
-# If You Are A New Developer
-
-Before changing anything:
-
-Understand:
-
-1. Brand Memory
-2. ContentStudio
-3. Wallet Billing
-4. Editor Architecture
-5. Mentor System
-
-These are foundational systems.
-
-When unsure:
-
-Preserve user data.
-Preserve editability.
-Preserve context.
-Preserve billing integrity.
-
-The product is optimized for long-term intelligence accumulation, not one-time content generation.
+When unsure: preserve user data, editability, context and billing integrity. Kinika is optimised for long-term understanding, not one-time generation.
