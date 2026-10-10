@@ -15,6 +15,7 @@ describe('coerceReadback', () => {
         { key: 'stage', value: 'Three years in, one shop.', confidence: 'guess' },
       ],
       not_known: ['Prices', '', 'Delivery', 'a', 'b', 'c', 'd'],
+      goals: ['Fill weekdays', 'More regulars', 'Instagram orders', 'too many'],
     }, stages)!;
     expect(rb.kind).toBe('running');
     expect(rb.stage_key).toBe('brand');
@@ -23,6 +24,7 @@ describe('coerceReadback', () => {
     expect(rb.sections[1].confidence).toBe('fairly_sure');
     expect(rb.sections[2]).toMatchObject({ source: 'what you said', confidence: 'guess' });
     expect(rb.not_known).toEqual(['Prices', 'Delivery', 'a', 'b', 'c']);
+    expect(rb.goals).toEqual(['Fill weekdays', 'More regulars', 'Instagram orders']);
   });
   it('falls back on the first stage and rejects thin read-backs', () => {
     expect(coerceReadback({ kind: 'creator', stage_key: 'nope', sections: [{ key: 'what', value: 'Cooking videos.' }, { key: 'who', value: 'Home cooks.' }] }, stages)!.stage_key).toBe('spark');

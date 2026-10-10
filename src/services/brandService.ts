@@ -168,6 +168,11 @@ export interface Brand {
   onboarding_completed?: boolean;
   onboarding_skipped?: boolean;
   context_source?: string;
+  /** Set when the founder approved "your business, as Kinika understands it". */
+  understanding_approved_at?: string | null;
+  business_kind?: 'starting' | 'running' | 'creator' | 'other' | null;
+  goal?: string | null;
+  goal_horizon?: string | null;
   created_at: string;
 }
 
