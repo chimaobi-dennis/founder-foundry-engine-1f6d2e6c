@@ -21,6 +21,7 @@ export function Layout() {
   // Determine which UI elements to show
   const isEditorRoute =
     location.pathname === "/pro-studio/editor" ||
+    location.pathname.startsWith("/work/") ||
     (location.pathname.startsWith("/content-studio/") && location.pathname !== "/content-studio/new");
 
   const showBrandBar = modulePaths.some(path => {
