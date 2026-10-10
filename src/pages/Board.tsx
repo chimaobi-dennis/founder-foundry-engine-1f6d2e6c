@@ -7,7 +7,7 @@ import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { OutputView, StepLine } from "@/components/team/RunViews";
 import { BoardSurface, triggerLabel } from "@/components/work/BoardSurface";
 import { getAutomation, listAutomationRuns, runAutomationNow, setAutomationStatus, type Automation, type AutomationRun } from "@/services/agentService";
-import { supabase } from "@/integrations/supabase/client";
+import { tasksForRuns } from "@/services/planService";
 
 /**
  * /board/:automationId — a standing task as a place of work. Same shell as
@@ -28,12 +28,7 @@ export default function Board() {
   const load = useCallback(async () => {
     const [auto, rs] = await Promise.all([getAutomation(automationId), listAutomationRuns(automationId)]);
     setA(auto); setRuns(rs); setLoaded(true);
-    if (rs.length) {
-      const { data } = await supabase.from("plan_tasks").select("id, run_id").in("run_id", rs.map((r) => r.id));
-      const map: Record<string, string> = {};
-      for (const t of data ?? []) map[t.run_id] = t.id;
-      setTaskByRun(map);
-    }
+    if (rs.length) setTaskByRun(await tasksForRuns(rs.map((r) => r.id)));
   }, [automationId]);
   useEffect(() => { setLoaded(false); load(); }, [load]);
   const latest = runs[0] ?? null;

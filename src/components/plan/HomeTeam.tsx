@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowUpRight, Users } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { tasksForRuns } from "@/services/planService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { listHires, listPendingApprovals, listRuns, type AgentHire, type Approval, type AutomationRun } from "@/services/agentService";
@@ -33,12 +33,7 @@ export function HomeTeam({ brandId }: { brandId: string | null | undefined }) {
     ]);
     setEnt(e); setHires(h); setApprovals(a); setRuns(r);
     const runIds = [...new Set([...a.map((x) => x.run_id), ...r.map((x) => x.id)])];
-    if (runIds.length) {
-      const { data } = await supabase.from("plan_tasks").select("id, run_id").in("run_id", runIds);
-      const map: Record<string, string> = {};
-      for (const t of data ?? []) map[t.run_id] = t.id;
-      setTaskByRun(map);
-    }
+    if (runIds.length) setTaskByRun(await tasksForRuns(runIds));
     setLoaded(true);
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
