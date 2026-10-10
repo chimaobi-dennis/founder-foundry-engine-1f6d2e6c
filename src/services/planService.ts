@@ -212,3 +212,12 @@ export async function applyPlanEdits(brandId: string, ops: PlanEditOp[]): Promis
   }
   return done;
 }
+
+/** Which plan task each run belongs to, for links from runs and approvals into the workspace. */
+export async function tasksForRuns(runIds: string[]): Promise<Record<string, string>> {
+  if (!runIds.length) return {};
+  const { data } = await db.from('plan_tasks').select('id, run_id').in('run_id', runIds);
+  const map: Record<string, string> = {};
+  for (const t of data ?? []) map[t.run_id] = t.id;
+  return map;
+}
