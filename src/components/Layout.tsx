@@ -22,6 +22,7 @@ export function Layout() {
   const isEditorRoute =
     location.pathname === "/pro-studio/editor" ||
     location.pathname.startsWith("/work/") ||
+    location.pathname.startsWith("/board/") ||
     (location.pathname.startsWith("/content-studio/") && location.pathname !== "/content-studio/new");
 
   const showBrandBar = modulePaths.some(path => {

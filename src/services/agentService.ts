@@ -35,7 +35,7 @@ import {
 } from '@shared/runner';
 
 export type { AgentDefinition, RunPolicy, RunBudget, TaskInput, RunStatus, StepStatus, ScheduleInterval, HiveStage, EventType, EventCondition } from '@shared/runner';
-export { SCHEDULE_INTERVALS, EVENT_TYPES } from '@shared/runner';
+export { SCHEDULE_INTERVALS, EVENT_TYPES, planSingleAgentRun } from '@shared/runner';
 
 const db = supabase as any;
 
@@ -593,4 +593,25 @@ export async function createHiveRun(params: CreateHiveInput): Promise<{ success:
   }
   void kickRun(run.id);
   return { success: true, run, quote };
+}
+
+// ─── Board (an automation as a place of work) ───────────────
+
+export async function getAutomation(id: string): Promise<Automation | null> {
+  const { data } = await db
+    .from('automations')
+    .select('*, agent:agents(id, slug, name, unit_label, action_type, per_run_credit_ceiling, cost_indicator)')
+    .eq('id', id)
+    .maybeSingle();
+  return data ?? null;
+}
+
+/** Runs this automation produced, newest first, with their steps. */
+export async function listAutomationRuns(automationId: string, limit = 6): Promise<AutomationRun[]> {
+  const { data: runs } = await db.from('automation_runs').select('*, agent:agents(*)').eq('automation_id', automationId).order('created_at', { ascending: false }).limit(limit);
+  if (!runs?.length) return [];
+  const { data: steps } = await db.from('automation_run_steps').select('*').in('run_id', runs.map((r: AutomationRun) => r.id)).order('step_index');
+  const byRun = new Map<string, RunStep[]>();
+  for (const s of steps ?? []) { const list = byRun.get(s.run_id) ?? []; list.push(s); byRun.set(s.run_id, list); }
+  return runs.map((r: AutomationRun) => ({ ...r, steps: byRun.get(r.id) ?? [] }));
 }

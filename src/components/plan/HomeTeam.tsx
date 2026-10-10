@@ -34,7 +34,7 @@ export function HomeTeam({ brandId }: { brandId: string | null | undefined }) {
     setEnt(e); setHires(h); setApprovals(a); setRuns(r);
     const runIds = [...new Set([...a.map((x) => x.run_id), ...r.map((x) => x.id)])];
     if (runIds.length) {
-      const { data } = await (supabase as any).from("plan_tasks").select("id, run_id").in("run_id", runIds);
+      const { data } = await supabase.from("plan_tasks").select("id, run_id").in("run_id", runIds);
       const map: Record<string, string> = {};
       for (const t of data ?? []) map[t.run_id] = t.id;
       setTaskByRun(map);

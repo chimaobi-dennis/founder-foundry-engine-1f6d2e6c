@@ -33,6 +33,7 @@ export default function Work() {
   const [note, setNote] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [firstNote, setFirstNote] = useState(false);
+  const [tab, setTab] = useState<number | null>(null);
   const bodyRef = useRef(body);
   bodyRef.current = body;
 
@@ -106,6 +107,10 @@ export default function Work() {
   if (!ws) return <div className="p-8 font-ui text-[13px] text-muted-foreground">This task is not on a plan you can open.</div>;
 
   const { task, agent, run, approval, document } = ws;
+  // Tabs are outputs: a run whose several steps each produced something opens one tab per output.
+  const outputSteps = (run?.steps ?? []).filter((st) => st.type === "agent_task" && st.output && Object.keys(st.output).length > 0 && !/self-review/i.test(st.name));
+  const tabbed = outputSteps.length > 1;
+  const activeStep = tabbed ? (outputSteps[tab ?? outputSteps.length - 1] ?? outputSteps[outputSteps.length - 1]) : null;
   const agentName = agent?.name ?? run?.agent?.name ?? "Agent";
   const credits = Number(run?.credits_captured ?? 0);
   const dnaLines = [activeBrandDNA?.positioning_statement, activeBrandDNA?.brand_voice, activeBrandDNA?.target_audience]
@@ -144,6 +149,23 @@ export default function Work() {
         </div>
       </header>
 
+      {tabbed && (
+        <nav aria-label="Outputs" className="flex items-end gap-1 px-4 border-b border-border bg-card">
+          {outputSteps.map((st, i) => {
+            const cur = (tab ?? outputSteps.length - 1) === i;
+            const who = st.name.includes(":") ? st.name.split(":")[0] : agentName;
+            return (
+              <button key={st.id} onClick={() => setTab(i)} aria-current={cur ? "page" : undefined} className={cn("inline-flex items-center gap-2 h-9 px-3.5 rounded-t-lg font-ui text-[13px] border -mb-px", cur ? "bg-background border-border border-b-background text-foreground font-medium" : "border-transparent text-muted-foreground")}>
+                <span aria-hidden className={cn("w-2 h-2 rounded-full", st.status === "done" ? "bg-[hsl(var(--brand-good))]" : st.status === "waiting" ? "bg-[hsl(var(--brand-needs-you))]" : "bg-muted-foreground/40")} />
+                {st.name.includes(":") ? st.name.split(":").slice(1).join(":").trim() : st.name}
+                <span className="font-ui text-[11px] text-muted-foreground">{who}</span>
+              </button>
+            );
+          })}
+          <span className="ml-auto pb-2 font-ui text-[11px] text-muted-foreground">Tabs are this task's outputs. Kinika opened them.</span>
+        </nav>
+      )}
+
       <div className="flex-1 min-h-0 flex">
         {/* ── Left rail ── */}
         <aside className="hidden lg:flex w-[260px] shrink-0 flex-col gap-5 p-4 border-r border-border bg-muted/40 overflow-y-auto">
@@ -157,6 +179,9 @@ export default function Work() {
               <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">What Kinika is using</span>
               <span className="font-ui text-[12px] leading-relaxed text-muted-foreground">{dnaLines.join(" · ")}</span>
             </div>
+          )}
+          {run?.automation_id && (
+            <button onClick={() => navigate(`/board/${run.automation_id}`)} className="self-start font-ui text-[12px] text-accent-foreground underline">This is a standing task · open its board</button>
           )}
           {run && (
             <div className="flex flex-col gap-1.5">
@@ -203,7 +228,9 @@ export default function Work() {
                 <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground">{approval ? "Waiting for your approval" : run.status === "completed" ? "Approved" : "Draft"} · {agentName}</span>
                 <h1 className="font-display text-[24px] leading-tight">{run.name}</h1>
               </div>
-              {document ? (
+              {tabbed && activeStep ? (
+                <div className="px-6 py-5"><OutputView output={activeStep.output} /></div>
+              ) : document ? (
                 <Textarea value={body} onChange={(e) => { setBody(e.target.value); setDirty(true); }} rows={Math.max(12, body.split("\n").length + 2)}
                   className="w-full border-0 rounded-none rounded-b-xl bg-transparent px-6 py-5 font-ui text-[14px] leading-relaxed resize-none focus-visible:ring-0" aria-label="The document" />
               ) : runBodyMarkdown(run, approval) ? (
