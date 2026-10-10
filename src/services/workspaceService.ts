@@ -40,24 +40,32 @@ export interface Workspace {
   document: WorkDocument | null;
   /** A ContentStudio brief made from this task: the canvas surface. */
   brief: WorkBrief | null;
+  /** Three lines of the task's brand record, for the rail. */
+  using: string[];
 }
 
 export async function getWorkspace(taskId: string): Promise<Workspace | null> {
   const { data: t } = await db.from('plan_tasks').select('*, plan_targets!inner(title, position), brand_plans!inner(title)').eq('id', taskId).maybeSingle();
   if (!t) return null;
   const task: WorkspaceTask = { ...t, target_title: t.plan_targets.title, target_position: t.plan_targets.position, plan_title: t.brand_plans.title };
-  const [agentRes, run, docRes, briefRes] = await Promise.all([
+  const [agentRes, run, docRes, briefRes, dnaRes] = await Promise.all([
     task.agent_slug ? db.from('agents').select('*').eq('slug', task.agent_slug).maybeSingle() : Promise.resolve({ data: null }),
     task.run_id ? getRun(task.run_id) : Promise.resolve(null),
     db.from('documents').select('id, name, body_md, body_edited_at, run_id, updated_at').eq('plan_task_id', taskId).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
     db.from('content_studio_briefs').select('id, name, status').eq('plan_task_id', taskId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    db.from('brand_dna').select('positioning_statement, brand_voice, target_audience').eq('brand_id', task.brand_id).maybeSingle(),
   ]);
   let approval: Approval | null = null;
   if (run) {
     const { data: ap } = await db.from('approvals').select('*, run:automation_runs(id, name, agent_id, credits_captured, status, agent:agents(name, slug))').eq('run_id', run.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
     approval = ap ?? null;
   }
-  return { task, agent: agentRes.data ?? null, run, approval, document: docRes.data ?? null, brief: briefRes.data ?? null };
+  const dna = dnaRes.data ?? {};
+  const using = [dna.positioning_statement, dna.brand_voice, dna.target_audience]
+    .filter((v: unknown): v is string => typeof v === 'string' && v.trim().length > 0 && !/[{}"]/.test(v))
+    .map((v: string) => (v.length > 90 ? v.slice(0, 88).trimEnd() + '…' : v))
+    .slice(0, 3);
+  return { task, agent: agentRes.data ?? null, run, approval, document: docRes.data ?? null, brief: briefRes.data ?? null, using };
 }
 
 /** The text an agent run produced, or what is waiting for approval, as the document's first body. */
