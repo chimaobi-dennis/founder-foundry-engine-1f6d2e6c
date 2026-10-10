@@ -188,7 +188,7 @@ async function revisePlansDue(admin: Admin): Promise<number> {
   return n;
 }
 
-/** Once a week per plan: what moved, what is next, what has stalled. Computed, so it is free. */
+/** Per plan, weekly, or daily once a connection feeds Kinika: what moved, what is next, what has stalled. Computed, so it is free. */
 async function planCheckins(admin: Admin): Promise<number> {
   const now = new Date();
   const { data: plans } = await admin
@@ -208,7 +208,10 @@ async function planCheckins(admin: Admin): Promise<number> {
       action_url: "/plan",
       related_type: "plan",
     });
-    await admin.from("brand_plans").update({ last_checkin_at: now.toISOString(), next_checkin_at: new Date(now.getTime() + 7 * 24 * 3600_000).toISOString() }).eq("id", p.id);
+    // Daily once the brand has something Kinika reads every day; weekly before that.
+    const { count: connections } = await admin.from("tool_connections").select("id", { count: "exact", head: true }).eq("brand_id", p.brand_id).eq("status", "active");
+    const days = (connections ?? 0) > 0 ? 1 : 7;
+    await admin.from("brand_plans").update({ last_checkin_at: now.toISOString(), next_checkin_at: new Date(now.getTime() + days * 24 * 3600_000).toISOString() }).eq("id", p.id);
     if (!error) n++;
   }
   return n;

@@ -13,6 +13,7 @@ import { getLibraryAssets, type Asset } from "@/services/assetService";
 import { getCalendarPostsForRange, type CalendarPost } from "@/services/calendarService";
 import { getBrandStageData, getAllStageFields, type StageField } from "@/services/journeyDataService";
 import { PlanGlance } from "@/components/plan/PlanGlance";
+import { HomeTeam } from "@/components/plan/HomeTeam";
 
 // ── Helpers ────────────────────────────────────────────────
 function getGreeting() {
@@ -297,7 +298,14 @@ const Home = () => {
         {/* ── The plan: what to do next ── */}
         {hasBrand && viewState !== "early" && (
           <section className="px-4 md:px-8 pb-10 max-w-[1180px] mx-auto">
+            {activeBrand && !activeBrand.understanding_approved_at && (
+              <div className="rounded-xl border border-primary/40 bg-accent/50 px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+                <p className="font-ui text-[13px] text-foreground">Check what Kinika understands about {activeBrand.name}: a one-page read-back you approve or fix. Everything Kinika makes starts from it.</p>
+                <Button size="sm" onClick={() => navigate(`/start?review=1&brand=${activeBrand.id}`)} className="bg-primary text-primary-foreground hover:bg-primary/90">Read it</Button>
+              </div>
+            )}
             <PlanGlance brandId={activeBrand?.id} />
+            <HomeTeam brandId={activeBrand?.id} />
           </section>
         )}
 
