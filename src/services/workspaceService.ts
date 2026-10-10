@@ -26,29 +26,38 @@ export interface WorkDocument {
   updated_at: string;
 }
 
+export interface WorkBrief {
+  id: string;
+  name: string;
+  status: string | null;
+}
+
 export interface Workspace {
   task: WorkspaceTask;
   agent: Agent | null;
   run: AutomationRun | null;
   approval: Approval | null;
   document: WorkDocument | null;
+  /** A ContentStudio brief made from this task: the canvas surface. */
+  brief: WorkBrief | null;
 }
 
 export async function getWorkspace(taskId: string): Promise<Workspace | null> {
   const { data: t } = await db.from('plan_tasks').select('*, plan_targets!inner(title, position), brand_plans!inner(title)').eq('id', taskId).maybeSingle();
   if (!t) return null;
   const task: WorkspaceTask = { ...t, target_title: t.plan_targets.title, target_position: t.plan_targets.position, plan_title: t.brand_plans.title };
-  const [agentRes, run, docRes] = await Promise.all([
+  const [agentRes, run, docRes, briefRes] = await Promise.all([
     task.agent_slug ? db.from('agents').select('*').eq('slug', task.agent_slug).maybeSingle() : Promise.resolve({ data: null }),
     task.run_id ? getRun(task.run_id) : Promise.resolve(null),
     db.from('documents').select('id, name, body_md, body_edited_at, run_id, updated_at').eq('plan_task_id', taskId).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+    db.from('content_studio_briefs').select('id, name, status').eq('plan_task_id', taskId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ]);
   let approval: Approval | null = null;
   if (run) {
     const { data: ap } = await db.from('approvals').select('*, run:automation_runs(id, name, agent_id, credits_captured, status, agent:agents(name, slug))').eq('run_id', run.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle();
     approval = ap ?? null;
   }
-  return { task, agent: agentRes.data ?? null, run, approval, document: docRes.data ?? null };
+  return { task, agent: agentRes.data ?? null, run, approval, document: docRes.data ?? null, brief: briefRes.data ?? null };
 }
 
 /** The text an agent run produced, or what is waiting for approval, as the document's first body. */
@@ -82,4 +91,12 @@ export function firstApprovalSeen(userId: string): boolean {
 }
 export function markFirstApprovalSeen(userId: string) {
   try { localStorage.setItem(`kinika.firstApproval.${userId}`, '1'); } catch { /* storage unavailable */ }
+}
+
+/** A result that belongs on the canvas: a design brief, or a Designer's output. */
+export function wantsCanvas(ws: Workspace): boolean {
+  if (ws.brief) return true;
+  const o = (ws.approval?.payload?.output ?? ws.run?.output ?? null) as Record<string, unknown> | null;
+  const slug = ws.agent?.slug ?? ws.task.agent_slug ?? "";
+  return /design/i.test(slug) || !!(o && (o.visual_direction || Array.isArray((o as { headlines?: unknown }).headlines)));
 }

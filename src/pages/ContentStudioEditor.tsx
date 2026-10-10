@@ -55,9 +55,12 @@ interface Creative {
 
 const PLACEHOLDER_PREFIX = "pending-";
 
-export default function ContentStudioEditor() {
-  const { briefId } = useParams<{ briefId: string }>();
+export default function ContentStudioEditor({ briefId: briefIdProp, onClose }: { briefId?: string; onClose?: () => void } = {}) {
+  const { briefId: routeBriefId } = useParams<{ briefId: string }>();
+  const briefId = briefIdProp ?? routeBriefId;
   const navigate = useNavigate();
+  // Inside the workspace shell the editor closes back to the task, not to ContentStudio.
+  const close = () => (onClose ? onClose() : navigate("/content-studio"));
   const { activeBrand } = useBrand();
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -84,7 +87,7 @@ export default function ContentStudioEditor() {
     try {
       const data = await getBriefWithCreatives(briefId);
       if (!data) {
-        navigate('/content-studio');
+        close();
         return;
       }
       // While a retry is in-flight, ignore stale 'failed' from server so the UI
@@ -111,7 +114,7 @@ export default function ContentStudioEditor() {
       
     } catch (e) {
       console.error(e);
-      navigate('/content-studio');
+      close();
     } finally {
       setLoading(false);
     }
@@ -586,7 +589,7 @@ export default function ContentStudioEditor() {
       <div className="max-w-3xl mx-auto p-8 text-center">
         <p className="text-muted-foreground">Brief not found</p>
         <button
-          onClick={() => navigate("/content-studio")}
+          onClick={() => close()}
           className="text-primary mt-4 hover:underline"
         >
           Back to ContentStudio
@@ -729,7 +732,7 @@ export default function ContentStudioEditor() {
             canvases={canvases}
             activeCanvasId={activeId}
             onSelectCanvas={setActiveIdWithFlush}
-            onClose={() => navigate("/content-studio")}
+            onClose={() => close()}
             onChangeCopy={handleMobileCopyChange}
             onSaveCopy={handleMobileCopySave}
             onRegenerateVisual={handleRegenerateVisual}
@@ -747,7 +750,7 @@ export default function ContentStudioEditor() {
         ) : (
         <StudioEditor
           open={true}
-          onClose={() => navigate("/content-studio")}
+          onClose={() => close()}
           templateName={brief.name}
           variationHtml={active?.visual_html || null}
           variationId={activeId || ""}

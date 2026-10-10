@@ -228,6 +228,9 @@ export default function ContentStudioNew() {
         image_density: imageDensity,
         // Selected library assets for visual context
         selected_library_assets: selectedLibraryAssets.length > 0 ? selectedLibraryAssets : undefined,
+        // From a plan task: the workspace shows this brief as the task's canvas.
+        plan_task_id: searchParams.get("task") ?? undefined,
+        run_id: searchParams.get("fromRun") ?? undefined,
       });
 
       // A series becomes a scheduled Copywriter automation, reviewed on Kinika's team.
@@ -269,7 +272,8 @@ export default function ContentStudioNew() {
       // Refresh balance after charge
       refreshBalance();
 
-      navigate(`/content-studio/${briefId}`);
+      const taskId = searchParams.get("task");
+      navigate(taskId ? `/work/${taskId}` : `/content-studio/${briefId}`);
     } catch (e: any) {
       console.error(e);
       const isInsufficientError = e.message?.includes('Insufficient credits');
