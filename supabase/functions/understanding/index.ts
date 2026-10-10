@@ -102,7 +102,17 @@ serve(async (req) => {
   for (const s of rb.sections) s.label = labels[s.key];
   const { dna, meta } = readbackToDna(rb);
 
-  const { data: existingDna } = await admin.from("brand_dna").select("id, field_meta").eq("brand_id", brand.id).maybeSingle();
+  const { data: existingDna } = await admin.from("brand_dna").select("id, field_meta, product_positioning, target_audience, customer_insight, campaign_strategy, brand_voice, core_promise, positioning_statement").eq("brand_id", brand.id).maybeSingle();
+  // A record that is being replaced is kept in team memory: nothing a founder approved before is lost silently.
+  const previous = existingDna ? Object.entries(dna).filter(([k]) => existingDna[k] && existingDna[k] !== dna[k]).map(([k]) => `${k.replace(/_/g, " ")}: ${String(existingDna[k]).slice(0, 300)}`) : [];
+  if (previous.length) {
+    await remember(admin, { brandId: brand.id, userId: brand.user_id }, {
+      kind: "feedback", key: `understanding:previous:${brand.id}:${Date.now()}`,
+      title: `Brand record before the read-back of ${new Date().toISOString().slice(0, 10)}`,
+      summary: previous.join(" · ").slice(0, 1200),
+      data: { replaced_fields: Object.keys(dna) },
+    });
+  }
   const mergedMeta = { ...(existingDna?.field_meta ?? {}), ...meta };
   if (existingDna) {
     const { error } = await admin.from("brand_dna").update({ ...dna, field_meta: mergedMeta, updated_at: new Date().toISOString() }).eq("id", existingDna.id);
