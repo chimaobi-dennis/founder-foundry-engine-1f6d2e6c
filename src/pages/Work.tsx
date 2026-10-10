@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { StepLine, OutputView } from "@/components/team/RunViews";
 import { cancelRun, decideApproval } from "@/services/agentService";
 import { delegateUrl } from "@/services/planService";
-import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, type Workspace } from "@/services/workspaceService";
+import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, wantsCanvas, type Workspace } from "@/services/workspaceService";
+import ContentStudioEditor from "@/pages/ContentStudioEditor";
 
 /**
  * /work/:taskId — a plan task as a place of work. One shell: who is working
@@ -41,7 +42,7 @@ export default function Work() {
     const w = await getWorkspace(taskId);
     setWs(w);
     setLoaded(true);
-    if (w && user) {
+    if (w && user && !w.brief) {
       const doc = w.document ?? (await ensureDocument(w, user.id));
       if (doc && !dirty) { setBody(doc.body_md ?? ""); setWs({ ...w, document: doc }); }
     }
@@ -106,7 +107,9 @@ export default function Work() {
   if (!loaded) return <div className="p-8"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
   if (!ws) return <div className="p-8 font-ui text-[13px] text-muted-foreground">This task is not on a plan you can open.</div>;
 
-  const { task, agent, run, approval, document } = ws;
+  const { task, agent, run, approval, document, brief } = ws;
+  const canvas = !!brief;
+  const offerCanvas = !brief && !!run && run.status !== "queued" && run.status !== "running" && wantsCanvas(ws);
   // Tabs are outputs: a run whose several steps each produced something opens one tab per output.
   const outputSteps = (run?.steps ?? []).filter((st) => st.type === "agent_task" && st.output && Object.keys(st.output).length > 0 && !/self-review/i.test(st.name));
   const tabbed = outputSteps.length > 1;
@@ -134,8 +137,8 @@ export default function Work() {
           </div>
         </div>
         <nav aria-label="Document tools" className="hidden md:flex items-center gap-1 p-1 rounded-lg border border-border bg-card">
-          <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">Document</span>
-          <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">{saving ? "Saving…" : dirty ? "Unsaved" : document?.body_edited_at ? "Your version" : "Kinika's version"}</span>
+          <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">{canvas ? "Canvas" : "Document"}</span>
+          {!canvas && <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">{saving ? "Saving…" : dirty ? "Unsaved" : document?.body_edited_at ? "Your version" : "Kinika's version"}</span>}
         </nav>
         <div className="flex items-center gap-2">
           <button onClick={() => setHistoryOpen((v) => !v)} className={cn("h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border font-ui text-[12px]", historyOpen ? "bg-accent text-accent-foreground" : "bg-card")}><History size={13} /> History</button>
@@ -203,7 +206,18 @@ export default function Work() {
         </aside>
 
         {/* ── Surface ── */}
+        {canvas && brief ? (
+          <main className="flex-1 min-w-0 min-h-0 overflow-hidden">
+            <ContentStudioEditor briefId={brief.id} onClose={() => navigate("/plan")} />
+          </main>
+        ) : (
         <main className="flex-1 min-w-0 overflow-y-auto p-4 md:p-8">
+          {offerCanvas && (
+            <div className="max-w-[720px] mx-auto mb-4 rounded-xl border border-primary/40 bg-accent/50 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <p className="font-ui text-[13px] text-foreground">This is a design. Open it on the canvas to see it as posts and visuals you can edit.</p>
+              <button onClick={() => navigate(`/content-studio/new?fromRun=${run!.id}&task=${task.id}`)} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[12px] font-medium">Open on the canvas</button>
+            </div>
+          )}
           {firstNote && (
             <div role="status" className="max-w-[720px] mx-auto mb-5 rounded-xl border border-[hsl(var(--brand-good))]/40 bg-[hsl(var(--brand-good-soft))]/50 p-4 flex items-start justify-between gap-3">
               <div>
@@ -242,6 +256,7 @@ export default function Work() {
           )}
           {document && <p className="max-w-[720px] mx-auto mt-2 font-ui text-[11px] text-muted-foreground">Edit any line. Your version is kept when {agentName} continues and is what approval keeps.</p>}
         </main>
+        )}
 
         {/* ── History ── */}
         {historyOpen && (

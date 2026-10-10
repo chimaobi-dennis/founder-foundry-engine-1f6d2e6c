@@ -227,6 +227,9 @@ export async function createBrief(brandId: string, userId: string, brief: {
   image_density?: number;
   // Selected library assets for visual context
   selected_library_assets?: { id: string; type: string; imageUrl: string | null }[];
+  /** When the brief is a plan task's canvas: the task and the Designer run it came from. */
+  plan_task_id?: string;
+  run_id?: string;
 }) {
   const nextGenAt = brief.is_series
     ? calculateNextGenerationTime(brief.series_interval || 'weekly')
@@ -260,6 +263,8 @@ export async function createBrief(brandId: string, userId: string, brief: {
     brief: brief.brief,
     campaign_goal: brief.campaign_goal,
     is_series: brief.is_series,
+    plan_task_id: brief.plan_task_id ?? null,
+    run_id: brief.run_id ?? null,
     series_interval: brief.series_interval,
     selected_platform_ids: brief.selected_platform_ids,
     // AI Workspace Configuration
