@@ -7,7 +7,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildContextPack } from "./contextPack.ts";
 import { parseStructuredOutput } from "./runner.ts";
-import { agentsBlock, coercePlan, playbookBlock, planSystemPrompt, type PlanAgentOption, type PlanDraft, type PlaybookChoice } from "./plan.ts";
+import { agentsBlock, coercePlan, playbookBlock, playbookForKind, planSystemPrompt, type PlanAgentOption, type PlanDraft, type PlaybookChoice } from "./plan.ts";
 import { remember } from "./memory.ts";
 
 export interface PlanBrand {
@@ -15,6 +15,9 @@ export interface PlanBrand {
   user_id: string;
   name: string;
   journey_stage: string | null;
+  business_kind?: string | null;
+  goal?: string | null;
+  goal_horizon?: string | null;
 }
 
 export type PlanBuildResult =
@@ -61,8 +64,9 @@ export async function buildOrRevisePlan(
     : "";
   const milestoneText = (milestones ?? []).length ? "RECENT MILESTONES:\n" + (milestones ?? []).map((m: any) => `- ${m.name} (${m.stage_key ?? m.category})`).join("\n") : "";
   const userPrompt = [
-    `Journey stage: ${brand.journey_stage ?? "unknown"}.`,
-    action === "build" ? playbookBlock(playbook) : "",
+    `Journey stage: ${brand.journey_stage ?? "unknown"}.${brand.business_kind ? ` Kind of business: ${brand.business_kind}.` : ""}`,
+    brand.goal ? `THE FOUNDER'S GOAL${brand.goal_horizon ? ` (${brand.goal_horizon})` : ""}: ${brand.goal}\nThe targets must lead to this goal.` : "",
+    action === "build" ? playbookBlock(playbook === "auto" ? playbookForKind(brand.business_kind) : playbook) : "",
     agentsBlock(agents),
     milestoneText,
     existingText,

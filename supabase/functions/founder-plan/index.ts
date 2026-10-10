@@ -37,7 +37,7 @@ serve(async (req) => {
   // Editors and owners only.
   const { data: allowed } = await userClient.rpc("can_access_brand", { p_brand_id: body.brandId, p_min_role: "editor" });
   if (!allowed) return json({ success: false, error: "You cannot edit this workspace's plan" }, 403);
-  const { data: brand } = await admin.from("brands").select("id, user_id, name, journey_stage").eq("id", body.brandId).maybeSingle();
+  const { data: brand } = await admin.from("brands").select("id, user_id, name, journey_stage, business_kind, goal, goal_horizon").eq("id", body.brandId).maybeSingle();
   if (!brand) return json({ success: false, error: "Brand not found" }, 404);
 
   const note = body.note ? String(body.note) : undefined;

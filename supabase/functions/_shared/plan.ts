@@ -186,6 +186,12 @@ export function playbookFrom(v: unknown): PlaybookChoice {
   return s === "idea" || s === "running" || s === "creator" ? s : "auto";
 }
 
+/** The playbook that fits a kind of business, when the founder let Kinika decide. */
+export function playbookForKind(kind: string | null | undefined): PlaybookChoice {
+  const k = String(kind ?? "").toLowerCase();
+  return k === "starting" ? "idea" : k === "running" ? "running" : k === "creator" ? "creator" : "auto";
+}
+
 /** The playbook paragraph for the builder prompt: one chosen, or all for the model to pick from. */
 export function playbookBlock(choice: PlaybookChoice): string {
   if (choice === "auto") {

@@ -159,7 +159,7 @@ const REVISION_RETRY_MS = 6 * 3600_000;
 async function revisePlansDue(admin: Admin): Promise<number> {
   const { data: plans } = await admin
     .from("brand_plans")
-    .select("id, revise_note, brands(id, user_id, name, journey_stage)")
+    .select("id, revise_note, brands(id, user_id, name, journey_stage, business_kind, goal, goal_horizon)")
     .not("revise_note", "is", null)
     .lte("revise_requested_at", new Date(Date.now() - REVISION_DEBOUNCE_MS).toISOString())
     .order("revise_requested_at")
