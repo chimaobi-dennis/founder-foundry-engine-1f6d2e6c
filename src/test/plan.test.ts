@@ -115,3 +115,20 @@ describe('playbookForKind', () => {
     expect(playbookForKind(null)).toBe('auto');
   });
 });
+
+describe('rolesForPlan', () => {
+  it('lists agent roles in first-appearance order with open and total counts', async () => {
+    const { rolesForPlan } = await import('@shared/plan');
+    const roles = rolesForPlan([
+      { owner: 'founder', agent_slug: null, status: 'todo', title: 'Decide the price' },
+      { owner: 'agent', agent_slug: 'researcher', status: 'done', title: 'List offices' },
+      { owner: 'agent', agent_slug: 'copywriter', status: 'todo', title: 'Write the offer' },
+      { owner: 'agent', agent_slug: 'researcher', status: 'doing', title: 'Competitor check' },
+      { owner: 'agent', agent_slug: 'copywriter', status: 'skipped', title: 'Newsletter' },
+    ]);
+    expect(roles.map((r) => r.slug)).toEqual(['researcher', 'copywriter']);
+    expect(roles[0]).toMatchObject({ count: 2, open: 1, titles: ['List offices', 'Competitor check'] });
+    expect(roles[1]).toMatchObject({ count: 2, open: 1 });
+    expect(rolesForPlan([])).toEqual([]);
+  });
+});

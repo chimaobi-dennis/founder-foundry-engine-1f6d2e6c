@@ -27,7 +27,7 @@ export interface Entitlements extends PlanLimits {
 }
 
 export const FREE_LIMITS: PlanLimits = {
-  agents: 1,
+  agents: 0,   // the trial is plans and consultation; no agent seats
   automations: 1,
   connections: 1,
   members: 1,

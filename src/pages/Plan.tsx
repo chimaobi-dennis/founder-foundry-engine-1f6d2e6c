@@ -7,7 +7,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/hooks/use-brand";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { listAgents, listHires, type Agent } from "@/services/agentService";
+import { listAgents, listHires, hireAgent, type Agent, type AgentHire } from "@/services/agentService";
+import { getEntitlements, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
+import { KinikaTeam } from "@/components/plan/KinikaTeam";
 import { getMyRole } from "@/services/teamMembersService";
 import { roleAtLeast } from "@shared/plans";
 import { PLAYBOOKS, type PlaybookChoice } from "@shared/plan";
@@ -27,6 +29,8 @@ export default function Plan() {
   const [loaded, setLoaded] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [hired, setHired] = useState<Set<string>>(new Set());
+  const [hires, setHires] = useState<AgentHire[]>([]);
+  const [ent, setEnt] = useState<Entitlements | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(true);
   const [note, setNote] = useState("");
@@ -35,9 +39,11 @@ export default function Plan() {
 
   const reload = async () => {
     if (!brandId) return;
-    const [p, a, h, role] = await Promise.all([getPlan(brandId), listAgents(), listHires(brandId), getMyRole(brandId)]);
+    const [p, a, h, role, e] = await Promise.all([getPlan(brandId), listAgents(), listHires(brandId), getMyRole(brandId), user ? getEntitlements(user.id).catch(() => null) : Promise.resolve(null)]);
     setPlan(p);
     setAgents(a);
+    setHires(h);
+    setEnt(e);
     setHired(new Set(h.filter((x) => x.status === "active").map((x) => x.agent.slug)));
     setCanEdit(role ? roleAtLeast(role, "editor") : true);
     setLoaded(true);
@@ -134,15 +140,18 @@ export default function Plan() {
         )}
       </header>
 
+      {user && <KinikaTeam plan={plan} agents={agents} hires={hires} ent={ent} userId={user.id} canEdit={canEdit} onChanged={reload} />}
+
       {plan.targets.map((t, i) => (
-        <TargetCard key={t.id} index={i} target={t} plan={plan} canEdit={canEdit} agentBySlug={agentBySlug} hired={hired} busy={busy} setBusy={setBusy} onChanged={reload} />
+        <TargetCard key={t.id} index={i} target={t} plan={plan} canEdit={canEdit} agentBySlug={agentBySlug} hired={hired} seats={ent ? effectiveLimit(ent, "agents") : 0} seatsFree={ent ? (effectiveLimit(ent, "agents") < 0 ? Infinity : Math.max(0, effectiveLimit(ent, "agents") - hires.filter((x) => x.status === "active").length)) : 0} userId={user?.id ?? ""} busy={busy} setBusy={setBusy} onChanged={reload} />
       ))}
     </div>
   );
 }
 
-function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, busy, setBusy, onChanged }: {
+function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, seatsFree, userId, busy, setBusy, onChanged }: {
   index: number; target: PlanTarget; plan: FounderPlan; canEdit: boolean; agentBySlug: Map<string, Agent>; hired: Set<string>;
+  seats: number; seatsFree: number; userId: string;
   busy: string | null; setBusy: (b: string | null) => void; onChanged: () => Promise<void>;
 }) {
   const navigate = useNavigate();
@@ -197,8 +206,12 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, busy, se
                   {k.owner === "agent" && k.status !== "doing" && (
                     hired.has(k.agent_slug ?? "") ? (
                       <button onClick={() => navigate(delegateUrl(k))} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-medium">Hand to {agent?.name ?? "agent"} <ChevronRight size={11} /></button>
+                    ) : seats === 0 ? (
+                      <button onClick={() => navigate(`/mentor?task=${k.id}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary" title="No agent seat yet">Do it with Kinika</button>
+                    ) : seatsFree > 0 && agent ? (
+                      <button disabled={busy === `hire-${k.id}`} onClick={async () => { setBusy(`hire-${k.id}`); const r = await hireAgent(plan.brand_id, userId, agent.id, "kinika"); setBusy(null); if (r.success) { toast(`Kinika hired ${agent.name}`); await onChanged(); navigate(delegateUrl(k)); } else toast.error(r.error ?? "Could not hire"); }} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary disabled:opacity-50">Let Kinika hire {agent.name}</button>
                     ) : (
-                      <button onClick={() => navigate(`/team?hire=${k.agent_slug}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary">Hire {agent?.name ?? k.agent_slug}</button>
+                      <button onClick={() => navigate("/billing")} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary" title="All seats are taken">Needs a seat</button>
                     )
                   )}
                   {k.status !== "skipped" && <button onClick={async () => { setBusy(k.id); await setTaskStatus(k, "skipped"); setBusy(null); onChanged(); }} className="text-muted-foreground hover:text-foreground" title="Skip" aria-label="Skip task"><X size={13} /></button>}
