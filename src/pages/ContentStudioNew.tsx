@@ -230,7 +230,7 @@ export default function ContentStudioNew() {
         selected_library_assets: selectedLibraryAssets.length > 0 ? selectedLibraryAssets : undefined,
       });
 
-      // A series becomes a scheduled Copywriter automation, reviewed on Your team.
+      // A series becomes a scheduled Copywriter automation, reviewed on Kinika's team.
       if (isSeries) {
         try {
           const agents = await listAgents();
@@ -246,7 +246,7 @@ export default function ContentStudioNew() {
             interval: seriesInterval as "daily" | "weekly" | "biweekly" | "monthly",
             runNow: false,
           });
-          if (r.success) sonnerToast("Series scheduled. Each run is quoted and waits for your review on Your team.");
+          if (r.success) sonnerToast("Series scheduled. Each run is quoted and waits for your review on Kinika's team.");
           else sonnerToast.error(r.error?.replace(/^PLAN_LIMIT:\s*/, "") ?? "Could not schedule the series. Your first content is still being created.");
         } catch (e: any) {
           sonnerToast.error(e?.message ?? "Could not schedule the series. Your first content is still being created.");
@@ -632,7 +632,7 @@ export default function ContentStudioNew() {
                 </div>
                 <p className="text-[12px] font-ui text-muted-foreground mt-2">
                   Your Copywriter writes new copy at this interval. Each run is
-                  quoted first and waits for your review on Your team.
+                  quoted first and waits for your review on Kinika's team.
                 </p>
               </div>
             )}

@@ -38,7 +38,7 @@ export function RecommendedAgents({ brandId, stage, className }: { brandId: stri
       <div className="flex items-center justify-between mb-2">
         <span className="font-ui text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Worth hiring now</span>
         <button onClick={() => navigate("/team")} className="font-ui text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-          Your team <ArrowUpRight size={11} />
+          Kinika's team <ArrowUpRight size={11} />
         </button>
       </div>
       <div className="space-y-2">

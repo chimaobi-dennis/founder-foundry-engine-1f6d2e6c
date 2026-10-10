@@ -126,7 +126,7 @@ export default function Team() {
   if (!activeBrand) {
     return (
       <div className="px-4 md:px-8 py-12 max-w-[1180px] mx-auto">
-        <h1 className="font-display text-3xl text-foreground">Your team</h1>
+        <h1 className="font-display text-3xl text-foreground">Kinika's team</h1>
         <p className="font-ui text-[13px] text-muted-foreground mt-2">Pick or create a brand first. Agents work from your Brand DNA.</p>
       </div>
     );
@@ -137,9 +137,9 @@ export default function Team() {
       <header className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{activeBrand.name}</span>
-          <h1 className="font-display text-3xl text-foreground mt-1">Your team</h1>
+          <h1 className="font-display text-3xl text-foreground mt-1">Kinika's team</h1>
           <p className="font-ui text-[13px] text-muted-foreground mt-1 max-w-xl">
-            {effectiveRole === "viewer" ? "You can see everything here. Ask the owner for the editor role to give tasks or approve work." : "Hire an agent, give it a task, review the result. Every task shows its cost before it runs."}
+            {effectiveRole === "viewer" ? "You can see everything here. Ask the owner for the editor role to give tasks or approve work." : "Agents Kinika hires for your plan. Give a task, review the result. Every task shows its cost before it runs."}
           </p>
         </div>
         <div className="flex items-center gap-3">

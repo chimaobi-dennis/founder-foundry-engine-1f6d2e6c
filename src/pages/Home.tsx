@@ -315,7 +315,7 @@ const Home = () => {
               Business context{currentStageData ? ` — ${currentStageData.name}` : ""}
             </SectionEyebrow>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 lg:gap-10">
+            <div className="grid grid-cols-1 gap-6">
               {/* Context lines */}
               <div className="rounded-xl border border-card-border bg-card/40 px-5 md:px-7 py-2 md:py-3">
                 {hasContextFields ? (
@@ -347,35 +347,6 @@ const Home = () => {
                 )}
               </div>
 
-              {/* Brand alignment panel */}
-              <aside className="rounded-xl border border-card-border bg-card/40 p-5 flex flex-col">
-                <p className="font-ui text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                  Brand alignment
-                </p>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <span className="font-display text-[42px] leading-none text-foreground">{completeness}</span>
-                  <span className="font-ui text-[12px] text-muted-foreground">/ 100</span>
-                </div>
-                <div className="mt-4 h-1 rounded-full bg-muted/60 overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-500"
-                    style={{ width: `${Math.max(2, completeness)}%` }}
-                  />
-                </div>
-                <p className="font-ui text-[12px] text-muted-foreground leading-relaxed mt-4">
-                  {completeness < 30
-                    ? "Your foundations are still forming."
-                    : completeness < 70
-                    ? "Your direction is becoming clearer."
-                    : "Your brand reads with consistency across surfaces."}
-                </p>
-                <Link
-                  to="/brand-dna"
-                  className="mt-auto pt-4 font-ui text-[12px] text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  Open Brand DNA <ArrowUpRight size={12} />
-                </Link>
-              </aside>
             </div>
           </section>
         )}
@@ -499,7 +470,7 @@ const Home = () => {
           {/* Secondary workflows — compact list */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
-              { name: "Your team", icon: Users, path: "/team", desc: "Hire agents that write, design and research in your voice." },
+              { name: "Kinika's team", icon: Users, path: "/team", desc: "Agents Kinika hires for your plan. They write, design and research in your voice." },
               { name: "Studio", icon: Camera, path: "/pro-studio", desc: "Visual generation shaped by your brand context.", count: visualCount, unit: "outputs" },
               { name: "Campaigns", icon: Megaphone, path: "/content-studio", desc: "One brief, sequenced across platforms.", locked: !hasDNA, lockedHint: "Available once your brand DNA forms." },
               { name: "Calendar", icon: Calendar, path: "/content-calendar", desc: "Continuity across what you publish.", count: upcomingPosts.length, unit: "scheduled" },

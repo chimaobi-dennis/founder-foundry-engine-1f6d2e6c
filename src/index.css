@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,6 +17,18 @@
     --brand-ink: 240 25% 14%;           /* #1A1A2E text light */
     --brand-bone: 36 33% 94%;           /* #F5F0E8 text dark */
     --brand-slate: 212 12% 59%;         /* #8A96A3 muted */
+
+    /* Theme A (locked 10 Oct 2026): Operator blue on cool off-white */
+    --brand-blue: 224 75% 48%;          /* #1E4ED8 primary */
+    --brand-blue-deep: 226 71% 40%;     /* #1E40AF primary text */
+    --brand-blue-soft: 223 100% 96%;    /* #EAF0FF active fill */
+    --brand-blue-line: 223 100% 89%;    /* #C7D7FF active border */
+    --brand-canvas: 216 33% 97%;        /* #F5F7FA */
+    --brand-ink-a: 220 49% 8%;          /* #0B1220 */
+    --brand-good: 150 55% 27%;          /* #157347 */
+    --brand-good-soft: 146 39% 93%;     /* #E6F4EC */
+    --brand-needs-you: 39 100% 27%;     /* #8A5A00 */
+    --brand-needs-you-soft: 39 100% 92%;/* #FFF1D6 */
 
     /* Spacing scale (4px base) */
     --space-0: 0;
@@ -50,62 +62,62 @@
     --stage-option-border: rgba(0, 0, 0, 0.08);
     --stage-option-bg-hover: rgba(0, 0, 0, 0.07);
 
-    --color-text-primary: hsl(240 25% 14%);
-    --color-text-secondary: hsl(220 9% 35%);
-    --color-text-tertiary: hsl(220 9% 50%);
+    --color-text-primary: hsl(220 49% 8%);
+    --color-text-secondary: hsl(219 15% 29%);
+    --color-text-tertiary: hsl(216 11% 40%);
 
-    --color-background-primary: hsl(30 23% 94%);
-    --color-background-secondary: hsl(30 18% 90%);
+    --color-background-primary: hsl(216 33% 97%);
+    --color-background-secondary: hsl(214 30% 95%);
     --color-card-secondary: hsl(0 0% 100%);
 
-    --color-border-secondary: rgba(0, 0, 0, 0.1);
-    --color-border-tertiary: rgba(0, 0, 0, 0.06);
+    --color-border-secondary: rgba(11, 18, 32, 0.10);
+    --color-border-tertiary: rgba(11, 18, 32, 0.06);
 
-    --stage-done-border: rgba(212, 160, 23, 0.2);
-    --completion-amber: #B8860B;
+    --stage-done-border: rgba(30, 78, 216, 0.2);
+    --completion-amber: #8A5A00;
 
-    --background: 30 23% 94%;
-    --foreground: 240 25% 14%;
+    --background: 216 33% 97%;
+    --foreground: 220 49% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 25% 14%;
-    --card-border: 30 18% 88%;
-    --card-border-hover: 30 14% 80%;
+    --card-foreground: 220 49% 8%;
+    --card-border: 216 25% 90%;
+    --card-border-hover: 216 20% 80%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 25% 14%;
+    --popover-foreground: 220 49% 8%;
 
-    --primary: 43 78% 46%;
-    --primary-foreground: 213 52% 11%;
+    --primary: 224 75% 48%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 18% 88%;
-    --secondary-foreground: 240 25% 14%;
+    --secondary: 213 33% 94%;
+    --secondary-foreground: 220 49% 8%;
 
-    --muted: 30 14% 90%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 214 30% 95%;
+    --muted-foreground: 216 11% 40%;
 
-    --accent: 43 78% 46%;
-    --accent-foreground: 213 52% 11%;
+    --accent: 223 100% 96%;
+    --accent-foreground: 226 71% 40%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 18% 88%;
-    --input: 30 18% 88%;
-    --ring: 43 78% 46%;
+    --border: 216 25% 90%;
+    --input: 216 25% 90%;
+    --ring: 224 75% 48%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 9% 46%;
-    --sidebar-primary: 43 78% 46%;
-    --sidebar-primary-foreground: 213 52% 11%;
-    --sidebar-accent: 43 78% 46%;
-    --sidebar-accent-foreground: 213 52% 11%;
-    --sidebar-border: 30 18% 88%;
-    --sidebar-ring: 43 78% 46%;
+    --sidebar-foreground: 216 11% 40%;
+    --sidebar-primary: 224 75% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 223 100% 96%;
+    --sidebar-accent-foreground: 226 71% 40%;
+    --sidebar-border: 216 25% 90%;
+    --sidebar-ring: 224 75% 48%;
 
-    --active-tint: 43 78% 46% / 0.08;
+    --active-tint: 224 75% 48% / 0.08;
 
     --card-shadow: 0 1px 3px 0 rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.06);
   }
@@ -128,8 +140,8 @@
     --color-border-secondary: rgba(255, 255, 255, 0.1);
     --color-border-tertiary: rgba(255, 255, 255, 0.05);
 
-    --stage-done-border: rgba(212, 160, 23, 0.12);
-    --completion-amber: #D4A017;
+    --stage-done-border: rgba(91, 141, 239, 0.18);
+    --completion-amber: #F2C14E;
 
     --background: 213 52% 11%;
     --foreground: 36 33% 94%;
@@ -142,35 +154,35 @@
     --popover: 210 37% 16%;
     --popover-foreground: 36 33% 94%;
 
-    --primary: 43 78% 46%;
-    --primary-foreground: 213 52% 11%;
+    --primary: 223 83% 64%;
+    --primary-foreground: 220 49% 8%;
 
-    --secondary: 43 78% 46%;
-    --secondary-foreground: 43 78% 46%;
+    --secondary: 210 37% 16%;
+    --secondary-foreground: 36 33% 94%;
 
     --muted: 210 37% 16%;
     --muted-foreground: 212 12% 59%;
 
-    --accent: 43 78% 46%;
-    --accent-foreground: 213 52% 11%;
+    --accent: 223 83% 64%;
+    --accent-foreground: 220 49% 8%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 36 33% 94%;
 
     --border: 210 25% 22%;
     --input: 210 25% 22%;
-    --ring: 43 78% 46%;
+    --ring: 223 83% 64%;
 
     --sidebar-background: 213 52% 11%;
     --sidebar-foreground: 212 12% 59%;
-    --sidebar-primary: 43 78% 46%;
-    --sidebar-primary-foreground: 213 52% 11%;
-    --sidebar-accent: 43 78% 46%;
-    --sidebar-accent-foreground: 213 52% 11%;
+    --sidebar-primary: 223 83% 64%;
+    --sidebar-primary-foreground: 220 49% 8%;
+    --sidebar-accent: 223 83% 64%;
+    --sidebar-accent-foreground: 220 49% 8%;
     --sidebar-border: 210 25% 22%;
-    --sidebar-ring: 43 78% 46%;
+    --sidebar-ring: 223 83% 64%;
 
-    --active-tint: 43 78% 46% / 0.05;
+    --active-tint: 223 83% 64% / 0.08;
 
     --card-shadow: none;
   }
@@ -201,7 +213,9 @@
 
 @layer utilities {
   .font-display {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
   .font-ui {

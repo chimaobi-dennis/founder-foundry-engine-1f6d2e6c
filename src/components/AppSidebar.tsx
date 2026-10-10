@@ -4,19 +4,19 @@ import {
   PenTool,
   CalendarDays,
   FileText,
-  TrendingUp,
   Film,
   Archive,
   Settings2,
   ChevronLeft,
   ChevronRight,
   MoreHorizontal,
-  X, Users, ListChecks } from "lucide-react";
+  X, Users, ListChecks, Home as HomeIcon } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useProfile } from "@/hooks/use-profile";
 import { useBrand } from "@/hooks/use-brand";
+import { useModuleUse, type ModuleUse } from "@/hooks/use-module-use";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
@@ -37,48 +37,34 @@ type NavGroup = {
 
 // ─── Nav structure ────────────────────────────────────────────────────────────
 
-const navGroups: NavGroup[] = [
+// Five items to start. Studio, Calendar, Documents, Reels and Library
+// appear once the brand has used them (see useModuleUse) or when you are
+// already on one of them from a link.
+const baseGroups: NavGroup[] = [
   {
     section: "TEAM",
-    items: [{ label: "Your plan", icon: ListChecks, path: "/plan" }, { label: "Your team", icon: Users, path: "/team" }],
+    items: [
+      { label: "Home", icon: HomeIcon, path: "/home" },
+      { label: "Your plan", icon: ListChecks, path: "/plan" },
+      { label: "Kinika's team", icon: Users, path: "/team" },
+    ],
   },
-  {
-    section: "THINK",
-    items: [{ label: "Kinika", icon: Sparkles, path: "/mentor" }],
-  },
-  {
-    section: "BUILD BRAND",
-    items: [{ label: "Brand", icon: Layers, path: "/brand-dna" }],
-  },
-  {
-    section: "CREATE",
-    items: [{ label: "Studio", icon: PenTool, path: "/studio" }],
-  },
-  {
-    section: "PUBLISH",
-    items: [{ label: "Content Calendar", icon: CalendarDays, path: "/content-calendar" }],
-  },
-  {
-    section: "DOCUMENT",
-    items: [{ label: "DocStudio", icon: FileText, path: "/doc-studio" }],
-  },
-  {
-    section: "PITCH",
-    items: [{ label: "Funding Kit", icon: TrendingUp, path: "/funding-kit", soon: true }],
-  },
-  {
-    section: "RECORD",
-    items: [{ label: "ReelBuilder", icon: Film, path: "/reel-builder" }],
-  },
+  { section: "THINK", items: [{ label: "Kinika", icon: Sparkles, path: "/mentor" }] },
+  { section: "BRAND", items: [{ label: "Brand", icon: Layers, path: "/brand-dna" }] },
+];
+
+const moduleItems: Array<NavItem & { key: keyof ModuleUse }> = [
+  { key: "studio", label: "Studio", icon: PenTool, path: "/studio" },
+  { key: "calendar", label: "Calendar", icon: CalendarDays, path: "/content-calendar" },
+  { key: "documents", label: "Documents", icon: FileText, path: "/doc-studio" },
+  { key: "reels", label: "Reels", icon: Film, path: "/reel-builder" },
+  { key: "library", label: "Library", icon: Archive, path: "/library" },
 ];
 
 const secondaryItems: NavItem[] = [
-  { label: "Library", icon: Archive, path: "/library" },
   { label: "Settings", icon: Settings2, path: "/settings/ai-models" },
 ];
 
-// All primary nav items flattened — used by mobile nav
-const allPrimaryItems = navGroups.flatMap((g) => g.items);
 
 // Paths that append /brandId for brand-scoped navigation
 const BRAND_SCOPED_PATHS = new Set([
@@ -92,7 +78,7 @@ const BRAND_SCOPED_PATHS = new Set([
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
-const AMBER = "#D4A017";
+const AMBER = "hsl(var(--primary))";
 const MUTED = "#8A96A3";
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -102,6 +88,12 @@ export function AppSidebar() {
   const { profile } = useProfile();
   const { activeBrand } = useBrand();
   const [moreOpen, setMoreOpen] = useState(false);
+  const used = useModuleUse(activeBrand?.id);
+  const navGroups = useMemo<NavGroup[]>(() => {
+    const shown = moduleItems.filter((m) => used[m.key] || location.pathname.startsWith(m.path));
+    return shown.length ? [...baseGroups, { section: "WORK", items: shown }] : baseGroups;
+  }, [used, location.pathname]);
+  const allPrimaryItems = useMemo(() => navGroups.flatMap((g) => g.items), [navGroups]);
 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
@@ -134,7 +126,7 @@ export function AppSidebar() {
           "text-[13px] font-ui transition-colors duration-150",
           "border-l-2",
           active
-            ? "border-[#D4A017]"
+            ? "border-primary"
             : "border-transparent",
         ].join(" ")}
         style={{ color: active ? AMBER : MUTED }}
@@ -153,7 +145,7 @@ export function AppSidebar() {
         {item.soon && (
           <span
             className="text-[10px] font-ui px-1.5 py-0.5 rounded-sm leading-none"
-            style={{ background: `${AMBER}22`, color: AMBER }}
+            style={{ background: "hsl(var(--primary) / 0.12)", color: AMBER }}
           >
             Soon
           </span>
@@ -174,7 +166,7 @@ export function AppSidebar() {
             className={[
               "flex items-center justify-center w-full py-[9px]",
               "border-l-2 transition-colors duration-150",
-              active ? "border-[#D4A017]" : "border-transparent",
+              active ? "border-primary" : "border-transparent",
             ].join(" ")}
             style={{ color: active ? AMBER : MUTED }}
             onMouseEnter={(e) => {
@@ -212,7 +204,7 @@ export function AppSidebar() {
     </div>
   );
 
-  const dividerClass = "my-3 mx-3 h-px bg-[#2A3A4A]";
+  const dividerClass = "my-3 mx-3 h-px bg-border";
 
   // ── Desktop expanded ───────────────────────────────────────────────────────
 
@@ -352,7 +344,7 @@ export function AppSidebar() {
                   {item.soon && (
                     <span
                       className="text-[10px] font-ui px-1.5 py-0.5 rounded-sm"
-                      style={{ background: `${AMBER}22`, color: AMBER }}
+                      style={{ background: "hsl(var(--primary) / 0.12)", color: AMBER }}
                     >
                       Soon
                     </span>

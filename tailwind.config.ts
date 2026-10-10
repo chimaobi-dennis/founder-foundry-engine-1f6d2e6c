@@ -17,7 +17,7 @@ export default {
         xs: "480px",
       },
       fontFamily: {
-        display: ["Playfair Display", "serif"],
+        display: ["Plus Jakarta Sans", "sans-serif"],
         ui: ["DM Sans", "sans-serif"],
       },
       colors: {
