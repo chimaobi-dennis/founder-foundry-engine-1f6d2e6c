@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Menu, PanelRightOpen, PanelRightClose } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBrand } from "@/contexts/BrandContext";
 import { useBrandUrlSync } from "@/hooks/use-brand-url-sync";
@@ -225,6 +225,7 @@ const Mentor = () => {
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const navigate = useNavigate();
   const [onboardingMode, setOnboardingMode] = useState<'initial' | 'update'>('initial');
   const [onboardingCheckedFor, setOnboardingCheckedFor] = useState<Set<string>>(new Set());
 
@@ -470,7 +471,8 @@ const Mentor = () => {
       const isComplete = data?.onboarding_completed === true;
       const isSkipped = data?.onboarding_skipped === true;
       if (!isComplete && !isSkipped) {
-        setShowOnboarding(true);
+        // Understanding first: the read-back lives at /start now.
+        navigate(`/start?brand=${activeBrandId}`);
       }
     };
 
@@ -548,11 +550,8 @@ const Mentor = () => {
 
   const handleMultiProjectStart = async () => {
     const name = multiProjectName.trim() || "Untitled Project";
-    const newBrand = await createNewBrand(name);
     setShowMultiProjectPrompt(false);
-    if (newBrand) {
-      setShowOnboarding(true);
-    }
+    navigate(`/start?new=1&name=${encodeURIComponent(name)}`);
   };
 
 
@@ -570,11 +569,8 @@ const Mentor = () => {
   };
 
   const handleAddBrand = async () => {
-    const newBrand = await createNewBrand("Untitled Project");
-    if (newBrand) {
-      // Let the activeBrandId useEffect load the data; just set the empty mode
-      setEmptyBrands(prev => ({ ...prev, [newBrand.id]: "idea" }));
-    }
+    // A new business starts with Kinika understanding it.
+    navigate("/start?new=1");
   };
 
   // ─── DNA context for AI system prompt ────────────────────────────────────

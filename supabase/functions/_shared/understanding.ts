@@ -27,6 +27,8 @@ export interface Readback {
   promise: string;             // one sentence, becomes core_promise
   sections: ReadbackSection[];
   not_known: string[];
+  /** Two or three goals that would make sense, as outcomes with a horizon. */
+  goals: string[];
 }
 
 const clip = (v: unknown, n: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
@@ -83,6 +85,7 @@ export function coerceReadback(raw: unknown, stageKeys: string[]): Readback | nu
     promise: clip(r.promise, 200),
     sections,
     not_known: (Array.isArray(r.not_known) ? r.not_known : []).map((x) => clip(x, 80)).filter(Boolean).slice(0, 5),
+    goals: (Array.isArray(r.goals) ? r.goals : []).map((x) => clip(x, 140)).filter(Boolean).slice(0, 3),
   };
 }
 
@@ -111,6 +114,7 @@ export function understandingSystemPrompt(stageKeys: string[]): string {
     'For every section give "source" (a few words: "what you said", "site", "Instagram", "deck") and "confidence": "sure" when two sources agree or the founder said it, "fairly_sure" when one source implies it, "guess" when you inferred it. Leave a section out rather than guess twice.',
     `Pick stage_key from: ${stageKeys.join(", ")}.`,
     "List under not_known the two to five things you would need next (prices, whether they deliver, what they tried) that nothing told you.",
-    'Return ONLY a JSON object: { "name": "...", "kind": "starting|running|creator|other", "descriptor": "a neighbourhood bakery", "stage_key": "...", "promise": "one sentence of what they promise customers", "sections": [ { "key": "what", "value": "...", "source": "...", "confidence": "sure|fairly_sure|guess" } ], "not_known": ["..."] }',
+    "Under goals, suggest three goals this business could set for the next few months, each an outcome in one sentence with a horizon (\"Fill the quiet weekdays with office orders in about three months\"), drawn from what you read, never generic.",
+    'Return ONLY a JSON object: { "name": "...", "kind": "starting|running|creator|other", "descriptor": "a neighbourhood bakery", "stage_key": "...", "promise": "one sentence of what they promise customers", "sections": [ { "key": "what", "value": "...", "source": "...", "confidence": "sure|fairly_sure|guess" } ], "not_known": ["..."], "goals": ["...", "...", "..."] }',
   ].join("\n\n");
 }

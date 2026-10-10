@@ -100,12 +100,8 @@ const Home = () => {
   // Handle "Open Kinika" click - creates project if needed
   const handleOpenKinika = async () => {
     if (brands.length === 0) {
-      // Create "Untitled Project" for first-time users
-      const newBrand = await createNewBrand("Untitled Project");
-      if (newBrand) {
-        await switchBrand(newBrand.id);
-        navigate("/mentor");
-      }
+      // A first business starts with Kinika understanding it.
+      navigate("/start?new=1");
     } else {
       // User has projects, just go to mentor
       navigate("/mentor");
@@ -210,7 +206,7 @@ const Home = () => {
               <p className="font-ui text-[13px] text-foreground flex-1">
                 Finish your profile so Kinika can shape itself around you.
               </p>
-              <Button onClick={() => navigate("/onboarding")} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button onClick={() => navigate("/start")} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
                 Continue setup
               </Button>
             </div>

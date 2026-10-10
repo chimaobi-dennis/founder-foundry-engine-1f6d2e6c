@@ -1,7 +1,8 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { BrandContextBar } from "./BrandContextBar";
+import { useBrand } from "@/hooks/use-brand";
 import { useViewport } from "@/hooks/use-viewport";
 import { NavigationProgress } from "./NavigationProgress";
 import { Analytics } from "@vercel/analytics/react";
@@ -14,6 +15,7 @@ const modulePaths = ["/pro-studio", "/content-studio", "/content-calendar", "/li
  */
 export function Layout() {
   const location = useLocation();
+  const { activeBrand, isLoading: brandLoading } = useBrand();
   const { isMobile } = useViewport();
 
   // Determine which UI elements to show
@@ -30,6 +32,13 @@ export function Layout() {
     }
     return false;
   }) && !isEditorRoute;
+
+  // Understanding first: a brand that has not been read back and approved
+  // goes to /start. Brands from before this rule (onboarding_completed) are
+  // not blocked; Home offers the read-back once instead.
+  if (!brandLoading && activeBrand && !activeBrand.understanding_approved_at && activeBrand.onboarding_completed === false && !activeBrand.onboarding_skipped) {
+    return <Navigate to={`/start?brand=${activeBrand.id}`} replace />;
+  }
 
   return (
     <>
