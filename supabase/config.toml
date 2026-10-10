@@ -26,3 +26,6 @@ verify_jwt = false
 [functions.founder-plan]
 # Checks the user JWT itself (same pattern as ai-gateway).
 verify_jwt = false
+
+[functions.understanding]
+verify_jwt = false

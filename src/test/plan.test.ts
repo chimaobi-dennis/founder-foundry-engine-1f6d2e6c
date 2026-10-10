@@ -104,3 +104,14 @@ describe('playbooks and in-chat plan edits', () => {
     expect(block).toContain('<PLAN_EDIT>');
   });
 });
+
+describe('playbookForKind', () => {
+  it('maps the kind of business to a playbook, auto otherwise', async () => {
+    const { playbookForKind } = await import('@shared/plan');
+    expect(playbookForKind('starting')).toBe('idea');
+    expect(playbookForKind('running')).toBe('running');
+    expect(playbookForKind('creator')).toBe('creator');
+    expect(playbookForKind('other')).toBe('auto');
+    expect(playbookForKind(null)).toBe('auto');
+  });
+});
