@@ -4,7 +4,6 @@ import { ArrowLeft, Check, History, Link2, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBrand } from "@/hooks/use-brand";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +23,6 @@ export default function Work() {
   const { taskId = "" } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { activeBrandDNA } = useBrand();
   const [ws, setWs] = useState<Workspace | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [body, setBody] = useState("");
@@ -116,10 +114,7 @@ export default function Work() {
   const activeStep = tabbed ? (outputSteps[tab ?? outputSteps.length - 1] ?? outputSteps[outputSteps.length - 1]) : null;
   const agentName = agent?.name ?? run?.agent?.name ?? "Agent";
   const credits = Number(run?.credits_captured ?? 0);
-  const dnaLines = [activeBrandDNA?.positioning_statement, activeBrandDNA?.brand_voice, activeBrandDNA?.target_audience]
-    .filter((v): v is string => typeof v === "string" && v.trim().length > 0 && !/[{}"]/.test(v))
-    .map((v) => (v.length > 90 ? v.slice(0, 88).trimEnd() + "…" : v))
-    .slice(0, 3);
+  const dnaLines = ws.using;
 
   return (
     <div className="h-full flex flex-col bg-background">
