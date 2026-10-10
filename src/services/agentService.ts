@@ -61,6 +61,8 @@ export interface AgentHire {
   status: 'active' | 'paused';
   monthly_budget_credits: number | null;
   nickname: string | null;
+  /** Who hired: Kinika from the plan's roles, or the founder from the team page. */
+  hired_by?: 'founder' | 'kinika';
   created_at: string;
   agent: Agent;
 }
@@ -152,11 +154,11 @@ async function billingUser(brandId: string, actorId: string): Promise<string> {
   return (await getBrandOwnerId(brandId)) ?? actorId;
 }
 
-export async function hireAgent(brandId: string, userId: string, agentId: string): Promise<{ success: boolean; error?: string; hire?: AgentHire }> {
+export async function hireAgent(brandId: string, userId: string, agentId: string, hiredBy: 'founder' | 'kinika' = 'founder'): Promise<{ success: boolean; error?: string; hire?: AgentHire }> {
   const owner = await billingUser(brandId, userId);
   const { data, error } = await db
     .from('agent_hires')
-    .upsert({ brand_id: brandId, user_id: owner, agent_id: agentId, status: 'active' }, { onConflict: 'brand_id,agent_id' })
+    .upsert({ brand_id: brandId, user_id: owner, agent_id: agentId, status: 'active', hired_by: hiredBy }, { onConflict: 'brand_id,agent_id' })
     .select('*, agent:agents(*)')
     .single();
   if (error) return { success: false, error: error.message };

@@ -271,3 +271,28 @@ export function planPromptBlock(plan: PlanForPrompt): string {
     'Use task and target titles exactly as listed. Use "revise" only when several targets need rethinking; otherwise edit tasks directly. Never emit the block when nothing changes. Tell the founder in one short sentence what you changed.',
   ].join("\n");
 }
+
+// ── Roles a plan needs ───────────────────────────────────────────────────────
+
+export interface PlanRole {
+  slug: string;
+  /** All tasks for this role, in plan order. */
+  count: number;
+  /** Tasks still to do (todo or doing). */
+  open: number;
+  titles: string[];
+}
+
+/** The agent roles a plan calls for, in the order they first appear. */
+export function rolesForPlan(tasks: Array<{ owner: string; agent_slug: string | null; status: string; title: string }>): PlanRole[] {
+  const out = new Map<string, PlanRole>();
+  for (const t of tasks) {
+    if (t.owner !== "agent" || !t.agent_slug) continue;
+    const r = out.get(t.agent_slug) ?? { slug: t.agent_slug, count: 0, open: 0, titles: [] };
+    r.count++;
+    if (t.status === "todo" || t.status === "doing") r.open++;
+    r.titles.push(t.title);
+    out.set(t.agent_slug, r);
+  }
+  return [...out.values()];
+}
