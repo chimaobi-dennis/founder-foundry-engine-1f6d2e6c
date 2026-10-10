@@ -198,7 +198,7 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, s
                   {k.owner === "agent" ? (agent?.name ?? k.agent_slug) : "You"}
                   {k.status === "doing" && <span className="text-primary">· in progress</span>}
                   {k.status === "skipped" && <span>· skipped</span>}
-                  {k.run_id && <button onClick={() => navigate(`/team?run=${k.run_id}`)} className="underline">see the run</button>}
+                  {k.run_id && <button onClick={() => navigate(`/work/${k.id}`)} className="underline">open the work</button>}
                 </p>
               </div>
               {canEdit && !isDone && (

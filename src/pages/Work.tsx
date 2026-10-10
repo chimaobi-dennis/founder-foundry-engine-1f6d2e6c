@@ -1,0 +1,231 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Check, History, Link2, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBrand } from "@/hooks/use-brand";
+import { useVisibleInterval } from "@/hooks/use-visible-interval";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { StepLine, OutputView } from "@/components/team/RunViews";
+import { cancelRun, decideApproval } from "@/services/agentService";
+import { delegateUrl } from "@/services/planService";
+import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, type Workspace } from "@/services/workspaceService";
+
+/**
+ * /work/:taskId — a plan task as a place of work. One shell: who is working
+ * (top-left), the surface's tools (top-centre), History and Approve
+ * (top-right); the plan task, what Kinika is using and Tell Kinika in the
+ * left rail. Surface for S4: the document. Approval happens here, nowhere else.
+ */
+export default function Work() {
+  const { taskId = "" } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { activeBrandDNA } = useBrand();
+  const [ws, setWs] = useState<Workspace | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [body, setBody] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [firstNote, setFirstNote] = useState(false);
+  const bodyRef = useRef(body);
+  bodyRef.current = body;
+
+  const load = useCallback(async () => {
+    const w = await getWorkspace(taskId);
+    setWs(w);
+    setLoaded(true);
+    if (w && user) {
+      const doc = w.document ?? (await ensureDocument(w, user.id));
+      if (doc && !dirty) { setBody(doc.body_md ?? ""); setWs({ ...w, document: doc }); }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId, user?.id]);
+
+  useEffect(() => { setLoaded(false); setDirty(false); load(); }, [load]);
+
+  // Follow a run that is still working; the tick does the work, this only looks.
+  const inFlight = !!ws?.run && ["queued", "running"].includes(ws.run.status);
+  useVisibleInterval(load, 8000, inFlight);
+
+  // Save edits a moment after typing stops.
+  useEffect(() => {
+    if (!dirty || !ws?.document) return;
+    const id = ws.document.id;
+    const t = setTimeout(async () => {
+      setSaving(true);
+      const ok = await saveDocumentBody(id, bodyRef.current);
+      setSaving(false);
+      if (ok) setDirty(false); else toast.error("Could not save your edit");
+    }, 900);
+    return () => clearTimeout(t);
+  }, [body, dirty, ws?.document]);
+
+  const status = useMemo(() => {
+    if (!ws) return "";
+    const r = ws.run;
+    if (!r) return "nothing made yet";
+    if (ws.approval) return "waiting for your approval";
+    if (r.status === "queued") return "starting";
+    if (r.status === "running") { const cur = r.steps?.find((s) => s.status === "running") ?? r.steps?.[r.current_step]; return cur ? `working: ${cur.name.toLowerCase()}` : "working"; }
+    if (r.status === "completed") return "done";
+    if (r.status === "failed") return `stopped: ${r.error ?? "something went wrong"}`;
+    if (r.status === "cancelled") return "sent back";
+    if (r.status === "paused") return `paused: ${r.paused_reason ?? ""}`;
+    return r.status;
+  }, [ws]);
+
+  const decide = async (d: "approved" | "rejected") => {
+    if (!ws?.approval || !user) return;
+    setBusy(d);
+    if (dirty && ws.document) await saveDocumentBody(ws.document.id, bodyRef.current);
+    const r = await decideApproval(ws.approval.id, d, user.id, note.trim() || undefined);
+    setBusy(null);
+    if (!r.success) { toast.error(r.error ?? "Could not record your decision"); return; }
+    if (d === "approved" && !firstApprovalSeen(user.id)) { markFirstApprovalSeen(user.id); setFirstNote(true); }
+    toast(d === "approved" ? "Approved" : "Sent back");
+    await load();
+  };
+
+  const takeOver = async () => {
+    if (!ws?.run || !inFlight) return;
+    if (!confirm("Stop the agent here and continue yourself? Credits already used stay used.")) return;
+    setBusy("takeover");
+    const ok = await cancelRun(ws.run.id);
+    setBusy(null);
+    if (!ok) toast.error("Could not stop the run");
+    await load();
+  };
+
+  if (!loaded) return <div className="p-8"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
+  if (!ws) return <div className="p-8 font-ui text-[13px] text-muted-foreground">This task is not on a plan you can open.</div>;
+
+  const { task, agent, run, approval, document } = ws;
+  const agentName = agent?.name ?? run?.agent?.name ?? "Agent";
+  const credits = Number(run?.credits_captured ?? 0);
+  const dnaLines = [activeBrandDNA?.positioning_statement, activeBrandDNA?.brand_voice, activeBrandDNA?.target_audience]
+    .filter((v): v is string => typeof v === "string" && v.trim().length > 0 && !/[{}"]/.test(v))
+    .map((v) => (v.length > 90 ? v.slice(0, 88).trimEnd() + "…" : v))
+    .slice(0, 3);
+
+  return (
+    <div className="h-full flex flex-col bg-background">
+      {/* ── Shell header ── */}
+      <header className="flex items-center justify-between gap-3 flex-wrap px-4 py-2.5 border-b border-border bg-card">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button onClick={() => navigate("/plan")} className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-border bg-card text-foreground" aria-label="Back to the plan"><ArrowLeft size={15} /></button>
+          <div className="flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border border-border bg-accent/60 min-w-0">
+            <span aria-hidden className="w-7 h-7 rounded-md bg-primary text-primary-foreground inline-flex items-center justify-center font-ui text-[12px] font-semibold shrink-0">{agentName.slice(0, 1)}</span>
+            <span className="flex flex-col leading-tight min-w-0">
+              <span className="font-ui text-[13px] font-semibold truncate">{task.owner === "agent" ? `${agentName} · hired by Kinika` : "You"}</span>
+              <span className="font-ui text-[11px] text-accent-foreground truncate">{status}{run ? ` · ${credits} credits used` : ""}</span>
+            </span>
+            {inFlight && <button disabled={!!busy} onClick={takeOver} className="ml-1 h-7 px-2.5 rounded-md border border-border bg-card font-ui text-[12px] disabled:opacity-50">Take over</button>}
+          </div>
+        </div>
+        <nav aria-label="Document tools" className="hidden md:flex items-center gap-1 p-1 rounded-lg border border-border bg-card">
+          <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">Document</span>
+          <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">{saving ? "Saving…" : dirty ? "Unsaved" : document?.body_edited_at ? "Your version" : "Kinika's version"}</span>
+        </nav>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setHistoryOpen((v) => !v)} className={cn("h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border font-ui text-[12px]", historyOpen ? "bg-accent text-accent-foreground" : "bg-card")}><History size={13} /> History</button>
+          <button onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast("Link copied"); } catch { toast.error("Could not copy"); } }} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px]"><Link2 size={13} /> Share</button>
+          {approval && (
+            <>
+              <button disabled={!!busy} onClick={() => decide("rejected")} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px] disabled:opacity-50">{busy === "rejected" ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} Send back</button>
+              <button disabled={!!busy} onClick={() => decide("approved")} className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-ui text-[12px] font-medium disabled:opacity-50">{busy === "approved" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Approve</button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0 flex">
+        {/* ── Left rail ── */}
+        <aside className="hidden lg:flex w-[260px] shrink-0 flex-col gap-5 p-4 border-r border-border bg-muted/40 overflow-y-auto">
+          <div className="flex flex-col gap-1">
+            <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">From your plan</span>
+            <span className="font-ui text-[13px] font-medium leading-snug">{task.title}</span>
+            <span className="font-ui text-[11px] text-muted-foreground">Target {task.target_position + 1} · {task.target_title} · <button onClick={() => navigate("/plan")} className="underline">open the plan</button></span>
+          </div>
+          {dnaLines.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">What Kinika is using</span>
+              <span className="font-ui text-[12px] leading-relaxed text-muted-foreground">{dnaLines.join(" · ")}</span>
+            </div>
+          )}
+          {run && (
+            <div className="flex flex-col gap-1.5">
+              <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">How {agentName} worked</span>
+              <ul className="space-y-1">{(run.steps ?? []).map((s) => <StepLine key={s.id} step={s} />)}</ul>
+            </div>
+          )}
+          {approval && (
+            <div className="flex flex-col gap-1.5">
+              <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">This approval</span>
+              <span className="font-ui text-[12px] leading-relaxed text-muted-foreground">Approving keeps {document?.body_edited_at ? "your version" : "the result"} and marks the task done. Sending it back cancels the run; the {credits} credits already used stay used.</span>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the log" className="h-8 text-[12px]" />
+            </div>
+          )}
+          <div className="mt-auto flex flex-col gap-1.5">
+            <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Tell Kinika</span>
+            <button onClick={() => navigate(`/mentor?task=${task.id}`)} className="h-9 px-3 rounded-lg border border-border bg-card font-ui text-[13px] text-left text-muted-foreground">Shorter. Lead with Tuesdays…</button>
+          </div>
+        </aside>
+
+        {/* ── Surface ── */}
+        <main className="flex-1 min-w-0 overflow-y-auto p-4 md:p-8">
+          {firstNote && (
+            <div role="status" className="max-w-[720px] mx-auto mb-5 rounded-xl border border-[hsl(var(--brand-good))]/40 bg-[hsl(var(--brand-good-soft))]/50 p-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="font-display text-[17px] text-foreground">That is how Kinika's team works.</p>
+                <p className="font-ui text-[13px] text-muted-foreground mt-1 leading-relaxed">Kinika hires a role for a task; it reads your business, does the work and stops for your yes. Nothing goes out or gets changed without it. Kinika keeps what was learned, so the next task starts from here.</p>
+              </div>
+              <button onClick={() => setFirstNote(false)} className="text-muted-foreground" aria-label="Dismiss"><X size={14} /></button>
+            </div>
+          )}
+
+          {!run && (
+            <div className="max-w-[720px] mx-auto rounded-xl border border-border bg-card p-6 flex flex-col gap-3">
+              <p className="font-display text-[20px]">Nothing has been made for this task yet.</p>
+              <p className="font-ui text-[13px] text-muted-foreground leading-relaxed">{task.detail || "When an agent works on it, the result appears here and you approve it here."}</p>
+              {task.owner === "agent" && <button onClick={() => navigate(delegateUrl(task))} className="self-start h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Hand to {agentName}</button>}
+            </div>
+          )}
+
+          {run && (
+            <article className="max-w-[720px] mx-auto rounded-xl border border-border bg-card">
+              <div className="px-6 pt-6 pb-3 border-b border-border flex flex-col gap-1">
+                <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground">{approval ? "Waiting for your approval" : run.status === "completed" ? "Approved" : "Draft"} · {agentName}</span>
+                <h1 className="font-display text-[24px] leading-tight">{run.name}</h1>
+              </div>
+              {document ? (
+                <Textarea value={body} onChange={(e) => { setBody(e.target.value); setDirty(true); }} rows={Math.max(12, body.split("\n").length + 2)}
+                  className="w-full border-0 rounded-none rounded-b-xl bg-transparent px-6 py-5 font-ui text-[14px] leading-relaxed resize-none focus-visible:ring-0" aria-label="The document" />
+              ) : runBodyMarkdown(run, approval) ? (
+                <div className="px-6 py-5"><OutputView output={(approval?.payload?.output ?? run.output) as Record<string, unknown> | null} /></div>
+              ) : (
+                <p className="px-6 py-8 font-ui text-[13px] text-muted-foreground">{inFlight ? `${agentName} is working. This page follows along.` : "No result to show."}</p>
+              )}
+            </article>
+          )}
+          {document && <p className="max-w-[720px] mx-auto mt-2 font-ui text-[11px] text-muted-foreground">Edit any line. Your version is kept when {agentName} continues and is what approval keeps.</p>}
+        </main>
+
+        {/* ── History ── */}
+        {historyOpen && (
+          <aside className="w-[260px] shrink-0 flex flex-col gap-3 p-4 border-l border-border bg-card overflow-y-auto">
+            <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">History</span>
+            {document?.body_edited_at && <p className="font-ui text-[12px] text-muted-foreground">You edited this {new Date(document.body_edited_at).toLocaleString()}.</p>}
+            {run ? <ul className="space-y-1">{(run.steps ?? []).map((s) => <StepLine key={s.id} step={s} />)}</ul> : <p className="font-ui text-[12px] text-muted-foreground">No run yet.</p>}
+            {run && <p className="font-ui text-[11px] text-muted-foreground">Started {run.started_at ? new Date(run.started_at).toLocaleString() : "—"}{run.finished_at ? ` · finished ${new Date(run.finished_at).toLocaleString()}` : ""}.</p>}
+          </aside>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -44,6 +44,7 @@ import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import Onboarding from "./pages/Onboarding";
 import Start from "./pages/Start";
+import Work from "./pages/Work";
 import CreatorApply from "./pages/CreatorApply";
 import CreatorStudio from "./pages/CreatorStudio";
 import CreatorTemplateEditor from "./pages/CreatorTemplateEditor";
@@ -169,6 +170,7 @@ const App = () => (
                         <Route path="/home" element={<Home />} />
                         <Route path="/team" element={<Team />} />
                         <Route path="/plan" element={<Plan />} />
+                        <Route path="/work/:taskId" element={<Work />} />
                         <Route path="/invite/:token" element={<AcceptInvite />} />
                         <Route path="/mentor/:brandId" element={<Mentor />} />
                         <Route path="/mentor" element={<Mentor />} />
