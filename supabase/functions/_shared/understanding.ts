@@ -72,7 +72,8 @@ export function coerceReadback(raw: unknown, stageKeys: string[]): Readback | nu
   for (const key of SECTION_KEYS) {
     const o = given.get(key);
     const value = clip(o?.value, 400);
-    if (!value) continue;
+    // A placeholder is not an understanding; leave the line out instead.
+    if (!value || /^(not specified|not stated|unknown|none|n\/a|unclear|not mentioned)\.?$/i.test(value)) continue;
     sections.push({ key, label: labels[key], value, source: clip(o?.source, 60) || "what you said", confidence: confidenceFrom(o?.confidence) });
   }
   if (sections.length < 2) return null;
@@ -110,8 +111,8 @@ export function understandingSystemPrompt(stageKeys: string[]): string {
   return [
     "You are Kinika, a business manager meeting a new business. From what the founder wrote and any website, documents or past conversation given, write back the business the way a good new employee would describe it on day one: specific, plain, no praise, no invented facts.",
     "Decide the kind: starting (an idea, no customers), running (a business with customers), creator (an audience on platforms), other.",
-    "Fill these sections when you have something to say, in one to three sentences each, in the founder's language: what (what they sell, make, or want to do), who (who buys or follows), problem (what people come to them for), channels (how people find them), voice (how they sound), stage (where the business is now and what the next stage is).",
-    'For every section give "source" (a few words: "what you said", "site", "Instagram", "deck") and "confidence": "sure" when two sources agree or the founder said it, "fairly_sure" when one source implies it, "guess" when you inferred it. Leave a section out rather than guess twice.',
+    "Fill these sections when you have something to say, each as one to three complete sentences a colleague could read aloud, in the founder's language: what (what they sell, make, or want to do), who (who buys or follows them), problem (what customers come to them for; never the founder's own problem such as quiet afternoons), channels (how people find them), voice (how they sound in their own words), stage (where the business is now and what the next stage is).",
+    'For every section give "source" (a few words: "what you said", "site", "Instagram", "deck") and "confidence": "sure" when two sources agree or the founder said it, "fairly_sure" when one source implies it, "guess" when you inferred it. Leave a section out entirely when nothing told you; never write "not specified" or "unknown" as a value.',
     `Pick stage_key from: ${stageKeys.join(", ")}.`,
     "List under not_known the two to five things you would need next (prices, whether they deliver, what they tried) that nothing told you.",
     "Under goals, suggest three goals this business could set for the next few months, each an outcome in one sentence with a horizon (\"Fill the quiet weekdays with office orders in about three months\"), drawn from what you read, never generic.",
