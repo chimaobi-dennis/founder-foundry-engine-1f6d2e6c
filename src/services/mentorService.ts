@@ -115,25 +115,47 @@ export interface TaskChatContext {
 }
 
 export function taskPromptBlock(ctx: TaskChatContext): string {
-  const list = ctx.deliverables.map((d) => `- [${d.done ? 'done' : 'open'}] id=${d.id} · ${d.title} (${d.kind}): ${d.detail}`).join('\n');
+  // Deliverables are numbered D1, D2… for the model; the ids never reach the founder.
+  const list = ctx.deliverables.map((d, i) => `D${i + 1} [${d.done ? 'done' : 'open'}] ${d.title} (${d.kind}): ${d.detail}`).join('\n');
   return [
     'WORKING ONE TASK WITH THE FOUNDER (the workspace). You are Kinika, the founder\'s business manager, doing this task together with the founder right now. Stay on this task; the plan-level conversation is elsewhere.',
     `TASK: ${ctx.task.title}${ctx.task.detail ? ` — ${ctx.task.detail}` : ''} (target: ${ctx.task.target_title})`,
     `DELIVERABLES (the task is complete when all are done):\n${list}`,
-    'How to work: take the open deliverables in order. Ask one sharp question at a time when you need the founder\'s decision; propose a concrete default when the context allows. Keep replies short and plain.',
-    'When a deliverable is genuinely complete from what the founder has said or approved, close it at the end of your reply with <DELIVERABLE_DONE id="...">the outcome in Markdown</DELIVERABLE_DONE>, one tag per deliverable. The outcome is what the founder keeps: for a list, the list itself; for a decision, the decision in one or two plain sentences with the reason; for an action, what was done and when. Never an empty tag. Do not close anything the founder has not confirmed. If the founder asks you to write down the outcome of a deliverable, reply with that tag and a one-line note.',
-    'When a deliverable is a written thing (a document, outline, list, template, pricing table), write it in full inside <DOCUMENT title="...">markdown</DOCUMENT> once the decisions are made. The founder can edit it; say so in a sentence. Never put placeholders for numbers Kinika does not know; name the decision instead.',
+    'How to work: take the open deliverables in order. Ask one sharp question at a time when you need the founder\'s decision; propose a concrete default when the context allows. Keep replies short and plain. Never show the D-numbers or any ids to the founder; refer to deliverables by name.',
+    'When a deliverable is a written thing (a document, outline, template, pricing table), write it in full inside <DOCUMENT title="...">markdown</DOCUMENT> once the decisions are made. The founder can edit it; say so in a sentence. Never put placeholders for numbers Kinika does not know; name the decision instead.',
+    'STATE LINE, REQUIRED: end EVERY reply with exactly one line <STATE>{"closed":[{"d":"D2","outcome":"..."}]}</STATE>. "closed" lists the deliverables that became complete in THIS reply because the founder decided or approved; each outcome is what the founder keeps, in Markdown: for a list, the list itself; for a decision, the decision in one or two plain sentences with the reason; for an action, what was done and when. When nothing became complete, write <STATE>{"closed":[]}</STATE>. If you say you have noted a decision, that deliverable must be in "closed". The founder never sees this line.',
   ].join('\n');
 }
 
-/** Kinika's reply when working a task. Returns the clean text plus the tags it carried. */
-export function parseTaskReply(text: string): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null } {
+/** Kinika's reply when working a task: the clean text, the deliverables it closed (with outcomes) and a document if it wrote one. */
+export function parseTaskReply(text: string, deliverables?: { id: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null } {
   const done: { id: string; result: string | null }[] = [];
-  let clean = text
-    .replace(/<DELIVERABLE_DONE\s+id="([^"]+)"\s*>([\s\S]*?)<\/DELIVERABLE_DONE>/g, (_m, id, body) => { done.push({ id: String(id), result: String(body).trim() || null }); return ''; })
-    .replace(/<DELIVERABLE_DONE\s+id="([^"]+)"\s*\/>/g, (_m, id) => { done.push({ id: String(id), result: null }); return ''; });
+  const idFor = (ref: string): string | null => {
+    const m = /^D(\d+)$/i.exec(ref.trim());
+    if (m && deliverables) return deliverables[Number(m[1]) - 1]?.id ?? null;
+    return ref.trim() || null;
+  };
+  let clean = text;
+  // The state line, possibly wrapped in a code fence.
+  clean = clean.replace(/```[a-z]*\s*(<STATE>[\s\S]*?<\/STATE>)\s*```/gi, '$1');
+  clean = clean.replace(/<STATE>\s*([\s\S]*?)\s*<\/STATE>/gi, (_m, body) => {
+    try {
+      const parsed = JSON.parse(String(body));
+      for (const c of Array.isArray(parsed?.closed) ? parsed.closed : []) {
+        const id = idFor(String(c?.d ?? c?.id ?? ''));
+        if (id) done.push({ id, result: String(c?.outcome ?? '').trim() || null });
+      }
+    } catch { /* an unreadable state line closes nothing */ }
+    return '';
+  });
+  // The older tag form, still honoured.
+  clean = clean
+    .replace(/<DELIVERABLE_DONE\s+id=["']([^"']+)["']\s*>([\s\S]*?)<\/DELIVERABLE_DONE>/gi, (_m, ref, body) => { const id = idFor(String(ref)); if (id) done.push({ id, result: String(body).trim() || null }); return ''; })
+    .replace(/<DELIVERABLE_DONE\s+id=["']([^"']+)["']\s*\/?>/gi, (_m, ref) => { const id = idFor(String(ref)); if (id) done.push({ id, result: null }); return ''; });
+  // Anything left that looks like our machinery never reaches the founder.
+  clean = clean.replace(/<\/?(STATE|DELIVERABLE_DONE)[^>]*>/gi, '').replace(/^\s*STATE:.*$/gim, '');
   let document: { title: string; body: string } | null = null;
-  const m = clean.match(/<DOCUMENT\s+title="([^"]*)">([\s\S]*?)<\/DOCUMENT>/);
+  const m = clean.match(/<DOCUMENT\s+title=["']([^"']*)["']>([\s\S]*?)<\/DOCUMENT>/);
   if (m) { document = { title: m[1].trim() || 'Document', body: m[2].trim() }; clean = clean.replace(m[0], `\n\n*Written: ${document.title}. It is open beside this conversation; edit any line.*`); }
   return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document };
 }
@@ -675,7 +697,7 @@ export const getMentorAIResponse = async (
   let deliverablesDone: { id: string; result: string | null }[] = [];
   let taskDocument: { title: string; body: string } | null = null;
   if (taskContext) {
-    const t = parseTaskReply(cleanText);
+    const t = parseTaskReply(cleanText, taskContext.deliverables);
     cleanText = t.text; deliverablesDone = t.done; taskDocument = t.document;
   }
 
