@@ -30,6 +30,10 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { callProvider, ProviderError, type ChatMessage, type ProviderConfig } from "../_shared/providers.ts";
 import { capMaxTokens, isRetryable, orderForRequest, RETRY_DELAY_MS, stripReasoning, type Route, type RouteCandidate } from "../_shared/routing.ts";
+
+/** Longest a single provider attempt may take, and the whole request's budget; both sit under the edge wall clock. */
+const ATTEMPT_TIMEOUT_MS = 90_000;
+const TOTAL_BUDGET_MS = 140_000;
 import {
   costFromUsage,
   creditsFromCost,
@@ -212,18 +216,27 @@ serve(async (req) => {
       for (let tryN = 0; tryN < 2; tryN++) {
         attemptsTotal++;
         let emitted = false;
+        // A provider that has not answered within the attempt budget is abandoned so the next
+        // candidate still fits inside the edge function's wall clock, and the failure is logged.
+        const ctrl = new AbortController();
+        const budget = Math.max(5_000, Math.min(ATTEMPT_TIMEOUT_MS, TOTAL_BUDGET_MS - (Date.now() - started)));
+        const timer = setTimeout(() => ctrl.abort(), budget);
         try {
-          const out = await callProvider(cfg, { ...baseReq, modelId: c.model_id, maxTokens: capMaxTokens(maxTokens, c), ...(onChunk ? { stream: true, onChunk: (t: string) => { emitted = true; onChunk(t); } } : {}) });
+          const out = await callProvider(cfg, { ...baseReq, modelId: c.model_id, maxTokens: capMaxTokens(maxTokens, c), signal: ctrl.signal, ...(onChunk ? { stream: true, onChunk: (t: string) => { emitted = true; onChunk(t); } } : {}) });
+          clearTimeout(timer);
           const text = c.strip_reasoning ? stripReasoning(out.text) : out.text;
           if (!text) { last = { chosen: c, status: 502, message: "Provider returned an empty response" }; attemptErrors.push({ provider: c.provider.slug, model: c.model_id, status: 502, error: "empty response" }); break; }
           return { ok: true, chosen: c, text, usage: out.usage, fallbackUsed: i > 0 };
         } catch (e) {
-          const status = e instanceof ProviderError ? e.status : 500;
-          const message = (e as Error).message;
+          clearTimeout(timer);
+          const timedOut = ctrl.signal.aborted;
+          const status = timedOut ? 504 : e instanceof ProviderError ? e.status : 500;
+          const message = timedOut ? `${c.provider.slug}/${c.model_id} did not answer within ${Math.round(budget / 1000)}s` : (e as Error).message;
           last = { chosen: c, status, message };
           attemptErrors.push({ provider: c.provider.slug, model: c.model_id, status, error: message.slice(0, 200) });
-          // A stream that already sent text cannot be transparently retried.
+          // A stream that already sent text cannot be transparently retried; a timeout moves straight to the next model.
           if (emitted || !isRetryable(status, message)) return { ok: false, ...last };
+          if (timedOut) break;
           if (tryN === 0) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
         }
       }
