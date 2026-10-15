@@ -7,7 +7,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThinkingLine } from "@/components/work/ThinkingLine";
 import { getBrandDNA } from "@/services/brandService";
-import { getMentorAIResponse, getMessages, getOrCreateTaskConversation, saveMessage, type MentorMessage, type ReplyOption, type TaskChatContext } from "@/services/mentorService";
+import { getMentorAIResponse, getMessages, getOrCreateTaskConversation, saveMessage, visibleWhileStreaming, type MentorMessage, type ReplyOption, type TaskChatContext } from "@/services/mentorService";
 import type { Deliverable } from "@/services/planService";
 import type { Workspace } from "@/services/workspaceService";
 
@@ -143,7 +143,16 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed">
                 <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>
-                {streaming ? <Markdown>{streaming}</Markdown> : <ThinkingLine startedAt={startedAt} />}
+                {(() => {
+                  if (!streaming) return <ThinkingLine startedAt={startedAt} />;
+                  const v = visibleWhileStreaming(streaming);
+                  return (
+                    <>
+                      {v.text ? <Markdown>{v.text}</Markdown> : <ThinkingLine startedAt={startedAt} />}
+                      {v.writingDocument && <p className="mt-2 font-ui text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Writing the document…</p>}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
