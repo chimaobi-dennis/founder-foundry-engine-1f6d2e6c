@@ -69,6 +69,9 @@ export interface MentorAIResult {
   /** Workspace only: deliverable ids Kinika marked done, and a document it wrote. */
   deliverablesDone?: { id: string; result: string | null }[];
   taskDocument?: { title: string; body: string } | null;
+  /** Workspace only: three replies the founder might give, and options when the question was a choice. */
+  suggestions?: string[];
+  options?: ReplyOption[];
 }
 
 // ─── Conversation ─────────────────────────────────────────
@@ -123,13 +126,17 @@ export function taskPromptBlock(ctx: TaskChatContext): string {
     `DELIVERABLES (the task is complete when all are done):\n${list}`,
     'How to work: take the open deliverables in order. Ask one sharp question at a time when you need the founder\'s decision; propose a concrete default when the context allows. Keep replies short and plain. Never show the D-numbers or any ids to the founder; refer to deliverables by name.',
     'When a deliverable is a written thing (a document, outline, template, pricing table), write it in full inside <DOCUMENT title="...">markdown</DOCUMENT> once the decisions are made. The founder can edit it; say so in a sentence. Never put placeholders for numbers Kinika does not know; name the decision instead.',
-    'STATE LINE, REQUIRED: end EVERY reply with exactly one line <STATE>{"closed":[{"d":"D2","outcome":"..."}]}</STATE>. "closed" lists the deliverables that became complete in THIS reply because the founder decided or approved; each outcome is what the founder keeps, in Markdown: for a list, the list itself; for a decision, the decision in one or two plain sentences with the reason; for an action, what was done and when. When nothing became complete, write <STATE>{"closed":[]}</STATE>. If you say you have noted a decision, that deliverable must be in "closed". The founder never sees this line.',
+    'STATE LINE, REQUIRED: end EVERY reply with exactly one line <STATE>{"closed":[{"d":"D2","outcome":"..."}],"suggestions":["...","...","..."],"options":[{"label":"...","value":"..."}]}</STATE>. "closed" lists the deliverables that became complete in THIS reply because the founder decided or approved; each outcome is what the founder keeps, in Markdown: for a list, the list itself; for a decision, the decision in one or two plain sentences with the reason; for an action, what was done and when. When nothing became complete, "closed" is []. If you say you have noted a decision, that deliverable must be in "closed". "suggestions" are exactly three short replies the founder might give next, in the founder\'s own voice, 3 to 9 words each, genuinely different from each other (one can be a question back). "options" is only present when your question is a choice: 2 to 4 options with a short label (2 to 6 words) and the value as the founder would say it; add one option for "something else" when the list is not exhaustive. The founder never sees this line as text.',
   ].join('\n');
 }
 
 /** Kinika's reply when working a task: the clean text, the deliverables it closed (with outcomes) and a document if it wrote one. */
-export function parseTaskReply(text: string, deliverables?: { id: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null } {
+export interface ReplyOption { label: string; value: string }
+
+export function parseTaskReply(text: string, deliverables?: { id: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: string[]; options: ReplyOption[] } {
   const done: { id: string; result: string | null }[] = [];
+  let suggestions: string[] = [];
+  let options: ReplyOption[] = [];
   const idFor = (ref: string): string | null => {
     const m = /^D(\d+)$/i.exec(ref.trim());
     if (m && deliverables) return deliverables[Number(m[1]) - 1]?.id ?? null;
@@ -145,6 +152,8 @@ export function parseTaskReply(text: string, deliverables?: { id: string }[]): {
         const id = idFor(String(c?.d ?? c?.id ?? ''));
         if (id) done.push({ id, result: String(c?.outcome ?? '').trim() || null });
       }
+      suggestions = (Array.isArray(parsed?.suggestions) ? parsed.suggestions : []).map((x: unknown) => String(x ?? '').trim()).filter((x: string) => x && x.length <= 120).slice(0, 3);
+      options = (Array.isArray(parsed?.options) ? parsed.options : []).map((o: { label?: unknown; value?: unknown }) => ({ label: String(o?.label ?? '').trim().slice(0, 60), value: String(o?.value ?? o?.label ?? '').trim().slice(0, 300) })).filter((o: ReplyOption) => o.label && o.value).slice(0, 4);
     } catch { /* an unreadable state line closes nothing */ }
     return '';
   });
@@ -157,7 +166,7 @@ export function parseTaskReply(text: string, deliverables?: { id: string }[]): {
   let document: { title: string; body: string } | null = null;
   const m = clean.match(/<DOCUMENT\s+title=["']([^"']*)["']>([\s\S]*?)<\/DOCUMENT>/);
   if (m) { document = { title: m[1].trim() || 'Document', body: m[2].trim() }; clean = clean.replace(m[0], `\n\n*Written: ${document.title}. It is open beside this conversation; edit any line.*`); }
-  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document };
+  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document, suggestions, options };
 }
 
 // ─── Messages ─────────────────────────────────────────────
@@ -696,12 +705,14 @@ export const getMentorAIResponse = async (
 
   let deliverablesDone: { id: string; result: string | null }[] = [];
   let taskDocument: { title: string; body: string } | null = null;
+  let suggestions: string[] = [];
+  let options: ReplyOption[] = [];
   if (taskContext) {
     const t = parseTaskReply(cleanText, taskContext.deliverables);
-    cleanText = t.text; deliverablesDone = t.done; taskDocument = t.document;
+    cleanText = t.text; deliverablesDone = t.done; taskDocument = t.document; suggestions = t.suggestions; options = t.options;
   }
 
-  return { text: cleanText, choicePrompt, capturedField, planEdits, deliverablesDone, taskDocument };
+  return { text: cleanText, choicePrompt, capturedField, planEdits, deliverablesDone, taskDocument, suggestions, options };
 };
 
 // ─── Choice Prompts ─────────────────────────────────────────
