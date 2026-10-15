@@ -13,6 +13,7 @@ import { cancelRun, decideApproval } from "@/services/agentService";
 import { delegateUrl } from "@/services/planService";
 import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, wantsCanvas, type Workspace } from "@/services/workspaceService";
 import ContentStudioEditor from "@/pages/ContentStudioEditor";
+import { FounderWorkspace } from "@/components/work/FounderWorkspace";
 
 /**
  * /work/:taskId — a plan task as a place of work. One shell: who is working
@@ -105,6 +106,8 @@ export default function Work() {
 
   if (!loaded) return <WorkspaceSkeleton />;
   if (!ws) return <div className="p-8 font-ui text-[13px] text-muted-foreground">This task is not on a plan you can open.</div>;
+  // A founder's own task is worked with Kinika: the conversation is the surface until a document exists.
+  if (ws.task.owner !== "agent" && user) return <FounderWorkspace ws={ws} userId={user.id} reload={load} />;
 
   const { task, agent, run, approval, document, brief } = ws;
   const canvas = !!brief;

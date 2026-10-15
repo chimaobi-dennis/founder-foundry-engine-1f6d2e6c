@@ -66,6 +66,9 @@ export interface MentorAIResult {
     value: string;
     stageKey: string;
   } | null;
+  /** Workspace only: deliverable ids Kinika marked done, and a document it wrote. */
+  deliverablesDone?: string[];
+  taskDocument?: { title: string; body: string } | null;
 }
 
 // ─── Conversation ─────────────────────────────────────────
@@ -77,7 +80,8 @@ export const getOrCreateConversation = async (
     .from('mentor_conversations')
     .select('*')
     .eq('brand_id', brandId)
-    .single();
+    .is('plan_task_id', null)
+    .maybeSingle();
 
   if (existing) return existing;
 
@@ -94,6 +98,43 @@ export const getOrCreateConversation = async (
 
   return data;
 };
+
+/** The conversation Kinika and the founder have about one plan task, in the workspace. */
+export const getOrCreateTaskConversation = async (brandId: string, taskId: string): Promise<MentorConversation | null> => {
+  const { data: existing } = await (supabase as any).from('mentor_conversations').select('*').eq('plan_task_id', taskId).maybeSingle();
+  if (existing) return existing;
+  const { data, error } = await (supabase as any).from('mentor_conversations').insert({ brand_id: brandId, plan_task_id: taskId, message_count: 0 }).select().single();
+  if (error) { console.error('Error creating task conversation:', error); return null; }
+  return data;
+};
+
+/** What the workspace passes when Kinika is working one task with the founder. */
+export interface TaskChatContext {
+  task: { id: string; title: string; detail: string | null; target_title: string };
+  deliverables: { id: string; title: string; detail: string; kind: string; done: boolean }[];
+}
+
+export function taskPromptBlock(ctx: TaskChatContext): string {
+  const list = ctx.deliverables.map((d) => `- [${d.done ? 'done' : 'open'}] id=${d.id} · ${d.title} (${d.kind}): ${d.detail}`).join('\n');
+  return [
+    'WORKING ONE TASK WITH THE FOUNDER (the workspace). You are Kinika, the founder\'s business manager, doing this task together with the founder right now. Stay on this task; the plan-level conversation is elsewhere.',
+    `TASK: ${ctx.task.title}${ctx.task.detail ? ` — ${ctx.task.detail}` : ''} (target: ${ctx.task.target_title})`,
+    `DELIVERABLES (the task is complete when all are done):\n${list}`,
+    'How to work: take the open deliverables in order. Ask one sharp question at a time when you need the founder\'s decision; propose a concrete default when the context allows. Keep replies short and plain.',
+    'When a deliverable is genuinely complete from what the founder has said or approved, mark it with exactly <DELIVERABLE_DONE id="..."/> at the end of your reply (one tag per deliverable). Do not mark anything the founder has not confirmed.',
+    'When a deliverable is a written thing (a document, outline, list, template, pricing table), write it in full inside <DOCUMENT title="...">markdown</DOCUMENT> once the decisions are made. The founder can edit it; say so in a sentence. Never put placeholders for numbers Kinika does not know; name the decision instead.',
+  ].join('\n');
+}
+
+/** Kinika's reply when working a task. Returns the clean text plus the tags it carried. */
+export function parseTaskReply(text: string): { text: string; done: string[]; document: { title: string; body: string } | null } {
+  const done: string[] = [];
+  let clean = text.replace(/<DELIVERABLE_DONE\s+id="([^"]+)"\s*\/?>(?:<\/DELIVERABLE_DONE>)?/g, (_m, id) => { done.push(String(id)); return ''; });
+  let document: { title: string; body: string } | null = null;
+  const m = clean.match(/<DOCUMENT\s+title="([^"]*)">([\s\S]*?)<\/DOCUMENT>/);
+  if (m) { document = { title: m[1].trim() || 'Document', body: m[2].trim() }; clean = clean.replace(m[0], `\n\n*Written: ${document.title}. It is open beside this conversation; edit any line.*`); }
+  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document };
+}
 
 // ─── Messages ─────────────────────────────────────────────
 
@@ -367,7 +408,8 @@ export const getMentorAIResponse = async (
   conversationHistory: { role: string; content: string }[],
   userMessage: string,
   onChunk?: (text: string) => void,
-  onProjectNamed?: (name: string) => void
+  onProjectNamed?: (name: string) => void,
+  taskContext?: TaskChatContext
 ): Promise<MentorAIResult | null> => {
   // Fetch stages dynamically for fallback
   const stages = await getAllJourneyStages();
@@ -480,8 +522,10 @@ export const getMentorAIResponse = async (
     Do not repeat back everything you read — just show you understood it.`;
   }
 
+  if (taskContext) systemPrompt += '\n\n' + taskPromptBlock(taskContext);
+
   const result = await callAI({
-    taskType: 'mentor_chat',
+    taskType: taskContext ? 'task_chat' : 'mentor_chat',
     userId,
     systemPrompt,
     messages: [
@@ -626,7 +670,14 @@ export const getMentorAIResponse = async (
     });
   }
 
-  return { text: cleanText, choicePrompt, capturedField, planEdits };
+  let deliverablesDone: string[] = [];
+  let taskDocument: { title: string; body: string } | null = null;
+  if (taskContext) {
+    const t = parseTaskReply(cleanText);
+    cleanText = t.text; deliverablesDone = t.done; taskDocument = t.document;
+  }
+
+  return { text: cleanText, choicePrompt, capturedField, planEdits, deliverablesDone, taskDocument };
 };
 
 // ─── Choice Prompts ─────────────────────────────────────────

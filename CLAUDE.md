@@ -104,6 +104,7 @@ The more a founder works in Kinika, the better Kinika knows the business.
 # Current systems
 
 * **Kinika (chat)** — `mentor_*` tables and `src/pages/Mentor.tsx`. Sees the plan; edits it from conversation via `<PLAN_EDIT>` ops.
+* **Founder tasks with Kinika** — a task the founder owns opens `/work/:taskId` as a conversation with Kinika (`FounderWorkspace`, `TaskChat`). Kinika first breaks the task into 2–5 deliverables (`founder-plan` action `breakdown`, stored on `plan_tasks.deliverables`); one conversation per task (`mentor_conversations.plan_task_id`). Kinika ticks a deliverable with `<DELIVERABLE_DONE id/>` and writes documents with `<DOCUMENT title>`; a document takes the surface and the conversation slides to the side. The task is done when every deliverable is.
 * **Plan** — `brand_plans`, `plan_targets`, `plan_tasks`; `founder-plan` function; playbooks (idea · running · creator); milestone- and stage-driven revisions; weekly check-in (daily once connections exist).
 * **Agents and runs** — `agents`, `agent_hires`, `automations`, `automation_runs`, `automation_run_steps`, `approvals`; `run-step` runner (tick every minute via pg_cron); action classes; build-first PRs; team memory.
 * **Connections** — `tool_connections` + Vault secrets; connectors for Notion, Shopify, WordPress, GitHub, Ayrshare (social). OAuth flows, Slack and Gmail are planned (S5).

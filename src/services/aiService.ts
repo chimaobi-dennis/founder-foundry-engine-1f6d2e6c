@@ -130,6 +130,8 @@ export const restorePromptVersion = async (
 
 export type TaskType = 
   | 'mentor_chat'
+  | 'task_chat'
+  | 'task_breakdown'
   | 'template_generation'
   | 'image_generation'
   | 'document_generation'
