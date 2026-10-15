@@ -32,7 +32,6 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: 
   const [pending, setPending] = useState(false);
   const [startedAt, setStartedAt] = useState(0);
   const [ready, setReady] = useState(false);
-  const [notes, setNotes] = useState<{ id: string; afterIndex: number; text: string }[]>([]);
   const [followups, setFollowups] = useState<{ options: ReplyOption[]; suggestions: string[] }>({ options: [], suggestions: [] });
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -63,14 +62,15 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: 
   useVisibleInterval(() => { sync(); }, 2500, pending);
 
   /** One turn: the founder's message (or a hidden instruction) goes to the server; the reply is polled. */
-  const turn = useCallback(async (text: string, saveUser: boolean) => {
+  const turn = useCallback(async (text: string, saveUser: boolean, note?: string) => {
     if (pending) return;
     setFollowups({ options: [], suggestions: [] });
     if (saveUser) setMessages((m) => [...m, { id: `temp-${Date.now()}`, conversation_id: "", role: "user", content: text, created_at: new Date().toISOString() } as MentorMessage]);
+    else if (note) setMessages((m) => [...m, { id: `temp-${Date.now()}`, conversation_id: "", role: "note", content: note, created_at: new Date().toISOString() } as MentorMessage]);
     setPending(true);
     setStartedAt(Date.now());
-    const r = await sendTaskMessage(ws.task.brand_id, ws.task.id, text, saveUser);
-    if (r.success === false) { setPending(false); toast.error(r.error); if (saveUser) setMessages((m) => m.filter((x) => !x.id.startsWith("temp-"))); return; }
+    const r = await sendTaskMessage(ws.task.brand_id, ws.task.id, text, saveUser, note);
+    if (r.success === false) { setPending(false); toast.error(r.error); setMessages((m) => m.filter((x) => !x.id.startsWith("temp-"))); return; }
   }, [pending, ws.task.brand_id, ws.task.id]);
 
   // Kinika opens the task once the deliverables exist and nothing has been said yet.
@@ -83,9 +83,8 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: 
   useEffect(() => {
     if (!ask || ask.nonce === askedRef.current || !ready || pending) return;
     askedRef.current = ask.nonce;
-    setNotes((n) => [...n, { id: String(ask.nonce), afterIndex: messages.length, text: ask.note }]);
-    turn(ask.text, false);
-  }, [ask, ready, pending, turn, messages.length]);
+    turn(ask.text, false, ask.note);
+  }, [ask, ready, pending, turn]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [messages, pending, followups]);
 
@@ -112,9 +111,10 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: 
               <Skeleton className="h-20 w-4/5 rounded-2xl" />
             </div>
           )}
-          {messages.map((m, i) => (
+          {messages.map((m) => m.role === "note" ? (
+            <p key={m.id} className="text-center font-ui text-[11px] text-muted-foreground">{m.content}</p>
+          ) : (
             <div key={m.id} className="contents">
-              {notes.filter((n) => n.afterIndex === i).map((n) => <p key={n.id} className="text-center font-ui text-[11px] text-muted-foreground">{n.text}</p>)}
               <div className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
                 <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 font-ui text-[14px] leading-relaxed", m.role === "user" ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap" : "bg-card border border-border rounded-bl-md")}>
                   {m.role !== "user" && <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>}
@@ -123,7 +123,6 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: 
               </div>
             </div>
           ))}
-          {notes.filter((n) => n.afterIndex >= messages.length).map((n) => <p key={n.id} className="text-center font-ui text-[11px] text-muted-foreground">{n.text}</p>)}
           {pending && (
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed">

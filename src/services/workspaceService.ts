@@ -156,7 +156,7 @@ export interface TaskConversationState {
 }
 
 /** Send a turn to Kinika for this task. The reply is made in the background; poll the conversation until pending clears. */
-export async function sendTaskMessage(brandId: string, taskId: string, text: string, saveUser = true): Promise<{ success: true; conversationId: string } | { success: false; error: string }> {
+export async function sendTaskMessage(brandId: string, taskId: string, text: string, saveUser = true, note?: string): Promise<{ success: true; conversationId: string } | { success: false; error: string }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) return { success: false, error: 'Not signed in' };
@@ -164,7 +164,7 @@ export async function sendTaskMessage(brandId: string, taskId: string, text: str
     const res = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/task-chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ brandId, taskId, text, saveUser }),
+      body: JSON.stringify({ brandId, taskId, text, saveUser, note }),
     });
     const json = await res.json().catch(() => null);
     return json ?? { success: false, error: `Kinika did not answer (${res.status})` };

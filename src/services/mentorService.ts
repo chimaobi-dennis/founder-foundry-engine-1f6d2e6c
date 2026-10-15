@@ -20,7 +20,7 @@ export interface MentorConversation {
 export interface MentorMessage {
   id: string;
   conversation_id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'note';
   content: string;
   ai_response_failed?: boolean;
   created_at: string;

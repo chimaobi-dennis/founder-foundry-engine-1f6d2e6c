@@ -1,7 +1,8 @@
 /**
  * task-chat — Kinika working one plan task with the founder, in the workspace.
  *
- * POST (user JWT): { brandId, taskId, text, saveUser?: boolean }
+ * POST (user JWT): { brandId, taskId, text, saveUser?: boolean, note?: string }
+ *   note: a line shown in the transcript instead of the founder's words (an instruction sent on their behalf)
  * The founder's message is saved at once and the reply is produced in the
  * background (EdgeRuntime.waitUntil), so a page reload never loses a turn.
  * While it runs, mentor_conversations.pending_since is set; the browser
@@ -36,7 +37,7 @@ serve(async (req) => {
   if (!userId) return json({ success: false, error: "Unauthorized" }, 401);
   const admin: Admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  let body: { brandId?: string; taskId?: string; text?: string; saveUser?: boolean };
+  let body: { brandId?: string; taskId?: string; text?: string; saveUser?: boolean; note?: string };
   try { body = await req.json(); } catch { return json({ success: false, error: "Invalid JSON body" }, 400); }
   const text = String(body.text ?? "").trim();
   if (!body.brandId || !body.taskId || !text) return json({ success: false, error: "brandId, taskId and text are required" }, 400);
@@ -59,6 +60,8 @@ serve(async (req) => {
 
   if (body.saveUser !== false) {
     await admin.from("mentor_messages").insert({ conversation_id: conv.id, role: "user", content: text });
+  } else if (body.note) {
+    await admin.from("mentor_messages").insert({ conversation_id: conv.id, role: "note", content: String(body.note).slice(0, 300) });
   }
   await admin.from("mentor_conversations").update({ pending_since: new Date().toISOString(), last_error: null, last_message_at: new Date().toISOString() }).eq("id", conv.id);
 
@@ -93,7 +96,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   ].filter(Boolean).join("\n\n");
 
   // The history already holds the founder's message when it was saved; a hidden instruction is appended here.
-  const msgs = (history ?? []).map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
+  const msgs = (history ?? []).filter((m: { role: string }) => m.role === "user" || m.role === "assistant").map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
   if (!(msgs.length && msgs[msgs.length - 1].role === "user" && msgs[msgs.length - 1].content === userText)) msgs.push({ role: "user", content: userText });
 
   const gw = await fetch(GATEWAY_URL, {
