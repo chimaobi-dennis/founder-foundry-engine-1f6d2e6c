@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -41,8 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   };
 
+  // Supabase re-emits the session whenever the tab regains focus or a token
+  // refreshes. The user object only changes identity when the user id does,
+  // so effects keyed on `user` (brands, profile, page data) do not re-run and
+  // nothing the founder is working on is reset by switching tabs.
+  const userId = session?.user?.id ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const user = useMemo(() => session?.user ?? null, [userId]);
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, signOut, isLoading }}>
+    <AuthContext.Provider value={{ session, user, signOut, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
