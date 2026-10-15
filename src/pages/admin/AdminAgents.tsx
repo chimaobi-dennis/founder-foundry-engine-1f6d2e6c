@@ -11,10 +11,10 @@ import { adminListAgents, adminReviewAgent, STATUS_LABEL, type AgentStatus, type
 const STATUS_TABS: (AgentStatus | "all")[] = ["pending_review", "published", "draft", "unpublished", "all"];
 
 const pill: Record<string, React.CSSProperties> = {
-  pending_review: { background: "#2A2A0A", color: "#D4A017" },
-  published: { background: "#1A2A1A", color: "#4ADE80" },
-  draft: { background: "#1A2A3A", color: "#8A96A3" },
-  unpublished: { background: "#2A1A1A", color: "#F87171" },
+  pending_review: { background: "#FFF1D6", color: "#1E4ED8" },
+  published: { background: "#E6F4EC", color: "#157347" },
+  draft: { background: "#DDE3EC", color: "#5B6472" },
+  unpublished: { background: "#FDECEC", color: "#B42318" },
 };
 
 /** Admin → Product → Community agents: review what creators submit. */
@@ -26,7 +26,7 @@ export default function AdminAgents() {
   const [notes, setNotes] = useState("");
   const [share, setShare] = useState(30);
   const [busy, setBusy] = useState(false);
-  const cardBg = { background: "#0D1520", border: "0.5px solid #1A2A3A" };
+  const cardBg = { background: "#FFFFFF", border: "1px solid #DDE3EC" };
 
   const load = async () => { setLoading(true); setAgents(await adminListAgents(filter === "all" ? undefined : filter)); setLoading(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,31 +49,31 @@ export default function AdminAgents() {
     <FadeIn>
       <div className="p-6 md:p-8 space-y-6">
         <div>
-          <h1 className="font-display text-2xl" style={{ color: "#F5F0E6" }}>Community agents</h1>
-          <p className="font-ui text-[13px] mt-1" style={{ color: "#8A96A3" }}>Agents written by creators. Read the instructions before publishing: they run against founders' brand context with the shared metered pricing for their tier.</p>
+          <h1 className="font-display text-2xl" style={{ color: "#0B1220" }}>Community agents</h1>
+          <p className="font-ui text-[13px] mt-1" style={{ color: "#5B6472" }}>Agents written by creators. Read the instructions before publishing: they run against founders' brand context with the shared metered pricing for their tier.</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {STATUS_TABS.map((t) => (
-            <button key={t} onClick={() => setFilter(t)} className="px-3 py-1.5 rounded-full text-[12px] font-ui" style={{ background: filter === t ? "#D4A017" : "transparent", color: filter === t ? "#0D1B2A" : "#8A96A3", border: filter === t ? "none" : "0.5px solid #1A2A3A" }}>
+            <button key={t} onClick={() => setFilter(t)} className="px-3 py-1.5 rounded-full text-[12px] font-ui" style={{ background: filter === t ? "#1E4ED8" : "transparent", color: filter === t ? "#FFFFFF" : "#5B6472", border: filter === t ? "none" : "1px solid #DDE3EC" }}>
               {t === "all" ? "All" : STATUS_LABEL[t]}
             </button>
           ))}
         </div>
         <div className="rounded-xl overflow-hidden" style={cardBg}>
           {loading ? <div className="p-6 space-y-2"><Skeleton className="h-5 w-1/2" /><Skeleton className="h-5 w-1/3" /></div> : agents.length === 0 ? (
-            <p className="p-6 font-ui text-[13px]" style={{ color: "#8A96A3" }}>Nothing here.</p>
+            <p className="p-6 font-ui text-[13px]" style={{ color: "#5B6472" }}>Nothing here.</p>
           ) : (
             <Table>
               <TableHeader><TableRow><TableHead>Agent</TableHead><TableHead>Creator</TableHead><TableHead>Tier</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Uses</TableHead><TableHead className="text-right">Share</TableHead></TableRow></TableHeader>
               <TableBody>
                 {agents.map((a) => (
                   <TableRow key={a.id} className="cursor-pointer" onClick={() => open(a)}>
-                    <TableCell><p className="font-ui text-sm" style={{ color: "#F5F0E6" }}>{a.name}</p><p className="text-[11px]" style={{ color: "#8A96A3" }}>{a.role}</p></TableCell>
-                    <TableCell className="font-ui text-[12px]" style={{ color: "#8A96A3" }}>{a.creator?.display_name ?? "—"}</TableCell>
-                    <TableCell className="font-ui text-[12px] capitalize" style={{ color: "#8A96A3" }}>{a.model_tier}</TableCell>
+                    <TableCell><p className="font-ui text-sm" style={{ color: "#0B1220" }}>{a.name}</p><p className="text-[11px]" style={{ color: "#5B6472" }}>{a.role}</p></TableCell>
+                    <TableCell className="font-ui text-[12px]" style={{ color: "#5B6472" }}>{a.creator?.display_name ?? "—"}</TableCell>
+                    <TableCell className="font-ui text-[12px] capitalize" style={{ color: "#5B6472" }}>{a.model_tier}</TableCell>
                     <TableCell><span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-ui" style={pill[a.status]}>{STATUS_LABEL[a.status]}</span></TableCell>
-                    <TableCell className="text-right font-ui text-[12px]" style={{ color: "#F5F0E6" }}>{a.uses_count}</TableCell>
-                    <TableCell className="text-right font-ui text-[12px]" style={{ color: "#F5F0E6" }}>{a.revenue_share_pct}%</TableCell>
+                    <TableCell className="text-right font-ui text-[12px]" style={{ color: "#0B1220" }}>{a.uses_count}</TableCell>
+                    <TableCell className="text-right font-ui text-[12px]" style={{ color: "#0B1220" }}>{a.revenue_share_pct}%</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

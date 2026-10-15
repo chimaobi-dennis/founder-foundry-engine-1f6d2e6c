@@ -50,7 +50,7 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
     return blendedPer1M(m);
   };
 
-  if (!snap) return <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-[#8A96A3]" size={18} /></div>;
+  if (!snap) return <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-[#5B6472]" size={18} /></div>;
   const profile = snap.profiles.find((p) => p.id === selected) ?? null;
   const rulesFor = (classSlug: string) => snap.rules.find((r) => r.profile_id === profile?.id && r.class_slug === classSlug);
   const routeFor = (t: string) => snap.routes.find((o) => o.profile_id === profile?.id && o.task_type === t);
@@ -74,8 +74,8 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
       <div>
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="font-ui text-[13px] font-semibold text-[#F5F0E6]">Routing profiles</h3>
-            <p className="text-[12px] text-[#8A96A3]">A profile maps every class of work to a model. Activate one to move every AI call at once, for example open models in development and proprietary ones in production.</p>
+            <h3 className="font-ui text-[13px] font-semibold text-[#0B1220]">Routing profiles</h3>
+            <p className="text-[12px] text-[#5B6472]">A profile maps every class of work to a model. Activate one to move every AI call at once, for example open models in development and proprietary ones in production.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => { setNewForm({ name: "", slug: "", copy: true }); setNewOpen(true); }}><Plus size={14} className="mr-1" /> New profile</Button>
         </div>
@@ -84,19 +84,19 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
             const rules = snap.rules.filter((r) => r.profile_id === p.id);
             const unready = snap.classes.filter((c) => { const r = rules.find((x) => x.class_slug === c.slug); return !r || !modelById.get(r.model_id)?.ready; }).map((c) => c.name);
             return (
-              <div key={p.id} onClick={() => setSelected(p.id)} className={`rounded-lg border p-3 cursor-pointer ${selected === p.id ? "border-[#D4A017] bg-[#D4A017]/10" : "border-[#1A2A3A]"}`}>
+              <div key={p.id} onClick={() => setSelected(p.id)} className={`rounded-lg border p-3 cursor-pointer ${selected === p.id ? "border-[#1E4ED8] bg-[#1E4ED8]/10" : "border-[#DDE3EC]"}`}>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-ui text-[13px] font-medium text-[#F5F0E6]">{p.name}</p>
-                  {p.is_active ? <span className="inline-flex items-center gap-1 text-[11px] text-[#4ADE80]"><Check size={12} /> active</span> : (
+                  <p className="font-ui text-[13px] font-medium text-[#0B1220]">{p.name}</p>
+                  {p.is_active ? <span className="inline-flex items-center gap-1 text-[11px] text-[#157347]"><Check size={12} /> active</span> : (
                     <Button size="sm" variant="outline" disabled={busy === `activate-${p.id}` || unready.length > 0} title={unready.length ? `Not ready: ${unready.join(", ")}` : undefined} onClick={(e) => { e.stopPropagation(); act(`activate-${p.id}`, () => activateProfile(p.id), `${p.name} is now live for every AI call`); }}>
                       {busy === `activate-${p.id}` ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} className="mr-1" />} Activate
                     </Button>
                   )}
                 </div>
-                <p className="text-[11px] text-[#8A96A3] mt-1">{p.description}</p>
-                {unready.length > 0 && <p className="text-[11px] text-[#D4A017] mt-1">Not ready: {unready.join(", ")} need a model whose provider is enabled and has a key.</p>}
+                <p className="text-[11px] text-[#5B6472] mt-1">{p.description}</p>
+                {unready.length > 0 && <p className="text-[11px] text-[#1E4ED8] mt-1">Not ready: {unready.join(", ")} need a model whose provider is enabled and has a key.</p>}
                 {!p.is_active && (
-                  <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete profile "${p.name}"?`)) act(`del-${p.id}`, () => deleteProfile(p.id), "Profile deleted").then((ok) => { if (ok && selected === p.id) setSelected(null); }); }} className="mt-2 text-[11px] text-[#8A96A3] hover:text-destructive inline-flex items-center gap-1"><Trash2 size={11} /> delete</button>
+                  <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete profile "${p.name}"?`)) act(`del-${p.id}`, () => deleteProfile(p.id), "Profile deleted").then((ok) => { if (ok && selected === p.id) setSelected(null); }); }} className="mt-2 text-[11px] text-[#5B6472] hover:text-destructive inline-flex items-center gap-1"><Trash2 size={11} /> delete</button>
                 )}
               </div>
             );
@@ -108,11 +108,11 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
         <>
           {/* ── Class rules ── */}
           <div>
-            <h3 className="font-ui text-[13px] font-semibold text-[#F5F0E6]">Classes of work · {profile.name}{profile.is_active ? "" : " (not active)"}</h3>
-            <p className="text-[12px] text-[#8A96A3] mb-2">The default list for every task type in a class that has no models of its own. The gateway retries a provider once on rate limits or outages, then moves to the next fallback. Changes apply to the next call.</p>
-            <div className="border border-[#1A2A3A] rounded-lg overflow-hidden">
+            <h3 className="font-ui text-[13px] font-semibold text-[#0B1220]">Classes of work · {profile.name}{profile.is_active ? "" : " (not active)"}</h3>
+            <p className="text-[12px] text-[#5B6472] mb-2">The default list for every task type in a class that has no models of its own. The gateway retries a provider once on rate limits or outages, then moves to the next fallback. Changes apply to the next call.</p>
+            <div className="border border-[#DDE3EC] rounded-lg overflow-hidden">
               <table className="w-full">
-                <thead className="bg-[#0D1520]"><tr>
+                <thead className="bg-[#FFFFFF]"><tr>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Class</th>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Primary</th>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Fallback 1</th>
@@ -137,37 +137,37 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
                       </Select>
                     );
                     return (
-                      <tr key={c.slug} className="border-t border-[#1A2A3A] align-top">
+                      <tr key={c.slug} className="border-t border-[#DDE3EC] align-top">
                         <td className="px-3 py-2">
-                          <p className="font-ui text-[13px] text-[#F5F0E6]">{c.name}</p>
-                          <p className="text-[11px] text-[#8A96A3] max-w-[26ch]">{c.description}</p>
-                          <p className="text-[10px] text-[#8A96A3] mt-1">{snap.taskTypes.filter((t) => t.class_slug === c.slug).length} task types</p>
+                          <p className="font-ui text-[13px] text-[#0B1220]">{c.name}</p>
+                          <p className="text-[11px] text-[#5B6472] max-w-[26ch]">{c.description}</p>
+                          <p className="text-[10px] text-[#5B6472] mt-1">{snap.taskTypes.filter((t) => t.class_slug === c.slug).length} task types</p>
                         </td>
-                        <td className="px-3 py-2 min-w-[200px]">{sel(r?.model_id, (v) => save(v, fb[0], fb[1]), false)}{warn && <p className="text-[11px] text-[#D4A017] mt-1">{warn}</p>}</td>
-                        <td className="px-3 py-2 min-w-[200px]">{r ? sel(fb[0], (v) => save(r.model_id, v === NONE ? undefined : v, fb[1]), true) : <span className="text-[11px] text-[#8A96A3]">set a primary first</span>}</td>
+                        <td className="px-3 py-2 min-w-[200px]">{sel(r?.model_id, (v) => save(v, fb[0], fb[1]), false)}{warn && <p className="text-[11px] text-[#1E4ED8] mt-1">{warn}</p>}</td>
+                        <td className="px-3 py-2 min-w-[200px]">{r ? sel(fb[0], (v) => save(r.model_id, v === NONE ? undefined : v, fb[1]), true) : <span className="text-[11px] text-[#5B6472]">set a primary first</span>}</td>
                         <td className="px-3 py-2 min-w-[200px]">{r ? sel(fb[1], (v) => save(r.model_id, fb[0], v === NONE ? undefined : v), true) : null}</td>
-                        <td className="px-3 py-2 text-right font-ui text-[12px] tabular-nums">{cost == null || cost === 0 ? <span className="text-[#D4A017]" title="No rate on file: add one under Billing → Pricing → Model rates">no rate</span> : `$${cost.toFixed(2)}`}</td>
+                        <td className="px-3 py-2 text-right font-ui text-[12px] tabular-nums">{cost == null || cost === 0 ? <span className="text-[#1E4ED8]" title="No rate on file: add one under Billing → Pricing → Model rates">no rate</span> : `$${cost.toFixed(2)}`}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-[#8A96A3] mt-1">Cost is a blended estimate from the model's own rates (3 input tokens per output token). Set rates under Billing → Pricing → Model rates.</p>
+            <p className="text-[11px] text-[#5B6472] mt-1">Cost is a blended estimate from the model's own rates (3 input tokens per output token). Set rates under Billing → Pricing → Model rates.</p>
           </div>
 
           {/* ── Task types ── */}
           <div>
             <div className="flex items-center justify-between gap-3 mb-2">
               <div>
-                <h3 className="font-ui text-[13px] font-semibold text-[#F5F0E6]">Task types · {profile.name}</h3>
-                <p className="text-[12px] text-[#8A96A3]">Every call names a task type. Give a task its own models here, in the order to try them; a task with none follows its class. Add your own task types and call the gateway with that name.</p>
+                <h3 className="font-ui text-[13px] font-semibold text-[#0B1220]">Task types · {profile.name}</h3>
+                <p className="text-[12px] text-[#5B6472]">Every call names a task type. Give a task its own models here, in the order to try them; a task with none follows its class. Add your own task types and call the gateway with that name.</p>
               </div>
               <Button variant="outline" size="sm" onClick={() => { setTaskForm({ taskType: "", classSlug: "writing", description: "" }); setTaskOpen(true); }}><Plus size={14} className="mr-1" /> New task type</Button>
             </div>
-            <div className="border border-[#1A2A3A] rounded-lg overflow-hidden">
+            <div className="border border-[#DDE3EC] rounded-lg overflow-hidden">
               <table className="w-full">
-                <thead className="bg-[#0D1520]"><tr>
+                <thead className="bg-[#FFFFFF]"><tr>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Task type</th>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Class</th>
                   <th className="text-left text-[11px] font-ui uppercase tracking-wider px-3 py-2">Models, in order</th>
@@ -180,11 +180,11 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
                     const key = `route-${t.task_type}`;
                     const save = (next: string[]) => act(key, () => setTaskRoute(profile.id, t.task_type, next));
                     return (
-                      <tr key={t.task_type} className="border-t border-[#1A2A3A] align-top">
+                      <tr key={t.task_type} className="border-t border-[#DDE3EC] align-top">
                         <td className="px-3 py-2">
-                          <p className="font-mono text-[12px] text-[#F5F0E6]">{t.task_type}</p>
-                          <p className="text-[11px] text-[#8A96A3]">{t.description}{t.last_seen_at ? ` · seen ${new Date(t.last_seen_at).toLocaleDateString()}` : ""}</p>
-                          {!t.is_system && <button onClick={() => { if (confirm(`Remove task type "${t.task_type}"? Calls using it will fall back to system_ai.`)) act(`del-${t.task_type}`, () => deleteTaskType(t.task_type), "Task type removed"); }} className="mt-1 text-[11px] text-[#8A96A3] hover:text-destructive inline-flex items-center gap-1"><Trash2 size={11} /> remove</button>}
+                          <p className="font-mono text-[12px] text-[#0B1220]">{t.task_type}</p>
+                          <p className="text-[11px] text-[#5B6472]">{t.description}{t.last_seen_at ? ` · seen ${new Date(t.last_seen_at).toLocaleDateString()}` : ""}</p>
+                          {!t.is_system && <button onClick={() => { if (confirm(`Remove task type "${t.task_type}"? Calls using it will fall back to system_ai.`)) act(`del-${t.task_type}`, () => deleteTaskType(t.task_type), "Task type removed"); }} className="mt-1 text-[11px] text-[#5B6472] hover:text-destructive inline-flex items-center gap-1"><Trash2 size={11} /> remove</button>}
                         </td>
                         <td className="px-3 py-2 w-40">
                           <Select value={t.class_slug ?? undefined} onValueChange={(v) => act(`class-${t.task_type}`, () => setTaskClass(t.task_type, v))}>
@@ -194,20 +194,20 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
                         </td>
                         <td className="px-3 py-2">
                           {ids.length === 0 ? (
-                            <p className="text-[12px] font-ui text-[#8A96A3] mb-1">Follows the {snap.classes.find((c) => c.slug === t.class_slug)?.name ?? "class"} list: {modelLabel(rule?.model_id)}{(rule?.fallback_model_ids?.length ?? 0) > 0 ? ` → ${rule!.fallback_model_ids.map((id) => modelLabel(id)).join(" → ")}` : ""}</p>
+                            <p className="text-[12px] font-ui text-[#5B6472] mb-1">Follows the {snap.classes.find((c) => c.slug === t.class_slug)?.name ?? "class"} list: {modelLabel(rule?.model_id)}{(rule?.fallback_model_ids?.length ?? 0) > 0 ? ` → ${rule!.fallback_model_ids.map((id) => modelLabel(id)).join(" → ")}` : ""}</p>
                           ) : (
                             <ol className="space-y-1 mb-1">
                               {ids.map((id, i) => {
                                 const warn = readiness(id);
                                 return (
                                   <li key={id} className="flex items-center gap-2 text-[12px] font-ui">
-                                    <span className="w-4 text-[#8A96A3]">{i + 1}.</span>
-                                    <span className="text-[#F5F0E6]">{modelLabel(id)}</span>
-                                    {warn && <span className="text-[#D4A017] text-[11px]">({warn})</span>}
+                                    <span className="w-4 text-[#5B6472]">{i + 1}.</span>
+                                    <span className="text-[#0B1220]">{modelLabel(id)}</span>
+                                    {warn && <span className="text-[#1E4ED8] text-[11px]">({warn})</span>}
                                     <span className="ml-auto inline-flex items-center gap-1">
-                                      <button disabled={i === 0 || busy === key} onClick={() => { const n = [...ids]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; save(n); }} className="text-[#8A96A3] hover:text-[#F5F0E6] disabled:opacity-30" aria-label="Move up"><ArrowUp size={12} /></button>
-                                      <button disabled={i === ids.length - 1 || busy === key} onClick={() => { const n = [...ids]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; save(n); }} className="text-[#8A96A3] hover:text-[#F5F0E6] disabled:opacity-30" aria-label="Move down"><ArrowDown size={12} /></button>
-                                      <button disabled={busy === key} onClick={() => save(ids.filter((x) => x !== id))} className="text-[#8A96A3] hover:text-destructive" aria-label="Remove"><X size={12} /></button>
+                                      <button disabled={i === 0 || busy === key} onClick={() => { const n = [...ids]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; save(n); }} className="text-[#5B6472] hover:text-[#0B1220] disabled:opacity-30" aria-label="Move up"><ArrowUp size={12} /></button>
+                                      <button disabled={i === ids.length - 1 || busy === key} onClick={() => { const n = [...ids]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; save(n); }} className="text-[#5B6472] hover:text-[#0B1220] disabled:opacity-30" aria-label="Move down"><ArrowDown size={12} /></button>
+                                      <button disabled={busy === key} onClick={() => save(ids.filter((x) => x !== id))} className="text-[#5B6472] hover:text-destructive" aria-label="Remove"><X size={12} /></button>
                                     </span>
                                   </li>
                                 );
@@ -221,7 +221,7 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
                                 {usable.filter((m) => !ids.includes(m.id)).map((m) => <SelectItem key={m.id} value={m.id}>{m.name} · {m.providerName}{m.ready ? "" : m.hasKey ? " (provider off)" : " (no key)"}</SelectItem>)}
                               </SelectContent>
                             </Select>
-                            {ids.length > 0 && <button onClick={() => save([])} className="text-[11px] text-[#8A96A3] hover:text-[#F5F0E6] underline">follow the class instead</button>}
+                            {ids.length > 0 && <button onClick={() => save([])} className="text-[11px] text-[#5B6472] hover:text-[#0B1220] underline">follow the class instead</button>}
                           </div>
                         </td>
                       </tr>
@@ -238,7 +238,7 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>New task type</DialogTitle><DialogDescription>Code calls the gateway with this name as its taskType. It starts by following its class; give it its own models above.</DialogDescription></DialogHeader>
           <div className="space-y-3 py-2">
-            <div><Label htmlFor="tt-name">Name</Label><Input id="tt-name" value={taskForm.taskType} onChange={(e) => setTaskForm({ ...taskForm, taskType: e.target.value })} placeholder="email_subject_lines" /><p className="text-[11px] text-[#8A96A3] mt-1">Lowercase letters, digits and underscores.</p></div>
+            <div><Label htmlFor="tt-name">Name</Label><Input id="tt-name" value={taskForm.taskType} onChange={(e) => setTaskForm({ ...taskForm, taskType: e.target.value })} placeholder="email_subject_lines" /><p className="text-[11px] text-[#5B6472] mt-1">Lowercase letters, digits and underscores.</p></div>
             <div><Label htmlFor="tt-class">Class</Label>
               <Select value={taskForm.classSlug} onValueChange={(v) => setTaskForm({ ...taskForm, classSlug: v })}><SelectTrigger id="tt-class" className="h-9"><SelectValue /></SelectTrigger><SelectContent>{snap.classes.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}</SelectContent></Select>
             </div>
@@ -257,7 +257,7 @@ export function RoutingTab({ models, providers, keyStatus }: { models: AIModel[]
           <div className="space-y-3 py-2">
             <div><Label htmlFor="rp-name">Name</Label><Input id="rp-name" value={newForm.name} onChange={(e) => setNewForm({ ...newForm, name: e.target.value, slug: newForm.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-") })} placeholder="Staging" /></div>
             <div><Label htmlFor="rp-slug">Slug</Label><Input id="rp-slug" value={newForm.slug} onChange={(e) => setNewForm({ ...newForm, slug: e.target.value })} /></div>
-            <label className="flex items-center gap-2 text-[12px] text-[#8A96A3]"><input type="checkbox" checked={newForm.copy} onChange={(e) => setNewForm({ ...newForm, copy: e.target.checked })} /> Start from {profile?.name ?? "the selected profile"}'s rules</label>
+            <label className="flex items-center gap-2 text-[12px] text-[#5B6472]"><input type="checkbox" checked={newForm.copy} onChange={(e) => setNewForm({ ...newForm, copy: e.target.checked })} /> Start from {profile?.name ?? "the selected profile"}'s rules</label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewOpen(false)}>Cancel</Button>

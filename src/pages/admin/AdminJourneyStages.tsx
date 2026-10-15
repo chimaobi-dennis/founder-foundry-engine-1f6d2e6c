@@ -221,7 +221,7 @@ export default function AdminJourneyStages() {
           </div>
           <Button
             onClick={handleAddNew}
-            style={{ background: "#D4A017", color: "#0D1B2A" }}
+            style={{ background: "#1E4ED8", color: "#FFFFFF" }}
           >
             <Plus size={16} className="mr-2" />
             Add stage
@@ -232,10 +232,10 @@ export default function AdminJourneyStages() {
       {/* Warning card */}
       <div
         className="rounded-lg p-4 mb-6 flex items-start gap-3"
-        style={{ background: "rgba(220, 38, 38, 0.1)", border: "0.5px solid rgba(220, 38, 38, 0.3)" }}
+        style={{ background: "rgba(220, 38, 38, 0.1)", border: "1px solid rgba(220, 38, 38, 0.3)" }}
       >
-        <AlertTriangle size={18} style={{ color: "#F87171" }} />
-        <p className="text-sm" style={{ color: "#FCA5A5" }}>
+        <AlertTriangle size={18} style={{ color: "#B42318" }} />
+        <p className="text-sm" style={{ color: "#B42318" }}>
           Changes take effect immediately for all users and all mentor conversations.
         </p>
       </div>
@@ -256,23 +256,23 @@ export default function AdminJourneyStages() {
             className="flex gap-4 items-center cursor-move"
             style={{
               borderRadius: "12px",
-              border: "0.5px solid #2A3A4A",
+              border: "1px solid #C9D2DE",
               padding: "20px",
-              background: "#0D1520",
+              background: "#FFFFFF",
             }}
           >
             {/* Left: drag handle + emoji + sort order */}
             <div className="flex items-center gap-3 flex-shrink-0">
-              <GripVertical size={18} style={{ color: "#4A5568" }} />
+              <GripVertical size={18} style={{ color: "#8B94A3" }} />
               <span className="text-2xl">{stage.emoji}</span>
-              <span className="text-[11px]" style={{ color: "#6B7280" }}>
+              <span className="text-[11px]" style={{ color: "#5B6472" }}>
                 #{stage.sort_order}
               </span>
             </div>
 
             {/* Centre: stage info */}
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-[0.08em] mb-1" style={{ color: "#D4A017" }}>
+              <p className="text-[10px] uppercase tracking-[0.08em] mb-1" style={{ color: "#1E4ED8" }}>
                 {stage.stage_key}
               </p>
               <p className="text-[15px] font-medium text-foreground mb-1">{stage.name}</p>
@@ -284,15 +284,15 @@ export default function AdminJourneyStages() {
                     className="text-[10px] px-2 py-1 rounded-full"
                     style={{
                       background: "rgba(212, 160, 23, 0.1)",
-                      color: "#D4A017",
-                      border: "0.5px solid rgba(212, 160, 23, 0.2)",
+                      color: "#1E4ED8",
+                      border: "1px solid rgba(212, 160, 23, 0.2)",
                     }}
                   >
                     {module}
                   </span>
                 ))}
               </div>
-              <p className="text-[11px] mt-2" style={{ color: "#6B7280" }}>
+              <p className="text-[11px] mt-2" style={{ color: "#5B6472" }}>
                 {stage.substages?.length || 0} substages
               </p>
             </div>
@@ -316,7 +316,7 @@ export default function AdminJourneyStages() {
                 <span style={{
                   width: '10px',
                   height: '10px',
-                  border: '2px solid #D4A017',
+                  border: '2px solid #1E4ED8',
                   borderTopColor: 'transparent',
                   borderRadius: '50%',
                   display: 'inline-block',
@@ -326,7 +326,7 @@ export default function AdminJourneyStages() {
               <button
                 onClick={() => handleEdit(stage)}
                 className="text-[13px] font-medium"
-                style={{ color: "#D4A017" }}
+                style={{ color: "#1E4ED8" }}
               >
                 Edit
               </button>
@@ -337,7 +337,7 @@ export default function AdminJourneyStages() {
 
       {/* Reorder indicator */}
       {isReordering && (
-        <p className="text-[11px] text-center" style={{ color: "#6B7280" }}>
+        <p className="text-[11px] text-center" style={{ color: "#5B6472" }}>
           Saving order...
         </p>
       )}
@@ -470,7 +470,7 @@ export default function AdminJourneyStages() {
                     <button
                       onClick={() => removeNextStep(index)}
                       className="p-1"
-                      style={{ color: "#F87171" }}
+                      style={{ color: "#B42318" }}
                     >
                       <X size={16} />
                     </button>
@@ -504,7 +504,7 @@ export default function AdminJourneyStages() {
                     <button
                       onClick={() => removeSubstage(index)}
                       className="p-1"
-                      style={{ color: "#F87171" }}
+                      style={{ color: "#B42318" }}
                     >
                       <X size={16} />
                     </button>
@@ -529,8 +529,8 @@ export default function AdminJourneyStages() {
                 onClick={handleSave}
                 disabled={isActionLoading(isNew ? 'add-stage' : `save-stage-${editingStage?.id}`)}
                 style={{
-                  background: "#D4A017",
-                  color: "#0D1B2A",
+                  background: "#1E4ED8",
+                  color: "#FFFFFF",
                   opacity: isActionLoading(isNew ? 'add-stage' : `save-stage-${editingStage?.id}`) ? 0.7 : 1,
                   cursor: isActionLoading(isNew ? 'add-stage' : `save-stage-${editingStage?.id}`) ? 'not-allowed' : 'pointer',
                   display: 'flex',

@@ -24,25 +24,25 @@ import { invalidatePricingCache } from '@/services/pricingService';
 
 // Admin palette, matching AdminBilling.tsx
 const C = {
-  text: '#F5F0E8',
-  muted: '#6B7A8D',
-  gold: '#D4A017',
-  panel: '#0D1520',
-  line: '#1A2A3A',
-  field: '#1A2530',
-  fieldLine: '#2A3A4A',
-  good: '#4ADE80',
-  bad: '#F87171',
+  text: '#0B1220',
+  muted: '#5B6472',
+  gold: '#1E4ED8',
+  panel: '#FFFFFF',
+  line: '#DDE3EC',
+  field: '#F0F3F7',
+  fieldLine: '#C9D2DE',
+  good: '#157347',
+  bad: '#B42318',
 };
 
-const inputStyle = { background: C.field, border: `0.5px solid ${C.fieldLine}`, color: C.text };
+const inputStyle = { background: C.field, border: `1px solid ${C.fieldLine}`, color: C.text };
 const inputClass = 'w-full mt-1 px-3 py-2 rounded-lg text-[13px] font-ui';
 const labelClass = 'text-[11px] font-ui';
 
 function Panel({ title, subtitle, children, right }: { title: string; subtitle?: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <section className="rounded-xl" style={{ background: C.panel, border: `0.5px solid ${C.line}` }}>
-      <div className="flex items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: `0.5px solid ${C.line}` }}>
+    <section className="rounded-xl" style={{ background: C.panel, border: `1px solid ${C.line}` }}>
+      <div className="flex items-start justify-between gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${C.line}` }}>
         <div>
           <h3 className="text-[14px] font-display font-semibold" style={{ color: C.text }}>{title}</h3>
           {subtitle && <p className="text-[12px] font-ui" style={{ color: C.muted }}>{subtitle}</p>}
@@ -60,7 +60,7 @@ function SaveButton({ saving, onClick, label = 'Save' }: { saving: boolean; onCl
       onClick={onClick}
       disabled={saving}
       className="px-3 py-1.5 rounded-lg text-[12px] font-ui font-medium flex items-center gap-1 disabled:opacity-60"
-      style={{ background: C.gold, color: '#0D1B2A' }}
+      style={{ background: C.gold, color: '#FFFFFF' }}
     >
       {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} {label}
     </button>
@@ -209,7 +209,7 @@ function CogsPanel({ days, econ, onRefresh }: { days: CogsDay[]; econ: CreditEco
         <button
           onClick={async () => { setRefreshing(true); await onRefresh(); setRefreshing(false); }}
           className="px-3 py-1.5 rounded-lg text-[12px] font-ui flex items-center gap-1"
-          style={{ background: C.field, color: C.text, border: `0.5px solid ${C.fieldLine}` }}
+          style={{ background: C.field, color: C.text, border: `1px solid ${C.fieldLine}` }}
         >
           <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} /> Refresh
         </button>
@@ -246,7 +246,7 @@ function CogsPanel({ days, econ, onRefresh }: { days: CogsDay[]; econ: CreditEco
             </thead>
             <tbody>
               {[...activeDays].reverse().map((d) => (
-                <tr key={d.day} style={{ borderTop: `0.5px solid ${C.line}` }}>
+                <tr key={d.day} style={{ borderTop: `1px solid ${C.line}` }}>
                   <td className="py-1 pr-3 tabular-nums">{d.day}</td>
                   <td className="py-1 px-2 text-right tabular-nums">{d.calls}</td>
                   <td className="py-1 px-2 text-right tabular-nums">{money(d.cost_usd, 3)}</td>
@@ -289,7 +289,7 @@ function AgentStatsPanel({ stats, econ }: { stats: AgentStats; econ: CreditEcono
   return (
     <Panel title="Agents · last 30 days" subtitle="Per-run cost, failure rate and step latency, from the runner's own records. Margin = credits captured at the retail price minus provider cost.">
       {stats.unrated_models.length > 0 && (
-        <div className="rounded-lg px-3 py-2 mb-4 text-[12px] font-ui" style={{ background: C.field, color: C.bad, border: `0.5px solid ${C.bad}` }}>
+        <div className="rounded-lg px-3 py-2 mb-4 text-[12px] font-ui" style={{ background: C.field, color: C.bad, border: `1px solid ${C.bad}` }}>
           {stats.unrated_models.map((m) => `${m.model_id} (${m.provider_slug}, ${m.calls} calls)`).join(', ')} {stats.unrated_models.length === 1 ? 'has' : 'have'} no rate, so provider cost shows as $0 and margin is overstated. Add a rate under Model rates below.
         </div>
       )}
@@ -308,7 +308,7 @@ function AgentStatsPanel({ stats, econ }: { stats: AgentStats; econ: CreditEcono
                 const retail = a.credits_captured * econ.retail_usd_per_credit;
                 const margin = retail > 0 ? (retail - a.cost_usd) / retail : null;
                 return (
-                  <tr key={a.slug} style={{ borderTop: `0.5px solid ${C.line}`, color: C.text }}>
+                  <tr key={a.slug} style={{ borderTop: `1px solid ${C.line}`, color: C.text }}>
                     <td className={td}>{a.name}</td>
                     <td className={td}>{a.runs}</td>
                     <td className={td}>{a.failed}</td>
@@ -332,7 +332,7 @@ function AgentStatsPanel({ stats, econ }: { stats: AgentStats; econ: CreditEcono
             <thead><tr style={{ color: C.muted }}><th className={th}>Class</th><th className={th}>Steps</th><th className={th}>Failed</th><th className={th}>Failure rate</th><th className={th}>Avg</th><th className={th}>p95</th></tr></thead>
             <tbody>
               {stats.action_classes.map((c) => (
-                <tr key={c.action_class} style={{ borderTop: `0.5px solid ${C.line}`, color: C.text }}>
+                <tr key={c.action_class} style={{ borderTop: `1px solid ${C.line}`, color: C.text }}>
                   <td className={td}>{CLASS_LABEL[c.action_class] ?? c.action_class}</td>
                   <td className={td}>{c.steps}</td>
                   <td className={td}>{c.failed}</td>
@@ -384,7 +384,7 @@ function RulesPanel({ rules, creditCogs, retailPerCredit, onChanged }: { rules: 
       subtitle="One row per action. Fixed rules quote an exact number; metered rules quote a range and reserve the maximum."
       right={
         <button onClick={() => setAdding((v) => !v)} className="px-3 py-1.5 rounded-lg text-[12px] font-ui flex items-center gap-1"
-          style={{ background: C.field, color: C.text, border: `0.5px solid ${C.fieldLine}` }}>
+          style={{ background: C.field, color: C.text, border: `1px solid ${C.fieldLine}` }}>
           <Plus size={12} /> New rule
         </button>
       }
@@ -474,7 +474,7 @@ function RuleCard({ rule, creditCogs, retailPerCredit, onChanged }: { rule: Gene
   };
 
   return (
-    <div className="rounded-lg overflow-hidden" style={{ background: C.field, border: `0.5px solid ${C.fieldLine}` }}>
+    <div className="rounded-lg overflow-hidden" style={{ background: C.field, border: `1px solid ${C.fieldLine}` }}>
       <button onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between px-3 py-2.5 text-left">
         <div className="min-w-0">
           <span className="text-[13px] font-ui font-medium" style={{ color: C.text }}>{rule.display_name}</span>
@@ -492,7 +492,7 @@ function RuleCard({ rule, creditCogs, retailPerCredit, onChanged }: { rule: Gene
         </div>
       </button>
       {open && (
-        <div className="px-3 pb-3 space-y-3" style={{ borderTop: `0.5px solid ${C.fieldLine}` }}>
+        <div className="px-3 pb-3 space-y-3" style={{ borderTop: `1px solid ${C.fieldLine}` }}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3">
             <Field label="Display name"><input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} className={inputClass} style={inputStyle} /></Field>
             <Field label="Unit label"><input value={f.unit_label} onChange={(e) => setF({ ...f, unit_label: e.target.value })} placeholder="post, product, run" className={inputClass} style={inputStyle} /></Field>
@@ -609,7 +609,7 @@ function RatesPanel({ rates, onChanged }: { rates: ModelRateRow[]; onChanged: ()
           </thead>
           <tbody>
             {rates.map((r) => (
-              <tr key={r.id} style={{ borderTop: `0.5px solid ${C.line}` }}>
+              <tr key={r.id} style={{ borderTop: `1px solid ${C.line}` }}>
                 <td className="py-1.5 pr-2 font-mono">{r.provider_slug}</td>
                 <td className="py-1.5 px-2 font-mono">{r.model_id}</td>
                 <td className="py-1.5 px-2">{r.display_name ?? ''}</td>
@@ -622,7 +622,7 @@ function RatesPanel({ rates, onChanged }: { rates: ModelRateRow[]; onChanged: ()
                 </td>
               </tr>
             ))}
-            <tr style={{ borderTop: `0.5px solid ${C.line}` }}>
+            <tr style={{ borderTop: `1px solid ${C.line}` }}>
               <td className="py-1.5 pr-2"><input value={draft.provider_slug} onChange={(e) => setDraft({ ...draft, provider_slug: e.target.value })} placeholder="anthropic" className="w-28 px-2 py-1 rounded text-[12px] font-mono" style={inputStyle} /></td>
               <td className="py-1.5 px-2"><input value={draft.model_id} onChange={(e) => setDraft({ ...draft, model_id: e.target.value })} placeholder="claude-sonnet-5-5" className="w-40 px-2 py-1 rounded text-[12px] font-mono" style={inputStyle} /></td>
               <td className="py-1.5 px-2"><input value={draft.display_name} onChange={(e) => setDraft({ ...draft, display_name: e.target.value })} placeholder="Name" className="w-32 px-2 py-1 rounded text-[12px]" style={inputStyle} /></td>

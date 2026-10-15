@@ -71,7 +71,7 @@ const ALL_SETTINGS: RuntimeSettingConfig<any>[] = [RENDER_ENGINE_SETTING];
 // COMPONENTS
 // ═══════════════════════════════════════════════════════════════
 
-const cardBg = { background: "#0D1520", border: "0.5px solid #1A2A3A" };
+const cardBg = { background: "#FFFFFF", border: "1px solid #DDE3EC" };
 
 function RuntimeSettingSection<T extends string>({
   config,
@@ -141,13 +141,13 @@ function RuntimeSettingSection<T extends string>({
       <div className="mb-5">
         <h3
           className="text-[15px] font-ui font-medium"
-          style={{ color: "#F5F0E8" }}
+          style={{ color: "#0B1220" }}
         >
           {config.title}
         </h3>
         <p
           className="text-[12px] font-ui mt-0.5"
-          style={{ color: "#8A96A3" }}
+          style={{ color: "#5B6472" }}
         >
           {config.description}
         </p>
@@ -164,10 +164,10 @@ function RuntimeSettingSection<T extends string>({
               disabled={saving}
               className="flex-1 rounded-lg p-4 text-left transition-all relative"
               style={{
-                background: isActive ? "#1A2530" : "#080F18",
+                background: isActive ? "#F0F3F7" : "#F5F7FA",
                 border: isActive
-                  ? "1px solid #D4A017"
-                  : "0.5px solid #1A2A3A",
+                  ? "1px solid #1E4ED8"
+                  : "1px solid #DDE3EC",
                 opacity: saving ? 0.7 : 1,
                 cursor: saving ? "not-allowed" : "pointer",
               }}
@@ -176,9 +176,9 @@ function RuntimeSettingSection<T extends string>({
               {isActive && (
                 <div
                   className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center"
-                  style={{ background: "#D4A017" }}
+                  style={{ background: "#1E4ED8" }}
                 >
-                  <Check size={12} style={{ color: "#0D1B2A" }} />
+                  <Check size={12} style={{ color: "#FFFFFF" }} />
                 </div>
               )}
 
@@ -188,8 +188,8 @@ function RuntimeSettingSection<T extends string>({
                 style={{
                   background: isActive
                     ? "rgba(212,160,23,0.15)"
-                    : "#1A2A3A",
-                  color: isActive ? "#D4A017" : "#8A96A3",
+                    : "#DDE3EC",
+                  color: isActive ? "#1E4ED8" : "#5B6472",
                 }}
               >
                 {option.icon}
@@ -198,7 +198,7 @@ function RuntimeSettingSection<T extends string>({
               {/* Label */}
               <p
                 className="text-[13px] font-ui font-medium"
-                style={{ color: isActive ? "#F5F0E8" : "#8A96A3" }}
+                style={{ color: isActive ? "#0B1220" : "#5B6472" }}
               >
                 {option.label}
               </p>
@@ -206,7 +206,7 @@ function RuntimeSettingSection<T extends string>({
               {/* Description */}
               <p
                 className="text-[11px] font-ui mt-0.5"
-                style={{ color: "#4A5568" }}
+                style={{ color: "#8B94A3" }}
               >
                 {option.description}
               </p>
@@ -217,8 +217,8 @@ function RuntimeSettingSection<T extends string>({
                   className="inline-block mt-2 text-[10px] font-ui px-2 py-0.5 rounded-full"
                   style={{
                     background: "rgba(212,160,23,0.1)",
-                    color: "#D4A017",
-                    border: "0.5px solid rgba(212,160,23,0.25)",
+                    color: "#1E4ED8",
+                    border: "1px solid rgba(212,160,23,0.25)",
                   }}
                 >
                   Experimental
@@ -236,14 +236,14 @@ function RuntimeSettingSection<T extends string>({
             className="w-2 h-2 rounded-full"
             style={{
               background:
-                activeOption.experimental ? "#D4A017" : "#4ADE80",
+                activeOption.experimental ? "#1E4ED8" : "#157347",
             }}
           />
-          <p className="text-[12px] font-ui" style={{ color: "#8A96A3" }}>
+          <p className="text-[12px] font-ui" style={{ color: "#5B6472" }}>
             Current Engine:{" "}
             <span
               className="font-medium"
-              style={{ color: "#F5F0E8" }}
+              style={{ color: "#0B1220" }}
             >
               {activeOption.label.toUpperCase()}
             </span>
@@ -253,7 +253,7 @@ function RuntimeSettingSection<T extends string>({
               style={{
                 width: "10px",
                 height: "10px",
-                border: "2px solid #D4A017",
+                border: "2px solid #1E4ED8",
                 borderTopColor: "transparent",
                 borderRadius: "50%",
                 display: "inline-block",
@@ -270,17 +270,17 @@ function RuntimeSettingSection<T extends string>({
           className="mt-3 flex items-start gap-2 rounded-lg px-3 py-2.5"
           style={{
             background: "rgba(212,160,23,0.06)",
-            border: "0.5px solid rgba(212,160,23,0.15)",
+            border: "1px solid rgba(212,160,23,0.15)",
           }}
         >
           <AlertTriangle
             size={14}
             className="flex-shrink-0 mt-0.5"
-            style={{ color: "#D4A017" }}
+            style={{ color: "#1E4ED8" }}
           />
           <p
             className="text-[11px] font-ui leading-relaxed"
-            style={{ color: "#8A96A3" }}
+            style={{ color: "#5B6472" }}
           >
             {activeOption.experimentalNote}
           </p>
@@ -301,13 +301,13 @@ export default function AdminRuntimeSettings() {
         <div>
           <h1
             className="font-display text-2xl"
-            style={{ color: "#F5F0E8" }}
+            style={{ color: "#0B1220" }}
           >
             Runtime Settings
           </h1>
           <p
             className="text-[13px] font-ui mt-0.5"
-            style={{ color: "#8A96A3" }}
+            style={{ color: "#5B6472" }}
           >
             Control platform-wide runtime configuration.
           </p>
@@ -317,7 +317,7 @@ export default function AdminRuntimeSettings() {
         <div>
           <p
             className="text-[10px] font-ui uppercase tracking-wider mb-2"
-            style={{ color: "#4A5568", letterSpacing: "0.1em" }}
+            style={{ color: "#8B94A3", letterSpacing: "0.1em" }}
           >
             Content Studio
           </p>
