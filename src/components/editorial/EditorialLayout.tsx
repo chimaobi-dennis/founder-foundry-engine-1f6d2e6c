@@ -1,22 +1,28 @@
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useEffect, useState, type ReactNode } from "react";
 
-// Shared warm editorial palette (mirrors src/pages/Landing.tsx)
+// Theme A (locked 10 Oct 2026) for the public pages. Key names are kept so
+// older pages that import `L` keep working: `amber` is the accent slot.
 export const L = {
-  paper: "#F2EDE4",
-  paperDeep: "#EAE3D6",
-  ink: "#0D1B2A",
-  inkSoft: "#3A4856",
-  inkMuted: "#6B7480",
-  amber: "#B8860B",
-  rule: "rgba(13, 27, 42, 0.14)",
-  ruleSoft: "rgba(13, 27, 42, 0.08)",
+  paper: "#F5F7FA",
+  paperDeep: "#EEF1F5",
+  ink: "#0B1220",
+  inkSoft: "#3F4756",
+  inkMuted: "#5B6472",
+  amber: "#1E4ED8",
+  accentDeep: "#1E40AF",
+  accentSoft: "#EAF0FF",
+  accentLine: "#C7D7FF",
+  good: "#157347",
+  goodSoft: "#E6F4EC",
+  rule: "#DDE3EC",
+  ruleSoft: "#E9EEF4",
+  surface: "#FFFFFF",
 };
 
 const NAV = [
   { to: "/philosophy", label: "Philosophy" },
-  { to: "/system", label: "System" },
-  { to: "/journal", label: "Journal" },
+  { to: "/system", label: "How it works" },
   { to: "/pricing", label: "Pricing" },
 ];
 
@@ -43,18 +49,9 @@ export function EditorialNav() {
     >
       <div className="max-w-[1320px] mx-auto px-6 md:px-12 h-[72px] flex items-center justify-between gap-6">
         <Link to="/" className="pf flex items-baseline gap-2 min-w-0" style={{ color: L.ink }}>
-          <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.01em" }}>Kinika</span>
-          <span
-            className="truncate"
-            style={{
-              fontSize: 11,
-              color: L.inkMuted,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              fontFamily: "'DM Sans', sans-serif",
-            }}
-          >
-            — Brand Intelligence
+          <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.01em" }}>Kinika</span>
+          <span className="truncate hidden sm:inline" style={{ fontSize: 11, color: L.inkMuted, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "'DM Sans', sans-serif" }}>
+            The workspace that knows your business
           </span>
         </Link>
 
@@ -67,131 +64,74 @@ export function EditorialNav() {
               style={({ isActive }) => ({
                 color: isActive ? L.ink : L.inkSoft,
                 fontSize: 13,
-                letterSpacing: "0.02em",
+                letterSpacing: "0.01em",
                 fontFamily: "'DM Sans', sans-serif",
                 fontWeight: isActive ? 600 : 500,
-                borderBottom: isActive ? `1px solid ${L.amber}` : "1px solid transparent",
+                borderBottom: isActive ? `2px solid ${L.amber}` : "2px solid transparent",
                 paddingBottom: 2,
               })}
             >
               {item.label}
             </NavLink>
           ))}
+          <Link to="/sign-in" className="transition-opacity hover:opacity-70" style={{ color: L.inkSoft, fontSize: 13, fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+            Sign in
+          </Link>
         </nav>
 
         <Link
           to="/sign-up"
           className="inline-flex items-center text-sm font-medium transition-all hover:-translate-y-px flex-shrink-0 whitespace-nowrap"
-          style={{
-            background: L.ink,
-            color: L.paper,
-            height: 38,
-            padding: "0 18px",
-            borderRadius: 2,
-            letterSpacing: "0.01em",
-          }}
+          style={{ background: L.amber, color: "#FFFFFF", height: 38, padding: "0 18px", borderRadius: 8, letterSpacing: "0.01em", fontFamily: "'DM Sans', sans-serif" }}
         >
-          Enter Kinika
+          Start free
         </Link>
       </div>
     </header>
   );
 }
 
-export function EditorialFooter({ issueLabel = "One business context, connected across every workflow." }: { issueLabel?: string }) {
+export function EditorialFooter({ issueLabel = "Understand first. Plan. Hire. Approve." }: { issueLabel?: string }) {
   return (
     <footer className="relative" style={{ background: L.paper, color: L.ink }}>
       <div className="max-w-[1320px] mx-auto px-6 md:px-12" style={{ padding: "80px 24px 48px" }}>
         <div style={{ height: 1, background: L.rule, marginBottom: 56 }} />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           <div className="lg:col-span-7">
-            <p
-              className="pf"
-              style={{
-                color: L.ink,
-                fontSize: "clamp(22px, 2.4vw, 28px)",
-                lineHeight: 1.35,
-                fontWeight: 500,
-                letterSpacing: "-0.015em",
-                maxWidth: "32ch",
-              }}
-            >
-              A system that connects your business.
+            <p className="pf" style={{ color: L.ink, fontSize: "clamp(22px, 2.4vw, 28px)", lineHeight: 1.3, fontWeight: 600, letterSpacing: "-0.015em", maxWidth: "32ch" }}>
+              The workspace that knows your business.
             </p>
             <div style={{ height: 1, background: L.ruleSoft, margin: "32px 0 36px", width: 48 }} />
             <div className="flex flex-wrap gap-x-10 gap-y-3">
               {NAV.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: L.inkSoft,
-                    letterSpacing: "0.02em",
-                  }}
-                  className="hover:opacity-70 transition-opacity"
-                >
+                <Link key={item.to} to={item.to} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: L.inkSoft }} className="hover:opacity-70 transition-opacity">
                   {item.label}
                 </Link>
               ))}
-              <Link
-                to="/sign-in"
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 13,
-                  color: L.inkSoft,
-                  letterSpacing: "0.02em",
-                }}
-                className="hover:opacity-70 transition-opacity"
-              >
+              <Link to="/sign-in" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: L.inkSoft }} className="hover:opacity-70 transition-opacity">
                 Sign in
               </Link>
             </div>
           </div>
           <div className="lg:col-span-5 lg:pl-12 lg:border-l" style={{ borderColor: L.ruleSoft }}>
-            <span
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color: L.inkMuted,
-                fontWeight: 500,
-              }}
-            >
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 500 }}>
               Kinika
             </span>
-            <p className="pf" style={{ marginTop: 16, fontSize: 18, color: L.ink, fontWeight: 500 }}>
+            <p className="pf" style={{ marginTop: 16, fontSize: 18, color: L.ink, fontWeight: 600 }}>
               {issueLabel}
             </p>
-            <p
-              className="pf"
-              style={{
-                color: L.inkMuted,
-                fontSize: 14,
-                fontStyle: "italic",
-                marginTop: 24,
-                lineHeight: 1.5,
-              }}
-            >
-              An intelligent founder workspace that holds your business context across every workflow.
+            <p style={{ color: L.inkMuted, fontSize: 14, marginTop: 20, lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+              Kinika understands your business, writes its plan, hires agents for the work, and asks before anything is sent, published or changed.
             </p>
           </div>
         </div>
         <div style={{ height: 1, background: L.rule, marginTop: 56, marginBottom: 20 }} />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: L.inkMuted, letterSpacing: "0.06em" }}>
-            © 2026 Kinika
-          </span>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: L.inkMuted, letterSpacing: "0.06em" }}>© 2026 Kinika</span>
           <div className="flex items-center gap-4">
-            <a href="#" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: L.inkMuted, letterSpacing: "0.06em" }} className="hover:opacity-70 transition-opacity">
-              Privacy
-            </a>
+            <a href="#" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: L.inkMuted, letterSpacing: "0.06em" }} className="hover:opacity-70 transition-opacity">Privacy</a>
             <span style={{ color: L.rule }}>·</span>
-            <a href="#" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: L.inkMuted, letterSpacing: "0.06em" }} className="hover:opacity-70 transition-opacity">
-              Terms
-            </a>
+            <a href="#" style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: L.inkMuted, letterSpacing: "0.06em" }} className="hover:opacity-70 transition-opacity">Terms</a>
           </div>
         </div>
       </div>
@@ -207,11 +147,11 @@ export function EditorialShell({ children }: { children: ReactNode }) {
   return (
     <div
       className="h-[100dvh] w-full overflow-y-auto overflow-x-hidden"
-      style={{ background: L.paper, color: L.ink, fontFamily: "'DM Sans', sans-serif", WebkitOverflowScrolling: 'touch' }}
+      style={{ background: L.paper, color: L.ink, fontFamily: "'DM Sans', sans-serif", WebkitOverflowScrolling: "touch" }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@400;500;600&display=swap');
-        .pf { font-family: 'Playfair Display', serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=DM+Sans:wght@400;500;600&display=swap');
+        .pf { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; letter-spacing: -0.01em; }
         @keyframes editorialFadeUp {
           from { opacity: 0; transform: translateY(14px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -234,28 +174,14 @@ export function EditorialShell({ children }: { children: ReactNode }) {
 
 // Reusable editorial primitives ---------------------------------------------
 
-export function PageMeta({
-  issue,
-  section,
-  date,
-}: {
-  issue: string;
-  section: string;
-  date: string;
-}) {
+export function PageMeta({ issue, section, date }: { issue: string; section: string; date: string }) {
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2" style={{ marginBottom: 48 }}>
-      <span style={{ fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", color: L.amber, fontWeight: 600 }}>
-        {issue}
-      </span>
+      <span style={{ fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", color: L.accentDeep, fontWeight: 600 }}>{issue}</span>
       <span style={{ width: 24, height: 1, background: L.rule }} />
-      <span style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>
-        {section}
-      </span>
+      <span style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted }}>{section}</span>
       <span style={{ width: 24, height: 1, background: L.rule }} />
-      <span style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: L.inkMuted }}>
-        {date}
-      </span>
+      <span style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: L.inkMuted }}>{date}</span>
     </div>
   );
 }
@@ -264,30 +190,11 @@ export function PageTitle({ children, kicker }: { children: ReactNode; kicker?: 
   return (
     <header style={{ marginBottom: 56 }}>
       {kicker && (
-        <p
-          className="pf ed-fade"
-          style={{
-            fontStyle: "italic",
-            color: L.amber,
-            fontSize: 18,
-            marginBottom: 16,
-            letterSpacing: "0.01em",
-          }}
-        >
+        <p className="ed-fade" style={{ color: L.accentDeep, fontSize: 13, marginBottom: 16, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 600 }}>
           {kicker}
         </p>
       )}
-      <h1
-        className="pf ed-fade ed-d1"
-        style={{
-          color: L.ink,
-          fontSize: "clamp(44px, 6vw, 88px)",
-          lineHeight: 1.02,
-          fontWeight: 500,
-          letterSpacing: "-0.025em",
-          maxWidth: "16ch",
-        }}
-      >
+      <h1 className="pf ed-fade ed-d1" style={{ color: L.ink, fontSize: "clamp(40px, 5.5vw, 72px)", lineHeight: 1.05, letterSpacing: "-0.025em", maxWidth: "18ch" }}>
         {children}
       </h1>
     </header>
@@ -308,5 +215,46 @@ export function Container({ children, narrow = false }: { children: ReactNode; n
     >
       {children}
     </div>
+  );
+}
+
+/** A plain section with an eyebrow and a title; the body is whatever follows. */
+export function Section({ eyebrow, title, children, tone = "paper" }: { eyebrow?: string; title?: ReactNode; children: ReactNode; tone?: "paper" | "deep" | "surface" }) {
+  const bg = tone === "deep" ? L.paperDeep : tone === "surface" ? L.surface : L.paper;
+  return (
+    <section style={{ background: bg, borderTop: `1px solid ${L.ruleSoft}` }}>
+      <div className="mx-auto" style={{ maxWidth: 1320, padding: "clamp(64px, 9vh, 112px) clamp(24px, 6vw, 96px)" }}>
+        {eyebrow && <p style={{ fontSize: 11, letterSpacing: "0.22em", textTransform: "uppercase", color: L.accentDeep, fontWeight: 600, marginBottom: 14 }}>{eyebrow}</p>}
+        {title && <h2 className="pf" style={{ fontSize: "clamp(28px, 3.4vw, 44px)", lineHeight: 1.1, letterSpacing: "-0.02em", color: L.ink, maxWidth: "26ch", marginBottom: 36 }}>{title}</h2>}
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** A card with a number or label, a title and a line. */
+export function Card({ label, title, children }: { label?: string; title: string; children?: ReactNode }) {
+  return (
+    <div style={{ background: L.surface, border: `1px solid ${L.rule}`, borderRadius: 14, padding: "22px 22px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {label && <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: L.inkMuted, fontWeight: 600 }}>{label}</span>}
+      <span className="pf" style={{ fontSize: 18, color: L.ink, lineHeight: 1.3 }}>{title}</span>
+      {children && <div style={{ fontSize: 14, lineHeight: 1.6, color: L.inkSoft }}>{children}</div>}
+    </div>
+  );
+}
+
+export function PrimaryLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="inline-flex items-center gap-2 transition-all hover:-translate-y-px" style={{ background: L.amber, color: "#FFFFFF", height: 48, padding: "0 24px", borderRadius: 10, fontSize: 15, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>
+      {children}
+    </Link>
+  );
+}
+
+export function SecondaryLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="inline-flex items-center gap-2 transition-all hover:-translate-y-px" style={{ background: L.surface, color: L.ink, border: `1px solid ${L.rule}`, height: 48, padding: "0 20px", borderRadius: 10, fontSize: 15, fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>
+      {children}
+    </Link>
   );
 }

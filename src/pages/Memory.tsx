@@ -153,7 +153,7 @@ function RelationshipMap() {
                 y={n.y - (n.core ? 16 : 12)}
                 textAnchor="middle"
                 style={{
-                  fontFamily: "'Playfair Display', serif",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontSize: n.core ? 16 : 13,
                   fontStyle: n.core ? "normal" : "italic",
                   fill: L.ink,
@@ -313,7 +313,7 @@ function CompoundingCurve() {
             x={pts[pts.length - 1][0] - 8}
             y={pts[pts.length - 1][1] - 12}
             textAnchor="end"
-            style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 13, fill: L.ink }}
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontStyle: "italic", fontSize: 13, fill: L.ink }}
           >
             Kinika — compounding
           </text>

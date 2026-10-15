@@ -238,7 +238,7 @@ function EvolutionBand() {
                   y={H - 20}
                   textAnchor="middle"
                   style={{
-                    fontFamily: "'Playfair Display', serif",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                     fontStyle: "italic",
                     fontSize: 14,
                     fill: L.ink,
