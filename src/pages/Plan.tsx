@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { listAgents, listHires, hireAgent, type Agent, type AgentHire } from "@/services/agentService";
 import { getEntitlements, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
 import { KinikaTeam } from "@/components/plan/KinikaTeam";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { getMyRole } from "@/services/teamMembersService";
 import { roleAtLeast } from "@shared/plans";
 import { PLAYBOOKS, type PlaybookChoice } from "@shared/plan";
@@ -35,6 +36,7 @@ export default function Plan() {
   const [canEdit, setCanEdit] = useState(true);
   const [note, setNote] = useState("");
   const [revising, setRevising] = useState(false);
+  const [startOverOpen, setStartOverOpen] = useState(false);
   const [playbook, setPlaybook] = useState<PlaybookChoice>("auto");
 
   const reload = async () => {
@@ -121,7 +123,21 @@ export default function Plan() {
         {canEdit && (
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <button onClick={() => setRevising((v) => !v)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui hover:border-primary"><RefreshCw size={12} /> Revise with Kinika</button>
-            <button disabled={busy === "build"} onClick={() => { if (confirm("Write a fresh plan? Your edits and task states will be lost.")) build(true); }} className="font-ui text-[12px] text-muted-foreground underline disabled:opacity-50">Start over</button>
+            <button disabled={busy === "build"} onClick={() => setStartOverOpen(true)} className="font-ui text-[12px] text-muted-foreground underline disabled:opacity-50">Start over</button>
+            <AlertDialog open={startOverOpen} onOpenChange={setStartOverOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="font-display">Start over from the beginning?</AlertDialogTitle>
+                  <AlertDialogDescription className="font-ui">
+                    Kinika takes you back to the start: you tell Kinika about the business again, check what Kinika understood, choose a goal, and Kinika writes a new plan. This plan, your edits and the ticked tasks are replaced. Kinika keeps what it learned about your business in memory.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="font-ui">Keep this plan</AlertDialogCancel>
+                  <AlertDialogAction className="font-ui bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => navigate(`/start?review=1&brand=${plan.brand_id}`)}>Yes, start over</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <label className="ml-auto inline-flex items-center gap-2 font-ui text-[11px] text-muted-foreground cursor-pointer">
               <input type="checkbox" className="accent-primary" checked={plan.auto_revise} onChange={async (e) => { const on = e.target.checked; setPlan({ ...plan, auto_revise: on }); if (!(await setAutoRevise(plan.id, on))) { toast.error("Could not save"); reload(); } }} />
               Revise when I reach a milestone or change stage
