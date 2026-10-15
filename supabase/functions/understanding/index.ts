@@ -81,16 +81,34 @@ serve(async (req) => {
 
     const { data: promptRow } = await admin.from("ai_system_prompts").select("system_prompt").eq("task_type", "understanding").eq("is_active", true).maybeSingle();
     const systemPrompt = promptRow?.system_prompt || understandingSystemPrompt(stageKeys);
-    const gw = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
-      body: JSON.stringify({ userId: brand.user_id, taskType: "understanding", systemPrompt, messages: [{ role: "user", content: parts }], maxTokens: 3000, temperature: 0.2, metadata: { brand_id: brand.id, sources: { site: !!site, chat: !!chat, documents: docs.length } } }),
-    });
-    const result = await gw.json().catch(() => null);
-    if (!gw.ok || !result?.success) return json({ success: false, error: result?.error ?? `Kinika could not read this yet (${gw.status}).` }, 502);
-    const parsed = parseStructuredOutput(result.text ?? "");
-    const readback = parsed.ok ? coerceReadback(parsed.value, stageKeys) : null;
-    if (!readback) return json({ success: false, error: "Kinika needs a little more to go on. Add a sentence or two, or a website." }, 502);
+    const ask = async (messages: Array<{ role: string; content: string }>, attempt: number) => {
+      const gw = await fetch(GATEWAY_URL, {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ userId: brand.user_id, taskType: "understanding", systemPrompt, messages, maxTokens: 3000, temperature: 0.2, metadata: { brand_id: brand.id, attempt, sources: { site: !!site, chat: !!chat, documents: docs.length } } }),
+      });
+      const result = await gw.json().catch(() => null);
+      if (!gw.ok || !result?.success) return { error: result?.error ?? `Kinika could not read this yet (${gw.status}).`, text: "" };
+      return { error: null, text: String(result.text ?? "") };
+    };
+    const toReadback = (text: string) => { const parsed = parseStructuredOutput(text); return parsed.ok ? coerceReadback(parsed.value, stageKeys) : null; };
+
+    const first = await ask([{ role: "user", content: parts }], 1);
+    if (first.error) return json({ success: false, error: first.error, reason: "model" }, 502);
+    let readback = toReadback(first.text);
+    // A model that answered in prose or broke the JSON gets one more go with the answer in front of it.
+    if (!readback && first.text.trim()) {
+      const second = await ask([
+        { role: "user", content: parts },
+        { role: "assistant", content: first.text.slice(0, 6000) },
+        { role: "user", content: "That was not the JSON object described, or it had fewer than two filled sections. Respond again with the JSON object only, every section you can fill from the material above." },
+      ], 2);
+      if (!second.error) readback = toReadback(second.text);
+    }
+    if (!readback) {
+      console.error("understanding: no usable read-back", { brand: brand.id, textLength: first.text.length, head: first.text.slice(0, 200) });
+      return json({ success: false, error: "Kinika could not turn this into a read-back. Add a sentence or two about what you sell and who buys, or try again.", reason: "format" }, 502);
+    }
     return json({ success: true, readback, sourcesRead: { site: !!site, chat: !!chat, documents: docs.length } });
   }
 

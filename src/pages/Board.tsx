@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Pause, Play, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { WorkspaceSkeleton } from "@/components/ui/page-skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { OutputView, StepLine } from "@/components/team/RunViews";
@@ -35,7 +36,7 @@ export default function Board() {
   const inFlight = !!latest && (latest.status === "queued" || latest.status === "running");
   useVisibleInterval(load, 8000, inFlight);
 
-  if (!loaded) return <div className="p-8"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
+  if (!loaded) return <WorkspaceSkeleton />;
   if (!a) return <div className="p-8 font-ui text-[13px] text-muted-foreground">This board is not in a workspace you can open.</div>;
 
   const paused = a.status === "paused";
