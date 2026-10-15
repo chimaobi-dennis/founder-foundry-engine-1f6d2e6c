@@ -24,14 +24,15 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   onDeliverablesDone: (done: { id: string; result: string | null }[]) => Promise<void>;
   onDocument: (doc: { title: string; body: string }) => Promise<void>;
   compact?: boolean;
-  /** A message the workspace wants sent on the founder's behalf (new nonce each time). */
-  ask?: { text: string; nonce: number } | null;
+  /** An instruction the workspace sends on the founder's behalf (new nonce each time); shown as a note, not as the founder's words. */
+  ask?: { text: string; note: string; nonce: number } | null;
 }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MentorMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState(0);
+  const [notes, setNotes] = useState<{ id: string; afterIndex: number; text: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -93,8 +94,9 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   useEffect(() => {
     if (!ask || ask.nonce === askedRef.current || !ready || busy) return;
     askedRef.current = ask.nonce;
-    turn(ask.text, true);
-  }, [ask, ready, busy, turn]);
+    setNotes((n) => [...n, { id: String(ask.nonce), afterIndex: messages.length, text: ask.note }]);
+    turn(ask.text, false);
+  }, [ask, ready, busy, turn, messages.length]);
 
   const send = async () => {
     const text = draft.trim();
@@ -114,14 +116,18 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
               <Skeleton className="h-20 w-4/5 rounded-2xl" />
             </div>
           )}
-          {messages.map((m) => (
-            <div key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+          {messages.map((m, i) => (
+            <div key={m.id} className="contents">
+            {notes.filter((n) => n.afterIndex === i).map((n) => <p key={n.id} className="text-center font-ui text-[11px] text-muted-foreground">{n.text}</p>)}
+            <div className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
               <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 font-ui text-[14px] leading-relaxed", m.role === "user" ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap" : "bg-card border border-border rounded-bl-md")}>
                 {m.role !== "user" && <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>}
                 {m.role === "user" ? m.content : <Markdown>{m.content}</Markdown>}
               </div>
             </div>
+            </div>
           ))}
+          {notes.filter((n) => n.afterIndex >= messages.length).map((n) => <p key={n.id} className="text-center font-ui text-[11px] text-muted-foreground">{n.text}</p>)}
           {streaming !== null && (
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed">

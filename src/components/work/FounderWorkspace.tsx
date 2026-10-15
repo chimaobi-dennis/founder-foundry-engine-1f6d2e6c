@@ -32,7 +32,7 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
   const [view, setView] = useState<"document" | "chat">("document");
   const [completing, setCompleting] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [ask, setAsk] = useState<{ text: string; nonce: number } | null>(null);
+  const [ask, setAsk] = useState<{ text: string; note: string; nonce: number } | null>(null);
   const bodyRef = useRef(body); bodyRef.current = body;
   const brokeRef = useRef(false);
 
@@ -87,7 +87,12 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
   const askKinika = (d: Deliverable) => {
     setOpenId(null);
     if (document && view === "document") setChatOpen(true); else setView("chat");
-    setAsk({ text: `Write down the outcome of the deliverable "${d.title}" (id ${d.id}) as its result, from what we have decided so far. If we have not decided enough, tell me what is missing instead.`, nonce: Date.now() });
+    const n = deliverables.findIndex((x) => x.id === d.id) + 1;
+    setAsk({
+      text: `Close deliverable D${n} ("${d.title}") now with its outcome in the STATE line, from what we have decided so far, and confirm in one line without mentioning any ids. If we have not decided enough, say what is missing instead and leave it open.`,
+      note: `You asked Kinika to write down the outcome of "${d.title}".`,
+      nonce: Date.now(),
+    });
   };
   const saveResult = async (d: Deliverable, result: string) => {
     await persist(deliverables.map((x) => x.id === d.id ? { ...x, result: result || null } : x));
