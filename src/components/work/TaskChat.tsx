@@ -7,7 +7,7 @@ import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThinkingLine } from "@/components/work/ThinkingLine";
 import { getBrandDNA } from "@/services/brandService";
-import { getMentorAIResponse, getMessages, getOrCreateTaskConversation, saveMessage, type MentorMessage, type TaskChatContext } from "@/services/mentorService";
+import { getMentorAIResponse, getMessages, getOrCreateTaskConversation, saveMessage, type MentorMessage, type ReplyOption, type TaskChatContext } from "@/services/mentorService";
 import type { Deliverable } from "@/services/planService";
 import type { Workspace } from "@/services/workspaceService";
 
@@ -33,6 +33,8 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   const [streaming, setStreaming] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState(0);
   const [notes, setNotes] = useState<{ id: string; afterIndex: number; text: string }[]>([]);
+  // For the latest reply only: the choices Kinika offered and three things the founder might say next.
+  const [followups, setFollowups] = useState<{ options: ReplyOption[]; suggestions: string[] }>({ options: [], suggestions: [] });
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -47,6 +49,7 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   const turn = useCallback(async (userText: string, saveUser: boolean) => {
     if (!conversationId) return;
     setBusy(true);
+    setFollowups({ options: [], suggestions: [] });
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
     // The founder's message is on screen before Kinika's bubble appears; the save catches up.
     if (saveUser) {
@@ -62,6 +65,7 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
     if (!r) { setBusy(false); toast.error("Kinika did not answer. Try again."); return; }
     const saved = await saveMessage(conversationId, "assistant", r.text);
     if (saved) setMessages((m) => [...m, saved]);
+    setFollowups({ options: r.options ?? [], suggestions: r.suggestions ?? [] });
     if (r.taskDocument) await onDocument(r.taskDocument);
     if (r.deliverablesDone?.length) await onDeliverablesDone(r.deliverablesDone);
     setBusy(false);
@@ -128,6 +132,13 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
             </div>
           ))}
           {notes.filter((n) => n.afterIndex >= messages.length).map((n) => <p key={n.id} className="text-center font-ui text-[11px] text-muted-foreground">{n.text}</p>)}
+          {!busy && followups.options.length > 0 && (
+            <div className="flex flex-wrap gap-2 pl-1" role="group" aria-label="Kinika's options">
+              {followups.options.map((o) => (
+                <button key={o.label} type="button" onClick={() => turn(o.value, true)} className="h-9 px-3.5 rounded-full border border-[hsl(var(--brand-blue-line))] bg-accent text-accent-foreground font-ui text-[13px] font-medium hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors">{o.label}</button>
+              ))}
+            </div>
+          )}
           {streaming !== null && (
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed">
@@ -140,6 +151,13 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
         </div>
       </div>
       <form onSubmit={(e) => { e.preventDefault(); send(); }} className={cn("border-t border-border bg-card", compact ? "p-3" : "px-4 md:px-8 py-4")}>
+        {!busy && followups.suggestions.length > 0 && (
+          <div className={cn("mx-auto flex gap-2 overflow-x-auto pb-2 -mt-1", compact ? "" : "max-w-[760px]")} aria-label="Replies you might give">
+            {followups.suggestions.map((t) => (
+              <button key={t} type="button" onClick={() => turn(t, true)} className="shrink-0 h-8 px-3 rounded-full border border-border bg-background font-ui text-[12px] text-muted-foreground hover:text-foreground hover:border-primary transition-colors">{t}</button>
+            ))}
+          </div>
+        )}
         <div className={cn("mx-auto flex items-end gap-2", compact ? "" : "max-w-[760px]")}>
           <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={compact ? 2 : 2} placeholder="Tell Kinika" aria-label="Tell Kinika"
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
