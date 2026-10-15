@@ -77,8 +77,11 @@ export function KinikaTeam({ plan, agents, hires, ent, userId, canEdit, onChange
     if (collapsed) {
       return (
         <div className="rounded-xl border border-border bg-card px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <p className="font-ui text-[13px] text-muted-foreground"><strong className="font-semibold text-foreground">Trial:</strong> Kinika plans and advises; you do the tasks. {roles.length} role{roles.length === 1 ? "" : "s"} would take the marked ones off your hands.</p>
-          <button onClick={() => navigate("/billing")} className="font-ui text-[13px] text-accent-foreground underline whitespace-nowrap">Add seats</button>
+          <p className="font-ui text-[13px] text-muted-foreground"><strong className="font-semibold text-foreground">Doing it yourself.</strong> Kinika plans and advises; you do the tasks. {roles.length} role{roles.length === 1 ? "" : "s"} would take the marked ones off your hands if you change your mind.</p>
+          <div className="flex items-center gap-3 whitespace-nowrap">
+            <button onClick={() => setCollapsedPersist(false)} className="font-ui text-[13px] text-foreground underline">See the roles</button>
+            <button onClick={() => navigate("/billing")} className="font-ui text-[13px] text-accent-foreground underline">Add seats</button>
+          </div>
         </div>
       );
     }
@@ -92,7 +95,7 @@ export function KinikaTeam({ plan, agents, hires, ent, userId, canEdit, onChange
         <RoleGrid roles={roles} agentBySlug={agentBySlug} estimates={estimates} hiredSlugs={hiredSlugs} note="needs a seat" />
         <div className="flex items-center gap-3 flex-wrap">
           <button onClick={() => navigate("/billing")} className="inline-flex items-center h-11 px-5 rounded-lg bg-primary text-primary-foreground font-ui text-[14px] font-medium">Add seats · from $20/month</button>
-          <button onClick={() => setCollapsedPersist(true)} className="h-11 px-4 rounded-lg border border-border bg-card font-ui text-[14px]">Keep going without agents</button>
+          <button onClick={() => setCollapsedPersist(true)} className="h-11 px-4 rounded-lg border border-border bg-card font-ui text-[14px]">Do it myself for now</button>
           <span className="font-ui text-[12px] text-muted-foreground">Solo: 2 seats, Kinika swaps roles in turn. Startup: 5 seats.</span>
         </div>
       </section>
