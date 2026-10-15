@@ -87,7 +87,7 @@ export function KinikaTeam({ plan, agents, hires, ent, userId, canEdit, onChange
         <div className="flex flex-col gap-1.5">
           <span className="font-ui text-[11px] uppercase tracking-[0.18em] text-accent-foreground">Kinika's team for this plan</span>
           <h2 id="kteam-h" className="font-display text-[22px] leading-tight">This plan needs {roles.length} role{roles.length === 1 ? "" : "s"}. Your trial has no agent seats yet.</h2>
-          <p className="font-ui text-[14px] leading-relaxed text-muted-foreground max-w-[64ch]">On the trial, Kinika plans with you and advises you; you do the tasks yourself. With seats, Kinika hires these roles and they do the marked tasks, and you approve the results. Seats are how many agents can be on the team; credits are how much work they do.</p>
+          <p className="font-ui text-[14px] leading-relaxed text-muted-foreground max-w-[64ch]">On the trial, Kinika plans with you and advises you; you do the tasks yourself. With seats, Kinika hires these roles and they do the tasks listed below, in your voice and from your brand record, and you approve each result before it goes anywhere. Seats are how many agents can be on the team; credits are how much work they do.</p>
         </div>
         <RoleGrid roles={roles} agentBySlug={agentBySlug} estimates={estimates} hiredSlugs={hiredSlugs} note="needs a seat" />
         <div className="flex items-center gap-3 flex-wrap">
@@ -148,7 +148,15 @@ function RoleGrid({ roles, agentBySlug, estimates, hiredSlugs, note }: {
         return (
           <div key={r.slug} className={cn("flex flex-col gap-1 p-3.5 rounded-xl border", hired ? "border-[hsl(var(--brand-good))]/40 bg-[hsl(var(--brand-good-soft))]/40" : "border-border bg-muted/40")}>
             <span className="font-ui text-[14px] font-semibold">{a?.name ?? r.slug}</span>
-            <span className="font-ui text-[12px] text-muted-foreground leading-relaxed">{a?.tagline ?? ""} {r.count} task{r.count === 1 ? "" : "s"}{estimates[r.slug] ? ` · about ${estimates[r.slug]} credits` : ""}</span>
+            {a?.tagline && <span className="font-ui text-[12px] text-muted-foreground leading-relaxed">{a.tagline}</span>}
+            <span className="font-ui text-[11px] uppercase tracking-[0.14em] text-muted-foreground mt-1.5">{hired ? "Doing for you" : "Would do for you"}</span>
+            <ul className="flex flex-col gap-1">
+              {r.titles.slice(0, 4).map((t) => (
+                <li key={t} className="font-ui text-[13px] leading-snug text-foreground flex gap-2"><span aria-hidden className="text-muted-foreground">·</span><span>{t}</span></li>
+              ))}
+              {r.titles.length > 4 && <li className="font-ui text-[12px] text-muted-foreground">and {r.titles.length - 4} more</li>}
+            </ul>
+            <span className="font-ui text-[12px] text-muted-foreground mt-1">{r.count} task{r.count === 1 ? "" : "s"}{estimates[r.slug] ? ` · about ${estimates[r.slug]} credits` : ""}{hired ? "" : " · or you do these yourself"}</span>
             <span className={cn("font-ui text-[11px]", hired ? "text-[hsl(var(--brand-good))]" : "text-muted-foreground")}>{hired ? "on the team" : note}</span>
           </div>
         );

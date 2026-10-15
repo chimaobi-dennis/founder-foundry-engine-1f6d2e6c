@@ -41,7 +41,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    // Only the first load for a user shows as loading. A later refetch for
+    // the same user is silent, so pages that refresh the profile mid-flow
+    // (the first run after approval) are not unmounted by the auth guard.
+    if (loadedFor !== user.id) setLoading(true);
     // Try with role column first, fall back without it
     let result = await (supabase as any)
       .from("profiles")
