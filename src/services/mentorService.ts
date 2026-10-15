@@ -67,7 +67,7 @@ export interface MentorAIResult {
     stageKey: string;
   } | null;
   /** Workspace only: deliverable ids Kinika marked done, and a document it wrote. */
-  deliverablesDone?: string[];
+  deliverablesDone?: { id: string; result: string | null }[];
   taskDocument?: { title: string; body: string } | null;
 }
 
@@ -121,15 +121,17 @@ export function taskPromptBlock(ctx: TaskChatContext): string {
     `TASK: ${ctx.task.title}${ctx.task.detail ? ` — ${ctx.task.detail}` : ''} (target: ${ctx.task.target_title})`,
     `DELIVERABLES (the task is complete when all are done):\n${list}`,
     'How to work: take the open deliverables in order. Ask one sharp question at a time when you need the founder\'s decision; propose a concrete default when the context allows. Keep replies short and plain.',
-    'When a deliverable is genuinely complete from what the founder has said or approved, mark it with exactly <DELIVERABLE_DONE id="..."/> at the end of your reply (one tag per deliverable). Do not mark anything the founder has not confirmed.',
+    'When a deliverable is genuinely complete from what the founder has said or approved, close it at the end of your reply with <DELIVERABLE_DONE id="...">the outcome in Markdown</DELIVERABLE_DONE>, one tag per deliverable. The outcome is what the founder keeps: for a list, the list itself; for a decision, the decision in one or two plain sentences with the reason; for an action, what was done and when. Never an empty tag. Do not close anything the founder has not confirmed. If the founder asks you to write down the outcome of a deliverable, reply with that tag and a one-line note.',
     'When a deliverable is a written thing (a document, outline, list, template, pricing table), write it in full inside <DOCUMENT title="...">markdown</DOCUMENT> once the decisions are made. The founder can edit it; say so in a sentence. Never put placeholders for numbers Kinika does not know; name the decision instead.',
   ].join('\n');
 }
 
 /** Kinika's reply when working a task. Returns the clean text plus the tags it carried. */
-export function parseTaskReply(text: string): { text: string; done: string[]; document: { title: string; body: string } | null } {
-  const done: string[] = [];
-  let clean = text.replace(/<DELIVERABLE_DONE\s+id="([^"]+)"\s*\/?>(?:<\/DELIVERABLE_DONE>)?/g, (_m, id) => { done.push(String(id)); return ''; });
+export function parseTaskReply(text: string): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null } {
+  const done: { id: string; result: string | null }[] = [];
+  let clean = text
+    .replace(/<DELIVERABLE_DONE\s+id="([^"]+)"\s*>([\s\S]*?)<\/DELIVERABLE_DONE>/g, (_m, id, body) => { done.push({ id: String(id), result: String(body).trim() || null }); return ''; })
+    .replace(/<DELIVERABLE_DONE\s+id="([^"]+)"\s*\/>/g, (_m, id) => { done.push({ id: String(id), result: null }); return ''; });
   let document: { title: string; body: string } | null = null;
   const m = clean.match(/<DOCUMENT\s+title="([^"]*)">([\s\S]*?)<\/DOCUMENT>/);
   if (m) { document = { title: m[1].trim() || 'Document', body: m[2].trim() }; clean = clean.replace(m[0], `\n\n*Written: ${document.title}. It is open beside this conversation; edit any line.*`); }
@@ -670,7 +672,7 @@ export const getMentorAIResponse = async (
     });
   }
 
-  let deliverablesDone: string[] = [];
+  let deliverablesDone: { id: string; result: string | null }[] = [];
   let taskDocument: { title: string; body: string } | null = null;
   if (taskContext) {
     const t = parseTaskReply(cleanText);

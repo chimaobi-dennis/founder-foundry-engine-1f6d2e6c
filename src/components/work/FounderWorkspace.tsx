@@ -7,6 +7,7 @@ import { useBrand } from "@/hooks/use-brand";
 import { Textarea } from "@/components/ui/textarea";
 import { TaskChat } from "@/components/work/TaskChat";
 import { DeliverablesRail } from "@/components/work/DeliverablesRail";
+import { DeliverableSheet } from "@/components/work/DeliverableSheet";
 import { setTaskStatus, type Deliverable } from "@/services/planService";
 import { breakdownTask, createTaskDocument, saveDeliverables, saveDocumentBody, type Workspace } from "@/services/workspaceService";
 
@@ -30,6 +31,8 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
   const [chatOpen, setChatOpen] = useState(true);
   const [view, setView] = useState<"document" | "chat">("document");
   const [completing, setCompleting] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [ask, setAsk] = useState<{ text: string; nonce: number } | null>(null);
   const bodyRef = useRef(body); bodyRef.current = body;
   const brokeRef = useRef(false);
 
@@ -67,13 +70,28 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
     setBusyId(null);
   };
 
-  const markDone = useCallback(async (ids: string[]) => {
+  const markDone = useCallback(async (done: { id: string; result: string | null }[]) => {
     const now = new Date().toISOString();
-    const next = deliverables.map((x) => ids.includes(x.id) ? { ...x, done: true, done_at: x.done_at ?? now } : x);
+    const byId = new Map(done.map((d) => [d.id, d.result]));
+    const next = deliverables.map((x) => byId.has(x.id) ? { ...x, done: true, done_at: x.done_at ?? now, result: byId.get(x.id) ?? x.result ?? null } : x);
     await persist(next);
-    const names = next.filter((x) => ids.includes(x.id)).map((x) => x.title);
-    if (names.length) toast(`Done: ${names.join(", ")}`);
+    const names = next.filter((x) => byId.has(x.id)).map((x) => x.title);
+    if (names.length) toast(`Done: ${names.join(", ")}`, { action: { label: "See it", onClick: () => setOpenId(done[0].id) } });
   }, [deliverables, persist]);
+
+  /** Open a deliverable: documents go to the document surface, everything else to the side sheet. */
+  const openDeliverable = (d: Deliverable) => {
+    if (d.kind === "document" && (d.document_id || document)) { setView("document"); return; }
+    setOpenId(d.id);
+  };
+  const askKinika = (d: Deliverable) => {
+    setOpenId(null);
+    if (document && view === "document") setChatOpen(true); else setView("chat");
+    setAsk({ text: `Write down the outcome of the deliverable "${d.title}" (id ${d.id}) as its result, from what we have decided so far. If we have not decided enough, tell me what is missing instead.`, nonce: Date.now() });
+  };
+  const saveResult = async (d: Deliverable, result: string) => {
+    await persist(deliverables.map((x) => x.id === d.id ? { ...x, result: result || null } : x));
+  };
 
   const onDocument = useCallback(async (doc: { title: string; body: string }) => {
     if (document) {
@@ -104,7 +122,7 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
 
   const showDoc = !!document && view === "document";
   const chat = (
-    <TaskChat ws={ws} userId={userId} brand={brand as never} deliverables={deliverables} onDeliverablesDone={markDone} onDocument={onDocument} compact={showDoc} />
+    <TaskChat ws={ws} userId={userId} brand={brand as never} deliverables={deliverables} onDeliverablesDone={markDone} onDocument={onDocument} compact={showDoc} ask={ask} />
   );
 
   return (
@@ -147,15 +165,16 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
             {ws.task.detail && <span className="font-ui text-[12px] text-muted-foreground leading-snug">{ws.task.detail}</span>}
             <span className="font-ui text-[11px] text-muted-foreground">Target {ws.task.target_position + 1} · {ws.task.target_title} · <button onClick={() => navigate("/plan")} className="underline">open the plan</button></span>
           </div>
-          <DeliverablesRail deliverables={deliverables} breaking={breaking} busyId={busyId} onToggle={toggle} onOpenDocument={() => setView("document")} />
+          <DeliverablesRail deliverables={deliverables} breaking={breaking} busyId={busyId} onToggle={toggle} onOpen={openDeliverable} />
           {ws.using.length > 0 && (
             <div className="flex flex-col gap-1">
               <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">What Kinika is using</span>
               <span className="font-ui text-[12px] leading-relaxed text-muted-foreground">{ws.using.join(" · ")}</span>
             </div>
           )}
-          <p className="mt-auto font-ui text-[11px] text-muted-foreground leading-relaxed">Kinika ticks a deliverable when you have decided or approved it. You can tick or untick any of them yourself.</p>
+          <p className="mt-auto font-ui text-[11px] text-muted-foreground leading-relaxed">Kinika ticks a deliverable when you have decided or approved it and writes the outcome down. Click one to see it; you can tick or untick any yourself.</p>
         </aside>
+        <DeliverableSheet deliverable={deliverables.find((d) => d.id === openId) ?? null} onClose={() => setOpenId(null)} onAskKinika={askKinika} onSaveResult={saveResult} onToggle={(d) => toggle(d)} />
 
         {showDoc ? (
           <>
