@@ -9,9 +9,9 @@ import { toast } from "@/hooks/use-toast";
 const ROLE_TABS = ["all", "founder", "creator"] as const;
 
 const rolePillStyle: Record<string, React.CSSProperties> = {
-  founder: { background: "#1A2A3A", color: "#8A96A3" },
-  creator: { background: "#2A2A0A", color: "#D4A017" },
-  admin: { background: "#2A1A1A", color: "#F87171" },
+  founder: { background: "#DDE3EC", color: "#5B6472" },
+  creator: { background: "#FFF1D6", color: "#1E4ED8" },
+  admin: { background: "#FDECEC", color: "#B42318" },
 };
 
 export default function AdminUsers() {
@@ -82,14 +82,14 @@ export default function AdminUsers() {
     setActionLoading(loadingKey, false);
   };
 
-  const cardBg = { background: "#0D1520", border: "0.5px solid #1A2A3A" };
+  const cardBg = { background: "#FFFFFF", border: "1px solid #DDE3EC" };
 
   return (
     <FadeIn>
       <div className="space-y-5">
         <div>
-          <h1 className="font-display text-2xl" style={{ color: "#F5F0E8" }}>Users</h1>
-          <p className="text-[13px] font-ui mt-0.5" style={{ color: "#8A96A3" }}>{users.length} total</p>
+          <h1 className="font-display text-2xl" style={{ color: "#0B1220" }}>Users</h1>
+          <p className="text-[13px] font-ui mt-0.5" style={{ color: "#5B6472" }}>{users.length} total</p>
         </div>
 
         {/* Filter tabs */}
@@ -100,9 +100,9 @@ export default function AdminUsers() {
               onClick={() => setFilter(tab)}
               className="text-[12px] font-ui px-3 py-1.5 rounded-full capitalize transition-colors"
               style={{
-                background: filter === tab ? "#D4A017" : "transparent",
-                color: filter === tab ? "#0D1B2A" : "#8A96A3",
-                border: filter === tab ? "none" : "0.5px solid #1A2A3A",
+                background: filter === tab ? "#1E4ED8" : "transparent",
+                color: filter === tab ? "#FFFFFF" : "#5B6472",
+                border: filter === tab ? "none" : "1px solid #DDE3EC",
               }}
             >
               {tab === "all" ? "All" : tab + "s"}
@@ -112,14 +112,14 @@ export default function AdminUsers() {
 
         {/* Search */}
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#8A96A3" }} />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#5B6472" }} />
           <input
             type="text"
             placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full h-10 rounded-lg pl-10 pr-4 text-sm font-ui"
-            style={{ background: "#0D1520", border: "0.5px solid #1A2A3A", color: "#F5F0E8", outline: "none" }}
+            style={{ background: "#FFFFFF", border: "1px solid #DDE3EC", color: "#0B1220", outline: "none" }}
           />
         </div>
 
@@ -131,22 +131,22 @@ export default function AdminUsers() {
           <div className="rounded-xl overflow-hidden" style={cardBg}>
             <Table>
               <TableHeader>
-                <TableRow style={{ borderColor: "#1A2A3A" }}>
-                  <TableHead style={{ color: "#8A96A3" }}>Name</TableHead>
-                  <TableHead style={{ color: "#8A96A3" }}>Role</TableHead>
-                  <TableHead style={{ color: "#8A96A3" }}>Joined</TableHead>
-                  <TableHead style={{ color: "#8A96A3" }} className="w-12"></TableHead>
+                <TableRow style={{ borderColor: "#DDE3EC" }}>
+                  <TableHead style={{ color: "#5B6472" }}>Name</TableHead>
+                  <TableHead style={{ color: "#5B6472" }}>Role</TableHead>
+                  <TableHead style={{ color: "#5B6472" }}>Joined</TableHead>
+                  <TableHead style={{ color: "#5B6472" }} className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((u) => (
-                  <TableRow key={u.id} style={{ borderColor: "#1A2A3A" }}>
+                  <TableRow key={u.id} style={{ borderColor: "#DDE3EC" }}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-ui font-semibold" style={{ background: "#D4A017", color: "#0D1B2A" }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-ui font-semibold" style={{ background: "#1E4ED8", color: "#FFFFFF" }}>
                           {(u.full_name || "?")[0]?.toUpperCase()}
                         </div>
-                        <span className="text-[13px] font-ui" style={{ color: "#F5F0E8" }}>{u.full_name || "Unnamed"}</span>
+                        <span className="text-[13px] font-ui" style={{ color: "#0B1220" }}>{u.full_name || "Unnamed"}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -158,7 +158,7 @@ export default function AdminUsers() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-xs font-ui" style={{ color: "#8A96A3" }}>
+                      <span className="text-xs font-ui" style={{ color: "#5B6472" }}>
                         {new Date(u.created_at).toLocaleDateString()}
                       </span>
                     </TableCell>
@@ -166,27 +166,27 @@ export default function AdminUsers() {
                       <div className="relative">
                         <button
                           onClick={() => setRoleMenuOpen(roleMenuOpen === u.id ? null : u.id)}
-                          className="w-7 h-7 rounded flex items-center justify-center hover:bg-[#1A2A3A] transition-colors"
+                          className="w-7 h-7 rounded flex items-center justify-center hover:bg-[#DDE3EC] transition-colors"
                         >
-                          <MoreHorizontal size={14} style={{ color: "#8A96A3" }} />
+                          <MoreHorizontal size={14} style={{ color: "#5B6472" }} />
                         </button>
                         {roleMenuOpen === u.id && (
-                          <div className="absolute right-0 top-8 z-50 w-40 rounded-lg py-1 shadow-xl" style={{ background: "#0D1520", border: "0.5px solid #1A2A3A" }}>
-                            <p className="px-3 py-1 text-[10px] font-ui uppercase" style={{ color: "#4A5568", letterSpacing: "0.1em" }}>Change role</p>
+                          <div className="absolute right-0 top-8 z-50 w-40 rounded-lg py-1 shadow-xl" style={{ background: "#FFFFFF", border: "1px solid #DDE3EC" }}>
+                            <p className="px-3 py-1 text-[10px] font-ui uppercase" style={{ color: "#8B94A3", letterSpacing: "0.1em" }}>Change role</p>
                             {["founder", "creator"].map((r) => (
                               <button
                                 key={r}
                                 onClick={() => handleChangeRole(u.id, r)}
                                 disabled={isActionLoading(`change-role-${u.id}`)}
-                                className="w-full text-left px-3 py-1.5 text-[12px] font-ui capitalize hover:bg-[#1A2530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
-                                style={{ color: (u.role || "founder") === r ? "#D4A017" : "#F5F0E8" }}
+                                className="w-full text-left px-3 py-1.5 text-[12px] font-ui capitalize hover:bg-[#F0F3F7] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
+                                style={{ color: (u.role || "founder") === r ? "#1E4ED8" : "#0B1220" }}
                               >
                                 {r}
                                 {isActionLoading(`change-role-${u.id}`) && (
                                   <span style={{
                                     width: '10px',
                                     height: '10px',
-                                    border: '2px solid #D4A017',
+                                    border: '2px solid #1E4ED8',
                                     borderTopColor: 'transparent',
                                     borderRadius: '50%',
                                     display: 'inline-block',
@@ -204,7 +204,7 @@ export default function AdminUsers() {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8">
-                      <p className="text-xs font-ui" style={{ color: "#8A96A3" }}>No users found</p>
+                      <p className="text-xs font-ui" style={{ color: "#5B6472" }}>No users found</p>
                     </TableCell>
                   </TableRow>
                 )}

@@ -28,7 +28,7 @@ function relativeTime(ts: string) {
   return `${days}d ago`;
 }
 
-const COLORS = { founders: "#2D4A3E", creators: "#D4A017", admins: "#7A3030" };
+const COLORS = { founders: "#1E4ED8", creators: "#157347", admins: "#8A5A00" };
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   const cardStyle = "rounded-xl p-4" as const;
-  const cardBg = { background: "#0D1520", border: "0.5px solid #1A2A3A" };
+  const cardBg = { background: "#FFFFFF", border: "1px solid #DDE3EC" };
 
   if (loading) {
     return (
@@ -120,8 +120,8 @@ export default function AdminDashboard() {
     <FadeIn>
       <div className="space-y-5">
         <div>
-          <h1 className="font-display text-[26px]" style={{ color: "#F5F0E8" }}>Dashboard</h1>
-          <p className="text-[13px] font-ui mt-0.5" style={{ color: "#8A96A3" }}>{today}</p>
+          <h1 className="font-display text-[26px]" style={{ color: "#0B1220" }}>Dashboard</h1>
+          <p className="text-[13px] font-ui mt-0.5" style={{ color: "#5B6472" }}>{today}</p>
         </div>
 
         {/* Stat cards */}
@@ -132,11 +132,11 @@ export default function AdminDashboard() {
               className={cardStyle}
               style={{
                 ...cardBg,
-                ...(s.amber ? { border: "0.5px solid #D4A017" } : {}),
+                ...(s.amber ? { border: "1px solid #1E4ED8" } : {}),
               }}
             >
-              <p className="text-[28px] font-medium" style={{ color: s.amber ? "#D4A017" : "#F5F0E8" }}>{s.value}</p>
-              <p className="text-[11px] font-ui mt-1" style={{ color: "#8A96A3" }}>{s.label}</p>
+              <p className="text-[28px] font-medium" style={{ color: s.amber ? "#1E4ED8" : "#0B1220" }}>{s.value}</p>
+              <p className="text-[11px] font-ui mt-1" style={{ color: "#5B6472" }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
         {/* Signups chart */}
         <div className="rounded-xl p-5" style={cardBg}>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-ui font-medium" style={{ color: "#F5F0E8" }}>User registrations</p>
+            <p className="text-sm font-ui font-medium" style={{ color: "#0B1220" }}>User registrations</p>
             <div className="flex gap-1">
               {[7, 30, 90].map((d) => (
                 <button
@@ -152,9 +152,9 @@ export default function AdminDashboard() {
                   onClick={() => setSignupDays(d)}
                   className="text-[11px] font-ui px-3 py-1 rounded-full transition-colors"
                   style={{
-                    background: signupDays === d ? "#D4A017" : "transparent",
-                    color: signupDays === d ? "#0D1B2A" : "#8A96A3",
-                    border: signupDays === d ? "none" : "0.5px solid #1A2A3A",
+                    background: signupDays === d ? "#1E4ED8" : "transparent",
+                    color: signupDays === d ? "#FFFFFF" : "#5B6472",
+                    border: signupDays === d ? "none" : "1px solid #DDE3EC",
                   }}
                 >
                   {d} days
@@ -166,22 +166,22 @@ export default function AdminDashboard() {
             <AreaChart data={signups}>
               <defs>
                 <linearGradient id="amberFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#D4A017" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#D4A017" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#1E4ED8" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#1E4ED8" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1A2A3A" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#DDE3EC" />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 11, fill: "#8A96A3" }}
+                tick={{ fontSize: 11, fill: "#5B6472" }}
                 tickFormatter={(v) => { const d = new Date(v); return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); }}
               />
-              <YAxis tick={{ fontSize: 11, fill: "#8A96A3" }} allowDecimals={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#5B6472" }} allowDecimals={false} />
               <Tooltip
-                contentStyle={{ background: "#0D1520", border: "0.5px solid #1A2A3A", borderRadius: 8, fontSize: 12, color: "#F5F0E8" }}
+                contentStyle={{ background: "#FFFFFF", border: "1px solid #DDE3EC", borderRadius: 8, fontSize: 12, color: "#0B1220" }}
                 labelFormatter={(v) => new Date(v).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               />
-              <Area type="monotone" dataKey="count" stroke="#D4A017" strokeWidth={2} fill="url(#amberFill)" dot={{ fill: "#D4A017", r: 3 }} />
+              <Area type="monotone" dataKey="count" stroke="#1E4ED8" strokeWidth={2} fill="url(#amberFill)" dot={{ fill: "#1E4ED8", r: 3 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -189,19 +189,19 @@ export default function AdminDashboard() {
         {/* Two charts side by side */}
         <div className="flex flex-col lg:flex-row gap-5">
           <div className="flex-1 rounded-xl p-5" style={cardBg}>
-            <p className="text-sm font-ui font-medium mb-4" style={{ color: "#F5F0E8" }}>Template usage by category</p>
+            <p className="text-sm font-ui font-medium mb-4" style={{ color: "#0B1220" }}>Template usage by category</p>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={templateUsage}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1A2A3A" />
-                <XAxis dataKey="category" tick={{ fontSize: 11, fill: "#8A96A3" }} tickFormatter={(v) => v.length > 10 ? v.slice(0, 10) + "…" : v} />
-                <YAxis tick={{ fontSize: 11, fill: "#8A96A3" }} allowDecimals={false} />
-                <Tooltip contentStyle={{ background: "#0D1520", border: "0.5px solid #1A2A3A", borderRadius: 8, fontSize: 12, color: "#F5F0E8" }} />
-                <Bar dataKey="count" fill="#D4A017" fillOpacity={0.7} radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#DDE3EC" />
+                <XAxis dataKey="category" tick={{ fontSize: 11, fill: "#5B6472" }} tickFormatter={(v) => v.length > 10 ? v.slice(0, 10) + "…" : v} />
+                <YAxis tick={{ fontSize: 11, fill: "#5B6472" }} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: "#FFFFFF", border: "1px solid #DDE3EC", borderRadius: 8, fontSize: 12, color: "#0B1220" }} />
+                <Bar dataKey="count" fill="#1E4ED8" fillOpacity={0.7} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <div className="w-full lg:w-[280px] rounded-xl p-5" style={cardBg}>
-            <p className="text-sm font-ui font-medium mb-4" style={{ color: "#F5F0E8" }}>User roles</p>
+            <p className="text-sm font-ui font-medium mb-4" style={{ color: "#0B1220" }}>User roles</p>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie data={roleData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={75} paddingAngle={3}>
@@ -209,14 +209,14 @@ export default function AdminDashboard() {
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: "#0D1520", border: "0.5px solid #1A2A3A", borderRadius: 8, fontSize: 12, color: "#F5F0E8" }} />
+                <Tooltip contentStyle={{ background: "#FFFFFF", border: "1px solid #DDE3EC", borderRadius: 8, fontSize: 12, color: "#0B1220" }} />
                 <Legend
-                  formatter={(value) => <span style={{ color: "#8A96A3", fontSize: 11 }}>{value}</span>}
+                  formatter={(value) => <span style={{ color: "#5B6472", fontSize: 11 }}>{value}</span>}
                 />
               </PieChart>
             </ResponsiveContainer>
             {roles && (
-              <p className="text-center text-xs font-ui mt-1" style={{ color: "#8A96A3" }}>{roles.total} total users</p>
+              <p className="text-center text-xs font-ui mt-1" style={{ color: "#5B6472" }}>{roles.total} total users</p>
             )}
           </div>
         </div>
@@ -224,28 +224,28 @@ export default function AdminDashboard() {
         {/* Recent activity */}
         <div className="rounded-xl p-5" style={cardBg}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-ui font-medium" style={{ color: "#F5F0E8" }}>Recent activity</p>
-            <span className="text-xs font-ui cursor-pointer" style={{ color: "#D4A017" }}>View all</span>
+            <p className="text-sm font-ui font-medium" style={{ color: "#0B1220" }}>Recent activity</p>
+            <span className="text-xs font-ui cursor-pointer" style={{ color: "#1E4ED8" }}>View all</span>
           </div>
           <div className="max-h-[320px] overflow-y-auto space-y-0">
             {activity.length === 0 && (
-              <p className="text-xs font-ui py-4 text-center" style={{ color: "#8A96A3" }}>No recent activity</p>
+              <p className="text-xs font-ui py-4 text-center" style={{ color: "#5B6472" }}>No recent activity</p>
             )}
             {activity.map((a, i) => (
-              <div key={i} className="flex items-center gap-3 py-2.5" style={{ borderBottom: i < activity.length - 1 ? "0.5px solid #1A2530" : "none" }}>
+              <div key={i} className="flex items-center gap-3 py-2.5" style={{ borderBottom: i < activity.length - 1 ? "1px solid #F0F3F7" : "none" }}>
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
-                    background: a.type === "signup" ? "#1A2A3A" : a.type === "brand" ? "#1A2A1A" : "#2A2A1A",
+                    background: a.type === "signup" ? "#DDE3EC" : a.type === "brand" ? "#E6F4EC" : "#FFF1D6",
                   }}
                 >
-                  <span style={{ color: a.type === "brand" ? "#4ADE80" : "#D4A017", fontSize: 14 }}>
+                  <span style={{ color: a.type === "brand" ? "#157347" : "#1E4ED8", fontSize: 14 }}>
                     {a.type === "signup" ? "👤" : a.type === "brand" ? "🏷" : "⭐"}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-ui truncate" style={{ color: "#F5F0E8" }}>{a.label}</p>
-                  <p className="text-[11px] font-ui" style={{ color: "#8A96A3" }}>{relativeTime(a.timestamp)}</p>
+                  <p className="text-[13px] font-ui truncate" style={{ color: "#0B1220" }}>{a.label}</p>
+                  <p className="text-[11px] font-ui" style={{ color: "#5B6472" }}>{relativeTime(a.timestamp)}</p>
                 </div>
               </div>
             ))}
@@ -254,21 +254,21 @@ export default function AdminDashboard() {
 
         {/* Pending actions */}
         {(stats?.pendingActions ?? 0) > 0 && (
-          <div className="rounded-xl p-5" style={{ background: "#1A1A0A", border: "0.5px solid rgba(212,160,23,0.25)" }}>
+          <div className="rounded-xl p-5" style={{ background: "#1A1A0A", border: "1px solid rgba(212,160,23,0.25)" }}>
             <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle size={16} style={{ color: "#D4A017" }} />
-              <p className="text-sm font-ui font-medium" style={{ color: "#D4A017" }}>Requires your attention</p>
+              <AlertTriangle size={16} style={{ color: "#1E4ED8" }} />
+              <p className="text-sm font-ui font-medium" style={{ color: "#1E4ED8" }}>Requires your attention</p>
             </div>
             {(stats?.pendingApplications ?? 0) > 0 && (
               <div className="flex items-center justify-between py-2">
-                <span className="text-[13px] font-ui" style={{ color: "#F5F0E8" }}>{stats.pendingApplications} creator application{stats.pendingApplications > 1 ? "s" : ""} waiting for review</span>
-                <button onClick={() => navigate("/admin/product/applications")} className="text-xs font-ui" style={{ color: "#D4A017" }}>Review now →</button>
+                <span className="text-[13px] font-ui" style={{ color: "#0B1220" }}>{stats.pendingApplications} creator application{stats.pendingApplications > 1 ? "s" : ""} waiting for review</span>
+                <button onClick={() => navigate("/admin/product/applications")} className="text-xs font-ui" style={{ color: "#1E4ED8" }}>Review now →</button>
               </div>
             )}
             {(stats?.pendingTemplates ?? 0) > 0 && (
               <div className="flex items-center justify-between py-2">
-                <span className="text-[13px] font-ui" style={{ color: "#F5F0E8" }}>{stats.pendingTemplates} template{stats.pendingTemplates > 1 ? "s" : ""} waiting for review</span>
-                <button onClick={() => navigate("/admin/product/templates?filter=pending_review")} className="text-xs font-ui" style={{ color: "#D4A017" }}>Review now →</button>
+                <span className="text-[13px] font-ui" style={{ color: "#0B1220" }}>{stats.pendingTemplates} template{stats.pendingTemplates > 1 ? "s" : ""} waiting for review</span>
+                <button onClick={() => navigate("/admin/product/templates?filter=pending_review")} className="text-xs font-ui" style={{ color: "#1E4ED8" }}>Review now →</button>
               </div>
             )}
           </div>

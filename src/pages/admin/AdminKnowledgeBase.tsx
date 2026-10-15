@@ -32,49 +32,49 @@ const TASK_CONFIG: Record<TaskType, {
   mentor_chat: {
     name: 'Kinika (Mentor Chat)',
     description: 'System prompt for brand mentorship conversations',
-    color: '#D4A017',
+    color: '#1E4ED8',
     variables: ['brand_name', 'industry', 'brand_voice', 'positioning_statement', 'target_audience', 'core_promise', 'brand_references', 'campaign_strategy', 'customer_insight']
   },
   template_generation: {
     name: 'ProStudio (Template Generation)',
     description: 'System prompt for ProStudio template generation',
-    color: '#14B8A6',
+    color: '#0F766E',
     variables: ['brand_name', 'primary_color', 'brand_voice', 'product_name']
   },
   document_generation: {
     name: 'DocStudio (Document Generation)',
     description: 'System prompt for DocStudio document generation',
-    color: '#3B82F6',
+    color: '#1E4ED8',
     variables: ['brand_name', 'industry', 'brand_voice', 'positioning_statement', 'target_audience', 'core_promise']
   },
   campaign_copy: {
     name: 'ContentStudio (Campaign Copy)',
     description: 'System prompt for CampaignKit copy generation',
-    color: '#22C55E',
+    color: '#157347',
     variables: ['brand_name', 'brand_voice', 'target_audience', 'core_promise', 'key_benefit', 'call_to_action']
   },
   reel_script: {
     name: 'ReelBuilder (Reel Script)',
     description: 'System prompt for ReelBuilder script generation',
-    color: '#A855F7',
+    color: '#6D28D9',
     variables: ['brand_name', 'brand_voice', 'target_audience', 'core_promise']
   },
   image_generation: {
     name: 'Image Generation',
     description: 'System prompt for image generation across all modules',
-    color: '#F59E0B',
+    color: '#8A5A00',
     variables: ['brand_name', 'primary_color', 'brand_voice', 'product_name']
   },
   system_ai: {
     name: 'System AI',
     description: 'Powers internal platform tasks — context extraction, auto-naming, brand suggestions, and other background processes',
-    color: '#F59E0B',
+    color: '#8A5A00',
     variables: []
   },
   context_extraction: {
     name: 'System AI (Context Extraction)',
     description: 'Used during project onboarding to extract structured brand data from pasted text, URLs, or uploaded documents.',
-    color: '#EC4899',
+    color: '#BE185D',
     variables: ['field_guide']
   }
 };
@@ -252,7 +252,7 @@ export default function AdminKnowledgeBase() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-4 h-4 rounded-full bg-[#D4A017] animate-pulse" />
+        <div className="w-4 h-4 rounded-full bg-[#1E4ED8] animate-pulse" />
       </div>
     );
   }
@@ -271,10 +271,10 @@ export default function AdminKnowledgeBase() {
       <div 
         className="rounded-lg p-4 mb-6"
         style={{ 
-          background: '#3A2A00', 
-          border: '0.5px solid #7A5A00',
+          background: '#FFF1D6', 
+          border: '1px solid #8A5A00',
           fontSize: '12px',
-          color: '#F0C060'
+          color: '#1E40AF'
         }}
       >
         ⚠ Changes to system prompts affect all users immediately. Test carefully before saving. Use version history to roll back if needed.
@@ -291,7 +291,7 @@ export default function AdminKnowledgeBase() {
             <div 
               key={prompt.id}
               className="rounded-lg p-6"
-              style={{ border: '0.5px solid #2A3A4A' }}
+              style={{ border: '1px solid #C9D2DE' }}
             >
               {/* Card header */}
               <div className="flex items-start justify-between mb-4">
@@ -320,7 +320,7 @@ export default function AdminKnowledgeBase() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-[#D4A017] hover:text-[#D4A017]/80"
+                        className="text-[#1E4ED8] hover:text-[#1E4ED8]/80"
                         onClick={() => handleEdit(prompt.task_type, prompt.system_prompt)}
                       >
                         Edit
@@ -350,9 +350,9 @@ export default function AdminKnowledgeBase() {
                     onChange={(e) => setEditPrompt(e.target.value)}
                     className="min-h-[400px] font-mono text-[12px] leading-relaxed w-full rounded-lg p-4"
                     style={{
-                      background: '#0D1520',
-                      border: '0.5px solid #D4A017',
-                      color: '#F5F0E8'
+                      background: '#FFFFFF',
+                      border: '1px solid #1E4ED8',
+                      color: '#0B1220'
                     }}
                   />
 
@@ -360,15 +360,15 @@ export default function AdminKnowledgeBase() {
                     <div
                       className="rounded-md px-3 py-2.5"
                       style={{
-                        borderLeft: '2px solid #D4A017',
+                        borderLeft: '2px solid #1E4ED8',
                         background: 'rgba(212, 160, 23, 0.08)',
                         fontFamily: 'DM Sans',
                         fontSize: '13px',
-                        color: '#F5F0E8',
+                        color: '#0B1220',
                         lineHeight: 1.5
                       }}
                     >
-                      This prompt uses <code style={{ color: '#D4A017', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> as a variable. At runtime, this is automatically replaced with all active journey stage fields from the database. Do not remove <code style={{ color: '#D4A017', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> from the prompt.
+                      This prompt uses <code style={{ color: '#1E4ED8', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> as a variable. At runtime, this is automatically replaced with all active journey stage fields from the database. Do not remove <code style={{ color: '#1E4ED8', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> from the prompt.
                     </div>
                   )}
                   
@@ -384,18 +384,18 @@ export default function AdminKnowledgeBase() {
                       Available variables
                     </Button>
                     {showVars && (
-                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#0D1520' }}>
+                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#FFFFFF' }}>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {config.variables.map((variable) => (
                             <button
                               key={variable}
                               onClick={() => copyVariable(variable)}
                               className="flex items-center gap-2 px-2 py-1.5 rounded text-[11px] font-mono text-left hover:bg-muted/50 transition-colors"
-                              style={{ color: '#8A96A3' }}
+                              style={{ color: '#5B6472' }}
                             >
-                              <span style={{ color: '#D4A017' }}>{'{{'}</span>
+                              <span style={{ color: '#1E4ED8' }}>{'{{'}</span>
                               {variable}
-                              <span style={{ color: '#D4A017' }}>{'}}'}</span>
+                              <span style={{ color: '#1E4ED8' }}>{'}}'}</span>
                               {copiedVariable === variable && <Check className="w-3 h-3 ml-auto text-green-500" />}
                             </button>
                           ))}
@@ -422,7 +422,7 @@ export default function AdminKnowledgeBase() {
                     <Button
                       onClick={handleSave}
                       disabled={isActionLoading(`save-prompt-${editingTask}`)}
-                      className="h-10 rounded-lg bg-[#D4A017] text-white hover:bg-[#D4A017]/90"
+                      className="h-10 rounded-lg bg-[#1E4ED8] text-white hover:bg-[#1E4ED8]/90"
                       style={{
                         opacity: isActionLoading(`save-prompt-${editingTask}`) ? 0.7 : 1,
                         cursor: isActionLoading(`save-prompt-${editingTask}`) ? 'not-allowed' : 'pointer',
@@ -453,8 +453,8 @@ export default function AdminKnowledgeBase() {
                   <div
                     className="rounded-lg p-3 font-mono text-[12px] leading-relaxed mb-2 overflow-hidden"
                     style={{
-                      background: '#0D1520',
-                      color: '#8A96A3'
+                      background: '#FFFFFF',
+                      color: '#5B6472'
                     }}
                   >
                     {isExpanded ? prompt.system_prompt : getPreviewLines(prompt.system_prompt, 3)}
@@ -462,7 +462,7 @@ export default function AdminKnowledgeBase() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-[#D4A017] hover:text-[#D4A017]/80 p-0 h-auto text-[13px]"
+                    className="text-[#1E4ED8] hover:text-[#1E4ED8]/80 p-0 h-auto text-[13px]"
                     onClick={() => toggleExpand(prompt.task_type)}
                   >
                     {isExpanded ? 'Show less' : 'Show full prompt'}
@@ -514,7 +514,7 @@ export default function AdminKnowledgeBase() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-[#D4A017] border-[#D4A017] hover:bg-[#D4A017]/10"
+                      className="text-[#1E4ED8] border-[#1E4ED8] hover:bg-[#1E4ED8]/10"
                       onClick={() => setRestoringVersion(version.id)}
                       disabled={isActionLoading(`restore-version-${version.id}`)}
                       style={{
@@ -543,8 +543,8 @@ export default function AdminKnowledgeBase() {
                   <div
                     className="rounded p-2 font-mono text-[11px] overflow-hidden max-h-24"
                     style={{
-                      background: '#0D1520',
-                      color: '#8A96A3'
+                      background: '#FFFFFF',
+                      color: '#5B6472'
                     }}
                   >
                     {getPreviewLines(version.system_prompt, 2)}
@@ -573,7 +573,7 @@ export default function AdminKnowledgeBase() {
               Cancel
             </Button>
             <Button
-              className="bg-[#D4A017] text-white hover:bg-[#D4A017]/90"
+              className="bg-[#1E4ED8] text-white hover:bg-[#1E4ED8]/90"
               onClick={() => restoringVersion && handleRestore(restoringVersion)}
               disabled={isActionLoading(`restore-version-${restoringVersion}`)}
               style={{

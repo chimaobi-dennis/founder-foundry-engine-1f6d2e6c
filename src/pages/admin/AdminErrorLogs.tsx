@@ -55,26 +55,26 @@ const ERROR_TYPE_OPTIONS: { value: ErrorType | 'all'; label: string }[] = [
 ];
 
 const MODULE_COLORS: Record<ErrorModule, string> = {
-  mentor: '#D4A017',
-  prostudio: '#14B8A6',
-  campaignkit: '#3B82F6',
-  contentcalendar: '#8B5CF6',
-  docstudio: '#A855F7',
-  reelbuilder: '#EC4899',
-  library: '#6B7280',
-  brand_dna: '#F59E0B',
+  mentor: '#1E4ED8',
+  prostudio: '#0F766E',
+  campaignkit: '#1E4ED8',
+  contentcalendar: '#6D28D9',
+  docstudio: '#6D28D9',
+  reelbuilder: '#BE185D',
+  library: '#5B6472',
+  brand_dna: '#8A5A00',
   auth: '#10B981',
-  admin: '#EF4444',
-  other: '#6B7280'
+  admin: '#B42318',
+  other: '#5B6472'
 };
 
 const ERROR_TYPE_COLORS: Record<ErrorType, string> = {
-  ai_call: '#EF4444',
-  database: '#F97316',
-  storage: '#EAB308',
-  auth: '#3B82F6',
-  api: '#8B5CF6',
-  unknown: '#6B7280'
+  ai_call: '#B42318',
+  database: '#8A5A00',
+  storage: '#8A5A00',
+  auth: '#1E4ED8',
+  api: '#6D28D9',
+  unknown: '#5B6472'
 };
 
 interface ErrorRecord {
@@ -242,7 +242,7 @@ export default function AdminErrorLogs() {
   if (loading && errors.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-4 h-4 rounded-full bg-[#D4A017] animate-pulse" />
+        <div className="w-4 h-4 rounded-full bg-[#1E4ED8] animate-pulse" />
       </div>
     );
   }
@@ -264,21 +264,21 @@ export default function AdminErrorLogs() {
         <div 
           className="p-4 rounded-lg border bg-card"
           style={{ 
-            borderColor: stats.unresolved > 0 ? '#D4A017' : 'transparent',
+            borderColor: stats.unresolved > 0 ? '#1E4ED8' : 'transparent',
             borderWidth: stats.unresolved > 0 ? '0.5px' : '0px'
           }}
         >
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Unresolved</p>
           <p 
             className="text-2xl font-semibold"
-            style={{ color: stats.unresolved > 0 ? '#D4A017' : 'inherit' }}
+            style={{ color: stats.unresolved > 0 ? '#1E4ED8' : 'inherit' }}
           >
             {stats.unresolved}
           </p>
         </div>
         <div className="p-4 rounded-lg border border-border bg-card">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">AI errors</p>
-          <p className="text-2xl font-semibold" style={{ color: '#3B82F6' }}>{stats.aiErrors}</p>
+          <p className="text-2xl font-semibold" style={{ color: '#1E4ED8' }}>{stats.aiErrors}</p>
         </div>
         <div className="p-4 rounded-lg border border-border bg-card">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">Last 24 hours</p>
@@ -346,7 +346,7 @@ export default function AdminErrorLogs() {
 
         <Button
           variant="outline"
-          className="text-[#D4A017] border-[#D4A017] hover:bg-[#D4A017]/10"
+          className="text-[#1E4ED8] border-[#1E4ED8] hover:bg-[#1E4ED8]/10"
           onClick={() => setMarkAllDialogOpen(true)}
           disabled={isActionLoading('resolve-all')}
           style={{
@@ -450,7 +450,7 @@ export default function AdminErrorLogs() {
                       <div className="flex items-center gap-2">
                         <div 
                           className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold text-white"
-                          style={{ background: '#D4A017' }}
+                          style={{ background: '#1E4ED8' }}
                         >
                           {getUserInitials(error)}
                         </div>
@@ -487,7 +487,7 @@ export default function AdminErrorLogs() {
                         className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium"
                         style={{ 
                           background: error.is_resolved ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                          color: error.is_resolved ? '#22C55E' : '#F87171'
+                          color: error.is_resolved ? '#157347' : '#B42318'
                         }}
                       >
                         {error.is_resolved ? 'Resolved' : 'Open'}
@@ -498,7 +498,7 @@ export default function AdminErrorLogs() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-[#D4A017] hover:text-[#D4A017]/80 p-0 h-auto text-[12px]"
+                          className="text-[#1E4ED8] hover:text-[#1E4ED8]/80 p-0 h-auto text-[12px]"
                           disabled={isActionLoading(`resolve-error-${error.id}`)}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -546,19 +546,19 @@ export default function AdminErrorLogs() {
                         <div
                           className="p-4 font-mono text-[12px]"
                           style={{ 
-                            background: '#080F18',
+                            background: '#F5F7FA',
                             borderRadius: '8px',
                             margin: '4px 16px 4px 16px'
                           }}
                         >
                           <div className="space-y-4">
                             <div>
-                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#D4A017' }}>MESSAGE</p>
+                              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#1E4ED8' }}>MESSAGE</p>
                               <p className="text-foreground whitespace-pre-wrap">{error.error_message}</p>
                             </div>
                             
                             <div>
-                              <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#D4A017' }}>WHERE IT HAPPENED</p>
+                              <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#1E4ED8' }}>WHERE IT HAPPENED</p>
                               <div className="space-y-1" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
                                 <div><span className="inline-block w-24">Page:</span> {error.url_path || '—'}</div>
                                 <div><span className="inline-block w-24">Component:</span> {error.component_name || '—'}</div>
@@ -568,21 +568,21 @@ export default function AdminErrorLogs() {
                             
                             {error.user_action && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#D4A017' }}>WHAT THE USER WAS DOING</p>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#1E4ED8' }}>WHAT THE USER WAS DOING</p>
                                 <p style={{ color: 'rgba(255, 255, 255, 0.6)' }}>{error.user_action}</p>
                               </div>
                             )}
                             
                             {error.pipeline_step && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#D4A017' }}>PIPELINE STEP THAT FAILED</p>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#1E4ED8' }}>PIPELINE STEP THAT FAILED</p>
                                 <p style={{ color: 'rgba(255, 255, 255, 0.6)' }}>{error.pipeline_step}</p>
                               </div>
                             )}
                             
                             {error.breadcrumbs && error.breadcrumbs.length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#D4A017' }}>BREADCRUMBS (recent actions before this error)</p>
+                                <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#1E4ED8' }}>BREADCRUMBS (recent actions before this error)</p>
                                 <div className="space-y-1">
                                   {error.breadcrumbs.map((crumb: any, idx: number) => (
                                     <div key={idx} className="flex items-center gap-4 text-[11px]" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
@@ -602,7 +602,7 @@ export default function AdminErrorLogs() {
                             
                             {(error.task_type || error.model_id || error.provider_slug) && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#D4A017' }}>AI CONTEXT</p>
+                                <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#1E4ED8' }}>AI CONTEXT</p>
                                 <div className="space-y-1" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
                                   {error.task_type && <div><span className="inline-block w-24">Task type:</span> {error.task_type}</div>}
                                   {error.model_id && <div><span className="inline-block w-24">Model:</span> {error.model_id}</div>}
@@ -613,14 +613,14 @@ export default function AdminErrorLogs() {
                             
                             {error.context && Object.keys(error.context).length > 0 && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#D4A017' }}>ADDITIONAL CONTEXT</p>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#1E4ED8' }}>ADDITIONAL CONTEXT</p>
                                 <pre className="text-foreground overflow-x-auto text-[11px]" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>{JSON.stringify(error.context, null, 2)}</pre>
                               </div>
                             )}
                             
                             {error.error_stack && (
                               <div>
-                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#D4A017' }}>STACK TRACE (if available)</p>
+                                <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: '#1E4ED8' }}>STACK TRACE (if available)</p>
                                 <pre className="text-foreground overflow-x-auto text-[10px]" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>{error.error_stack}</pre>
                               </div>
                             )}
@@ -634,7 +634,7 @@ export default function AdminErrorLogs() {
                                   className="flex-1 h-9"
                                 />
                                 <Button
-                                  className="bg-[#D4A017] text-white hover:bg-[#D4A017]/90"
+                                  className="bg-[#1E4ED8] text-white hover:bg-[#1E4ED8]/90"
                                   onClick={() => handleResolve(error.id)}
                                   disabled={isActionLoading(`resolve-error-${error.id}`)}
                                   style={{
@@ -730,7 +730,7 @@ export default function AdminErrorLogs() {
               Cancel
             </Button>
             <Button
-              className="bg-[#D4A017] text-white hover:bg-[#D4A017]/90"
+              className="bg-[#1E4ED8] text-white hover:bg-[#1E4ED8]/90"
               onClick={handleMarkAllResolved}
               disabled={isActionLoading('resolve-all')}
               style={{

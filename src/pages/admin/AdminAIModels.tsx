@@ -379,7 +379,7 @@ export default function AdminAIModels() {
                           <span style={{
                             width: '10px',
                             height: '10px',
-                            border: '2px solid #D4A017',
+                            border: '2px solid #1E4ED8',
                             borderTopColor: 'transparent',
                             borderRadius: '50%',
                             display: 'inline-block',
@@ -468,7 +468,7 @@ export default function AdminAIModels() {
                           <span style={{
                             width: '10px',
                             height: '10px',
-                            border: '2px solid #D4A017',
+                            border: '2px solid #1E4ED8',
                             borderTopColor: 'transparent',
                             borderRadius: '50%',
                             display: 'inline-block',
@@ -494,7 +494,7 @@ export default function AdminAIModels() {
                           <span style={{
                             width: '10px',
                             height: '10px',
-                            border: '2px solid #D4A017',
+                            border: '2px solid #1E4ED8',
                             borderTopColor: 'transparent',
                             borderRadius: '50%',
                             display: 'inline-block',
@@ -556,7 +556,7 @@ export default function AdminAIModels() {
                     <span style={{
                       width: '10px',
                       height: '10px',
-                      border: '2px solid #D4A017',
+                      border: '2px solid #1E4ED8',
                       borderTopColor: 'transparent',
                       borderRadius: '50%',
                       display: 'inline-block',
@@ -605,7 +605,7 @@ export default function AdminAIModels() {
                       <span style={{
                         width: '10px',
                         height: '10px',
-                        border: '2px solid #D4A017',
+                        border: '2px solid #1E4ED8',
                         borderTopColor: 'transparent',
                         borderRadius: '50%',
                         display: 'inline-block',
