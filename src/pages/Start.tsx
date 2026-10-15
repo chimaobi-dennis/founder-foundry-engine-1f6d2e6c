@@ -127,18 +127,14 @@ export default function Start() {
     if (user) {
       await supabase.from("profiles").update({ onboarding_completed: true, brand_status: kind === "starting" ? "have_idea" : "in_progress", updated_at: new Date().toISOString() }).eq("id", user.id);
       await grantFreeTrialCredits(user.id).catch(() => null);
-      await refetchProfile();
     }
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* storage unavailable */ }
-    await refreshBrands();
+    // The plan is written while the founder watches the building screen; the
+    // profile and brand list refresh afterwards, right before the plan opens.
     setBusy("plan");
     const p = await buildPlan(brandId, undefined, "auto");
-    setBusy(null);
-    if (!p.success) {
-      toast.error(p.error ?? "Kinika could not write the plan yet; you can from the plan page.");
-      navigate("/plan", { replace: true });
-      return;
-    }
+    if (!p.success) toast.error(p.error ?? "Kinika could not write the plan yet; you can from the plan page.");
+    await Promise.all([refetchProfile(), refreshBrands()]);
     navigate("/plan", { replace: true });
   };
 
@@ -190,16 +186,30 @@ export default function Start() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="h-[100dvh] overflow-y-auto overflow-x-hidden bg-background text-foreground flex flex-col" style={{ WebkitOverflowScrolling: "touch" }}>
       <header className="flex items-center justify-between px-6 md:px-10 py-5 border-b border-border">
         <span className="font-display text-[22px]">Kinika</span>
-        <span className="font-ui text-[12px] tracking-[0.18em] uppercase text-muted-foreground">Getting to know your business · {Math.min(step, 3)} of 3</span>
+        <span className="font-ui text-[12px] tracking-[0.18em] uppercase text-muted-foreground">{busy === "plan" ? "Writing your plan" : <>Getting to know your business · {Math.min(step, 3)} of 3</>}</span>
       </header>
-      <Stepper />
+      {busy !== "plan" && <Stepper />}
 
       <main className="flex-1 flex justify-center px-4 md:px-6 py-10 md:py-14">
+        {/* ── Kinika is writing the plan ── */}
+        {busy === "plan" && (
+          <div className="w-full max-w-[560px] flex flex-col gap-6 self-center" role="status" aria-live="polite">
+            <span className="inline-flex items-center gap-2 font-ui text-[12px] tracking-[0.18em] uppercase text-[hsl(var(--brand-good))]"><Check size={14} /> Kinika knows your business</span>
+            <h1 className="font-display text-[32px] md:text-[38px] leading-[1.1] inline-flex items-center gap-3"><Loader2 size={26} className="animate-spin text-primary shrink-0" /> Kinika is writing your plan</h1>
+            <p className="font-ui text-[15px] leading-relaxed text-muted-foreground max-w-[52ch]">{(ownGoal.trim() || goal) ? <>Towards: <strong className="text-foreground font-medium">{ownGoal.trim() || goal}</strong>, {horizon.toLowerCase()}.</> : "Based on what Kinika understood."} This takes about half a minute.</p>
+            <ol className="flex flex-col gap-2.5 font-ui text-[14px] text-muted-foreground">
+              {["Two to five targets you can check off", "The tasks under each, and which an agent could do", "The roles Kinika would hire for them"].map((t, i) => (
+                <li key={t} className="flex items-center gap-3"><span className="w-6 h-6 rounded-full border border-border inline-flex items-center justify-center text-[11px] font-semibold text-foreground shrink-0">{i + 1}</span>{t}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
         {/* ── 1 · Tell Kinika about your business ── */}
-        {step === 1 && (
+        {busy !== "plan" && step === 1 && (
           <div className="w-full max-w-[720px] flex flex-col gap-7">
             <div className="flex flex-col gap-3">
               <h1 className="font-display text-[36px] md:text-[44px] leading-[1.1]">Tell Kinika about your business.</h1>
@@ -230,7 +240,7 @@ export default function Start() {
         )}
 
         {/* ── 2 · What Kinika will read  /  2b · Getting started ── */}
-        {step === 2 && !isStarting && (
+        {busy !== "plan" && step === 2 && !isStarting && (
           <div className="w-full max-w-[760px] flex flex-col gap-6">
             <div className="flex flex-col gap-3">
               <h1 className="font-display text-[34px] md:text-[40px] leading-[1.12]">Help Kinika understand your business.</h1>
@@ -274,7 +284,7 @@ export default function Start() {
           </div>
         )}
 
-        {step === 2 && isStarting && (
+        {busy !== "plan" && step === 2 && isStarting && (
           <div className="w-full max-w-[720px] flex flex-col gap-6">
             <div className="flex flex-col gap-3">
               <p className="font-ui text-[12px] tracking-[0.18em] uppercase text-accent-foreground">Thinking of starting something</p>
@@ -296,7 +306,7 @@ export default function Start() {
         )}
 
         {/* ── 3 · Your business, as Kinika understands it ── */}
-        {step === 3 && readback && (
+        {busy !== "plan" && step === 3 && readback && (
           <div className="w-full max-w-[800px] flex flex-col gap-6">
             <div className="flex flex-col gap-2.5">
               <h1 className="font-display text-[32px] md:text-[38px] leading-[1.12]">Here is what Kinika understood. Is it right?</h1>
@@ -334,7 +344,7 @@ export default function Start() {
         )}
 
         {/* ── 4 · What do you want to achieve? ── */}
-        {step === 4 && readback && (
+        {busy !== "plan" && step === 4 && readback && (
           <div className="w-full max-w-[720px] flex flex-col gap-7">
             <div className="flex flex-col gap-3">
               <span className="inline-flex items-center gap-2 font-ui text-[12px] tracking-[0.18em] uppercase text-[hsl(var(--brand-good))]"><Check size={14} /> Kinika knows your business</span>
