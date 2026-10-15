@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/hooks/use-brand";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { listAgents, listHires, hireAgent, type Agent, type AgentHire } from "@/services/agentService";
 import { getEntitlements, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
 import { KinikaTeam } from "@/components/plan/KinikaTeam";
@@ -69,7 +70,7 @@ export default function Plan() {
   };
 
   if (!activeBrand) return <div className="p-8 font-ui text-[13px] text-muted-foreground">Pick a business first.</div>;
-  if (!loaded) return <div className="p-8"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
+  if (!loaded) return <PlanSkeleton />;
 
   if (!plan) {
     return (
@@ -251,5 +252,52 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, s
         )
       )}
     </section>
+  );
+}
+
+/** The plan page's shape while it loads: header, progress, revise row, team card, two targets. */
+function PlanSkeleton() {
+  return (
+    <div className="max-w-4xl mx-auto px-4 md:px-8 py-10 space-y-8" aria-busy="true" aria-label="Loading your plan">
+      <header>
+        <Skeleton className="h-3 w-40 mb-3" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-3">
+            <Skeleton className="h-8 w-3/4 max-w-md" />
+            <Skeleton className="h-4 w-full max-w-prose" />
+            <Skeleton className="h-4 w-2/3 max-w-prose" />
+          </div>
+          <Skeleton className="h-9 w-16 shrink-0" />
+        </div>
+        <Skeleton className="mt-4 h-1 w-full rounded-full" />
+        <Skeleton className="mt-3 h-3 w-56" />
+        <div className="mt-4 flex items-center gap-2">
+          <Skeleton className="h-8 w-36 rounded-lg" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="ml-auto h-4 w-64" />
+        </div>
+      </header>
+      <Skeleton className="h-14 w-full rounded-xl" />
+      {[0, 1].map((i) => (
+        <section key={i} className="rounded-2xl border border-border bg-card p-5 md:p-6 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-6 w-2/3" />
+            </div>
+            <Skeleton className="h-4 w-8" />
+          </div>
+          <div className="space-y-2.5">
+            {[0, 1, 2].map((j) => (
+              <div key={j} className="flex items-center gap-3">
+                <Skeleton className="h-4 w-4 rounded-full shrink-0" />
+                <Skeleton className={j === 1 ? "h-4 w-1/2" : "h-4 w-3/4"} />
+                <Skeleton className="ml-auto h-5 w-20 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
