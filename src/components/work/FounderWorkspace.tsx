@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, FileText, Link2, Loader2, MessageSquare, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useBrand } from "@/hooks/use-brand";
 import { Textarea } from "@/components/ui/textarea";
 import { TaskChat } from "@/components/work/TaskChat";
 import { DeliverablesRail } from "@/components/work/DeliverablesRail";
 import { DeliverableSheet } from "@/components/work/DeliverableSheet";
 import { setTaskStatus, type Deliverable } from "@/services/planService";
-import { breakdownTask, createTaskDocument, saveDeliverables, saveDocumentBody, type Workspace } from "@/services/workspaceService";
+import { breakdownTask, saveDeliverables, saveDocumentBody, type Workspace } from "@/services/workspaceService";
 
 /**
  * A founder's own plan task, worked with Kinika. Kinika breaks the task into
@@ -19,8 +18,6 @@ import { breakdownTask, createTaskDocument, saveDeliverables, saveDocumentBody, 
  */
 export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId: string; reload: () => Promise<void> }) {
   const navigate = useNavigate();
-  const { brands } = useBrand();
-  const brand = useMemo(() => brands.find((b) => b.id === ws.task.brand_id) ?? null, [brands, ws.task.brand_id]);
   const [deliverables, setDeliverables] = useState<Deliverable[]>(ws.task.deliverables ?? []);
   const [breaking, setBreaking] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -35,6 +32,15 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
   const [ask, setAsk] = useState<{ text: string; note: string; nonce: number } | null>(null);
   const bodyRef = useRef(body); bodyRef.current = body;
   const brokeRef = useRef(false);
+
+  // The server applies replies (deliverables, documents); after a reload the workspace follows it.
+  useEffect(() => { setDeliverables(ws.task.deliverables ?? []); }, [ws.task.deliverables]);
+  useEffect(() => {
+    if (!ws.document) return;
+    if (!document) { setDocument(ws.document); setBody(ws.document.body_md ?? ""); setView("document"); setChatOpen(true); return; }
+    if (ws.document.id === document.id && !dirty && ws.document.body_md !== document.body_md) { setDocument(ws.document); setBody(ws.document.body_md ?? ""); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ws.document]);
 
   const allDone = deliverables.length > 0 && deliverables.every((d) => d.done);
   const taskDone = ws.task.status === "done";
@@ -70,15 +76,6 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
     setBusyId(null);
   };
 
-  const markDone = useCallback(async (done: { id: string; result: string | null }[]) => {
-    const now = new Date().toISOString();
-    const byId = new Map(done.map((d) => [d.id, d.result]));
-    const next = deliverables.map((x) => byId.has(x.id) ? { ...x, done: true, done_at: x.done_at ?? now, result: byId.get(x.id) ?? x.result ?? null } : x);
-    await persist(next);
-    const names = next.filter((x) => byId.has(x.id)).map((x) => x.title);
-    if (names.length) toast(`Done: ${names.join(", ")}`, { action: { label: "See it", onClick: () => setOpenId(done[0].id) } });
-  }, [deliverables, persist]);
-
   /** Open a deliverable: documents go to the document surface, everything else to the side sheet. */
   const openDeliverable = (d: Deliverable) => {
     if (d.kind === "document" && (d.document_id || document)) { setView("document"); return; }
@@ -98,20 +95,6 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
     await persist(deliverables.map((x) => x.id === d.id ? { ...x, result: result || null } : x));
   };
 
-  const onDocument = useCallback(async (doc: { title: string; body: string }) => {
-    if (document) {
-      // A second write replaces Kinika's version but never the founder's edits.
-      if (!document.body_edited_at) { setBody(doc.body); setDirty(true); }
-      else toast(`Kinika wrote a new version of "${doc.title}". Your edits are kept; it is in the conversation.`);
-      return;
-    }
-    const created = await createTaskDocument(ws, userId, doc.title, doc.body);
-    if (!created) { toast.error("Could not save the document"); return; }
-    setDocument(created); setBody(created.body_md ?? ""); setView("document"); setChatOpen(true);
-    const target = deliverables.find((d) => d.kind === "document" && !d.document_id);
-    if (target) await persist(deliverables.map((x) => x.id === target.id ? { ...x, document_id: created.id } : x));
-  }, [document, ws, userId, deliverables, persist]);
-
   const complete = async () => {
     setCompleting(true);
     if (dirty && document) await saveDocumentBody(document.id, bodyRef.current);
@@ -123,11 +106,9 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
     navigate("/plan");
   };
 
-  if (!brand) return <div className="p-8 font-ui text-[13px] text-muted-foreground">Loading your business…</div>;
-
   const showDoc = !!document && view === "document";
   const chat = (
-    <TaskChat ws={ws} userId={userId} brand={brand as never} deliverables={deliverables} onDeliverablesDone={markDone} onDocument={onDocument} compact={showDoc} ask={ask} />
+    <TaskChat ws={ws} deliverables={deliverables} onReplied={reload} compact={showDoc} ask={ask} />
   );
 
   return (
