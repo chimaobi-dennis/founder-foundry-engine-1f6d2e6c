@@ -133,6 +133,18 @@ export function taskPromptBlock(ctx: TaskChatContext): string {
 /** Kinika's reply when working a task: the clean text, the deliverables it closed (with outcomes) and a document if it wrote one. */
 export interface ReplyOption { label: string; value: string }
 
+/** What of a reply still streaming may be shown: everything before the first machine tag, and no half-typed tag at the end. */
+export function visibleWhileStreaming(text: string): { text: string; writingDocument: boolean } {
+  const cut = text.search(/<(STATE|DELIVERABLE_DONE)\b/i);
+  let shown = cut >= 0 ? text.slice(0, cut) : text;
+  let writingDocument = false;
+  const doc = shown.search(/<DOCUMENT\b/i);
+  if (doc >= 0) { shown = shown.slice(0, doc); writingDocument = true; }
+  // A tag that has only begun to arrive ("<STA", "<DOC") is not text yet.
+  shown = shown.replace(/<[A-Za-z_]{0,16}$/, '');
+  return { text: shown.replace(/```\s*$/, '').trimEnd(), writingDocument };
+}
+
 export function parseTaskReply(text: string, deliverables?: { id: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: string[]; options: ReplyOption[] } {
   const done: { id: string; result: string | null }[] = [];
   let suggestions: string[] = [];
