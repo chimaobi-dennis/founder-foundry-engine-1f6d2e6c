@@ -5,12 +5,13 @@ import type { Deliverable } from "@/services/planService";
 const ICON: Record<Deliverable["kind"], typeof Check> = { decision: Scale, document: FileText, list: ListChecks, action: Zap };
 
 /** The deliverables that complete a founder task, ticked as the work with Kinika progresses. */
-export function DeliverablesRail({ deliverables, breaking, busyId, onToggle, onOpenDocument }: {
+export function DeliverablesRail({ deliverables, breaking, busyId, onToggle, onOpen }: {
   deliverables: Deliverable[];
   breaking: boolean;
   busyId: string | null;
   onToggle: (d: Deliverable) => void;
-  onOpenDocument?: (documentId: string) => void;
+  /** Open the deliverable itself: its list, decision, or document. */
+  onOpen: (d: Deliverable) => void;
 }) {
   const done = deliverables.filter((d) => d.done).length;
   return (
@@ -31,11 +32,11 @@ export function DeliverablesRail({ deliverables, breaking, busyId, onToggle, onO
               <button disabled={busyId === d.id} onClick={() => onToggle(d)} className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary disabled:opacity-50" aria-label={d.done ? "Mark not done" : "Mark done"}>
                 {busyId === d.id ? <Loader2 size={15} className="animate-spin" /> : d.done ? <Check size={15} className="text-[hsl(var(--brand-good))]" /> : <Circle size={15} />}
               </button>
-              <div className="min-w-0 flex-1">
-                <p className={cn("font-ui text-[12px] font-medium leading-snug", d.done && "line-through text-muted-foreground")}>{d.title}</p>
+              <button onClick={() => onOpen(d)} className="min-w-0 flex-1 text-left group">
+                <p className={cn("font-ui text-[12px] font-medium leading-snug group-hover:underline", d.done && "text-muted-foreground")}>{d.title}</p>
                 {d.detail && <p className="font-ui text-[11px] text-muted-foreground mt-0.5 leading-snug">{d.detail}</p>}
-                <p className="font-ui text-[10px] text-muted-foreground mt-1 inline-flex items-center gap-1"><Icon size={10} /> {d.kind}{d.document_id && onOpenDocument && <button onClick={() => onOpenDocument(d.document_id!)} className="ml-1 underline">open</button>}</p>
-              </div>
+                <p className="font-ui text-[10px] text-muted-foreground mt-1 inline-flex items-center gap-1"><Icon size={10} /> {d.kind}{d.done && <span className="text-[hsl(var(--brand-good))]">· {d.result || d.document_id ? "see the outcome" : "no outcome written"}</span>}</p>
+              </button>
             </li>
           );
         })}

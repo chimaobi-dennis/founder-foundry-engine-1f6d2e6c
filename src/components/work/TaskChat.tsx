@@ -15,14 +15,16 @@ import type { Workspace } from "@/services/workspaceService";
  * deliverables done or write a document; the workspace owns both and is told
  * through the callbacks. The first turn is Kinika's: it opens the task.
  */
-export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, onDocument, compact = false }: {
+export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, onDocument, compact = false, ask }: {
   ws: Workspace;
   userId: string;
   brand: { id: string; name: string; journey_stage?: string | null; context_source?: string | null } & Record<string, unknown>;
   deliverables: Deliverable[];
-  onDeliverablesDone: (ids: string[]) => Promise<void>;
+  onDeliverablesDone: (done: { id: string; result: string | null }[]) => Promise<void>;
   onDocument: (doc: { title: string; body: string }) => Promise<void>;
   compact?: boolean;
+  /** A message the workspace wants sent on the founder's behalf (new nonce each time). */
+  ask?: { text: string; nonce: number } | null;
 }) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MentorMessage[]>([]);
@@ -81,6 +83,13 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   }, [ready, conversationId, messages.length, deliverables.length, turn]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [messages, streaming]);
+
+  const askedRef = useRef<number>(0);
+  useEffect(() => {
+    if (!ask || ask.nonce === askedRef.current || !ready || busy) return;
+    askedRef.current = ask.nonce;
+    turn(ask.text, true);
+  }, [ask, ready, busy, turn]);
 
   const send = async () => {
     const text = draft.trim();

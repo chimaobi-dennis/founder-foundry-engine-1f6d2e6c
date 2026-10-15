@@ -22,6 +22,8 @@ export interface Deliverable {
   done: boolean;
   done_at: string | null;
   document_id: string | null;
+  /** The outcome, as Markdown: the list, the decision, what was done. Documents live in `documents`. */
+  result?: string | null;
 }
 
 export interface PlanTask {
