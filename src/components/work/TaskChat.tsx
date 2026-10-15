@@ -46,14 +46,16 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   const turn = useCallback(async (userText: string, saveUser: boolean) => {
     if (!conversationId) return;
     setBusy(true);
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    // The founder's message is on screen before Kinika's bubble appears; the save catches up.
+    if (saveUser) {
+      const tempId = `temp-${Date.now()}`;
+      setMessages((m) => [...m, { id: tempId, conversation_id: conversationId, role: "user", content: userText, created_at: new Date().toISOString() } as MentorMessage]);
+      saveMessage(conversationId, "user", userText).then((saved) => { if (saved) setMessages((m) => m.map((x) => x.id === tempId ? saved : x)); });
+    }
     setStartedAt(Date.now());
     setStreaming("");
-    if (saveUser) {
-      const saved = await saveMessage(conversationId, "user", userText);
-      if (saved) setMessages((m) => [...m, saved]);
-    }
     const dna = await getBrandDNA(brand.id).catch(() => null);
-    const history = messages.map((m) => ({ role: m.role, content: m.content }));
     const r = await getMentorAIResponse(userId, brand, dna, history, userText, (t) => setStreaming((s) => (s ?? "") + t), undefined, ctx());
     setStreaming(null);
     if (!r) { setBusy(false); toast.error("Kinika did not answer. Try again."); return; }
