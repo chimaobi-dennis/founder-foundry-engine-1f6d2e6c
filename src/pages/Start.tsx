@@ -13,6 +13,7 @@ import { grantFreeTrialCredits } from "@/services/billingAdminService";
 import { buildPlan } from "@/services/planService";
 import { approveUnderstanding, draftUnderstanding, readTextFile, type BusinessKind, type Readback } from "@/services/understandingService";
 import { ReadingPanel } from "@/components/start/ReadingPanel";
+import { openSupport } from "@/services/supportService";
 
 /**
  * /start — the first run. Understanding comes before anything else:
@@ -65,6 +66,7 @@ export default function Start() {
   const [horizon, setHorizon] = useState(HORIZONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftFailures, setDraftFailures] = useState(0);
   const [reading, setReading] = useState<{ site: boolean; chat: boolean; documents: number; startedAt: number } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const firstSectionRef = useRef<HTMLTextAreaElement | null>(null);
@@ -139,7 +141,8 @@ export default function Start() {
     if (ctrl.signal.aborted) return;
     setBusy(null);
     setReading(null);
-    if (!r.success) { setDraftError(r.error); return; }
+    if (!r.success) { setDraftError(r.error); setDraftFailures((n) => n + 1); return; }
+    setDraftFailures(0);
     setReadback(r.readback);
     setSourcesRead(r.sourcesRead);
     setGoal(r.readback.goals[0] ?? "");
@@ -306,14 +309,14 @@ export default function Start() {
               <Textarea id="more" rows={3} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="Anything the sources would not show: what sells best, who your regulars are, what you have tried, what you refuse to do." />
             </div>
             {reading ? (
-              <ReadingPanel reading={reading} kind={kind} onUseWordsOnly={() => draft(true)} onStop={stopReading} />
+              <ReadingPanel reading={reading} kind={kind} onRetry={() => draft(false)} onStop={stopReading} />
             ) : (
               <>
-                {draftError && <DraftErrorPanel error={draftError} hasSources={!!(websiteUrl.trim() || chatUrl.trim() || documents.length)} onRetry={() => draft(false)} onWordsOnly={() => draft(true)} />}
+                {draftError && <DraftErrorPanel error={draftError} failures={draftFailures} onRetry={() => draft(false)} onSupport={() => openSupport({ where: "start/read-back", problem: draftError, details: { brandId, kind, site: !!websiteUrl.trim(), chat: !!chatUrl.trim(), documents: documents.length, failures: draftFailures } })} />}
                 <div className="flex items-center gap-4 flex-wrap">
                   <Back to={1} />
                   <button type="button" onClick={() => draft(false)} className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-primary text-primary-foreground font-ui text-[15px] font-medium">Show me what Kinika understood</button>
-                  <button type="button" onClick={() => draft(true)} className="font-ui text-[13px] text-muted-foreground underline">Skip the sources; use only what I wrote</button>
+                  <span className="font-ui text-[12px] text-muted-foreground">Kinika reads everything you gave it; that is what its memory of your business starts from.</span>
                 </div>
               </>
             )}
@@ -327,7 +330,7 @@ export default function Start() {
               <h1 className="font-display text-[34px] md:text-[40px] leading-[1.12]">Let us get you started.</h1>
               <p className="font-ui text-[16px] leading-relaxed text-muted-foreground max-w-[60ch]">That is enough to begin. Kinika will read it back to you, then propose a road from where you are to a business: find the problem, shape the smallest offer, get the first customers, then the brand. You change anything.</p>
             </div>
-            {draftError && !reading && <DraftErrorPanel error={draftError} hasSources={false} onRetry={() => draft(true)} onWordsOnly={() => draft(true)} />}
+            {draftError && !reading && <DraftErrorPanel error={draftError} failures={draftFailures} onRetry={() => draft(true)} onSupport={() => openSupport({ where: "start/read-back", problem: draftError, details: { brandId, kind, failures: draftFailures } })} />}
             <div className="flex flex-col gap-2">
               <label htmlFor="own" className="font-ui text-[13px] font-medium">What would "it worked" look like for you?</label>
               <Input id="own" value={ownGoal} onChange={(e) => setOwnGoal(e.target.value)} placeholder="A few restaurants paying me monthly for more bookings, by spring" />
@@ -423,14 +426,15 @@ export default function Start() {
   );
 }
 
-function DraftErrorPanel({ error, hasSources, onRetry, onWordsOnly }: { error: string; hasSources: boolean; onRetry: () => void; onWordsOnly: () => void }) {
+function DraftErrorPanel({ error, failures, onRetry, onSupport }: { error: string; failures: number; onRetry: () => void; onSupport: () => void }) {
+  const again = failures >= 2;
   return (
     <div role="alert" className="flex flex-col gap-3 p-4 rounded-xl border border-[hsl(var(--brand-needs-you))]/40 bg-[hsl(var(--brand-needs-you-soft))]">
-      <p className="font-ui text-[14px] leading-relaxed text-foreground"><strong className="font-semibold">Kinika could not finish the read-back.</strong> {error}</p>
+      <p className="font-ui text-[14px] leading-relaxed text-foreground"><strong className="font-semibold">{again ? "Kinika still could not finish the read-back." : "Kinika could not finish the read-back."}</strong> {error}</p>
       <div className="flex items-center gap-3 flex-wrap">
         <button type="button" onClick={onRetry} className="inline-flex items-center h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Try again</button>
-        {hasSources && <button type="button" onClick={onWordsOnly} className="inline-flex items-center h-10 px-4 rounded-lg border border-border bg-card font-ui text-[13px]">Use only what I wrote</button>}
-        <span className="font-ui text-[12px] text-muted-foreground">Nothing was saved; nothing was charged for a read-back that did not arrive.</span>
+        {again && <button type="button" onClick={onSupport} className="inline-flex items-center h-10 px-4 rounded-lg border border-border bg-card font-ui text-[13px]">Contact support</button>}
+        <span className="font-ui text-[12px] text-muted-foreground">{again ? "Everything you entered is still here. Support can see what went wrong." : "Nothing was saved; nothing was charged for a read-back that did not arrive."}</span>
       </div>
     </div>
   );

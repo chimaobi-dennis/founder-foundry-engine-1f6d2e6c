@@ -109,7 +109,8 @@ The more a founder works in Kinika, the better Kinika knows the business.
 * **Connections** — `tool_connections` + Vault secrets; connectors for Notion, Shopify, WordPress, GitHub, Ayrshare (social). OAuth flows, Slack and Gmail are planned (S5).
 * **Brand record** — `brands`, `brand_dna`, `brand_stage_data`, `brand_memories`; `buildContextPack`.
 * **Editor** — Scene → Nodes → Assets. Everything stays editable. Autosave exists; version history uses snapshots and diffs, never a version per keystroke.
-* **Model routing** — `ai-gateway`; admin-managed task types, classes, profiles, failover.
+* **Model routing** — `ai-gateway`; admin-managed task types, classes, profiles, failover. Understanding and plan building run on the reasoning class.
+* **Support (planned)** — a floating support chat, reachable from anywhere. The first caller is the first run: when the read-back fails twice, "Contact support" dispatches the `kinika:support` event (`src/services/supportService.ts`) with where, the problem and context; the chat calls `preventDefault` when it opens. The read-back never drops the founder's sources: Kinika's memory of the business is built from them.
 
 ---
 
