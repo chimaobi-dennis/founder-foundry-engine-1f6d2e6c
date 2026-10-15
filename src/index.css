@@ -329,3 +329,7 @@ body,
 .md th { background: hsl(var(--muted)); font-weight: 600; }
 .md input[type="checkbox"] { margin-right: 0.4em; }
 .md.md-on-primary, .md.md-on-primary strong, .md.md-on-primary a { color: inherit; }
+
+/* A line of text that fades in when it changes */
+@keyframes kinikaFadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+.ed-fade-in { animation: kinikaFadeIn .35s ease-out; }
