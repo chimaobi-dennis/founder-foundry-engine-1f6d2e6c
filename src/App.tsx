@@ -18,7 +18,6 @@ import Home from "./pages/Home";
 import Landing from "./pages/Landing";
 import Philosophy from "./pages/Philosophy";
 import System from "./pages/System";
-import Journal from "./pages/Journal";
 import Pricing from "./pages/Pricing";
 import Memory from "./pages/Memory";
 import Journey from "./pages/Journey";
@@ -79,7 +78,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthRoute = authRoutes.includes(location.pathname);
   const isPasswordRecovery = location.pathname === "/reset-password";
   const isOnboarding = location.pathname === "/start" || location.pathname === "/onboarding";
-  const editorialPaths = ["/", "/philosophy", "/system", "/journal", "/pricing", "/memory", "/journey"];
+  const editorialPaths = ["/", "/philosophy", "/system", "/pricing", "/memory", "/journey"];
   const isLanding = editorialPaths.includes(location.pathname);
   const isPublic = isLanding || isAuthRoute;
 
@@ -138,7 +137,6 @@ const App = () => (
                       <Route path="/" element={<Landing />} />
                       <Route path="/philosophy" element={<Philosophy />} />
                       <Route path="/system" element={<System />} />
-                      <Route path="/journal" element={<Journal />} />
                       <Route path="/pricing" element={<Pricing />} />
                       <Route path="/memory" element={<Memory />} />
                       <Route path="/journey" element={<Journey />} />

@@ -35,13 +35,13 @@ function planFromPackage(pkg: CreditPackage, index: number, seats: CreditPackage
   const memberSeat = seats.find((s) => s.addonKind === "member_seat");
   const includes = [
     `${(pkg.monthlyCredits ?? pkg.credits).toLocaleString()} credits every month`,
-    count(lim.agents, "agent on your team", "agents on your team"),
+    count(lim.agents, "agent seat; Kinika hires from your plan", "agent seats; Kinika hires from your plan"),
     count(lim.members, "person in the workspace", "people in the workspace"),
     count(lim.connections, "connected tool", "connected tools"),
     lim.code_repos ? count(lim.code_repos, "connected repository", "connected repositories") : null,
-    lim.autonomous_publishing ? "Agents can apply changes without a review stop" : "Every change reviewed by you before it goes out",
-    agentSeat && (lim.agents ?? 0) >= 0 ? `Extra agents ${money(agentSeat.priceUsd)} each per month` : null,
-    memberSeat && (lim.members ?? 0) >= 0 ? `Extra people ${money(memberSeat.priceUsd)} each per month` : null,
+    lim.autonomous_publishing ? "Act without asking, per kind of action, where you turn it on" : "Every result waits for your approval",
+    agentSeat && (lim.agents ?? 0) >= 0 ? `Extra agent seat ${money(agentSeat.priceUsd)} a month` : null,
+    memberSeat && (lim.members ?? 0) >= 0 ? `Extra person ${money(memberSeat.priceUsd)} a month` : null,
     lim.enterprise ? "Priority support and bespoke connections" : null,
   ].filter((x): x is string => !!x);
   return {
@@ -61,33 +61,33 @@ const FALLBACK_PLANS: Plan[] = [
   {
     no: "Plan 01",
     name: "Solo",
-    intent: "For one founder getting things going.",
+    intent: "For one founder with a plan to run.",
     price: "$20",
     cadence: "per month",
-    description: "Two agents, three schedules, 1,000 credits a month. Review-first on everything.",
-    includes: ["1,000 credits every month", "2 agents on your team", "1 person in the workspace", "2 connected tools", "1 connected repository", "Every change reviewed by you before it goes out", "Extra agents $10 each per month", "Extra people $5 each per month"],
+    description: "Two agent seats, 1,000 credits a month. Kinika hires one role at a time and swaps when a role is done. You approve every result.",
+    includes: ["1,000 credits every month", "2 agent seats; Kinika hires from your plan", "1 person in the workspace", "2 connected tools", "1 connected repository", "Every result waits for your approval", "Extra agent seat $10 a month", "Extra person $5 a month"],
     cta: "Start with Solo",
     to: "/sign-up?plan=solo",
   },
   {
     no: "Plan 02",
     name: "Startup",
-    intent: "For a small team automating real workflows.",
+    intent: "For a small team running real work through Kinika.",
     price: "$45",
     cadence: "per month",
-    description: "Five agents, fifteen schedules, 2,000 credits a month, autonomous publishing, three repos.",
-    includes: ["2,000 credits every month", "5 agents on your team", "3 people in the workspace", "Unlimited connected tools", "3 connected repositories", "Agents can apply changes without a review stop", "Extra agents $10 each per month", "Extra people $5 each per month"],
+    description: "Five agent seats, 2,000 credits a month, people in the workspace, standing tasks on a schedule.",
+    includes: ["2,000 credits every month", "5 agent seats; all roles at once", "3 people in the workspace", "Unlimited connected tools", "3 connected repositories", "Every result waits for your approval", "Extra agent seat $10 a month", "Extra person $5 a month"],
     cta: "Choose Startup",
     to: "/sign-up?plan=startup",
   },
   {
     no: "Plan 03",
     name: "Enterprise",
-    intent: "For teams running the business on agents.",
+    intent: "For teams and agencies running more than one business.",
     price: "$139",
     cadence: "per month",
-    description: "Ten agents, unlimited schedules and tools, 6,000 credits a month, twenty members, Enterprise unlocks.",
-    includes: ["6,000 credits every month", "10 agents on your team", "20 people in the workspace", "Unlimited connected tools", "Unlimited connected repositories", "Agents can apply changes without a review stop", "Extra agents $10 each per month", "Extra people $5 each per month", "Priority support and bespoke connections"],
+    description: "Ten agent seats, several businesses, 6,000 credits a month, twenty people, act-without-asking on kinds of action you choose.",
+    includes: ["6,000 credits every month", "10 agent seats across several businesses", "20 people in the workspace", "Unlimited connected tools and repositories", "Act without asking, per kind of action, where you turn it on", "Extra agent seat $10 a month", "Extra person $5 a month", "Priority support and bespoke connections"],
     cta: "Choose Enterprise",
     to: "/sign-up?plan=enterprise",
   },
@@ -95,24 +95,24 @@ const FALLBACK_PLANS: Plan[] = [
 
 /* What's the same for everyone */
 const ALWAYS_INCLUDED = [
-  "Every run is quoted in credits before it starts. No surprises.",
-  "Publishing and code changes always wait for your approval.",
-  "Changes agents make to your tools are logged and revertible one by one.",
-  "Your memory remains yours. Exportable, portable, cancel any month.",
+  "The free trial is plans and consultation: Kinika reads your business back, writes the plan and advises. No agent seats; 50 credits for that.",
+  "Seats are how many agents can be on the team. Credits are how much work they do. Every task is quoted in credits before it runs.",
+  "Nothing is sent, published or changed in a connected tool without your approval; every change can be reverted.",
+  "Your brand record and memory remain yours. Cancel any month; work already done stays."
 ];
 
 const FAQ = [
   {
     q: "What is a credit?",
-    a: "The unit every agent run is priced in. A credit is two cents. A caption costs a few credits, a researched blog post a few dozen, and you see the quote before you say yes. Top-ups never expire.",
+    a: "The unit every task is priced in. A credit is two cents. A research brief costs a few credits, a set of posts a few dozen, and you see the quote before Kinika hires anyone for it. Top-ups never expire.",
   },
   {
-    q: "What does an agent actually do?",
-    a: "It reads your Brand DNA and Mentor history, does the job you briefed, and brings the result back. Connect a shop, site, social accounts or a repository and it can act there too, with every change reviewable and revertible.",
+    q: "What is a seat, and who hires?",
+    a: "A seat is a place on the team for one agent at a time. Your plan names the roles it needs; you confirm once and Kinika hires them. With fewer seats than roles, Kinika hires in plan order and swaps when a role has no open tasks. You never manage agents one by one."
   },
   {
     q: "What if I need more agents or people?",
-    a: "Add a seat from Billing at any time. An extra agent is ten dollars a month, an extra person five. Remove them just as easily.",
+    a: "Add a seat from Billing at any time. An extra agent seat is ten dollars a month, an extra person five. Remove them just as easily; work already done stays."
   },
   {
     q: "Can I move between plans?",
@@ -336,7 +336,7 @@ export default function Pricing() {
     <>
       <SEO
         title="Pricing — Kinika"
-        description="Kinika plans for founders: Solo, Startup and Enterprise. Agents priced in credits, quoted before every run, with seats for more agents and people."
+        description="Kinika pricing: free to plan; Solo, Startup and Enterprise add agent seats. Work is priced in credits and quoted before it runs."
         path="/pricing"
         jsonLd={{
           "@context": "https://schema.org",
@@ -366,7 +366,7 @@ export default function Pricing() {
                   letterSpacing: "0.01em",
                 }}
               >
-                Three plans. One workspace.
+                Free to plan. Pay for seats and work.
               </p>
               <h1
                 className="pf ed-fade ed-d1"
@@ -379,7 +379,7 @@ export default function Pricing() {
                   maxWidth: "16ch",
                 }}
               >
-                Hire the team your business needs.
+                Seats for agents. Credits for work.
               </h1>
             </div>
             <aside className="col-span-12 lg:col-span-4 lg:pt-24">
@@ -400,8 +400,7 @@ export default function Pricing() {
                   A note before you choose
                 </p>
                 <p className="pf" style={{ fontSize: 17, lineHeight: 1.6, color: L.inkSoft, fontStyle: "italic" }}>
-                  Pricing should be the smallest, calmest decision in your day.
-                  We've tried to make ours exactly that.
+                  Start free: Kinika reads your business back and writes the plan with you. Add seats when you want Kinika to hire the roles the plan names.
                 </p>
               </div>
             </aside>
@@ -438,7 +437,7 @@ export default function Pricing() {
                   maxWidth: "16ch",
                 }}
               >
-                You are paying for the room.
+                You pay for seats and for work.
               </h2>
             </div>
             <div className="col-span-12 lg:col-span-7">
@@ -453,14 +452,14 @@ export default function Pricing() {
                   maxWidth: "44ch",
                 }}
               >
-                A subscription to Kinika is access to an intelligent founder workspace — not a
-                license to a piece of software.
+                Every plan is the same Kinika. The subscription sets how many agents can be on
+                the team at once, and how much work they do each month.
               </p>
               <p style={{ fontSize: 16, lineHeight: 1.78, color: L.inkSoft, maxWidth: "60ch" }}>
-                What you take away from the studio is yours. The brand you sharpen, the writing you
-                accumulate, the memory the system keeps on your behalf — all exportable, all
-                portable, never held against you. The fee is for the desk, the lighting, and the
-                careful colleague in the next chair.
+                Seats are how many agents Kinika can have working at once. Credits are how much
+                work gets done; every task is quoted before it runs. The free trial has no seats:
+                Kinika reads your business back, writes the plan and advises, and you do the tasks.
+                Add seats when you want Kinika to hire the roles the plan names.
               </p>
             </div>
           </div>
@@ -494,13 +493,13 @@ export default function Pricing() {
                   maxWidth: "22ch",
                 }}
               >
-                Choose the level of access. Move between plans at any time.
+                Choose how many seats. Move between plans at any time.
               </h2>
             </div>
             <aside className="col-span-12 lg:col-span-3 lg:pt-6">
               <p className="pf" style={{ fontSize: 15, color: L.inkSoft, lineHeight: 1.65, fontStyle: "italic" }}>
-                Every plan shares the same memory and the same principles.
-                Only the scope changes.
+                Every plan shares the same brand record, plan and approval rule.
+                Only seats, credits and people change.
               </p>
             </aside>
           </div>
@@ -613,7 +612,7 @@ export default function Pricing() {
                 maxWidth: "28ch",
               }}
             >
-              "We do not sell seats. We make a workspace founders can grow inside of."
+              "Nothing is sent, published or changed without your yes. That rule does not change with the plan."
             </p>
             <p
               style={{
@@ -731,22 +730,22 @@ export default function Pricing() {
                   marginBottom: 32,
                 }}
               >
-                Start free with one agent. Move up when the work does.
+                Start free: Kinika plans with you. Add seats when the work needs hands.
               </p>
               <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
                 <Link
                   to="/sign-up"
                   className="inline-flex items-center text-sm font-medium transition-all hover:-translate-y-px"
                   style={{
-                    background: L.ink,
-                    color: L.paper,
+                    background: L.amber,
+                    color: "#FFFFFF",
                     height: 44,
                     padding: "0 22px",
-                    borderRadius: 2,
+                    borderRadius: 8,
                     letterSpacing: "0.02em",
                   }}
                 >
-                  Start building with Kinika
+                  Start free
                 </Link>
                 <Link
                   to="/system"
@@ -771,8 +770,8 @@ export default function Pricing() {
                 About pricing
               </p>
               <p style={{ fontSize: 14, lineHeight: 1.7, color: L.inkSoft, maxWidth: "36ch" }}>
-                Kept deliberately simple, so the decision stays out of the way of
-                the work. Every plan is cancellable, exportable, and portable.
+                Kept simple so the decision stays out of the way of the work. Every plan
+                is cancellable any month, and what Kinika knows about your business stays yours.
               </p>
             </aside>
           </div>
