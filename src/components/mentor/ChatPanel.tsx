@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
+import { ThinkingLine } from "@/components/work/ThinkingLine";
 import { MentorBrand, Message, InlineSavePrompt, MilestoneMarker, Milestone, MilestoneCategory, categoryTextColors } from "./types";
 import { parseAIMessage, type ParsedSavePrompt } from "@/lib/savePromptParser";
 import {
@@ -371,6 +372,9 @@ export function ChatPanel({
     }
     onMilestoneScrolled();
   }, [scrollToMilestoneId, onMilestoneScrolled]);
+
+  const [thinkingStartedAt, setThinkingStartedAt] = useState(0);
+  useEffect(() => { if (thinkingState?.isThinking) setThinkingStartedAt(Date.now()); }, [thinkingState?.isThinking]);
 
   // Auto-scroll to bottom on new messages, typing, streaming, or thinking
   useEffect(() => {
@@ -1001,39 +1005,8 @@ export function ChatPanel({
           {/* Thinking state indicator */}
           {thinkingState.isThinking && (
             <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '12px' }}>
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '12px 16px',
-                background: 'var(--color-background-secondary)',
-                borderRadius: '12px',
-                maxWidth: '280px'
-              }}>
-                {/* Animated dots */}
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  {[0, 1, 2].map(i => (
-                    <div
-                      key={i}
-                      style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: '#D4A017',
-                        animation: `thinkingDot 1.2s ease-in-out infinite`,
-                        animationDelay: `${i * 0.2}s` 
-                      }}
-                    />
-                  ))}
-                </div>
-                {/* Thinking message */}
-                <span style={{
-                  fontSize: '13px',
-                  color: 'var(--color-text-secondary)',
-                  fontStyle: 'italic'
-                }}>
-                  {thinkingState.currentMessage}
-                </span>
+              <div className="inline-flex items-center px-4 py-3 rounded-xl bg-card border border-border">
+                <ThinkingLine startedAt={thinkingStartedAt} text={thinkingState.currentMessage || undefined} />
               </div>
             </div>
           )}

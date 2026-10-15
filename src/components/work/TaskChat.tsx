@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ThinkingLine } from "@/components/work/ThinkingLine";
 import { getBrandDNA } from "@/services/brandService";
 import { getMentorAIResponse, getMessages, getOrCreateTaskConversation, saveMessage, type MentorMessage, type TaskChatContext } from "@/services/mentorService";
 import type { Deliverable } from "@/services/planService";
@@ -30,6 +31,7 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   const [messages, setMessages] = useState<MentorMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState(0);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -44,6 +46,7 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
   const turn = useCallback(async (userText: string, saveUser: boolean) => {
     if (!conversationId) return;
     setBusy(true);
+    setStartedAt(Date.now());
     setStreaming("");
     if (saveUser) {
       const saved = await saveMessage(conversationId, "user", userText);
@@ -121,7 +124,7 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed">
                 <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>
-                {streaming ? <Markdown>{streaming}</Markdown> : <span className="inline-flex gap-1" aria-label="Kinika is writing"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" /><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:120ms]" /><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:240ms]" /></span>}
+                {streaming ? <Markdown>{streaming}</Markdown> : <ThinkingLine startedAt={startedAt} />}
               </div>
             </div>
           )}
