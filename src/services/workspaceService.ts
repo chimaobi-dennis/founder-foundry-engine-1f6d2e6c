@@ -6,7 +6,8 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { getRun, outputToText, type Agent, type Approval, type AutomationRun } from '@/services/agentService';
-import type { PlanTask } from '@/services/planService';
+import type { Deliverable, PlanTask } from '@/services/planService';
+import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 
 const db = supabase as any;
 
@@ -107,4 +108,40 @@ export function wantsCanvas(ws: Workspace): boolean {
   const o = (ws.approval?.payload?.output ?? ws.run?.output ?? null) as Record<string, unknown> | null;
   const slug = ws.agent?.slug ?? ws.task.agent_slug ?? "";
   return /design/i.test(slug) || !!(o && (o.visual_direction || Array.isArray((o as { headlines?: unknown }).headlines)));
+}
+
+// ─── Founder tasks worked with Kinika ───────────────────────
+
+/** Ask Kinika for the deliverables that complete a founder task (reused if they exist). */
+export async function breakdownTask(brandId: string, taskId: string): Promise<{ success: true; deliverables: Deliverable[] } | { success: false; error: string }> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { success: false, error: 'Not signed in' };
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/founder-plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'breakdown', brandId, taskId }),
+    });
+    const json = await res.json().catch(() => null);
+    return json ?? { success: false, error: `Kinika did not answer (${res.status})` };
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : 'Could not reach Kinika' };
+  }
+}
+
+/** Write the task's deliverables back (done flags, linked documents). Database truth; returns what was saved. */
+export async function saveDeliverables(taskId: string, deliverables: Deliverable[]): Promise<boolean> {
+  const { error } = await db.from('plan_tasks').update({ deliverables, updated_at: new Date().toISOString() }).eq('id', taskId);
+  return !error;
+}
+
+/** A document Kinika wrote for a founder task; the founder edits it on the document surface. */
+export async function createTaskDocument(ws: Workspace, userId: string, title: string, body: string): Promise<WorkDocument | null> {
+  const { data, error } = await db.from('documents').insert({
+    brand_id: ws.task.brand_id, user_id: userId, name: title.slice(0, 120), document_type: 'kinika_output',
+    purpose: ws.task.title, plan_task_id: ws.task.id, body_md: body,
+  }).select('id, name, body_md, body_edited_at, run_id, updated_at').single();
+  if (error) { console.error('[Workspace] createTaskDocument:', error.message); return null; }
+  return data;
 }

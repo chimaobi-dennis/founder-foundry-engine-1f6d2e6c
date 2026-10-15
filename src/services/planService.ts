@@ -14,8 +14,20 @@ const db = supabase as any;
 export type TaskStatus = 'todo' | 'doing' | 'done' | 'skipped';
 export type TargetStatus = 'upcoming' | 'current' | 'done';
 
+export interface Deliverable {
+  id: string;
+  title: string;
+  detail: string;
+  kind: 'decision' | 'document' | 'list' | 'action';
+  done: boolean;
+  done_at: string | null;
+  document_id: string | null;
+}
+
 export interface PlanTask {
   id: string;
+  /** What completes a founder task when it is worked with Kinika; empty until the workspace opens. */
+  deliverables?: Deliverable[];
   plan_id: string;
   target_id: string;
   title: string;

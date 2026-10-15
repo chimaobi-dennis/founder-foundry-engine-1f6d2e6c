@@ -215,16 +215,19 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, s
                   {k.owner === "agent" ? (agent?.name ?? k.agent_slug) : "You"}
                   {k.status === "doing" && <span className="text-primary">· in progress</span>}
                   {k.status === "skipped" && <span>· skipped</span>}
-                  {k.run_id && <button onClick={() => navigate(`/work/${k.id}`)} className="underline">open the work</button>}
+                  {(k.run_id || (k.deliverables?.length ?? 0) > 0) && <button onClick={() => navigate(`/work/${k.id}`)} className="underline">{k.owner === "agent" ? "open the work" : `open the work · ${k.deliverables?.filter((d) => d.done).length ?? 0}/${k.deliverables?.length ?? 0} deliverables`}</button>}
                 </p>
               </div>
               {canEdit && !isDone && (
                 <div className="shrink-0 flex items-center gap-1">
+                  {k.owner !== "agent" && (
+                    <button onClick={() => navigate(`/work/${k.id}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-medium">{(k.deliverables?.length ?? 0) > 0 ? "Continue with Kinika" : "Start with Kinika"} <ChevronRight size={11} /></button>
+                  )}
                   {k.owner === "agent" && k.status !== "doing" && (
                     hired.has(k.agent_slug ?? "") ? (
                       <button onClick={() => navigate(delegateUrl(k))} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-medium">Hand to {agent?.name ?? "agent"} <ChevronRight size={11} /></button>
                     ) : seats === 0 ? (
-                      <button onClick={() => navigate(`/mentor?task=${k.id}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary" title="No agent seat yet">Do it with Kinika</button>
+                      <button onClick={() => navigate(`/work/${k.id}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary" title="No agent seat yet">Do it with Kinika</button>
                     ) : seatsFree > 0 && agent ? (
                       <button disabled={busy === `hire-${k.id}`} onClick={async () => { setBusy(`hire-${k.id}`); const r = await hireAgent(plan.brand_id, userId, agent.id, "kinika"); setBusy(null); if (r.success) { toast(`Kinika hired ${agent.name}`); await onChanged(); navigate(delegateUrl(k)); } else toast.error(r.error ?? "Could not hire"); }} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary disabled:opacity-50">Let Kinika hire {agent.name}</button>
                     ) : (
