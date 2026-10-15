@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import {
   Brand, BrandDNA, JourneyStage, JourneyStageData,
@@ -43,6 +43,7 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
   const [journeyStages, setJourneyStages] = useState<JourneyStageData[]>([]);
   const [currentStageData, setCurrentStageData] = useState<JourneyStageData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const loadedForRef = useRef<string | null>(null);
 
   // Update currentStageData when activeBrand or stages change
   useEffect(() => {
@@ -55,7 +56,9 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
 
   const loadBrands = async () => {
     if (!user) return;
-    setIsLoading(true);
+    // Only the first load for a user shows as loading; a later refresh for the
+    // same user is silent so the shell and pages are not reset mid-work.
+    if (loadedForRef.current !== user.id) setIsLoading(true);
 
     const [allBrands, active, stages] = await Promise.all([
       getUserBrands(user.id),
@@ -72,6 +75,7 @@ export const BrandProvider = ({ children }: { children: ReactNode }) => {
       setActiveBrandDNA(dna);
     }
 
+    loadedForRef.current = user.id;
     setIsLoading(false);
   };
 
