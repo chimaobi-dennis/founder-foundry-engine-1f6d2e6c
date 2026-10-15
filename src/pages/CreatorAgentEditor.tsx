@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FormSkeleton } from "@/components/ui/page-skeleton";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Bot, Loader2, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,7 +54,7 @@ export default function CreatorAgentEditor() {
   }, [id]);
 
   if (!isCreatorOrAdmin) return <div className="flex-1 flex items-center justify-center p-8"><p className="text-muted-foreground font-ui text-sm">You don't have access to Creator Studio.</p></div>;
-  if (loading) return <div className="p-8"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
+  if (loading) return <FormSkeleton />;
 
   const set = <K extends keyof CreatorAgentInput>(k: K, v: CreatorAgentInput[K]) => setForm((f) => ({ ...f, [k]: v }));
   const problem = validateAgentInput(form);

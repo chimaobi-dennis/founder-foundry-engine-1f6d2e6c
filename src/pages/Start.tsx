@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { grantFreeTrialCredits } from "@/services/billingAdminService";
 import { buildPlan } from "@/services/planService";
 import { approveUnderstanding, draftUnderstanding, readTextFile, type BusinessKind, type Readback } from "@/services/understandingService";
+import { ReadingPanel } from "@/components/start/ReadingPanel";
 
 /**
  * /start — the first run. Understanding comes before anything else:
@@ -33,6 +34,7 @@ const KINDS: Array<{ value: BusinessKind; label: string; hint: string }> = [
 
 const HORIZONS = ["About 3 months", "This year", "No deadline"];
 const DRAFT_KEY = "kinika.start.draft";
+const READBACK_KEY = "kinika.start.readback";
 
 const CONF_STYLE: Record<string, string> = {
   sure: "bg-[hsl(var(--brand-good-soft))] text-[hsl(var(--brand-good))]",
@@ -62,6 +64,9 @@ export default function Start() {
   const [ownGoal, setOwnGoal] = useState("");
   const [horizon, setHorizon] = useState(HORIZONS[0]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [reading, setReading] = useState<{ site: boolean; chat: boolean; documents: number; startedAt: number } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const firstSectionRef = useRef<HTMLTextAreaElement | null>(null);
 
   // The draft survives a refresh until the brand is understood.
@@ -79,6 +84,19 @@ export default function Start() {
   useEffect(() => {
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ kind, text, websiteUrl })); } catch { /* storage unavailable */ }
   }, [kind, text, websiteUrl]);
+  // A read-back that arrived survives a remount or refresh until it is approved.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(READBACK_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d.readback && (!brandId || d.brandId === brandId)) {
+        if (d.brandId && !brandId) setBrandId(d.brandId);
+        setReadback(d.readback); setSourcesRead(d.sourcesRead ?? null); setGoal(d.readback.goals?.[0] ?? ""); setStep(3);
+      }
+    } catch { /* storage unavailable */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Which brand this run is for: the one in the URL, else the active one if it is not yet understood, else a new one.
   useEffect(() => {
@@ -104,18 +122,31 @@ export default function Start() {
     return b.id;
   };
 
-  const draft = async () => {
+  /** Ask Kinika for the read-back. `wordsOnly` leaves the website, conversation and documents out. */
+  const draft = async (wordsOnly = false) => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setDraftError(null);
     setBusy("draft");
+    const useSite = !wordsOnly && !!websiteUrl.trim();
+    const useChat = !wordsOnly && !!chatUrl.trim();
+    const docs = wordsOnly ? [] : documents;
+    setReading({ site: useSite, chat: useChat, documents: docs.length, startedAt: Date.now() });
     const id = await ensureBrand();
-    if (!id) { setBusy(null); return; }
-    const r = await draftUnderstanding(id, { text: text.trim(), kind, websiteUrl: websiteUrl.trim() || undefined, chatUrl: chatUrl.trim() || undefined, pasted: pasted.trim() || undefined, documents: documents.map((d) => d.text) });
+    if (!id) { setBusy(null); setReading(null); return; }
+    const r = await draftUnderstanding(id, { text: text.trim(), kind, websiteUrl: useSite ? websiteUrl.trim() : undefined, chatUrl: useChat ? chatUrl.trim() : undefined, pasted: pasted.trim() || undefined, documents: docs.map((d) => d.text) }, ctrl.signal);
+    if (ctrl.signal.aborted) return;
     setBusy(null);
-    if (!r.success) { toast.error(r.error); return; }
+    setReading(null);
+    if (!r.success) { setDraftError(r.error); return; }
     setReadback(r.readback);
     setSourcesRead(r.sourcesRead);
     setGoal(r.readback.goals[0] ?? "");
+    try { sessionStorage.setItem(READBACK_KEY, JSON.stringify({ brandId: id, readback: r.readback, sourcesRead: r.sourcesRead })); } catch { /* storage unavailable */ }
     setStep(3);
   };
+  const stopReading = () => { abortRef.current?.abort(); abortRef.current = null; setBusy(null); setReading(null); };
 
   const approve = async () => {
     if (!readback || !brandId) return;
@@ -128,7 +159,7 @@ export default function Start() {
       await supabase.from("profiles").update({ onboarding_completed: true, brand_status: kind === "starting" ? "have_idea" : "in_progress", updated_at: new Date().toISOString() }).eq("id", user.id);
       await grantFreeTrialCredits(user.id).catch(() => null);
     }
-    try { localStorage.removeItem(DRAFT_KEY); } catch { /* storage unavailable */ }
+    try { localStorage.removeItem(DRAFT_KEY); sessionStorage.removeItem(READBACK_KEY); } catch { /* storage unavailable */ }
     // The plan is written while the founder watches the building screen; the
     // profile and brand list refresh afterwards, right before the plan opens.
     setBusy("plan");
@@ -274,13 +305,18 @@ export default function Start() {
               <label htmlFor="more" className="font-ui text-[13px] font-medium">Or just tell Kinika more</label>
               <Textarea id="more" rows={3} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="Anything the sources would not show: what sells best, who your regulars are, what you have tried, what you refuse to do." />
             </div>
-            <div className="flex items-center gap-4 flex-wrap">
-              <Back to={1} />
-              <button type="button" disabled={busy === "draft"} onClick={draft} className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-primary text-primary-foreground font-ui text-[15px] font-medium disabled:opacity-60">
-                {busy === "draft" ? <Loader2 size={16} className="animate-spin" /> : null}{busy === "draft" ? "Kinika is reading" : "Show me what Kinika understood"}
-              </button>
-              <button type="button" disabled={busy === "draft"} onClick={draft} className="font-ui text-[13px] text-muted-foreground underline">Skip; use what I wrote</button>
-            </div>
+            {reading ? (
+              <ReadingPanel reading={reading} kind={kind} onUseWordsOnly={() => draft(true)} onStop={stopReading} />
+            ) : (
+              <>
+                {draftError && <DraftErrorPanel error={draftError} hasSources={!!(websiteUrl.trim() || chatUrl.trim() || documents.length)} onRetry={() => draft(false)} onWordsOnly={() => draft(true)} />}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <Back to={1} />
+                  <button type="button" onClick={() => draft(false)} className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-primary text-primary-foreground font-ui text-[15px] font-medium">Show me what Kinika understood</button>
+                  <button type="button" onClick={() => draft(true)} className="font-ui text-[13px] text-muted-foreground underline">Skip the sources; use only what I wrote</button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -291,6 +327,7 @@ export default function Start() {
               <h1 className="font-display text-[34px] md:text-[40px] leading-[1.12]">Let us get you started.</h1>
               <p className="font-ui text-[16px] leading-relaxed text-muted-foreground max-w-[60ch]">That is enough to begin. Kinika will read it back to you, then propose a road from where you are to a business: find the problem, shape the smallest offer, get the first customers, then the brand. You change anything.</p>
             </div>
+            {draftError && !reading && <DraftErrorPanel error={draftError} hasSources={false} onRetry={() => draft(true)} onWordsOnly={() => draft(true)} />}
             <div className="flex flex-col gap-2">
               <label htmlFor="own" className="font-ui text-[13px] font-medium">What would "it worked" look like for you?</label>
               <Input id="own" value={ownGoal} onChange={(e) => setOwnGoal(e.target.value)} placeholder="A few restaurants paying me monthly for more bookings, by spring" />
@@ -298,7 +335,7 @@ export default function Start() {
             </div>
             <div className="flex items-center gap-4 flex-wrap">
               <Back to={1} />
-              <button type="button" disabled={busy === "draft"} onClick={draft} className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-primary text-primary-foreground font-ui text-[15px] font-medium disabled:opacity-60">
+              <button type="button" disabled={busy === "draft"} onClick={() => draft(true)} className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-primary text-primary-foreground font-ui text-[15px] font-medium disabled:opacity-60">
                 {busy === "draft" ? <Loader2 size={16} className="animate-spin" /> : null}{busy === "draft" ? "Kinika is reading" : "Show me what Kinika understood"}
               </button>
             </div>
@@ -382,6 +419,19 @@ export default function Start() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function DraftErrorPanel({ error, hasSources, onRetry, onWordsOnly }: { error: string; hasSources: boolean; onRetry: () => void; onWordsOnly: () => void }) {
+  return (
+    <div role="alert" className="flex flex-col gap-3 p-4 rounded-xl border border-[hsl(var(--brand-needs-you))]/40 bg-[hsl(var(--brand-needs-you-soft))]">
+      <p className="font-ui text-[14px] leading-relaxed text-foreground"><strong className="font-semibold">Kinika could not finish the read-back.</strong> {error}</p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <button type="button" onClick={onRetry} className="inline-flex items-center h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Try again</button>
+        {hasSources && <button type="button" onClick={onWordsOnly} className="inline-flex items-center h-10 px-4 rounded-lg border border-border bg-card font-ui text-[13px]">Use only what I wrote</button>}
+        <span className="font-ui text-[12px] text-muted-foreground">Nothing was saved; nothing was charged for a read-back that did not arrive.</span>
+      </div>
     </div>
   );
 }

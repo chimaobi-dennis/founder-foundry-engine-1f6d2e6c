@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { RowsSkeleton } from "@/components/ui/page-skeleton";
 import { useSearchParams } from 'react-router-dom';
 import { FadeIn } from '@/components/FadeIn';
 import {
@@ -193,9 +194,7 @@ export default function Billing() {
         {activeTab === 'transactions' && (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             {loadingTransactions ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 size={20} className="animate-spin text-muted-foreground" />
-              </div>
+              <RowsSkeleton rows={5} />
             ) : transactions.length === 0 ? (
               <div className="text-center py-16">
                 <History size={32} className="mx-auto text-muted-foreground/30 mb-3" />
@@ -215,9 +214,7 @@ export default function Billing() {
         {activeTab === 'purchases' && (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             {loadingPurchases ? (
-              <div className="flex items-center justify-center py-16">
-                <Loader2 size={20} className="animate-spin text-muted-foreground" />
-              </div>
+              <RowsSkeleton rows={5} />
             ) : purchases.length === 0 ? (
               <div className="text-center py-16">
                 <ShoppingBag size={32} className="mx-auto text-muted-foreground/30 mb-3" />

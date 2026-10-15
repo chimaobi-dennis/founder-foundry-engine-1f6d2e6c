@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Check, History, Link2, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { WorkspaceSkeleton } from "@/components/ui/page-skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
@@ -102,7 +103,7 @@ export default function Work() {
     await load();
   };
 
-  if (!loaded) return <div className="p-8"><Loader2 className="animate-spin text-muted-foreground" size={18} /></div>;
+  if (!loaded) return <WorkspaceSkeleton />;
   if (!ws) return <div className="p-8 font-ui text-[13px] text-muted-foreground">This task is not on a plan you can open.</div>;
 
   const { task, agent, run, approval, document, brief } = ws;

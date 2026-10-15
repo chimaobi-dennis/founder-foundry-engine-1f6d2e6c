@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCreditBalance } from "@/hooks/use-credit-balance";
 import { usePricingModal } from "@/contexts/PricingModalContext";
 import { toast } from "sonner";
+import { ListSkeleton } from "@/components/ui/page-skeleton";
 import { cn } from "@/lib/utils";
 import { StepLine, OutputView } from "@/components/team/RunViews";
 import { QuoteChip } from "@/components/billing/QuoteChip";
@@ -156,7 +157,7 @@ export default function Team() {
       </header>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-muted-foreground" size={20} /></div>
+        <ListSkeleton cards={3} rows={3} />
       ) : (
         <>
           {/* ── Describe it ── */}
