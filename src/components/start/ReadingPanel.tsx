@@ -8,14 +8,15 @@ import type { BusinessKind } from "@/services/understandingService";
  * one call, so the steps below are what it reads in order, ticked on a
  * timer that matches how long each usually takes; the last step stays open
  * until the answer arrives. Past 45 seconds the panel says so, and past 90
- * offers the words-only route.
+ * offers to try again. The sources are never dropped: the read-back is what
+ * Kinika's memory of the business is built from.
  */
 const KIND_WORD: Record<BusinessKind, string> = { starting: "an idea", running: "a running business", creator: "a creator", other: "your business" };
 
-export function ReadingPanel({ reading, kind, onUseWordsOnly, onStop }: {
+export function ReadingPanel({ reading, kind, onRetry, onStop }: {
   reading: { site: boolean; chat: boolean; documents: number; startedAt: number };
   kind: BusinessKind;
-  onUseWordsOnly: () => void;
+  onRetry: () => void;
   onStop: () => void;
 }) {
   const [elapsed, setElapsed] = useState(0);
@@ -65,7 +66,7 @@ export function ReadingPanel({ reading, kind, onUseWordsOnly, onStop }: {
       </p>
       {verySlow && (
         <div className="flex items-center gap-3 flex-wrap">
-          {hasSources && <button type="button" onClick={onUseWordsOnly} className="inline-flex items-center h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Use only what I wrote</button>}
+          <button type="button" onClick={onRetry} className="inline-flex items-center h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Start the read again</button>
           <button type="button" onClick={onStop} className="inline-flex items-center h-10 px-4 rounded-lg border border-border bg-card font-ui text-[13px]">Stop and go back</button>
         </div>
       )}
