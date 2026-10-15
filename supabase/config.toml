@@ -29,3 +29,7 @@ verify_jwt = false
 
 [functions.understanding]
 verify_jwt = false
+
+[functions.task-chat]
+# Kinika working a task with the founder; the reply is made in the background.
+verify_jwt = false

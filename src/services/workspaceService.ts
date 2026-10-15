@@ -145,3 +145,35 @@ export async function createTaskDocument(ws: Workspace, userId: string, title: s
   if (error) { console.error('[Workspace] createTaskDocument:', error.message); return null; }
   return data;
 }
+
+// ─── Task chat (server-side turns) ──────────────────────────
+
+export interface TaskConversationState {
+  id: string;
+  pending_since: string | null;
+  last_error: string | null;
+  last_followups: { suggestions?: string[]; options?: { label: string; value: string }[]; document?: boolean; closed?: string[] } | null;
+}
+
+/** Send a turn to Kinika for this task. The reply is made in the background; poll the conversation until pending clears. */
+export async function sendTaskMessage(brandId: string, taskId: string, text: string, saveUser = true): Promise<{ success: true; conversationId: string } | { success: false; error: string }> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { success: false, error: 'Not signed in' };
+  try {
+    const res = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/task-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ brandId, taskId, text, saveUser }),
+    });
+    const json = await res.json().catch(() => null);
+    return json ?? { success: false, error: `Kinika did not answer (${res.status})` };
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : 'Could not reach Kinika' };
+  }
+}
+
+export async function getTaskConversationState(taskId: string): Promise<TaskConversationState | null> {
+  const { data } = await db.from('mentor_conversations').select('id, pending_since, last_error, last_followups').eq('plan_task_id', taskId).maybeSingle();
+  return data ?? null;
+}
