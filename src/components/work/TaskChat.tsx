@@ -3,6 +3,8 @@ import { Loader2, SendHorizonal } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
+import { Markdown } from "@/components/ui/markdown";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getBrandDNA } from "@/services/brandService";
 import { getMentorAIResponse, getMessages, getOrCreateTaskConversation, saveMessage, type MentorMessage, type TaskChatContext } from "@/services/mentorService";
 import type { Deliverable } from "@/services/planService";
@@ -91,20 +93,26 @@ export function TaskChat({ ws, userId, brand, deliverables, onDeliverablesDone, 
     <div className="h-full flex flex-col min-h-0">
       <div className={cn("flex-1 min-h-0 overflow-y-auto", compact ? "px-4 py-4" : "px-4 md:px-8 py-6")}>
         <div className={cn("mx-auto flex flex-col gap-4", compact ? "" : "max-w-[760px]")}>
-          {!ready && <p className="font-ui text-[13px] text-muted-foreground">Opening the conversation…</p>}
+          {!ready && (
+            <div className="flex flex-col gap-4" aria-busy="true" aria-label="Opening the conversation">
+              <Skeleton className="h-16 w-3/4 rounded-2xl" />
+              <Skeleton className="h-10 w-1/2 rounded-2xl self-end" />
+              <Skeleton className="h-20 w-4/5 rounded-2xl" />
+            </div>
+          )}
           {messages.map((m) => (
             <div key={m.id} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 font-ui text-[14px] leading-relaxed whitespace-pre-wrap", m.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card border border-border rounded-bl-md")}>
+              <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 font-ui text-[14px] leading-relaxed", m.role === "user" ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap" : "bg-card border border-border rounded-bl-md")}>
                 {m.role !== "user" && <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>}
-                {m.content}
+                {m.role === "user" ? m.content : <Markdown>{m.content}</Markdown>}
               </div>
             </div>
           ))}
           {streaming !== null && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed whitespace-pre-wrap">
+              <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed">
                 <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>
-                {streaming || <Loader2 size={14} className="animate-spin text-muted-foreground" />}
+                {streaming ? <Markdown>{streaming}</Markdown> : <span className="inline-flex gap-1" aria-label="Kinika is writing"><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" /><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:120ms]" /><span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:240ms]" /></span>}
               </div>
             </div>
           )}

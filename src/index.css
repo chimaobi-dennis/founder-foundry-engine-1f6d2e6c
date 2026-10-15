@@ -307,3 +307,25 @@ body,
 .z-topbar { z-index: 50; }
 .z-mobilenav { z-index: 40; }
 
+
+/* ── Markdown in chat and documents ── */
+.md { font-family: 'DM Sans', sans-serif; line-height: 1.65; overflow-wrap: anywhere; }
+.md > * + * { margin-top: 0.6em; }
+.md p { margin: 0; }
+.md h1, .md h2, .md h3, .md h4 { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; margin-top: 1em; }
+.md h1 { font-size: 1.25em; } .md h2 { font-size: 1.15em; } .md h3 { font-size: 1.05em; } .md h4 { font-size: 1em; }
+.md ul, .md ol { padding-left: 1.3em; display: flex; flex-direction: column; gap: 0.25em; }
+.md ul { list-style: disc; } .md ol { list-style: decimal; }
+.md li > ul, .md li > ol { margin-top: 0.25em; }
+.md strong { font-weight: 600; color: hsl(var(--foreground)); }
+.md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; background: hsl(var(--muted)); padding: 0.1em 0.35em; border-radius: 4px; }
+.md pre { background: hsl(var(--muted)); border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 0.75em 0.9em; overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { border-left: 2px solid hsl(var(--border)); padding-left: 0.9em; color: hsl(var(--muted-foreground)); }
+.md a { color: hsl(var(--primary)); text-decoration: underline; text-underline-offset: 2px; }
+.md hr { border: 0; border-top: 1px solid hsl(var(--border)); margin: 1em 0; }
+.md table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+.md th, .md td { border: 1px solid hsl(var(--border)); padding: 0.4em 0.6em; text-align: left; vertical-align: top; }
+.md th { background: hsl(var(--muted)); font-weight: 600; }
+.md input[type="checkbox"] { margin-right: 0.4em; }
+.md.md-on-primary, .md.md-on-primary strong, .md.md-on-primary a { color: inherit; }

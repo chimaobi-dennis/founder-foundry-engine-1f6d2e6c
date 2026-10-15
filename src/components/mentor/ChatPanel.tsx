@@ -2,6 +2,7 @@ import { Send, Paperclip, Mic, Flag, Save, Check, X, Pencil, MoreHorizontal, Cop
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
+import { Markdown } from "@/components/ui/markdown";
 import { MentorBrand, Message, InlineSavePrompt, MilestoneMarker, Milestone, MilestoneCategory, categoryTextColors } from "./types";
 import { parseAIMessage, type ParsedSavePrompt } from "@/lib/savePromptParser";
 import {
@@ -690,17 +691,13 @@ export function ChatPanel({
                           </div>
                         </div>
                       ) : (
-                        <p
-                          className={cn(
-                            "whitespace-pre-line break-words",
-                            msg.role === "ai"
-                              ? "text-[14px] font-ui text-foreground/90"
-                              : "text-[13.5px] font-ui text-foreground"
-                          )}
-                          style={{ lineHeight: msg.role === "ai" ? "1.75" : "1.6" }}
-                        >
-                          {parsed.cleanText}
-                        </p>
+                        msg.role === "ai" ? (
+                          <Markdown className="text-[14px] text-foreground/90">{parsed.cleanText}</Markdown>
+                        ) : (
+                          <p className="whitespace-pre-line break-words text-[13.5px] font-ui text-foreground" style={{ lineHeight: "1.6" }}>
+                            {parsed.cleanText}
+                          </p>
+                        )
                       )}
                     </div>
                     {/* Hide the actions menu while inline editing this message */}
@@ -1051,25 +1048,19 @@ export function ChatPanel({
                 borderRadius: '12px',
                 maxWidth: '75%'
               }}>
-                <p style={{
-                  fontSize: '13.5px',
-                  lineHeight: '1.7',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  margin: 0
-                }}>
-                  {parseAIMessage(streamingText).cleanText}
+                <div className="text-[13.5px]">
+                  <Markdown>{parseAIMessage(streamingText).cleanText}</Markdown>
                   {/* Blinking cursor at the end */}
                   <span style={{
                     display: 'inline-block',
                     width: '2px',
                     height: '14px',
-                    background: '#D4A017',
+                    background: 'hsl(var(--primary))',
                     marginLeft: '2px',
                     verticalAlign: 'middle',
                     animation: 'cursorBlink 0.8s step-end infinite'
                   }} />
-                </p>
+                </div>
               </div>
             </div>
           )}
