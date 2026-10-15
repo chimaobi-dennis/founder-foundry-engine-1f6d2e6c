@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { ListSkeleton } from "@/components/ui/page-skeleton";
 import { Menu, PanelRightOpen, PanelRightClose } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -1915,9 +1916,7 @@ Be selective — only mark significant shifts, not minor tangents.`,
   // project and either open the stage picker or drop into the conversation.
   if (!currentActiveBrand && !isLoading && realBrands.length === 0) {
     return (
-      <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="text-muted-foreground text-sm">Setting up your project...</div>
-      </div>
+      <div className="flex-1 min-h-0 p-6 md:p-10"><ListSkeleton cards={2} rows={2} className="max-w-3xl mx-auto" /></div>
     );
   }
 

@@ -108,3 +108,21 @@ export function WorkspaceSkeleton() {
     </div>
   );
 }
+
+/** The whole app while the session and profile load: top bar, sidebar, a page of cards. */
+export function AppSkeleton() {
+  return (
+    <div className="min-h-screen bg-background flex flex-col" aria-busy="true" aria-label="Loading Kinika">
+      <div className="h-14 border-b border-border bg-card flex items-center justify-between px-4">
+        <Skeleton className="h-6 w-20" />
+        <div className="flex items-center gap-2"><Skeleton className="h-8 w-24 rounded-lg" /><Skeleton className="h-8 w-8 rounded-full" /></div>
+      </div>
+      <div className="flex-1 flex">
+        <aside className="hidden md:flex w-56 flex-col gap-2 p-3 border-r border-border">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className={i === 0 ? "h-9 w-full rounded-lg" : "h-9 w-5/6 rounded-lg"} />)}
+        </aside>
+        <main className="flex-1 p-6 md:p-10"><ListSkeleton cards={2} rows={3} className="max-w-4xl mx-auto" /></main>
+      </div>
+    </div>
+  );
+}

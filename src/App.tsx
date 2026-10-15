@@ -14,6 +14,7 @@ import { PricingModalProvider } from "@/contexts/PricingModalContext";
 import { PricingModalPortal } from "@/components/billing/PricingModal";
 import { Layout } from "./components/Layout";
 import { AdminLayout } from "./components/admin/AdminLayout";
+import { AppSkeleton } from "./components/ui/page-skeleton";
 import Home from "./pages/Home";
 import Landing from "./pages/Landing";
 import Philosophy from "./pages/Philosophy";
@@ -83,11 +84,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const isPublic = isLanding || isAuthRoute;
 
   if (isLoading || (session && profileLoading)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-4 h-4 rounded-full bg-primary animate-amber-pulse" />
-      </div>
-    );
+    return isPublic ? <div className="min-h-screen bg-background" aria-busy="true" /> : <AppSkeleton />;
   }
 
   if (!session && !isPublic) {
