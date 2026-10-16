@@ -207,7 +207,7 @@ export const generateLogoVariants = async (
     const systemPrompt = await buildLogoSystemPrompt('logo_generation');
     const brandContext = buildBrandContext(options);
 
-    const requests = Array.from({ length: 4 }, (_value, index) => {
+    const requests = Array.from({ length: 4 }, async (_value, index) => {
       const prompt = injectPromptVariables(systemPrompt, {
         brand_context: brandContext,
         brief: options.prompt,
