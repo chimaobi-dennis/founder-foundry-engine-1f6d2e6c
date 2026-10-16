@@ -80,7 +80,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     admin.from("brands").select("id, user_id, name, journey_stage, business_kind, goal").eq("id", task.brand_id).maybeSingle(),
     buildContextPack(admin, task.brand_id),
     admin.from("mentor_messages").select("role, content").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(40),
-    admin.from("brand_plans").select("title, plan_targets(title, status, position)").eq("brand_id", task.brand_id).maybeSingle(),
+    admin.from("brand_plans").select("title, plan_targets(title, status, position)").eq("brand_id", task.brand_id).eq("is_current", true).maybeSingle(),
   ]);
   const P = await loadPrompts(admin, ["task_chat", "task_chat_intro", "task_chat_rules", "task_chat_contract", "task_chat_followups"]);
   const voice = P.task_chat.split("{{brand_name}}").join(brand?.name ?? "this business");

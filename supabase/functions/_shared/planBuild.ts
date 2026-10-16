@@ -30,12 +30,14 @@ const WEEK_MS = 7 * 24 * 3600_000;
 export async function buildOrRevisePlan(
   admin: SupabaseClient,
   brand: PlanBrand,
-  action: "build" | "revise",
+  action: "build" | "revise" | "new",
   note?: string,
   /** Why this revision happened, shown on the plan ("Revised after: …"). */
   reason?: string,
   /** A playbook the founder chose for a fresh build; "auto" lets the model pick. */
   playbook: PlaybookChoice = "auto",
+  /** "new": the goal this plan is written for. It becomes the current plan beside the older ones. */
+  goal?: { goal: string; horizon?: string | null } | null,
 ): Promise<PlanBuildResult> {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -46,7 +48,7 @@ export async function buildOrRevisePlan(
     admin.from("agents").select("slug, name, tagline").eq("is_active", true).eq("status", "published").order("sort_order"),
     admin.from("agent_hires").select("agent_id, agents(slug)").eq("brand_id", brand.id).eq("status", "active"),
     admin.from("milestones").select("name, category, stage_key, created_at").eq("brand_id", brand.id).order("created_at", { ascending: false }).limit(10),
-    admin.from("brand_plans").select("*, plan_targets(*, plan_tasks(*))").eq("brand_id", brand.id).maybeSingle(),
+    admin.from("brand_plans").select("*, plan_targets(*, plan_tasks(*))").eq("brand_id", brand.id).eq("is_current", true).maybeSingle(),
   ]);
   const hiredSlugs = new Set((hires ?? []).map((h: any) => h.agents?.slug).filter(Boolean));
   const agents: PlanAgentOption[] = (agentRows ?? []).map((a: any) => ({ slug: a.slug, name: a.name, tagline: a.tagline, hired: hiredSlugs.has(a.slug) }));
@@ -66,8 +68,8 @@ export async function buildOrRevisePlan(
   const milestoneText = (milestones ?? []).length ? "RECENT MILESTONES:\n" + (milestones ?? []).map((m: any) => `- ${m.name} (${m.stage_key ?? m.category})`).join("\n") : "";
   const userPrompt = [
     `Journey stage: ${brand.journey_stage ?? "unknown"}.${brand.business_kind ? ` Kind of business: ${brand.business_kind}.` : ""}`,
-    brand.goal ? P.plan_goal_rule.split("{{horizon}}").join(brand.goal_horizon ? ` (${brand.goal_horizon})` : "").split("{{goal}}").join(String(brand.goal)) : "",
-    action === "build" ? playbookBlock(playbook === "auto" ? playbookForKind(brand.business_kind) : playbook, { auto: P.plan_playbook_auto, chosen: P.plan_playbook_chosen }) : "",
+    (goal?.goal ?? brand.goal) ? P.plan_goal_rule.split("{{horizon}}").join((goal?.horizon ?? brand.goal_horizon) ? ` (${goal?.horizon ?? brand.goal_horizon})` : "").split("{{goal}}").join(String(goal?.goal ?? brand.goal)) : "",
+    action !== "revise" ? playbookBlock(playbook === "auto" ? playbookForKind(brand.business_kind) : playbook, { auto: P.plan_playbook_auto, chosen: P.plan_playbook_chosen }) : "",
     agentsBlock(agents, P.plan_agents_rule),
     milestoneText,
     existingText,
@@ -89,10 +91,10 @@ export async function buildOrRevisePlan(
   if (!draft) return { success: false, error: "The plan builder produced nothing usable. Add more about the business in Kinika and try again.", status: 502 };
 
   // ── Write ──
-  const plan = await writePlan(admin, brand.id, brand.user_id, draft, existing, action, reason);
+  const plan = await writePlan(admin, brand.id, brand.user_id, draft, existing, action, reason, goal);
   await remember(admin, { brandId: brand.id, userId: brand.user_id }, {
     kind: "run_summary", key: `plan:${plan.id}:v${plan.version}`,
-    title: action === "build" ? `Plan built: ${draft.title}` : `Plan revised: ${draft.title}`,
+    title: action === "revise" ? `Plan revised: ${draft.title}` : `Plan built: ${draft.title}`,
     summary: `${reason ? `${reason} ` : ""}${draft.summary} Targets: ${draft.targets.map((t) => t.title).join("; ")}.`,
     data: { version: plan.version, founder_type: draft.founder_type, reason: reason ?? null },
   });
@@ -100,11 +102,13 @@ export async function buildOrRevisePlan(
 }
 
 /** Replace the plan's targets and tasks, carrying over statuses of tasks that still exist (by title). */
-async function writePlan(admin: SupabaseClient, brandId: string, ownerId: string, draft: PlanDraft, existing: any, action: "build" | "revise", reason?: string) {
+async function writePlan(admin: SupabaseClient, brandId: string, ownerId: string, draft: PlanDraft, existing: any, action: "build" | "revise" | "new", reason?: string, goal?: { goal: string; horizon?: string | null } | null) {
   const keep = new Map<string, { status: string; run_id: string | null; done_at: string | null }>();
   if (existing && action === "revise") {
     for (const t of existing.plan_targets ?? []) for (const k of t.plan_tasks ?? []) keep.set(k.title.trim().toLowerCase(), { status: k.status, run_id: k.run_id, done_at: k.done_at });
   }
+  // A new plan sits beside the old ones and becomes the current one; build and revise work on the current plan.
+  if (action === "new") existing = null;
   let planId: string = existing?.id;
   const version = existing ? Number(existing.version) + 1 : 1;
   const now = new Date();
@@ -112,13 +116,15 @@ async function writePlan(admin: SupabaseClient, brandId: string, ownerId: string
   const patch = {
     title: draft.title, summary: draft.summary, founder_type: draft.founder_type, version, built_at: now.toISOString(),
     revise_note: null, revise_requested_at: null, last_revision_reason: reason ?? null,
-    ...(action === "build" ? { next_checkin_at: new Date(now.getTime() + WEEK_MS).toISOString() } : {}),
+    ...(action !== "revise" ? { next_checkin_at: new Date(now.getTime() + WEEK_MS).toISOString() } : {}),
+    ...(goal ? { goal: goal.goal, goal_horizon: goal.horizon ?? null } : {}),
   };
   if (existing) {
     await admin.from("brand_plans").update(patch).eq("id", existing.id);
     await admin.from("plan_targets").delete().eq("plan_id", existing.id);
   } else {
-    const { data, error } = await admin.from("brand_plans").insert({ brand_id: brandId, user_id: ownerId, ...patch }).select("id").single();
+    await admin.from("brand_plans").update({ is_current: false }).eq("brand_id", brandId).eq("is_current", true);
+    const { data, error } = await admin.from("brand_plans").insert({ brand_id: brandId, user_id: ownerId, is_current: true, status: "active", ...patch }).select("id").single();
     if (error || !data) throw new Error(`could not create the plan: ${error?.message ?? "no row"}`);
     planId = data.id;
   }
