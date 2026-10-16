@@ -16,6 +16,7 @@ import { buildOrRevisePlan } from "../_shared/planBuild.ts";
 import { playbookFrom } from "../_shared/plan.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { parseStructuredOutput } from "../_shared/runner.ts";
+import { loadPrompt } from "../_shared/promptLoad.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -75,11 +76,7 @@ async function breakdownTask(admin: any, brand: { id: string; name: string; busi
 
   const pack = await buildContextPack(admin, brand.id);
   const target = (task as any).plan_targets as { title: string; why: string | null };
-  const system = [
-    "You are Kinika, the manager of a founder's business. A task on the founder's plan is about to be worked with the founder in a workspace. Break it into the deliverables that, once done, make the task complete.",
-    "Rules: 2 to 5 deliverables, each a concrete thing the founder will have at the end (a decision made, a document written, a list, an action taken). No vague steps like 'think about'. Name real numbers only when the context gives them; otherwise the deliverable is the decision itself.",
-    'Respond with JSON only: {"deliverables":[{"title":"short name of the thing","detail":"one sentence: what done looks like","kind":"decision"|"document"|"list"|"action"}]}',
-  ].join("\n");
+  const system = await loadPrompt(admin, "task_breakdown");
   const user = [
     `BRAND CONTEXT (pack ${pack.hash}):\n${pack.text.slice(0, 9000)}`,
     brand.goal ? `THE FOUNDER'S GOAL: ${brand.goal}` : "",

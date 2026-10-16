@@ -13,7 +13,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { parseStructuredOutput } from "../_shared/runner.ts";
-import { coerceReadback, kindFrom, readbackToDna, sectionLabels, understandingSystemPrompt, type Readback } from "../_shared/understanding.ts";
+import { loadPrompt } from "../_shared/promptLoad.ts";
+import { coerceReadback, kindFrom, readbackToDna, sectionLabels, type Readback } from "../_shared/understanding.ts";
 import { remember } from "../_shared/memory.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -79,8 +80,7 @@ serve(async (req) => {
       "Respond with the JSON object only.",
     ].filter(Boolean).join("\n\n");
 
-    const { data: promptRow } = await admin.from("ai_system_prompts").select("system_prompt").eq("task_type", "understanding").eq("is_active", true).maybeSingle();
-    const systemPrompt = promptRow?.system_prompt || understandingSystemPrompt(stageKeys);
+    const systemPrompt = await loadPrompt(admin, "understanding", { stage_keys: stageKeys.join(", ") });
     const ask = async (messages: Array<{ role: string; content: string }>, attempt: number) => {
       const gw = await fetch(GATEWAY_URL, {
         method: "POST",
