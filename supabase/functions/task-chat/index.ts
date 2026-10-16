@@ -14,10 +14,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { parseTaskReply, taskPromptBlock, type TaskChatContext } from "../_shared/taskChat.ts";
-import { loadPrompt } from "../_shared/promptLoad.ts";
-import { STATE_CONTRACT } from "../_shared/taskChat.ts";
-// The rules prompt carries the contract for the admin preview; the block appends it itself.
-const STATE_SUFFIX = "\n\n" + STATE_CONTRACT;
+import { loadPrompts } from "../_shared/promptLoad.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
@@ -85,11 +82,8 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     admin.from("mentor_messages").select("role, content").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(40),
     admin.from("brand_plans").select("title, plan_targets(title, status, position)").eq("brand_id", task.brand_id).maybeSingle(),
   ]);
-  const [voice, rules, followups] = await Promise.all([
-    loadPrompt(admin, "task_chat", { brand_name: brand?.name ?? "this business" }),
-    loadPrompt(admin, "task_chat_rules"),
-    loadPrompt(admin, "task_chat_followups"),
-  ]);
+  const P = await loadPrompts(admin, ["task_chat", "task_chat_intro", "task_chat_rules", "task_chat_contract", "task_chat_followups"]);
+  const voice = P.task_chat.split("{{brand_name}}").join(brand?.name ?? "this business");
   const ctx: TaskChatContext = {
     task: { id: task.id, title: task.title, detail: task.detail, target_title: task.plan_targets?.title ?? "" },
     deliverables: deliverables.map((d) => ({ id: d.id, title: d.title, detail: d.detail, kind: d.kind, done: d.done, withAgent: d.run_id && !d.done ? (d.agent_name ?? "an agent") : null })),
@@ -100,7 +94,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     `=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text.slice(0, 12_000)}`,
     brand?.goal ? `THE FOUNDER'S GOAL: ${brand.goal}` : "",
     targets ? `THE PLAN${plan?.title ? ` (${plan.title})` : ""}:\n${targets}` : "",
-    taskPromptBlock(ctx, { rules: rules.replace(STATE_SUFFIX, ""), followups }),
+    taskPromptBlock(ctx, { intro: P.task_chat_intro, rules: P.task_chat_rules, contract: P.task_chat_contract, followups: P.task_chat_followups }),
   ].filter(Boolean).join("\n\n");
 
   // The history already holds the founder's message when it was saved; a hidden instruction is appended here.

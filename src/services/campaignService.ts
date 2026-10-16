@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { callAI, injectPromptVariables, getSystemPrompt } from "@/services/aiService";
+import { requirePrompt, callAI, injectPromptVariables, getSystemPrompt } from "@/services/aiService";
 
 const db = supabase as any;
 
@@ -206,25 +206,18 @@ export async function regenerateCampaignPlatform(
     sms: 'SMS message (under 160 characters)',
   };
 
-  const systemPrompt = `You are an expert brand copywriter. Generate platform-specific marketing copy for ONE platform: ${platformLabels[platform] || platform}.
-Return ONLY valid JSON — no markdown, no explanation.
-
-BRAND: ${brief.product_name || brief.productName || ''}
-TARGET AUDIENCE: ${brief.target_audience || brief.targetAudience || ''}
-CAMPAIGN GOAL: ${brief.campaign_goal || brief.campaignGoal || ''}
-KEY BENEFIT: ${brief.key_benefit || brief.keyBenefit || ''}
-TONE: ${brief.tone || ''}
-CALL TO ACTION: ${brief.call_to_action || brief.callToAction || ''}
-
-BRAND CONTEXT:
-- Voice: ${brandDna?.brand_voice || 'Not yet defined'}
-- Positioning: ${brandDna?.positioning_statement || 'Not yet defined'}
-- Customer insight: ${brandDna?.customer_insight || 'Not yet defined'}
-
-Return a JSON object with exactly these keys:
-{ "headline": "...", "copy_text": "...", "subject_line": "" }
-For platforms without a headline (whatsapp, twitter_x, sms), set headline to "".
-For email, fill subject_line. For others, set subject_line to "".`;
+  const systemPrompt = await requirePrompt('campaign_copy_platform', {
+    platform: platformLabels[platform] || platform,
+    brand: brief.product_name || brief.productName || '',
+    audience: brief.target_audience || brief.targetAudience || '',
+    goal: brief.campaign_goal || brief.campaignGoal || '',
+    benefit: brief.key_benefit || brief.keyBenefit || '',
+    tone: brief.tone || '',
+    cta: brief.call_to_action || brief.callToAction || '',
+    voice: brandDna?.brand_voice || 'Not yet defined',
+    positioning: brandDna?.positioning_statement || 'Not yet defined',
+    insight: brandDna?.customer_insight || 'Not yet defined',
+  });
 
   const result = await callAI({
     taskType: 'campaign_copy',

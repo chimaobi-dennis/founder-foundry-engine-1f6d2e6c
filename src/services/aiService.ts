@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { composePrompt, promptDef, type PromptExample } from '@shared/prompts';
+import { composePrompt, fillVars, promptDef, type PromptExample } from '@shared/prompts';
 import { logAIError, type ErrorModule } from './errorService';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 
@@ -15,8 +15,19 @@ export const getSystemPrompt = async (
     .eq('task_type', taskType)
     .maybeSingle();
   const def = promptDef(String(taskType));
-  if (def) return composePrompt(def, data ?? null);
+  try {
+    if (def) return composePrompt(def, data ?? null);
+  } catch {
+    return null;
+  }
   return data?.is_active !== false ? data?.system_prompt ?? null : null;
+};
+
+/** A prompt that must exist: the composed text with variables filled, or a clear error naming the key. */
+export const requirePrompt = async (key: string, vars: Record<string, string> = {}): Promise<string> => {
+  const text = await getSystemPrompt(key);
+  if (!text) throw new Error(`Prompt "${key}" is not set. Open Admin → Prompts and save it.`);
+  return fillVars(text, vars);
 };
 
 /** Save a prompt by key: the base override, the instructions and the examples. Creates the row the first time; keeps history. */

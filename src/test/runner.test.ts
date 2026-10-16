@@ -99,7 +99,7 @@ describe('summarizeOutput and buildTaskPrompt', () => {
     expect(summarizeOutput('Copywriter', null, 'fb')).toBe('fb');
   });
   it('states units and platforms in the prompt', () => {
-    const p = buildTaskPrompt(agent, { brief: 'Launch week', units: 2, platforms: ['instagram', 'x'] });
+    const p = buildTaskPrompt(agent, { brief: 'Launch week', units: 2, platforms: ['instagram', 'x'] }, '', 'TASK FROM THE FOUNDER:\n{{brief}}\n\nREQUEST: produce {{units}} {{unit_label}}.\nPLATFORMS: {{platforms}}.\n{{extra}}\nRespond with the JSON object only.');
     expect(p).toContain('Launch week');
     expect(p).toContain('produce 2 captions');
     expect(p).toContain('instagram, x');
@@ -174,7 +174,7 @@ describe('coercePlanDraft', () => {
     expect(d.approval).toBe('review_first');
   });
   it('planner prompt lists only what exists', () => {
-    const p = plannerSystemPrompt(ctx);
+    const p = plannerSystemPrompt(ctx, 'You turn a request into a plan.\n\nAGENTS\n{{agents}}\n\nRECIPES\n{{recipes}}\n\nCONNECTIONS\n{{connections}}');
     expect(p).toContain('copywriter');
     expect(p).toContain('c-shop');
     expect(p).toContain('seo_refresh');

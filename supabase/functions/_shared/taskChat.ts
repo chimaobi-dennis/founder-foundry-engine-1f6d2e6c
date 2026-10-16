@@ -10,33 +10,15 @@ export interface TaskChatContext {
   deliverables: { id: string; title: string; detail: string; kind: string; done: boolean; withAgent?: string | null }[];
 }
 
-export const DEFAULT_TASK_RULES = [
-  'How to work: take the open deliverables in order. Ask one sharp question at a time when you need the founder\'s decision; propose a concrete default when the context allows. Keep replies short and plain. Never show the D-numbers or any ids to the founder; refer to deliverables by name.',
-  'When a deliverable is a written thing (a document, outline, template, pricing table), write it in full inside <DOCUMENT title="...">markdown</DOCUMENT> once the decisions are made. The founder can edit it; say so in a sentence. A document never contains placeholder brackets like [Insert ...] or blanks to fill: where a number or term is not decided yet, write a line "Your decision: ..." in the document and list those decisions in the reply.',
-  'Nobody is in this conversation but you and the founder. Never invent, address or wait on a person who is not here (an advisor, a lawyer, a client, a designer). Kinika is the manager: it does not do specialist work itself (legal drafting, design, code, deep research, outreach). When a deliverable needs that work, say plainly what you will not do and why, put it in "needs" on the state line, and carry on with what you can do: the brief for that person, the decisions already made, the questions to ask them.',
-].join('\n');
+export interface TaskPromptTexts { intro: string; rules: string; contract: string; followups: string }
 
-export const DEFAULT_TASK_FOLLOWUPS = [
-  '"suggestions" are exactly three short replies the founder might give next, in the founder\'s own voice, 3 to 9 words each, genuinely different from each other (one can be a question back).',
-  '"options" is only present when your question is a choice: 2 to 4 options with a short label (2 to 6 words) and the value as the founder would say it; add one option for "something else" when the list is not exhaustive.',
-].join('\n');
-
-/** The machine contract of a task turn. Not editable: the parser depends on it. */
-export const STATE_CONTRACT = 'STATE LINE, REQUIRED: end EVERY reply with exactly one line <STATE>{"closed":[{"d":"D2","outcome":"..."}],"suggestions":["...","...","..."],"options":[{"label":"...","value":"..."}],"needs":{"d":"D2","role":"legal","label":"Legal drafter","why":"...","brief":"..."}}</STATE>. "closed" lists the deliverables that became complete in THIS reply because the founder decided or approved; each outcome is what the founder keeps, in Markdown: for a list, the list itself; for a decision, the decision in one or two plain sentences with the reason; for an action, what was done and when. When nothing became complete, "closed" is []. If you say you have noted a decision, that deliverable must be in "closed". "needs" is present only when the work on a deliverable should be done by a specialist or an outside person, not by Kinika or the founder alone: role is one of legal, research, copy, design, seo, dev, community, other; label is the role in two or three words; why is one sentence; brief is what that person must deliver, in two or three sentences, with the decisions already made. Omit "needs" otherwise. The founder never sees this line as text.';
-
-export interface TaskPromptOverrides { rules?: string; followups?: string }
-
-export function taskPromptBlock(ctx: TaskChatContext, overrides: TaskPromptOverrides = {}): string {
+/** The task block: intro with the task and numbered deliverables, the rules, the state-line contract, the follow-up guidance. All text comes from Admin → Prompts. */
+export function taskPromptBlock(ctx: TaskChatContext, texts: TaskPromptTexts): string {
   // Deliverables are numbered D1, D2… for the model; the ids never reach the founder.
   const list = ctx.deliverables.map((d, i) => `D${i + 1} [${d.done ? 'done' : d.withAgent ? `with ${d.withAgent}, Kinika hired them; wait for the founder to approve their result` : 'open'}] ${d.title} (${d.kind}): ${d.detail}`).join('\n');
-  return [
-    'WORKING ONE TASK WITH THE FOUNDER (the workspace). You are Kinika, the founder\'s business manager, doing this task together with the founder right now. Stay on this task; the plan-level conversation is elsewhere.',
-    `TASK: ${ctx.task.title}${ctx.task.detail ? ` — ${ctx.task.detail}` : ''} (target: ${ctx.task.target_title})`,
-    `DELIVERABLES (the task is complete when all are done):\n${list}`,
-    overrides.rules?.trim() || DEFAULT_TASK_RULES,
-    STATE_CONTRACT,
-    overrides.followups?.trim() || DEFAULT_TASK_FOLLOWUPS,
-  ].join('\n');
+  const task = `${ctx.task.title}${ctx.task.detail ? ` — ${ctx.task.detail}` : ''} (target: ${ctx.task.target_title})`;
+  const intro = texts.intro.split('{{task}}').join(task).split('{{deliverables}}').join(list);
+  return [intro, texts.rules, texts.contract, texts.followups].join('\n');
 }
 
 /** Kinika's reply when working a task: the clean text, the deliverables it closed (with outcomes) and a document if it wrote one. */

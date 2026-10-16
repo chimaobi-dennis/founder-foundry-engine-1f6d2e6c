@@ -18,7 +18,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
-import { loadPrompt } from "../_shared/promptLoad.ts";
+import { loadPrompts } from "../_shared/promptLoad.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { feedbackEntry, outcomeEntry, remember, runSummaryEntry } from "../_shared/memory.ts";
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
@@ -28,7 +28,6 @@ import { buildOrRevisePlan } from "../_shared/planBuild.ts";
 import { checkinSummary } from "../_shared/plan.ts";
 import {
   mergeSelfReview,
-  selfReviewInstruction,
   planSingleAgentRun,
   creatorEarning,
   approvalKindFor,
@@ -518,6 +517,8 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
 
       const pack = await buildContextPack(admin, run.brand_id);
       const systemPrompt = `${agent.system_prompt}\n\n=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text}`;
+      const P = await loadPrompts(admin, ["agent_task_prompt", "agent_self_review", "agent_revision", "agent_handoff", "agent_records_mode", "agent_plan_mode", "agent_edit_mode", "agent_blog_shape"]);
+      const fill = (t: string, vars: Record<string, string>) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{{${k}}}`).join(v), t);
       let extra = "";
       if (step.input?.use_previous === "records") {
         const read = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.records));
@@ -525,19 +526,18 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         const allowed = connRow ? allowedFields(connRow.provider, connRow.scope) : [];
         const records = (read?.output?.records ?? []) as NormalizedRecord[];
         extra = [
-          `ALLOWED FIELDS (only these may appear in "fields"): ${allowed.join(", ") || "(none)"}`,
-          `RECORDS (${records.length}):`,
+          fill(P.agent_records_mode, { allowed: allowed.join(", ") || "(none)", count: String(records.length) }),
           JSON.stringify(records.map((r) => ({ id: r.id, label: r.label, ...r.fields })), null, 0).slice(0, 60_000),
         ].join("\n");
       } else if (step.input?.use_previous === "output" && step.input?.prompt_mode === "critique") {
         const draftStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
-        extra = [await loadPrompt(admin, "agent_self_review"), "YOUR DRAFT:", JSON.stringify(draftStep?.output ?? {}).slice(0, 40_000)].join("\n");
+        extra = [P.agent_self_review, "YOUR DRAFT:", JSON.stringify(draftStep?.output ?? {}).slice(0, 40_000)].join("\n");
       } else if (step.input?.use_previous === "output") {
         const prevAgentStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
         if (prevAgentStep) {
           const { data: prevAgentRow } = prevAgentStep.input?.agent_id ? await admin.from("agents").select("name, role").eq("id", prevAgentStep.input.agent_id).maybeSingle() : { data: null };
           extra = [
-            `HANDOFF FROM ${prevAgentRow?.name ?? "the previous agent"} (${prevAgentRow?.role ?? "teammate"}). Build on this; do not repeat it verbatim:`,
+            fill(P.agent_handoff, { name: prevAgentRow?.name ?? "the previous agent", role: prevAgentRow?.role ?? "teammate" }),
             JSON.stringify(prevAgentStep.output).slice(0, 40_000),
           ].join("\n");
         }
@@ -545,8 +545,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         const snap = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "connector" && Array.isArray(s.output?.files));
         const files = ((snap?.output?.files ?? []) as { path: string; size: number }[]).map((f) => `${f.path} (${f.size}b)`);
         extra = [
-          `MODE: PLAN. Choose at most 8 files to read and outline the change. Respond with the PLAN JSON shape.`,
-          `REPOSITORY FILES you may read and change (${files.length}${snap?.output?.truncated ? ", truncated" : ""}):`,
+          fill(P.agent_plan_mode, { count: String(files.length), truncated: snap?.output?.truncated ? ", truncated" : "" }),
           files.join("\n").slice(0, 40_000),
         ].join("\n");
       } else if (step.input?.use_previous === "files") {
@@ -556,8 +555,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         const { data: connRow } = step.input?.connection_id ? await admin.from("tool_connections").select("scope").eq("id", step.input.connection_id).maybeSingle() : { data: null };
         const allowed = (connRow?.scope?.paths?.length ? connRow.scope.paths : DEFAULT_ALLOWED_PATHS) as string[];
         extra = [
-          `MODE: EDIT. Respond with the EDIT JSON shape. Return FULL new contents for each changed file.`,
-          `WRITABLE PATHS: ${allowed.join(", ")}. Anything else is rejected.`,
+          fill(P.agent_edit_mode, { allowed: allowed.join(", ") }),
           plan?.output?.approach ? `YOUR PLAN: ${plan.output.approach}` : "",
           `FILES (${files.length}):`,
           ...files.map((f) => `=== ${f.path} ===\n${f.content}`),
@@ -565,14 +563,14 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       } else if (step.input?.use_previous === "revision") {
         const prev = all.find((s: any) => s.id === step.input?.revision_of_step_id) ?? [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
         extra = [
-          await loadPrompt(admin, "agent_revision", { round: String(step.input?.revision_round ?? 2), note: String(step.input?.revision_note ?? "").trim() || "(no note)" }),
+          fill(P.agent_revision, { round: String(step.input?.revision_round ?? 2), note: String(step.input?.revision_note ?? "").trim() || "(no note)" }),
           `YOUR PREVIOUS RESULT:`,
           JSON.stringify(prev?.output ?? {}).slice(0, 40_000),
         ].join("\n");
       } else if (step.input?.output_hint === "blog_post") {
-        extra = `OUTPUT SHAPE FOR THIS TASK: exactly one item with "platform": "blog", "title" (the post title), "excerpt" (one or two sentences for the meta description, under 155 characters) and "body" (the full post, 500-900 words, with short paragraphs and subheadings as plain text).`;
+        extra = P.agent_blog_shape;
       }
-      const userPrompt = buildTaskPrompt(agent, step.input ?? {}, extra);
+      const userPrompt = buildTaskPrompt(agent, step.input ?? {}, extra, P.agent_task_prompt);
 
       const gw = await fetch(GATEWAY_URL, {
         method: "POST",

@@ -77,16 +77,6 @@ export function coercePlan(raw: unknown, agents: PlanAgentOption[]): PlanDraft |
 }
 
 /** The instruction the plan builder works from. Admins can override it in ai_system_prompts (task_type plan_build). */
-export function planSystemPrompt(): string {
-  return [
-    "You are Kinika, a founder's business-development mentor. From the brand context you are given, write a short, concrete action plan for the next stage of this business.",
-    "The plan has 2 to 5 TARGETS in order (the next milestones that matter, e.g. 'Validate the idea with 10 conversations', 'Ship an MVP', 'Get the first 100 customers', 'Raise a pre-seed'). Each target has 2 to 6 TASKS: specific, checkable things, each one sentence.",
-    "Decide who does each task. owner 'agent' only when one of the AGENTS listed can do it on their own from a brief (writing copy, a campaign brief, research, SEO on connected records, a code change); then set agent_slug to that agent's slug exactly and agent_brief to the brief you would hand them. Everything else is owner 'founder'.",
-    "Match the founder's situation: an idea needs validation before building; a running business needs quick wins on its current channel; a creator needs a content system before monetisation. Use what the context says; do not invent facts, numbers or dates.",
-    "When an existing plan is given, keep what is done, keep the founder's edits, and change only what the new information warrants.",
-    'Return ONLY a JSON object: { "title": "...", "summary": "two sentences on the situation and the thrust of the plan", "founder_type": "idea|running|creator|other", "targets": [ { "title": "...", "why": "one sentence", "tasks": [ { "title": "...", "detail": "one sentence of how", "owner": "founder|agent", "agent_slug": "slug or null", "agent_brief": "brief or null" } ] } ] }',
-  ].join("\n\n");
-}
 
 // ── Weekly check-in ──────────────────────────────────────────────────────────
 
@@ -138,9 +128,10 @@ export function checkinSummary(plan: { title: string; targets: CheckinTarget[] }
   };
 }
 
-export function agentsBlock(agents: PlanAgentOption[]): string {
-  if (!agents.length) return "AGENTS: none available yet.";
-  return "AGENTS (slug: name, what they do, hired or not):\n" + agents.map((a) => `- ${a.slug}: ${a.name}. ${a.tagline ?? ""} ${a.hired ? "(on the team)" : "(available to hire)"}`.trim()).join("\n");
+/** The roster as a list; `template` (prompt key plan_agents_rule) says what to do with it. */
+export function agentsBlock(agents: PlanAgentOption[], template: string): string {
+  const list = agents.length ? agents.map((a) => `- ${a.slug}: ${a.name}. ${a.tagline ?? ""} ${a.hired ? "(on the team)" : "(available to hire)"}`.trim()).join("\n") : "(none available yet)";
+  return template.split("{{agents}}").join(list);
 }
 
 // ── Playbooks ────────────────────────────────────────────────────────────────
@@ -193,13 +184,15 @@ export function playbookForKind(kind: string | null | undefined): PlaybookChoice
 }
 
 /** The playbook paragraph for the builder prompt: one chosen, or all for the model to pick from. */
-export function playbookBlock(choice: PlaybookChoice): string {
+/** The playbook block; `templates` are the prompt keys plan_playbook_auto and plan_playbook_chosen. */
+export function playbookBlock(choice: PlaybookChoice, templates: { auto: string; chosen: string }): string {
+  const fill = (t: string, vars: Record<string, string>) => Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{{${k}}}`).join(v), t);
   if (choice === "auto") {
-    return "PLAYBOOKS (pick the one that fits the founder's situation and adapt it to the context):\n" +
-      (Object.keys(PLAYBOOKS) as Array<keyof typeof PLAYBOOKS>).map((k) => `- ${k} (${PLAYBOOKS[k].who}): ${PLAYBOOKS[k].targets.join("; ")}`).join("\n");
+    const list = (Object.keys(PLAYBOOKS) as Array<keyof typeof PLAYBOOKS>).map((k) => `- ${k} (${PLAYBOOKS[k].who}): ${PLAYBOOKS[k].targets.join("; ")}`).join("\n");
+    return fill(templates.auto, { playbooks: list });
   }
   const p = PLAYBOOKS[choice];
-  return `PLAYBOOK — ${p.label} (${p.who}). The founder chose this; shape the targets after it, adapted to the context:\n${p.targets.map((t) => `- ${t}`).join("\n")}\nSet founder_type to "${choice}".`;
+  return fill(templates.chosen, { label: p.label, who: p.who, targets: p.targets.map((t) => `- ${t}`).join("\n"), choice });
 }
 
 // ── In-chat plan edits ───────────────────────────────────────────────────────
@@ -261,15 +254,10 @@ export interface PlanForPrompt {
 }
 
 /** The plan as Mentor sees it, plus how it may change it. */
-export function planPromptBlock(plan: PlanForPrompt): string {
+/** The plan as Kinika sees it in conversation; `template` is the prompt key mentor_plan_edit ({{title}}, {{plan}}). */
+export function planPromptBlock(plan: PlanForPrompt, template: string): string {
   const lines = plan.targets.map((t, i) => `${i + 1}. ${t.title} [${t.status}]\n` + t.tasks.map((k) => `   - ${k.title} [${k.status}${k.owner === "agent" ? ", agent" : ""}]`).join("\n"));
-  return [
-    `THE FOUNDER'S PLAN — "${plan.title}":`,
-    lines.join("\n"),
-    "Refer to it when it is relevant; do not recite it. When the founder tells you something that changes the plan (a task is done, something should be added, dropped or skipped, or the situation has changed), apply it by appending ONE block at the very end of your reply, after your prose:",
-    '<PLAN_EDIT>{ "ops": [ { "op": "done", "task": "<task title>" }, { "op": "add", "target": "<target title>", "task": "<new task>", "owner": "founder" }, { "op": "skip", "task": "..." }, { "op": "remove", "task": "..." }, { "op": "revise", "note": "<what changed, for a full revision>" } ] }</PLAN_EDIT>',
-    'Use task and target titles exactly as listed. Use "revise" only when several targets need rethinking; otherwise edit tasks directly. Never emit the block when nothing changes. Tell the founder in one short sentence what you changed.',
-  ].join("\n");
+  return template.split("{{title}}").join(plan.title).split("{{plan}}").join(lines.join("\n"));
 }
 
 // ── Roles a plan needs ───────────────────────────────────────────────────────

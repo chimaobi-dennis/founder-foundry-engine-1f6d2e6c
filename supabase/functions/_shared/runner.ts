@@ -94,15 +94,6 @@ function planSingleAgentRunRaw(agent: AgentDefinition, input: TaskInput, policy:
 }
 
 /** The instruction an agent gets for its own self-review pass. */
-export function selfReviewInstruction(): string {
-  return [
-    "MODE: SELF-REVIEW. Below is your own draft. Check it against the BRAND CONTEXT and fix what is wrong:",
-    "1. Voice and tone match the brand. 2. No invented facts, prices, dates or claims. 3. Each platform item fits its platform (length, hashtags, one clear call to action).",
-    "4. Headlines are distinct and short. 5. The visual direction uses the brand's colors and feel.",
-    'Return the SAME JSON shape as the draft, corrected, plus "review": { "issues_found": ["..."], "changes_made": ["..."], "confidence": "high|medium|low" }.',
-    "If the draft is already good, return it unchanged with empty lists.",
-  ].join("\n");
-}
 
 /** Keep the draft's shape: a self-review that loses the items falls back to the draft plus its notes. */
 export function mergeSelfReview(draft: Record<string, unknown>, reviewed: Record<string, unknown>): Record<string, unknown> {
@@ -181,19 +172,18 @@ export function summarizeOutput(agentName: string, output: Record<string, unknow
 }
 
 /** Build the user-turn prompt for an agent task step. */
-export function buildTaskPrompt(agent: AgentDefinition, input: Record<string, unknown>, extra = ""): string {
+/** The request to an agent; `template` is the prompt key agent_task_prompt ({{brief}}, {{units}}, {{unit_label}}, {{platforms}}, {{extra}}). */
+export function buildTaskPrompt(agent: AgentDefinition, input: Record<string, unknown>, extra: string, template: string): string {
   const units = normalizeUnits(input.units, 250);
   const platforms = Array.isArray(input.platforms) && input.platforms.length ? (input.platforms as string[]).join(", ") : "founder's choice";
-  const lines = [
-    `TASK FROM THE FOUNDER:`,
-    String(input.brief ?? "").trim() || "(no brief given; use the brand context)",
-    ``,
-    `REQUEST: produce ${units} ${agent.unit_label}${units === 1 ? "" : "s"}.`,
-    `PLATFORMS: ${platforms}.`,
-  ];
-  if (extra) lines.push(``, extra);
-  lines.push(`Respond with the JSON object only.`);
-  return lines.join("\n");
+  const vars: Record<string, string> = {
+    brief: String(input.brief ?? "").trim() || "(no brief given; use the brand context)",
+    units: String(units),
+    unit_label: `${agent.unit_label}${units === 1 ? "" : "s"}`,
+    platforms,
+    extra: extra ? `\n${extra}\n` : "",
+  };
+  return Object.entries(vars).reduce((acc, [k, v]) => acc.split(`{{${k}}}`).join(v), template).replace(/\n{3,}/g, "\n\n");
 }
 
 // ── Schedules ────────────────────────────────────────────────────────────────
@@ -480,34 +470,12 @@ export interface PlannerContext {
   stage?: string | null;
 }
 
-export function plannerSystemPrompt(ctx: PlannerContext): string {
+/** The Describe-it planner; `template` is the prompt key automation_planner ({{agents}}, {{recipes}}, {{connections}}). */
+export function plannerSystemPrompt(ctx: PlannerContext, template: string): string {
   const agents = ctx.agents.map((a) => `- ${a.slug}: ${a.name} (${a.unit_label}s). ${a.tagline ?? ""}`).join("\n");
   const recipes = Object.values(RECIPES).map((r) => `- ${r.key}: ${r.name} (needs a ${r.provider} connection; agent ${r.agentSlug})`).join("\n");
   const conns = ctx.connections.length ? ctx.connections.map((c) => `- ${c.id}: ${c.display_name} (${c.provider})`).join("\n") : "(none)";
-  return `You turn a founder's request into one plan for their AI team. Choose only from the agents, recipes and connections listed. Never invent ids. If something cannot be done with what exists, say so in "warnings" and plan the closest thing that can.
-
-AGENTS
-${agents}
-
-RECIPES (use when the request needs an external tool)
-${recipes}
-
-CONNECTIONS
-${conns}
-
-ROUTING (enforced again in code)
-- If a data connection can do the job (a store or table: change fields one by one, each revertible), use its recipe. Use "code_change" only when no data path exists, for layout, styling and structure.
-- Never plan database schema changes (tables, columns, indexes, migrations). Say so in "warnings".
-
-RULES
-- "task": one agent. "hive": 2-4 agents in order, each building on the previous (e.g. researcher then copywriter). "recipe": one of the recipes above with a matching connection.
-- units: how many ${"things"} to produce (1-20). platforms: lowercase names (instagram, linkedin, x, facebook, tiktok, email, blog) when relevant, else [].
-- schedule: "once", or "daily" | "weekly" | "biweekly" | "monthly" when the founder wants it repeated, or "webhook" when they want it triggered by another system, or "event" when it should run when something happens in Kinika: set "event" to "milestone_reached" or "campaign_created" and optionally "conditions" such as [{"field":"stage_key","op":"eq","value":"brand"}].
-- approval: "review_first" unless the founder clearly says they do not want to review; publishing and code changes are always reviewed anyway.
-- name: short, specific. explanation: one or two plain sentences of what will happen.
-
-Return ONLY a JSON object:
-{ "kind": "task|hive|recipe", "name": "...", "brief": "the task in the founder's words, cleaned up", "agents": ["slug", ...], "recipe": "recipe key or omit", "connection_id": "id or omit", "units": 3, "platforms": [], "schedule": "once", "event": "omit unless schedule is event", "conditions": [], "approval": "review_first", "explanation": "...", "warnings": [] }`;
+  return template.split("{{agents}}").join(agents).split("{{recipes}}").join(recipes).split("{{connections}}").join(conns);
 }
 
 const INTERVALS: ScheduleInterval[] = ["daily", "weekly", "biweekly", "monthly"];

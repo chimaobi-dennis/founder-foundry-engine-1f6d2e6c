@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coerceReadback, readbackToDna, sectionLabels, understandingSystemPrompt, confidenceFrom } from '@shared/understanding';
+import { coerceReadback, readbackToDna, sectionLabels, confidenceFrom } from '@shared/understanding';
 
 const stages = ['spark', 'shape', 'validate', 'brand', 'launch', 'grow'];
 
@@ -50,6 +50,5 @@ describe('readbackToDna', () => {
     expect(dna).toMatchObject({ product_positioning: 'Bread.', brand_voice: 'Warm, plain.', core_promise: 'Warm lunch nearby.', positioning_statement: 'Bageri: a bakery' });
     expect(dna).not.toHaveProperty('stage');
     expect(meta.brand_voice).toEqual({ source: 'site', confidence: 'guess' });
-    expect(understandingSystemPrompt(stages)).toContain('spark, shape');
   });
 });

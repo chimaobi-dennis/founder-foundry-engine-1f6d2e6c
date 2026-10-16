@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { agentsBlock, checkinSummary, coercePlan, founderTypeFrom, matchByTitle, parsePlanEdits, planPromptBlock, planSystemPrompt, playbookBlock, playbookFrom } from '@shared/plan';
+import { agentsBlock, checkinSummary, coercePlan, founderTypeFrom, matchByTitle, parsePlanEdits, planPromptBlock, playbookBlock, playbookFrom } from '@shared/plan';
 
 const agents = [{ slug: 'copywriter', name: 'Copywriter', tagline: 'Captions', hired: true }, { slug: 'developer', name: 'Developer', hired: false }];
 
@@ -38,10 +38,9 @@ describe('coercePlan', () => {
     expect(founderTypeFrom('agency')).toBe('other');
   });
   it('lists agents with their hire state for the prompt', () => {
-    expect(agentsBlock(agents)).toContain('copywriter: Copywriter. Captions (on the team)');
-    expect(agentsBlock(agents)).toMatch(/developer: Developer\.\s+\(available to hire\)/);
-    expect(agentsBlock([])).toMatch(/none available/);
-    expect(planSystemPrompt()).toMatch(/2 to 5 TARGETS/);
+    expect(agentsBlock(agents, 'AGENTS:\n{{agents}}')).toContain('copywriter: Copywriter. Captions (on the team)');
+    expect(agentsBlock(agents, 'AGENTS:\n{{agents}}')).toMatch(/developer: Developer\.\s+\(available to hire\)/);
+    expect(agentsBlock([], 'AGENTS:\n{{agents}}')).toMatch(/none available/);
   });
 });
 
@@ -96,9 +95,9 @@ describe('playbooks and in-chat plan edits', () => {
   it('builds the playbook paragraph and the plan block for Mentor', () => {
     expect(playbookFrom('Creator')).toBe('creator');
     expect(playbookFrom('x')).toBe('auto');
-    expect(playbookBlock('idea')).toMatch(/PLAYBOOK — Validate an idea/);
-    expect(playbookBlock('auto')).toMatch(/- running \(/);
-    const block = planPromptBlock({ title: 'Launch', targets: [{ title: 'Validate', status: 'current', tasks: [{ title: 'Talk to 10 customers', status: 'todo', owner: 'agent' }] }] });
+    expect(playbookBlock('idea', { auto: 'PLAYBOOKS:\n{{playbooks}}', chosen: 'PLAYBOOK — {{label}} ({{who}}):\n{{targets}}\nSet founder_type to "{{choice}}".' })).toMatch(/PLAYBOOK — Validate an idea/);
+    expect(playbookBlock('auto', { auto: 'PLAYBOOKS:\n{{playbooks}}', chosen: '' })).toMatch(/- running \(/);
+    const block = planPromptBlock({ title: 'Launch', targets: [{ title: 'Validate', status: 'current', tasks: [{ title: 'Talk to 10 customers', status: 'todo', owner: 'agent' }] }] }, 'THE FOUNDER\'S PLAN — "{{title}}":\n{{plan}}\n<PLAN_EDIT>');
     expect(block).toContain('1. Validate [current]');
     expect(block).toContain('- Talk to 10 customers [todo, agent]');
     expect(block).toContain('<PLAN_EDIT>');

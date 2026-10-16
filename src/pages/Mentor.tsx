@@ -37,7 +37,7 @@ import { saveStageField } from "@/services/journeyDataService";
 import { logError } from "@/services/errorService";
 import type { ParsedSavePrompt } from "@/lib/savePromptParser";
 import { createThinkingSequence, ThinkingState } from '@/services/streamingService';
-import { callAI } from "@/services/aiService";
+import { requirePrompt, callAI } from "@/services/aiService";
 import { BrandMilestonePanel } from "@/components/mentor/BrandMilestonePanel";
 import { ChatPanel } from "@/components/mentor/ChatPanel";
 import { BrandDNAPanel } from "@/components/mentor/BrandDNAPanel";
@@ -767,24 +767,10 @@ const Mentor = () => {
       const result = await callAI({
         taskType: 'mentor_chat',
         userId: user?.id,
-        systemPrompt: 'You are a conversation analyst.',
+        systemPrompt: await requirePrompt('mentor_milestone_detect'),
         messages: [{
           role: "user",
-          content: `You are a conversation analyst. Analyze this conversation and determine if the topic has shifted to a new area that deserves a milestone marker.
-
-Existing milestones: ${existingNames || "None"}
-
-Recent messages:
-${recentMessages.map(m => `${m.role}: ${m.content}`).join("\n")}
-
-If there is a meaningful new topic shift not already covered by existing milestones, respond with EXACTLY this format:
-MILESTONE: [category] | [short name]
-
-Categories: Brand Discovery, Campaign Strategy, Customer Insight, Product Positioning, Growth Brainstorm, Pitch Preparation
-
-If no milestone is needed, respond with: NO_MILESTONE
-
-Be selective — only mark significant shifts, not minor tangents.`,
+          content: await requirePrompt('mentor_milestone_detect_user', { existing: existingNames || "None", messages: recentMessages.map(m => `${m.role}: ${m.content}`).join("\n") }),
         }],
         maxTokens: 200
       });

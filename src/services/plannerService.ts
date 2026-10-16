@@ -7,7 +7,7 @@
  * then does anything get created. The planning call itself is not charged.
  */
 
-import { callAI } from './aiService';
+import { requirePrompt, callAI } from './aiService';
 import { plannerSystemPrompt, coercePlanDraft, declineReason, parseStructuredOutput, planSingleAgentRun, planRecipeRun, planHiveRun, RECIPES, type ActionClass, type PlanDraft, type PlannerContext, type HiveStage } from '@shared/runner';
 import { quoteAction, type Quote } from './pricingService';
 import { createRun, createAutomation, createHiveRun, quoteHive, type Agent, type AutomationRun, type Automation } from './agentService';
@@ -39,7 +39,7 @@ export async function draftPlan(description: string, agents: Agent[], connection
     taskType: 'tier_fast',
     modelTier: 'fast',
     userId,
-    systemPrompt: plannerSystemPrompt(ctx),
+    systemPrompt: plannerSystemPrompt(ctx, await requirePrompt('automation_planner')),
     messages: [{ role: 'user', content: `${text}\n\nRespond with the JSON object only.` }],
     // Thinking models spend output tokens before the JSON; leave room.
     maxTokens: 6000,

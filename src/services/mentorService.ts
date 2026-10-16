@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { callAI, type TaskType, getSystemPrompt, injectPromptVariables } from './aiService';
+import { callAI, type TaskType, getSystemPrompt, requirePrompt, injectPromptVariables } from './aiService';
 import { applyPlanEdits, getPlan } from './planService';
 import { parsePlanEdits, planPromptBlock } from '@shared/plan';
 import { logAIError } from './errorService';
@@ -345,7 +345,7 @@ export const generateProjectTitle = async (
   const result = await callAI({
     taskType: 'mentor_chat',
     userId,
-    systemPrompt: (await getSystemPrompt('project_title')) ?? '',
+    systemPrompt: await requirePrompt('project_title'),
     messages: [
       {
         role: 'user',
@@ -385,9 +385,9 @@ export const getMentorAIResponse = async (
   const defaultStageKey = stages[0]?.stage_key ?? 'spark';
 
   let systemPrompt = await getSystemPrompt('mentor_chat');
-
   if (!systemPrompt) {
-    systemPrompt = `You are an experienced business mentor. Brand: {{brand_name}}. Be direct and helpful.`;
+    await logAIError(userId, 'mentor', 'Prompt "mentor_chat" is not set. Open Admin → Prompts and save it.', { brandName: brand?.name }, 'mentor_chat');
+    return null;
   }
 
   // Fetch current stage focus
@@ -474,7 +474,8 @@ export const getMentorAIResponse = async (
   // The founder's plan, and how Mentor may change it from the conversation.
   const plan = brand?.id ? await getPlan(brand.id) : null;
   if (plan) {
-    systemPrompt += '\n\n' + planPromptBlock(plan);
+    const editTemplate = await getSystemPrompt('mentor_plan_edit');
+    if (editTemplate) systemPrompt += '\n\n' + planPromptBlock(plan, editTemplate);
   }
 
   // If the founder just shared prior context during onboarding, prompt the
@@ -484,14 +485,14 @@ export const getMentorAIResponse = async (
     conversationHistory.filter(m => m.role === 'assistant').length === 0;
 
   if (isFirstExchange && brand?.context_source && brand.context_source !== 'fresh_start') {
-    systemPrompt += `\n\nCONTEXT NOTE: The founder just shared their prior work during project setup. 
-    Their Journey Record has been pre-populated with data extracted from their content. 
-    Acknowledge this briefly in your first response — something like "I have read through what you shared. 
-    Based on that, here is where I think we are..." — then ask one sharp question to deepen your understanding of their most important current challenge. 
-    Do not repeat back everything you read — just show you understood it.`;
+    const note = await getSystemPrompt('mentor_context_note');
+    if (note) systemPrompt += '\n\n' + note;
   }
 
-  if (taskContext) systemPrompt += '\n\n' + taskPromptBlock(taskContext);
+  if (taskContext) {
+    const [intro, rules, contract, followups] = await Promise.all(['task_chat_intro', 'task_chat_rules', 'task_chat_contract', 'task_chat_followups'].map((k) => getSystemPrompt(k)));
+    systemPrompt += '\n\n' + taskPromptBlock(taskContext, { intro: intro ?? '', rules: rules ?? '', contract: contract ?? '', followups: followups ?? '' });
+  }
 
   const result = await callAI({
     taskType: taskContext ? 'task_chat' : 'mentor_chat',
@@ -753,17 +754,7 @@ export const generateLovablePrompt = async (
   const result = await callAI({
     taskType: 'mentor_chat',
     userId,
-    systemPrompt: `You are a technical product advisor helping a founder generate a precise prompt for Lovable (an AI app builder).
-
-Based on the conversation context provided, generate a clear, specific Lovable prompt that will build exactly what the founder and mentor discussed.
-
-The prompt should:
-- Describe the specific screen or feature to build
-- Include the visual style: dark background #0D1B2A, amber accent #D4A017, DM Sans font
-- Specify the exact components needed
-- Be ready to paste directly into Lovable
-
-Output only the prompt text. No explanation. No preamble.`,
+    systemPrompt: await requirePrompt('lovable_prompt'),
     messages: [
       {
         role: 'user',
