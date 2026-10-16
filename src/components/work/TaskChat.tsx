@@ -9,7 +9,8 @@ import { ThinkingLine } from "@/components/work/ThinkingLine";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { getMessages, type MentorMessage, type ReplyOption } from "@/services/mentorService";
 import type { Deliverable } from "@/services/planService";
-import { getTaskConversationState, sendTaskMessage, type Workspace } from "@/services/workspaceService";
+import { getTaskConversationState, sendTaskMessage, saveDeliverables, type Workspace } from "@/services/workspaceService";
+import { NeedsCard } from "@/components/work/NeedsCard";
 
 /**
  * Kinika working one plan task with the founder. Each turn is sent to the
@@ -131,6 +132,15 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: 
               </div>
             </div>
           )}
+          {!pending && (() => {
+            const needing = deliverables.find((d) => !d.done && d.needs && !d.needs.resolved);
+            return needing ? (
+              <NeedsCard ws={ws} deliverable={needing}
+                onResolve={async (d, how) => { const next = deliverables.map((x) => x.id === d.id && x.needs ? { ...x, needs: { ...x.needs, resolved: how } } : x); if (!(await saveDeliverables(ws.task.id, next))) toast.error("Could not save"); await onReplied(); }}
+                onSend={(text) => turn(text, true)}
+                onAsk={(text, note) => turn(text, false, note)} />
+            ) : null;
+          })()}
           {!pending && followups.options.length > 0 && (
             <div className="flex flex-wrap gap-2 pl-1" role="group" aria-label="Kinika's options">
               {followups.options.map((o) => (

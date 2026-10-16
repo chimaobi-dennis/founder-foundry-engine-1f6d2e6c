@@ -24,6 +24,8 @@ export interface Deliverable {
   document_id: string | null;
   /** The outcome, as Markdown: the list, the decision, what was done. Documents live in `documents`. */
   result?: string | null;
+  /** Kinika raised that this needs a specialist or an outside person; cleared when the founder resolves it. */
+  needs?: { role: string; label: string; why: string; brief: string; raised_at: string; resolved?: 'hired' | 'own' | 'brief' | 'dismissed' | null } | null;
 }
 
 export interface PlanTask {

@@ -1,0 +1,112 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Loader2, UserPlus, Users, FileText, X } from "lucide-react";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/AuthContext";
+import { hireAgent, listAgents, listHires, type Agent } from "@/services/agentService";
+import { effectiveLimit, getEntitlements } from "@/services/subscriptionService";
+import { delegateUrl, type Deliverable } from "@/services/planService";
+import type { Workspace } from "@/services/workspaceService";
+
+/** Which role on Kinika's roster does a need map to. Legal has no role yet. */
+const ROLE_SLUG: Record<string, string | null> = { research: "researcher", copy: "copywriter", design: "designer", seo: "seo_specialist", dev: "developer", community: null, legal: null, other: null };
+
+/**
+ * Kinika found work it should not do itself. Three doors, the same wherever a
+ * hire is confirmed: let Kinika hire the role, bring your own person and paste
+ * their text, or have Kinika write the brief for them. Each resolves the need.
+ */
+export function NeedsCard({ ws, deliverable, onResolve, onSend, onAsk }: {
+  ws: Workspace;
+  deliverable: Deliverable;
+  onResolve: (d: Deliverable, how: NonNullable<NonNullable<Deliverable["needs"]>["resolved"]>) => Promise<void>;
+  /** Send a message in the founder's voice. */
+  onSend: (text: string) => void;
+  /** Send an instruction on the founder's behalf, with the note shown instead. */
+  onAsk: (text: string, note: string) => void;
+}) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const need = deliverable.needs!;
+  const [agent, setAgent] = useState<Agent | null | undefined>(undefined);
+  const [seats, setSeats] = useState<{ total: number; used: number } | null>(null);
+  const [own, setOwn] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const slug = ROLE_SLUG[need.role] ?? null;
+      const [agents, hires, ent] = await Promise.all([listAgents(), listHires(ws.task.brand_id), user ? getEntitlements(user.id) : Promise.resolve(null)]);
+      if (!active) return;
+      setAgent(slug ? agents.find((a) => a.slug === slug) ?? null : null);
+      const total = ent ? effectiveLimit(ent, "agents") : 0;
+      setSeats({ total, used: hires.filter((h) => h.status === "active").length });
+    })();
+    return () => { active = false; };
+  }, [need.role, ws.task.brand_id, user]);
+
+  const hired = async () => {
+    if (!agent || !user) return;
+    setBusy("hire");
+    const r = await hireAgent(ws.task.brand_id, user.id, agent.id, "kinika");
+    setBusy(null);
+    if (!r.success) { toast.error(r.error ?? `Could not hire ${agent.name}`); return; }
+    await onResolve(deliverable, "hired");
+    navigate(delegateUrl({ id: ws.task.id, title: `${deliverable.title} — ${ws.task.title}`, agent_brief: need.brief || deliverable.detail, agent_slug: agent.slug }));
+  };
+  const alreadyHired = false;
+  const free = seats ? (seats.total < 0 ? Infinity : seats.total - seats.used) : 0;
+
+  return (
+    <div role="region" aria-label="This needs someone" className="rounded-xl border border-[hsl(var(--brand-needs-you))]/40 bg-[hsl(var(--brand-needs-you-soft))]/60 p-4 flex flex-col gap-3 max-w-[85%]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--brand-needs-you))] inline-flex items-center gap-1.5"><Users size={11} /> This needs a {need.label}</span>
+          <p className="font-ui text-[13px] text-foreground leading-relaxed">For <strong className="font-semibold">{deliverable.title}</strong>. {need.why}</p>
+        </div>
+        <button onClick={() => onResolve(deliverable, "dismissed")} className="text-muted-foreground" aria-label="Dismiss"><X size={14} /></button>
+      </div>
+      {need.brief && <p className="font-ui text-[12px] text-muted-foreground leading-relaxed">What they would deliver: {need.brief}</p>}
+
+      <div className="flex flex-col gap-2">
+        {/* Door 1: Kinika hires */}
+        {agent === undefined || !seats ? (
+          <span className="font-ui text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Checking Kinika's roster and your seats</span>
+        ) : agent === null ? (
+          <p className="font-ui text-[12px] text-muted-foreground">Kinika's roster has no {need.label} yet, so Kinika cannot hire one for this. The other two doors work today.</p>
+        ) : seats.total === 0 ? (
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={() => navigate("/billing")} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5"><UserPlus size={13} /> Add a seat so Kinika can hire {agent.name}</button>
+            <span className="font-ui text-[12px] text-muted-foreground">Your trial has no agent seats.</span>
+          </div>
+        ) : free > 0 || alreadyHired ? (
+          <button disabled={!!busy} onClick={hired} className="self-start h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50">{busy === "hire" ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />} Let Kinika hire {agent.name} for this</button>
+        ) : (
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={() => navigate("/billing")} className="h-9 px-3.5 rounded-lg border border-border bg-card font-ui text-[13px] inline-flex items-center gap-1.5"><UserPlus size={13} /> Add a seat</button>
+            <span className="font-ui text-[12px] text-muted-foreground">All {seats.total} seats are taken.</span>
+          </div>
+        )}
+
+        {/* Door 2: your own person */}
+        {own ? (
+          <div className="flex flex-col gap-2">
+            <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={5} placeholder={`Paste what your ${need.label.toLowerCase()} sent, or their notes`} className="text-[13px] bg-card" />
+            <div className="flex items-center gap-2">
+              <button disabled={!text.trim()} onClick={async () => { onSend(`From my own ${need.label.toLowerCase()}, for "${deliverable.title}":\n\n${text.trim()}`); await onResolve(deliverable, "own"); }} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium disabled:opacity-50">Give this to Kinika</button>
+              <button onClick={() => setOwn(false)} className="h-9 px-3 rounded-lg border border-border bg-card font-ui text-[13px]">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setOwn(true)} className="self-start h-9 px-3.5 rounded-lg border border-border bg-card font-ui text-[13px] inline-flex items-center gap-1.5"><FileText size={13} /> I have my own {need.label.toLowerCase()}; paste their text</button>
+        )}
+
+        {/* Door 3: the brief */}
+        <button onClick={async () => { onAsk(`Write the brief for an outside ${need.label} for the deliverable "${deliverable.title}": what they must deliver, the decisions already made, the open questions to ask them, and what to check in their answer. Put it inside a DOCUMENT titled "Brief for a ${need.label}". Make clear it is a brief, not the work itself.`, `You asked Kinika to write the brief for a ${need.label.toLowerCase()}.`); await onResolve(deliverable, "brief"); }} className="self-start h-9 px-3.5 rounded-lg border border-border bg-card font-ui text-[13px] inline-flex items-center gap-1.5"><FileText size={13} /> Kinika, write the brief for them</button>
+      </div>
+    </div>
+  );
+}

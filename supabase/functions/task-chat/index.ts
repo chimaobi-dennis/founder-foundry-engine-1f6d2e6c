@@ -24,7 +24,7 @@ const GATEWAY_URL = `${SUPABASE_URL}/functions/v1/ai-gateway`;
 
 // deno-lint-ignore no-explicit-any
 type Admin = any;
-type Deliverable = { id: string; title: string; detail: string; kind: "decision" | "document" | "list" | "action"; done: boolean; done_at: string | null; document_id: string | null; result?: string | null };
+type Deliverable = { id: string; title: string; detail: string; kind: "decision" | "document" | "list" | "action"; done: boolean; done_at: string | null; document_id: string | null; result?: string | null; needs?: { role: string; label: string; why: string; brief: string; raised_at: string; resolved?: string | null } | null };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -123,14 +123,17 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     }
   }
 
-  // Deliverables closed in this reply, and the document linked to the first document-kind one still open.
-  if (parsed.done.length || documentId) {
+  // Deliverables closed in this reply, the document linked to the first document-kind one still open,
+  // and a need Kinika raised pinned to its deliverable until the founder resolves it.
+  const needTarget = parsed.needs ? (parsed.needs.deliverableId ?? deliverables.find((d) => !d.done)?.id ?? null) : null;
+  if (parsed.done.length || documentId || needTarget) {
     const byId = new Map(parsed.done.map((d) => [d.id, d.result]));
     let linked = false;
     const next = deliverables.map((d) => {
       let out = d;
       if (byId.has(d.id)) out = { ...out, done: true, done_at: out.done_at ?? now, result: byId.get(d.id) ?? out.result ?? null };
       if (documentId && !linked && d.kind === "document" && !d.document_id) { out = { ...out, document_id: documentId }; linked = true; }
+      if (needTarget === d.id && parsed.needs && !d.done && !(d.needs && !d.needs.resolved)) out = { ...out, needs: { role: parsed.needs.role, label: parsed.needs.label, why: parsed.needs.why, brief: parsed.needs.brief, raised_at: now, resolved: null } };
       return out;
     });
     await admin.from("plan_tasks").update({ deliverables: next, updated_at: now }).eq("id", task.id);
@@ -139,6 +142,6 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "assistant", content: parsed.text || "…" });
   await admin.from("mentor_conversations").update({
     pending_since: null, last_error: null, last_message_at: now,
-    last_followups: { suggestions: parsed.suggestions, options: parsed.options, document: !!parsed.document, closed: parsed.done.map((d) => d.id) },
+    last_followups: { suggestions: parsed.suggestions, options: parsed.options, document: !!parsed.document, closed: parsed.done.map((d) => d.id), needs: needTarget },
   }).eq("id", conversationId);
 }
