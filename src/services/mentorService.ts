@@ -111,7 +111,7 @@ export const getOrCreateTaskConversation = async (brandId: string, taskId: strin
   return data;
 };
 
-export { taskPromptBlock, parseTaskReply, visibleWhileStreaming, type TaskChatContext, type ReplyOption } from '@shared/taskChat';
+export { taskPromptBlock, parseTaskReply, visibleWhileStreaming, type TaskChatContext, type ReplyOption, type TaskNeed } from '@shared/taskChat';
 import { parseTaskReply, taskPromptBlock, type TaskChatContext, type ReplyOption } from '@shared/taskChat';
 
 // ─── Messages ─────────────────────────────────────────────

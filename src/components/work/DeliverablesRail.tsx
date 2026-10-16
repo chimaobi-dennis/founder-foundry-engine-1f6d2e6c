@@ -35,7 +35,7 @@ export function DeliverablesRail({ deliverables, breaking, busyId, onToggle, onO
               <button onClick={() => onOpen(d)} className="min-w-0 flex-1 text-left group">
                 <p className={cn("font-ui text-[12px] font-medium leading-snug group-hover:underline", d.done && "text-muted-foreground")}>{d.title}</p>
                 {d.detail && <p className="font-ui text-[11px] text-muted-foreground mt-0.5 leading-snug">{d.detail}</p>}
-                <p className="font-ui text-[10px] text-muted-foreground mt-1 inline-flex items-center gap-1"><Icon size={10} /> {d.kind}{d.done && <span className="text-[hsl(var(--brand-good))]">· {d.result || d.document_id ? "see the outcome" : "no outcome written"}</span>}</p>
+                <p className="font-ui text-[10px] text-muted-foreground mt-1 inline-flex items-center gap-1"><Icon size={10} /> {d.kind}{d.done && <span className="text-[hsl(var(--brand-good))]">· {d.result || d.document_id ? "see the outcome" : "no outcome written"}</span>}{!d.done && d.needs && !d.needs.resolved && <span className="text-[hsl(var(--brand-needs-you))]">· needs a {d.needs.label.toLowerCase()}</span>}</p>
               </button>
             </li>
           );
