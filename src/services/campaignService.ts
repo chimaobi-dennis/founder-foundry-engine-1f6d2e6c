@@ -110,34 +110,7 @@ export async function createCampaign(
  * Generate campaign creatives using AI
  */
 export async function generateCampaignCreatives(campaignId: string, brief: any, brandDna: any) {
-  const systemPrompt = await getSystemPrompt('campaign_copy') || `
-You are an expert brand copywriter. Generate platform-specific marketing copy for all 8 platforms.
-Return ONLY valid JSON — no markdown, no explanation.
-
-BRAND: {{product_name}}
-TARGET AUDIENCE: {{target_audience}}
-CAMPAIGN GOAL: {{campaign_goal}}
-KEY BENEFIT: {{key_benefit}}
-TONE: {{tone}}
-CALL TO ACTION: {{call_to_action}}
-
-BRAND CONTEXT:
-- Voice: {{brand_voice}}
-- Positioning: {{positioning_statement}}
-- Customer insight: {{customer_insight}}
-
-Return a JSON object with exactly these keys:
-{
-  "headlines": { "headline": "...", "copy_text": "...", "subject_line": "" },
-  "instagram": { "headline": "...", "copy_text": "...", "subject_line": "" },
-  "facebook_ad": { "headline": "...", "copy_text": "...", "subject_line": "" },
-  "google_ad": { "headline": "...", "copy_text": "...", "subject_line": "" },
-  "email": { "headline": "...", "copy_text": "...", "subject_line": "..." },
-  "whatsapp": { "headline": "", "copy_text": "...", "subject_line": "" },
-  "twitter_x": { "headline": "", "copy_text": "...", "subject_line": "" },
-  "sms": { "headline": "", "copy_text": "...", "subject_line": "" }
-}
-`;
+  const systemPrompt = await requirePrompt('campaign_copy');
 
   const filledSystemPrompt = injectPromptVariables(systemPrompt, {
     product_name: brief.productName || '',
@@ -153,7 +126,7 @@ Return a JSON object with exactly these keys:
 
   const result = await callAI({
     taskType: 'campaign_copy',
-    messages: [{ role: 'user', content: 'Generate the campaign creatives now based on the brief in the system prompt. Return only the JSON object.' }],
+    messages: [{ role: 'user', content: await requirePrompt('campaign_copy_request') }],
     systemPrompt: filledSystemPrompt,
     maxTokens: 4000
   });
@@ -221,7 +194,7 @@ export async function regenerateCampaignPlatform(
 
   const result = await callAI({
     taskType: 'campaign_copy',
-    messages: [{ role: 'user', content: `Generate the ${platform} creative now. Return only the JSON object.` }],
+    messages: [{ role: 'user', content: await requirePrompt('campaign_copy_platform_request', { platform }) }],
     systemPrompt,
     maxTokens: 800
   });

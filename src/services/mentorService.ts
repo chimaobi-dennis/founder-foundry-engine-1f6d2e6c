@@ -349,7 +349,7 @@ export const generateProjectTitle = async (
     messages: [
       {
         role: 'user',
-        content: `Founder's first message: "${firstUserMessage}"\n\nMentor's response: "${firstAIResponse.slice(0, 300)}"\n\nGenerate a 3-word project title:`
+        content: await requirePrompt('project_title_request', { first: firstUserMessage, reply: firstAIResponse.slice(0, 300) })
       }
     ],
     maxTokens: 20
@@ -758,7 +758,7 @@ export const generateLovablePrompt = async (
     messages: [
       {
         role: 'user',
-        content: `Brand: ${brand?.name}. Context from our conversation: ${conversationContext}. Generate a Lovable prompt to build what we discussed.`
+        content: await requirePrompt('lovable_prompt_request', { brand: String(brand?.name ?? ''), context: conversationContext })
       }
     ],
     maxTokens: 800

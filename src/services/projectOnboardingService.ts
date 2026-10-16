@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
+import { requirePrompt, callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { saveMultipleStageFields } from './journeyDataService';
 import { updateProjectName, updateJourneyStage, getAllJourneyStages } from './brandService';
 import { uploadProjectFile } from './projectAssetsService';
@@ -95,32 +95,7 @@ export const extractProjectContext = async (
     if (!contentToProcess.trim()) return null;
 
     // Fetch the system prompt for context_extraction
-    const systemPrompt = await getSystemPrompt('context_extraction') || `
-You are extracting structured product and brand data from a founder's existing work.
-
-The founder says they are in the "{{declared_stage}}" stage of their journey.
-
-Analyze the content provided and extract as much structured data as possible. Return ONLY a valid JSON object with this exact structure:
-
-{
-  "suggested_name": "3 word project title or null",
-  "detected_stage": "stage_key",
-  "confidence": "high|medium|low",
-  "summary": "2 sentence summary of what this founder is building",
-  "fields": [
-    {
-      "stage_key": "spark",
-      "field_key": "problem_statement",
-      "value": "extracted value or null",
-      "is_ai_discovered": true
-    }
-  ]
-}
-
-{{field_guide}}
-
-Only include fields where you found clear, specific information. Use null for anything not mentioned or unclear. Do not invent or assume information that is not in the content. Return only the JSON object, no explanation.
-`;
+    const systemPrompt = await requirePrompt('context_extraction');
 
     // Fetch all active journey stage fields from DB
     const { data: stageFields } = await db

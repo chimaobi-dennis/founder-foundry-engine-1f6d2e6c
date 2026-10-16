@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { injectPromptVariables, getSystemPrompt, callAI } from './aiService';
+import { requirePrompt, injectPromptVariables, getSystemPrompt, callAI } from './aiService';
 import { logError } from './errorService';
 import { getAssetsForAIContext, getBrandProductImages } from './projectAssetsService';
 import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
@@ -598,21 +598,7 @@ export async function generateContentForBrief(
       ).join(',\n') +
       '\n}';
 
-    const strictCopyPrompt = copyPrompt +
-      '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' +
-      '\nMANDATORY JSON FORMAT - SCENE MODE STRUCTURE' +
-      '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━' +
-      '\n\nReturn ONLY a valid JSON object. No explanation, no markdown, no code fences.' +
-      '\n\nEXACT STRUCTURE REQUIRED (copy this template and fill in values):' +
-      '\n\n' + exampleTemplate +
-      '\n\nCRITICAL RULES:' +
-      '\n1. Each platform MUST have: render_engine, scene_version, copy{}, scene{}' +
-      '\n2. copy{} MUST contain: headline, caption (not copy_text), hashtags[], cta' +
-      '\n3. DO NOT use legacy keys like "headline" or "copy_text" at the top level' +
-      '\n4. ALL copy fields must be inside the nested "copy" object' +
-      '\n5. Write ORIGINAL marketing copy - DO NOT repeat the user\'s brief text' +
-      '\n6. caption should be 2-3 compelling sentences, not the full brief' +
-      '\n\nStart your response with { and end with }';
+    const strictCopyPrompt = copyPrompt + '\n\n' + (await requirePrompt('template_scene_contract', { template: exampleTemplate }));
 
     // ─── BILLING: Capture reservation → irreversible billing moment ──
     // After this point, credits remain consumed regardless of generation outcome.
@@ -891,7 +877,7 @@ export async function generateContentForBrief(
       const visualAssetInstructions = buildVisualAssetInstructions(generationSettings.visual_assets);
 
       // Build scene prompt instructions if scene mode
-      const sceneInstructions = buildScenePromptInstructions(
+      const sceneInstructions = await buildScenePromptInstructions(
         runtimeRenderEngine,
         platformSystem.dimensions.width,
         platformSystem.dimensions.height
@@ -1418,7 +1404,7 @@ export async function regenerateCreative(
     const regenPlatformInstructions = buildPlatformRenderInstructions(regenPlatformSystem);
 
     // Build scene prompt instructions if scene mode
-    const regenSceneInstructions = buildScenePromptInstructions(
+    const regenSceneInstructions = await buildScenePromptInstructions(
       regenRenderEngine,
       regenPlatformSystem.dimensions.width,
       regenPlatformSystem.dimensions.height
@@ -1763,7 +1749,7 @@ export async function retryFailedCreatives(
       const retryRenderEngine: RenderEngine = retrySettings.render_engine;
 
       // Build scene prompt instructions if scene mode
-      const retrySceneInstructions = buildScenePromptInstructions(
+      const retrySceneInstructions = await buildScenePromptInstructions(
         retryRenderEngine,
         platformSystem.dimensions.width,
         platformSystem.dimensions.height

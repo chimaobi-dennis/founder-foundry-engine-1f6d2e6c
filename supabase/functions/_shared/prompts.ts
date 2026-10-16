@@ -74,6 +74,18 @@ export const PROMPT_REGISTRY: PromptDef[] = [
   { key: "reel_script", name: "Reel scripts", group: "Studio", taskType: "reel_script", description: "Short video scripts.", usedBy: "ReelBuilder" },
   { key: "context_extraction", name: "Context extraction", group: "Studio", taskType: "context_extraction", description: "Pulls brand facts out of pasted material.", usedBy: "Brand record" },
   { key: "variant_scene_generation", name: "Scene variants", group: "Studio", taskType: "template_generation", description: "Variations of a scene.", usedBy: "VariantStudio" },
+  { key: "campaign_copy_request", name: "CampaignKit: request line", group: "Studio", taskType: "campaign_copy", description: "The user turn that asks for all platforms at once.", usedBy: "CampaignKit" },
+  { key: "campaign_copy_platform_request", name: "CampaignKit: one platform request line", group: "Studio", taskType: "campaign_copy", description: "The user turn for one platform.", usedBy: "CampaignKit", variables: {"platform": "instagram"} },
+  { key: "logo_generation", name: "LogoStudio: generate", group: "Studio", taskType: "logo_generation", description: "A logo concept as a scene.", usedBy: "LogoStudio", fixed: true },
+  { key: "logo_mutation", name: "LogoStudio: mutate", group: "Studio", taskType: "logo_mutation", description: "A change to an existing logo scene.", usedBy: "LogoStudio", fixed: true },
+  { key: "logo_generation_request", name: "LogoStudio: request line", group: "Studio", taskType: "logo_generation", description: "The user turn per variant.", usedBy: "LogoStudio", variables: {"index": "1"} },
+  { key: "logo_mutation_request", name: "LogoStudio: mutation request line", group: "Studio", taskType: "logo_mutation", description: "The user turn carrying the requested change.", usedBy: "LogoStudio", variables: {"change": "Make the mark bolder"} },
+  { key: "scene_json_contract", name: "Scene JSON output contract", group: "Studio", taskType: "template_generation", description: "How a design must be returned as a SceneDocument.", usedBy: "ProStudio, ContentStudio, LogoStudio (scene mode)", variables: {"width": "1080", "height": "1350", "max_nodes": "60", "max_depth": "3"}, fixed: true },
+  { key: "template_scene_contract", name: "ContentStudio: copy + scene output contract", group: "Studio", taskType: "template_generation", description: "The mandatory JSON structure for copy and scenes per platform.", usedBy: "ContentStudio generation", variables: {"template": "{ ... }"}, fixed: true },
+  { key: "brand_continuity_rules", name: "Brand continuity rules", group: "Studio", taskType: "template_generation", description: "Appended to studio generations: continue the brand system, avoid repetition.", usedBy: "ProStudio, ContentStudio (founder intelligence context)" },
+  { key: "project_title_request", name: "Project title: request line", group: "Kinika", taskType: "mentor_chat", description: "The user turn with the first exchange.", usedBy: "The Kinika page", variables: {"first": "…", "reply": "…"} },
+  { key: "lovable_prompt_request", name: "Lovable prompt: request line", group: "Kinika", taskType: "mentor_chat", description: "The user turn with the conversation context.", usedBy: "The Kinika page", variables: {"brand": "Växjö Bageri", "context": "…"} },
+  { key: "template_content_rule", name: "ProStudio: use the given content", group: "Studio", taskType: "template_generation", description: "Tells the designer to use the founder's exact content.", usedBy: "ProStudio", variables: {"content": "headline: Fresh every morning"} },
 ];
 
 export function promptDef(key: string): PromptDef | undefined {

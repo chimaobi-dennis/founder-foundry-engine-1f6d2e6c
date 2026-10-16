@@ -1,3 +1,4 @@
+import { requirePrompt } from '@/services/aiService';
 /**
  * sceneGenerationBridge.ts
  *
@@ -276,48 +277,13 @@ export function processSceneGeneration(
  * Build the additional scene-mode instructions for the AI prompt.
  * Appended to the visual generation prompt when render_engine is 'scene'.
  */
-export function buildScenePromptInstructions(
+export async function buildScenePromptInstructions(
   engine: RenderEngine,
   width: number,
   height: number
-): string {
+): Promise<string> {
   if (engine === 'html') return '';
-
-  const lines = [
-    '\n\n=== SCENE JSON OUTPUT MODE ===',
-    'Return a valid JSON SceneDocument object instead of HTML.',
-    'The SceneDocument must have this exact structure:',
-    '{',
-    `  "version": "v1",`,
-    `  "width": ${width},`,
-    `  "height": ${height},`,
-    `  "background": "#ffffff",`,
-    '  "nodes": [',
-    '    // Array of SceneNode objects',
-    '  ]',
-    '}',
-    '',
-    'Each node must have: id, type, x, y, width, height, rotation, opacity, zIndex.',
-    'Allowed node types: text, image, shape, button, stack, group.',
-    '',
-    'Text nodes need: text, fontSize, fontFamily, fontWeight, lineHeight, letterSpacing, color, align.',
-    'Shape nodes need: fill, stroke, strokeWidth, radius.',
-    'Image nodes need: src, objectFit, borderRadius.',
-    'Button nodes need: label, fontFamily, fontWeight, fontSize, color, background, borderRadius.',
-    '',
-    'CRITICAL RULES:',
-    '- Return ONLY the JSON object. No explanation, no markdown, no code fences.',
-    '- Start your response with { and end with }.',
-    '- All positions must be within canvas bounds.',
-    `- Canvas size: ${width}×${height}px.`,
-    `- Maximum ${MAX_NODES} nodes.`,
-    `- Maximum group nesting depth: ${MAX_GROUP_DEPTH}.`,
-    '- Typography must be readable (minimum 10px font size).',
-    '- Content must visually fill the canvas.',
-    '- Do NOT use svg, icon, or frame node types.',
-  ];
-
-  return lines.join('\n');
+  return '\n\n' + (await requirePrompt('scene_json_contract', { width: String(width), height: String(height), max_nodes: String(MAX_NODES), max_depth: String(MAX_GROUP_DEPTH) }));
 }
 
 // ═══════════════════════════════════════════════════════════════

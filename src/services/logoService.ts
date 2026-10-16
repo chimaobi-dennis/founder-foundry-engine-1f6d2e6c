@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { callAI, getSystemPrompt, injectPromptVariables, type AICallResult } from '@/services/aiService';
+import { requirePrompt, callAI, getSystemPrompt, injectPromptVariables, type AICallResult } from '@/services/aiService';
 import { logAIError } from '@/services/errorService';
 import { parseAISceneResponse } from '@/lib/scene/parseAISceneResponse';
 import { applyMutationChain } from '@/lib/scene/mutations/mutateScene';
@@ -74,30 +74,7 @@ const knownMutationIds: Set<string> = new Set([
   'custom'
 ]);
 
-const buildLogoSystemPrompt = async (taskType: 'logo_generation' | 'logo_mutation'): Promise<string> => {
-  const prompt = await getSystemPrompt(taskType);
-  if (prompt) return prompt;
-
-  if (taskType === 'logo_generation') {
-    return `You are an AI logo designer.
-Use the brand context, creative brief, and visual style guidance to generate a single valid SceneDocument.
-Return only valid JSON in the following form:
-{
-  "render_engine": "scene",
-  "scene_version": "v1",
-  "scene_json": { ... }
-}
-The scene_json must be a valid SceneDocument with width 800, height 800, a background color, and nodes suitable for a logo concept.
-Do not include markdown, explanations, or extra text.`;
-  }
-
-  return `You are an AI logo designer.
-Use the current logo scene and the requested mutation instructions to produce an updated logo scene.
-If possible, return a JSON object with a scene_json field containing a valid SceneDocument.
-If you cannot return a full scene, return only a JSON object with a mutations array.
-The mutations array should contain objects with id and params.
-Do not include markdown, explanations, or extra text.`;
-};
+const buildLogoSystemPrompt = (taskType: 'logo_generation' | 'logo_mutation'): Promise<string> => requirePrompt(taskType);
 
 const stripCodeFences = (text: string): string =>
   text
@@ -247,7 +224,7 @@ export const generateLogoVariants = async (
         messages: [
           {
             role: 'user',
-            content: `Generate a single square logo scene for variant ${index + 1}. Return only the JSON response described in the system prompt.`
+            content: await requirePrompt('logo_generation_request', { index: String(index + 1) })
           }
         ],
         systemPrompt: prompt,
@@ -374,7 +351,7 @@ export const mutateLogoScene = async (
       messages: [
         {
           role: 'user',
-          content: `Mutate the current logo scene according to the requested change: ${options.mutationDescription}`
+          content: await requirePrompt('logo_mutation_request', { change: options.mutationDescription })
         }
       ],
       systemPrompt: filledPrompt,
