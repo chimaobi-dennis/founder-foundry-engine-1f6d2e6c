@@ -40,7 +40,7 @@ export async function draftPlan(description: string, agents: Agent[], connection
     modelTier: 'fast',
     userId,
     systemPrompt: plannerSystemPrompt(ctx, await requirePrompt('automation_planner')),
-    messages: [{ role: 'user', content: `${text}\n\nRespond with the JSON object only.` }],
+    messages: [{ role: 'user', content: `${text}\n\n${await requirePrompt('respond_json_only')}` }],
     // Thinking models spend output tokens before the JSON; leave room.
     maxTokens: 6000,
     temperature: 0.2,

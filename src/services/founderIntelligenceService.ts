@@ -1,3 +1,4 @@
+import { requirePrompt } from '@/services/aiService';
 import { supabase } from '@/integrations/supabase/client';
 
 const db = supabase as any;
@@ -149,8 +150,7 @@ export async function buildFounderIntelligenceContext(
     conversationMemory,
     creativeMemory,
     synthesizedContext,
-    module,
-  });
+    module, continuityRules: await requirePrompt('brand_continuity_rules') });
 
   return {
     structuredMemory,
@@ -432,12 +432,14 @@ function buildPromptContext({
   creativeMemory,
   synthesizedContext,
   module,
+  continuityRules,
 }: {
   structuredMemory: StructuredMemory;
   conversationMemory: ConversationMemory;
   creativeMemory: CreativeMemory;
   synthesizedContext: any;
   module: IntelligenceModule;
+  continuityRules: string;
 }): string {
   return `
 # BRAND IDENTITY
@@ -505,22 +507,7 @@ ${creativeMemory.antiRepetitionSignals.join('\n')}
 Current Module:
 ${module}
 
-You are not generating isolated outputs.
-You are continuing an evolving brand system.
-
-Avoid repeating:
-- identical layouts
-- repeated visual structures
-- repeated messaging
-- repeated typography compositions
-
-Maintain:
-- brand continuity
-- strategic consistency
-- emotional consistency
-- visual coherence
-
-Generate the NEXT evolution of the brand.
+${continuityRules}
 `;
 }
 

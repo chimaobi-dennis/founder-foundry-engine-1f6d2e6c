@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { callAI, getSystemPrompt, injectPromptVariables } from './aiService';
+import { requirePrompt, callAI, getSystemPrompt, injectPromptVariables } from './aiService';
 import { getBrandProductImages, setPrimaryProductImage, uploadBrandProductImage } from './projectAssetsService';
 import { logError } from './errorService';
 import { saveToLibrary as saveToAssetLibrary, type SaveFormat, type Asset } from './assetService';
@@ -647,20 +647,7 @@ export async function generateTemplateOutput({
     }
 
     // Fetch the system prompt for template_generation with fallback
-    const systemPrompt = await getSystemPrompt('template_generation') || `
-You are a professional graphic designer and frontend developer.
-Generate a complete self-contained HTML/CSS design for the following brief.
-TEMPLATE STYLE: {{generation_prompt}}
-ASPECT RATIO: {{aspectRatio}}
-STYLE INTENSITY: {{styleIntensity}}
-VARIANT: {{variant_index}} of {{variant_count}}
-Brand name context: use {{brand_voice}}, {{core_promise}}, {{target_audience}}, {{positioning_statement}}
-Primary colour: {{primary_color}}, Secondary colour: {{secondary_color}}
-Product image URL: {{product_image_url}} — use in an img tag
-Return ONLY raw HTML. No markdown, no code fences.
-Root element must be a single div 600x600px with position:relative;overflow:hidden.
-Every editable element must have a data-element attribute.
-`;
+    const systemPrompt = await requirePrompt('template_generation');
 
     // Generate all variants in parallel and stream completions via onVariant.
     const variants: string[] = new Array(variantCount).fill('');
@@ -691,10 +678,7 @@ Every editable element must have a data-element attribute.
           });
 
           const digitalContentBlock = digitalInputs && Object.keys(digitalInputs).length > 0
-            ? `\n\nCONTENT TO USE IN THIS DESIGN:\n${Object.entries(digitalInputs)
-                .filter(([, v]) => v != null && String(v).trim() !== '')
-                .map(([k, v]) => `${k}: ${v}`)
-                .join('\n')}\n\nUse this exact content in the design — do not invent placeholder text.`
+            ? await requirePrompt('template_content_rule', { content: Object.entries(digitalInputs).filter(([, v]) => v != null && String(v).trim() !== '').map(([k, v]) => `${k}: ${v}`).join('\n') })
             : '';
 
           const briefBlock = designBrief && designBrief.trim()
