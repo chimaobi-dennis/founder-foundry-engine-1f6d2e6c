@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { Markdown } from "@/components/ui/markdown";
 import { ListSkeleton } from "@/components/ui/page-skeleton";
 import { StepLine, OutputView } from "@/components/team/RunViews";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { useAuth } from "@/contexts/AuthContext";
-import { cancelRun, decideApproval, getRun, outputToText, type Approval, type AutomationRun } from "@/services/agentService";
+import { cancelRun, getRun, outputToText, type Approval, type AutomationRun } from "@/services/agentService";
+import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
 import { supabase } from "@/integrations/supabase/client";
 import type { Deliverable } from "@/services/planService";
 
@@ -20,7 +19,6 @@ export function RunTab({ deliverable, onApproved }: { deliverable: Deliverable; 
   const { user } = useAuth();
   const [run, setRun] = useState<AutomationRun | null | undefined>(undefined);
   const [approval, setApproval] = useState<Approval | null>(null);
-  const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -44,13 +42,7 @@ export function RunTab({ deliverable, onApproved }: { deliverable: Deliverable; 
     return (doc ? doc + extra : outputToText(output)).trim();
   };
 
-  const decide = async (d: "approved" | "rejected") => {
-    if (!approval || !user) return;
-    setBusy(d);
-    const r = await decideApproval(approval.id, d, user.id, note.trim() || undefined);
-    setBusy(null);
-    if (!r.success) { toast.error(r.error ?? "Could not record your decision"); return; }
-    toast(d === "approved" ? "Approved" : "Sent back");
+  const decided = async (d: "approved" | "revise" | "rejected") => {
     if (d === "approved") await onApproved(deliverable, resultText());
     await load();
   };
@@ -72,18 +64,12 @@ export function RunTab({ deliverable, onApproved }: { deliverable: Deliverable; 
           </div>
           <div className="flex items-center gap-2">
             {inFlight && <button disabled={!!busy} onClick={async () => { if (!confirm("Stop the agent here? Credits already used stay used.")) return; setBusy("stop"); await cancelRun(run.id); setBusy(null); await load(); }} className="h-8 px-3 rounded-lg border border-border bg-card font-ui text-[12px] disabled:opacity-50">Take over</button>}
-            {approval && (
-              <>
-                <button disabled={!!busy} onClick={() => decide("rejected")} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px] disabled:opacity-50">{busy === "rejected" ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} Send back</button>
-                <button disabled={!!busy} onClick={() => decide("approved")} className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-ui text-[12px] font-medium disabled:opacity-50">{busy === "approved" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Approve</button>
-              </>
-            )}
+            {approval && user && <ApprovalActions approvalId={approval.id} userId={user.id} agentName={agentName} round={roundOf(run.steps)} onDecided={decided} compact />}
           </div>
         </div>
         {approval && (
-          <div className="px-6 py-3 border-b border-border bg-[hsl(var(--brand-needs-you-soft))]/50 flex items-center gap-3 flex-wrap">
-            <span className="font-ui text-[12px] text-foreground">Approving marks the deliverable done and keeps this as its outcome. Sending it back cancels the run.</span>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the log" className="h-8 text-[12px] max-w-xs" />
+          <div className="px-6 py-3 border-b border-border bg-[hsl(var(--brand-needs-you-soft))]/50">
+            <span className="font-ui text-[12px] text-foreground">Approving marks the deliverable done and keeps this as its outcome. Sending it back for changes asks {agentName} for another round with your note. Stop ends the run.</span>
           </div>
         )}
         <div className="px-6 py-5">

@@ -336,12 +336,18 @@ export async function listPendingApprovals(brandId: string): Promise<Approval[]>
   return data ?? [];
 }
 
+/**
+ * approved: keep the result and continue. revise: the agent redoes its step
+ * with the note (another round, quoted and reserved) and asks again.
+ * rejected: stop the run; credits already used stay used.
+ */
 export async function decideApproval(
   approvalId: string,
-  decision: 'approved' | 'rejected',
+  decision: 'approved' | 'rejected' | 'revise',
   userId: string,
   note?: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (decision === 'revise' && !note?.trim()) return { success: false, error: 'Say what should change before sending it back.' };
   const { data, error } = await db
     .from('approvals')
     .update({ status: decision, note: note ?? null, decided_at: new Date().toISOString(), decided_by: userId })

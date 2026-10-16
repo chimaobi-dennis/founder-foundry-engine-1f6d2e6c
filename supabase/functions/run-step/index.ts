@@ -402,8 +402,43 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       if (!approval || approval.status === "pending") {
         return { status: "waiting_approval", stepsRun };
       }
-      if (approval.id) await remember(admin, { brandId: run.brand_id, userId: run.user_id, runId: run.id }, feedbackEntry(approval.id, approval.status === "rejected" ? "rejected" : "approved", approval.note, run.name, agent?.name ?? "the agent"));
-      if (approval.status === "rejected") {
+      if (approval.id) await remember(admin, { brandId: run.brand_id, userId: run.user_id, runId: run.id }, feedbackEntry(approval.id, approval.status === "approved" ? "approved" : "rejected", approval.status === "revise" ? `Sent back for changes: ${approval.note ?? ""}` : approval.note, run.name, agent?.name ?? "the agent"));
+      if (approval.status === "revise") {
+        // The founder wants changes: the agent redoes its step with the note and its previous result, then asks again.
+        const redo = [...all].reverse().find((s: any) => s.step_index < waiting.step_index && s.status === "done" && s.type === "agent_task" && s.output && s.input?.prompt_mode !== "critique");
+        if (!redo || !agent) {
+          await admin.from("automation_run_steps").update({ status: "skipped", output: { decision: "revise", note: approval.note }, finished_at: new Date().toISOString() }).eq("id", waiting.id);
+          await finishRun(admin, run, "cancelled", { summary: "Sent back, but there was no agent step to revise." });
+          return { status: "cancelled", stepsRun };
+        }
+        const round = all.filter((s: any) => s.type === "agent_task" && s.input?.revision_round).length + 2;
+        const rule = await pricingRule(admin, agent.action_type);
+        const units = normalizeUnits(redo.input?.units);
+        const fixed = rule ? Math.max(1, Math.ceil(Number(rule.base_cost) * units)) : 1;
+        const expected = rule?.pricing_mode === "metered" ? Math.ceil(fixed * Math.max(1, Number(rule.range_factor) || 1)) : fixed;
+        // Another round costs another quote: reserve it now, so the founder is never charged more than shown.
+        if (run.generation_id) {
+          const { data: res, error: rErr } = await admin.rpc("reserve_generation_credits", { p_user_id: run.user_id, p_credits: expected, p_generation_id: run.generation_id, p_platform: "kinika_runner", p_metadata: { run_id: run.id, revision_round: round } });
+          if (rErr || !res?.success) {
+            await pauseRun(admin, run, rErr ? `Could not reserve credits for the revision: ${rErr.message}` : `Not enough credits for another round (about ${expected} credits). Top up and resume.`);
+            return { status: "paused", stepsRun, reason: "insufficient credits" };
+          }
+        }
+        await admin.from("automation_run_steps").update({ status: "done", output: { decision: "revise", note: approval.note }, finished_at: new Date().toISOString() }).eq("id", waiting.id);
+        const base = all.length;
+        const newSteps = [
+          { run_id: run.id, step_index: base, type: "agent_task", name: `${agent.name}: round ${round}`, input: { ...(redo.input ?? {}), use_previous: "revision", revision_round: round, revision_note: approval.note ?? "", revision_of_step_id: redo.id } },
+          { run_id: run.id, step_index: base + 1, type: "approval", name: `Review round ${round}`, input: { ...(waiting.input ?? {}), kind: waiting.input?.kind ?? "review_output" } },
+        ];
+        const { data: inserted, error: insErr } = await admin.from("automation_run_steps").insert(newSteps).select("*");
+        if (insErr) throw new Error(`could not plan the revision: ${insErr.message}`);
+        const nextBudget = { ...budget, max_steps: budget.max_steps + 2, credits_per_run: budget.credits_per_run + expected };
+        await admin.from("automation_runs").update({ status: "running", budget: nextBudget, credits_reserved: Number(run.credits_reserved) + expected }).eq("id", run.id);
+        run.status = "running"; run.credits_reserved = Number(run.credits_reserved) + expected;
+        budget.max_steps = nextBudget.max_steps; budget.credits_per_run = nextBudget.credits_per_run;
+        waiting.status = "done";
+        for (const st of (inserted ?? []).sort((a: any, b: any) => a.step_index - b.step_index)) all.push(st);
+      } else if (approval.status === "rejected") {
         await admin.from("automation_run_steps").update({ status: "skipped", output: { decision: "rejected", note: approval.note }, finished_at: new Date().toISOString() }).eq("id", waiting.id);
         await finishRun(admin, run, "cancelled", { summary: `Cancelled by the founder${approval.note ? `: ${approval.note}` : "."}` });
         return { status: "cancelled", stepsRun };
@@ -526,6 +561,15 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
           `FILES (${files.length}):`,
           ...files.map((f) => `=== ${f.path} ===\n${f.content}`),
         ].filter(Boolean).join("\n\n").slice(0, 180_000);
+      } else if (step.input?.use_previous === "revision") {
+        const prev = all.find((s: any) => s.id === step.input?.revision_of_step_id) ?? [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
+        extra = [
+          `REVISION, ROUND ${step.input?.revision_round ?? 2}. The founder reviewed your previous result and sent it back with this note:`,
+          `"${String(step.input?.revision_note ?? "").trim() || "(no note)"}"`,
+          `Change what the note asks for and keep everything else as it was. Do not start over. Return the complete revised result in the same JSON shape.`,
+          `YOUR PREVIOUS RESULT:`,
+          JSON.stringify(prev?.output ?? {}).slice(0, 40_000),
+        ].join("\n");
       } else if (step.input?.output_hint === "blog_post") {
         extra = `OUTPUT SHAPE FOR THIS TASK: exactly one item with "platform": "blog", "title" (the post title), "excerpt" (one or two sentences for the meta description, under 155 characters) and "body" (the full post, 500-900 words, with short paragraphs and subheadings as plain text).`;
       }
