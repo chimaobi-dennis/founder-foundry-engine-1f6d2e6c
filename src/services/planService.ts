@@ -73,11 +73,32 @@ export interface FounderPlan {
   /** Something happened and a revision is queued. */
   revise_pending: boolean;
   next_checkin_at: string | null;
+  /** What this plan was written to achieve. */
+  goal: string | null;
+  goal_horizon: string | null;
+  is_current: boolean;
+  status: 'active' | 'done' | 'archived';
   targets: PlanTarget[];
 }
 
-export async function getPlan(brandId: string): Promise<FounderPlan | null> {
-  const { data, error } = await db.from('brand_plans').select('*, plan_targets(*, plan_tasks(*))').eq('brand_id', brandId).maybeSingle();
+export interface PlanSummary {
+  id: string;
+  title: string;
+  goal: string | null;
+  goal_horizon: string | null;
+  is_current: boolean;
+  status: 'active' | 'done' | 'archived';
+  built_at: string;
+  version: number;
+  done: number;
+  total: number;
+}
+
+/** The current plan, or a specific one. */
+export async function getPlan(brandId: string, planId?: string): Promise<FounderPlan | null> {
+  let q = db.from('brand_plans').select('*, plan_targets(*, plan_tasks(*))').eq('brand_id', brandId);
+  q = planId ? q.eq('id', planId) : q.eq('is_current', true);
+  const { data, error } = await q.maybeSingle();
   if (error) {
     if (!/brand_plans|schema cache|does not exist/i.test(error.message)) console.error('[Plan] getPlan error:', error.message);
     return null;
@@ -89,8 +110,38 @@ export async function getPlan(brandId: string): Promise<FounderPlan | null> {
   return {
     id: data.id, brand_id: data.brand_id, title: data.title, summary: data.summary, founder_type: data.founder_type, version: data.version, built_at: data.built_at,
     auto_revise: data.auto_revise ?? true, last_revision_reason: data.last_revision_reason ?? null, revise_pending: !!data.revise_note, next_checkin_at: data.next_checkin_at ?? null,
+    goal: data.goal ?? null, goal_horizon: data.goal_horizon ?? null, is_current: data.is_current ?? true, status: data.status ?? 'active',
     targets,
   };
+}
+
+/** Every plan of a business, newest first, with progress. */
+export async function listPlans(brandId: string): Promise<PlanSummary[]> {
+  const { data, error } = await db.from('brand_plans').select('id, title, goal, goal_horizon, is_current, status, built_at, version, plan_tasks(status)').eq('brand_id', brandId).order('built_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map((p: any) => {
+    const tasks: { status: string }[] = p.plan_tasks ?? [];
+    const counted = tasks.filter((t) => t.status !== 'skipped');
+    return { id: p.id, title: p.title, goal: p.goal ?? null, goal_horizon: p.goal_horizon ?? null, is_current: !!p.is_current, status: p.status ?? 'active', built_at: p.built_at, version: p.version, done: counted.filter((t) => t.status === 'done').length, total: counted.length };
+  });
+}
+
+/** Make a plan the current one: Home, Kinika, check-ins and revisions follow it. */
+export async function setCurrentPlan(brandId: string, planId: string): Promise<boolean> {
+  const off = await db.from('brand_plans').update({ is_current: false }).eq('brand_id', brandId).eq('is_current', true);
+  if (off.error) return false;
+  const on = await db.from('brand_plans').update({ is_current: true }).eq('id', planId);
+  return !on.error;
+}
+
+export async function setPlanStatus(planId: string, status: PlanSummary['status']): Promise<boolean> {
+  const { error } = await db.from('brand_plans').update({ status }).eq('id', planId);
+  return !error;
+}
+
+/** A new plan for a goal; Kinika already knows the business. It becomes the current plan. */
+export function createPlan(brandId: string, goal: string, goalHorizon?: string) {
+  return callPlanFunction({ action: 'new', brandId, goal, goalHorizon });
 }
 
 /** Intake import: a brand that just told Kinika about itself gets a plan without being asked, unless it has one. */

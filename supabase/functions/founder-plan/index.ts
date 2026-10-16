@@ -33,10 +33,10 @@ serve(async (req) => {
   if (!userId) return json({ success: false, error: "Unauthorized" }, 401);
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-  let body: { action?: string; brandId?: string; note?: string; playbook?: string; taskId?: string };
+  let body: { action?: string; brandId?: string; note?: string; playbook?: string; taskId?: string; goal?: string; goalHorizon?: string };
   try { body = await req.json(); } catch { return json({ success: false, error: "Invalid JSON body" }, 400); }
   if (!body.brandId) return json({ success: false, error: "brandId is required" }, 400);
-  const action = body.action === "revise" ? "revise" : body.action === "breakdown" ? "breakdown" : "build";
+  const action = body.action === "revise" ? "revise" : body.action === "breakdown" ? "breakdown" : body.action === "new" ? "new" : "build";
 
   // Editors and owners only.
   const { data: allowed } = await userClient.rpc("can_access_brand", { p_brand_id: body.brandId, p_min_role: "editor" });
@@ -54,8 +54,10 @@ serve(async (req) => {
   }
 
   const note = body.note ? String(body.note) : undefined;
+  const goal = action === "new" ? String(body.goal ?? "").trim() : "";
+  if (action === "new" && goal.length < 4) return json({ success: false, error: "Say what this plan should achieve." }, 400);
   try {
-    const r = await buildOrRevisePlan(admin, brand, action, note, action === "revise" && note ? `You asked: ${note.slice(0, 200)}` : undefined, playbookFrom(body.playbook));
+    const r = await buildOrRevisePlan(admin, brand, action, note, action === "revise" && note ? `You asked: ${note.slice(0, 200)}` : action === "new" ? `New plan: ${goal.slice(0, 200)}` : undefined, playbookFrom(body.playbook), action === "new" ? { goal, horizon: body.goalHorizon ? String(body.goalHorizon) : null } : null);
     if (!r.success) return json({ success: false, error: r.error }, r.status);
     return json(r);
   } catch (e) {

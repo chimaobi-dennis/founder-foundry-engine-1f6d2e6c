@@ -15,7 +15,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getMyRole } from "@/services/teamMembersService";
 import { roleAtLeast } from "@shared/plans";
 import { PLAYBOOKS, type PlaybookChoice } from "@shared/plan";
-import { addTask, buildPlan, delegateUrl, deleteTask, getPlan, planProgress, revisePlan, setAutoRevise, setTaskStatus, type FounderPlan, type PlanTask, type PlanTarget, type TaskStatus } from "@/services/planService";
+import { addTask, buildPlan, createPlan, delegateUrl, deleteTask, getPlan, listPlans, planProgress, revisePlan, setAutoRevise, setCurrentPlan, setTaskStatus, type FounderPlan, type PlanSummary, type PlanTask, type PlanTarget, type TaskStatus } from "@/services/planService";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /**
  * /plan — the founder's plan. Targets in order, each a checklist. Every task
@@ -38,12 +39,19 @@ export default function Plan() {
   const [note, setNote] = useState("");
   const [revising, setRevising] = useState(false);
   const [startOverOpen, setStartOverOpen] = useState(false);
+  const [plans, setPlans] = useState<PlanSummary[]>([]);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newGoal, setNewGoal] = useState("");
+  const [newHorizon, setNewHorizon] = useState("About 3 months");
+  const [creating, setCreating] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
   const [playbook, setPlaybook] = useState<PlaybookChoice>("auto");
 
   const reload = async () => {
     if (!brandId) return;
-    const [p, a, h, role, e] = await Promise.all([getPlan(brandId), listAgents(), listHires(brandId), getMyRole(brandId), user ? getEntitlements(user.id).catch(() => null) : Promise.resolve(null)]);
+    const [p, a, h, role, e, all] = await Promise.all([getPlan(brandId), listAgents(), listHires(brandId), getMyRole(brandId), user ? getEntitlements(user.id).catch(() => null) : Promise.resolve(null), listPlans(brandId)]);
     setPlan(p);
+    setPlans(all);
     setAgents(a);
     setHires(h);
     setEnt(e);
@@ -72,6 +80,75 @@ export default function Plan() {
   if (!activeBrand) return <div className="p-8 font-ui text-[13px] text-muted-foreground">Pick a business first.</div>;
   if (!loaded) return <PlanSkeleton />;
 
+  /** Kinika already knows the business: a new plan only needs what it should achieve. It becomes the current plan. */
+  const createNew = async () => {
+    if (!brandId || newGoal.trim().length < 4) return;
+    setCreating(true);
+    const r = await createPlan(brandId, newGoal.trim(), newHorizon);
+    setCreating(false);
+    if (!r.success) { toast.error(r.error ?? "Kinika could not write the plan"); return; }
+    toast(`New plan ready: ${r.targets} targets, ${r.tasks} tasks`);
+    setNewOpen(false); setNewGoal("");
+    await reload();
+  };
+  const switchTo = async (id: string) => {
+    if (!brandId || plan?.id === id) return;
+    setSwitching(id);
+    const ok = await setCurrentPlan(brandId, id);
+    setSwitching(null);
+    if (!ok) { toast.error("Could not switch plans"); return; }
+    await reload();
+  };
+  const newPlanDialog = (
+    <Dialog open={newOpen} onOpenChange={setNewOpen}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle className="font-display text-[22px]">A new plan for {activeBrand.name}</DialogTitle>
+          <DialogDescription className="font-ui text-[13px]">Kinika already knows the business. Say what this plan should achieve; Kinika writes the targets and the tasks, and names the roles it would hire. {plans.length > 0 ? "The plan you have now stays; you can switch between them." : ""}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <label htmlFor="new-goal" className="font-ui text-[13px] font-medium">What do you want to achieve?</label>
+          <Textarea id="new-goal" rows={3} autoFocus value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="'Open a second shop in Kalmar by next summer' or 'Land three retainer clients this quarter'" className="text-[14px]" />
+          <div className="flex items-center gap-2 flex-wrap font-ui text-[13px] text-muted-foreground">
+            <span>By when?</span>
+            {["About 3 months", "This year", "No deadline"].map((h) => (
+              <button key={h} type="button" onClick={() => setNewHorizon(h)} className={cn("h-8 px-3 rounded-full border font-ui text-[12px]", newHorizon === h ? "bg-primary border-primary text-primary-foreground" : "border-border bg-card text-foreground")}>{h}</button>
+            ))}
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <button onClick={() => setNewOpen(false)} className="h-10 px-4 rounded-lg border border-border bg-card font-ui text-[13px]">Not now</button>
+          <button disabled={creating || newGoal.trim().length < 4} onClick={createNew} className="h-10 px-5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-2 disabled:opacity-50">{creating ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} {creating ? "Kinika is writing" : "Write this plan"}</button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+  const plansStrip = plans.length > 0 && (
+    <section aria-label="Your plans" className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Your plans · {plans.length}</span>
+        {canEdit && <button onClick={() => setNewOpen(true)} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-card font-ui text-[12px] hover:border-primary"><Plus size={13} /> New plan</button>}
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {plans.map((p) => (
+          <button key={p.id} onClick={() => switchTo(p.id)} aria-current={p.is_current ? "true" : undefined}
+            className={cn("shrink-0 w-[260px] text-left rounded-xl border p-3.5 flex flex-col gap-1.5 transition-colors", p.is_current ? "border-primary bg-accent" : "border-border bg-card hover:border-primary")}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-ui text-[13px] font-semibold truncate">{p.title}</span>
+              {switching === p.id ? <Loader2 size={12} className="animate-spin shrink-0" /> : p.is_current ? <span className="font-ui text-[10px] uppercase tracking-[0.14em] text-accent-foreground shrink-0">current</span> : null}
+            </div>
+            {p.goal && <span className="font-ui text-[12px] text-muted-foreground line-clamp-2 leading-snug">{p.goal}{p.goal_horizon ? ` · ${p.goal_horizon.toLowerCase()}` : ""}</span>}
+            <div className="flex items-center justify-between font-ui text-[11px] text-muted-foreground mt-auto">
+              <span>{p.done}/{p.total} done</span>
+              <span>{new Date(p.built_at).toLocaleDateString()}</span>
+            </div>
+            <div className="h-1 rounded-full bg-muted/60 overflow-hidden"><div className="h-full bg-primary" style={{ width: `${p.total ? Math.max(2, (p.done / p.total) * 100) : 2}%` }} /></div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+
   if (!plan) {
     return (
       <div className="max-w-3xl mx-auto px-4 md:px-8 py-12">
@@ -96,14 +173,17 @@ export default function Plan() {
           <button onClick={() => navigate("/mentor")} className="font-ui text-[13px] text-muted-foreground underline">Tell Kinika more first</button>
         </div>
         {!canEdit && <p className="font-ui text-[12px] text-muted-foreground mt-3">Only editors and the owner can build the plan.</p>}
+        {newPlanDialog}
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-8 py-10 space-y-8">
+      {plansStrip}
+      {newPlanDialog}
       <header>
-        <p className="font-ui text-[10px] uppercase tracking-[0.24em] text-muted-foreground mb-2">{activeBrand.name} · plan v{plan.version}</p>
+        <p className="font-ui text-[10px] uppercase tracking-[0.24em] text-muted-foreground mb-2">{activeBrand.name} · plan v{plan.version}{plan.goal ? ` · for: ${plan.goal}` : ""}</p>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <h1 className="font-display text-3xl text-foreground">{plan.title}</h1>

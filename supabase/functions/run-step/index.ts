@@ -160,6 +160,7 @@ async function revisePlansDue(admin: Admin): Promise<number> {
   const { data: plans } = await admin
     .from("brand_plans")
     .select("id, revise_note, brands(id, user_id, name, journey_stage, business_kind, goal, goal_horizon)")
+    .eq("is_current", true)
     .not("revise_note", "is", null)
     .lte("revise_requested_at", new Date(Date.now() - REVISION_DEBOUNCE_MS).toISOString())
     .order("revise_requested_at")
@@ -194,6 +195,7 @@ async function planCheckins(admin: Admin): Promise<number> {
   const { data: plans } = await admin
     .from("brand_plans")
     .select("id, brand_id, user_id, title, plan_targets(title, status, position, plan_tasks(title, status, owner, done_at, updated_at))")
+    .eq("is_current", true)
     .lte("next_checkin_at", now.toISOString())
     .limit(10);
   let n = 0;
