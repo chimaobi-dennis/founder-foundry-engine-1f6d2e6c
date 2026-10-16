@@ -19,9 +19,10 @@ import { NeedsCard } from "@/components/work/NeedsCard";
  * for the reply. Deliverables and documents are applied server-side; the
  * workspace reloads when a reply lands.
  */
-export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: {
+export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, onHired }: {
   ws: Workspace;
   deliverables: Deliverable[];
+  onHired: (d: Deliverable, run: { id: string; agentSlug: string; agentName: string }) => Promise<void>;
   /** A reply landed; the workspace should reload its task, deliverables and document. */
   onReplied: () => Promise<void>;
   compact?: boolean;
@@ -135,7 +136,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask }: 
           {!pending && (() => {
             const needing = deliverables.find((d) => !d.done && d.needs && !d.needs.resolved);
             return needing ? (
-              <NeedsCard ws={ws} deliverable={needing}
+              <NeedsCard ws={ws} deliverables={deliverables} deliverable={needing} onHired={onHired}
                 onResolve={async (d, how) => { const next = deliverables.map((x) => x.id === d.id && x.needs ? { ...x, needs: { ...x.needs, resolved: how } } : x); if (!(await saveDeliverables(ws.task.id, next))) toast.error("Could not save"); await onReplied(); }}
                 onSend={(text) => turn(text, true)}
                 onAsk={(text, note) => turn(text, false, note)} />

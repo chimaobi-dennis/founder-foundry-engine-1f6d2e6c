@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TaskChat } from "@/components/work/TaskChat";
 import { DeliverablesRail } from "@/components/work/DeliverablesRail";
 import { DeliverableSheet } from "@/components/work/DeliverableSheet";
+import { RunTab } from "@/components/work/RunTab";
 import { setTaskStatus, type Deliverable } from "@/services/planService";
 import { breakdownTask, saveDeliverables, saveDocumentBody, type Workspace } from "@/services/workspaceService";
 
@@ -26,7 +27,7 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [chatOpen, setChatOpen] = useState(true);
-  const [view, setView] = useState<"document" | "chat">("document");
+  const [view, setView] = useState<"document" | "chat" | `run:${string}`>("document");
   const [completing, setCompleting] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [ask, setAsk] = useState<{ text: string; note: string; nonce: number } | null>(null);
@@ -78,6 +79,7 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
 
   /** Open a deliverable: documents go to the document surface, everything else to the side sheet. */
   const openDeliverable = (d: Deliverable) => {
+    if (d.run_id && !d.done) { setView(`run:${d.id}`); return; }
     if (d.kind === "document" && (d.document_id || document)) { setView("document"); return; }
     setOpenId(d.id);
   };
@@ -90,6 +92,18 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
       note: `You asked Kinika to write down the outcome of "${d.title}".`,
       nonce: Date.now(),
     });
+  };
+  /** Kinika hired an agent for a deliverable: remember the run and open its tab. */
+  const onHired = async (d: Deliverable, run: { id: string; agentSlug: string; agentName: string }) => {
+    await persist(deliverables.map((x) => x.id === d.id ? { ...x, run_id: run.id, agent_slug: run.agentSlug, agent_name: run.agentName, needs: x.needs ? { ...x.needs, resolved: "hired" } : x.needs } : x));
+    setView(`run:${d.id}`);
+    await reload();
+  };
+  /** The founder approved the agent's result: the deliverable is done and the result is its outcome. */
+  const onRunApproved = async (d: Deliverable, result: string) => {
+    await persist(deliverables.map((x) => x.id === d.id ? { ...x, done: true, done_at: x.done_at ?? new Date().toISOString(), result: result || x.result || null } : x));
+    toast(`Done: ${d.title}`);
+    await reload();
   };
   const saveResult = async (d: Deliverable, result: string) => {
     await persist(deliverables.map((x) => x.id === d.id ? { ...x, result: result || null } : x));
@@ -106,10 +120,13 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
     navigate("/plan");
   };
 
+  const runDeliverable = view.startsWith("run:") ? deliverables.find((d) => `run:${d.id}` === view && d.run_id) ?? null : null;
   const showDoc = !!document && view === "document";
+  const showRun = !!runDeliverable;
   const chat = (
-    <TaskChat ws={ws} deliverables={deliverables} onReplied={reload} compact={showDoc} ask={ask} />
+    <TaskChat ws={ws} deliverables={deliverables} onReplied={reload} compact={showDoc || showRun} ask={ask} onHired={onHired} />
   );
+  const runTabs = deliverables.filter((d) => d.run_id);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -131,11 +148,17 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
               <button onClick={() => setView("chat")} className={cn("h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md font-ui text-[12px]", view === "chat" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground")}><MessageSquare size={12} /> Conversation</button>
             </>
           )}
-          {!document && <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">Conversation</span>}
+          {!document && runTabs.length > 0 && <button onClick={() => setView("chat")} className={cn("h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md font-ui text-[12px]", view === "chat" || view === "document" ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground")}><MessageSquare size={12} /> Conversation</button>}
+          {!document && runTabs.length === 0 && <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">Conversation</span>}
+          {runTabs.map((d) => (
+            <button key={d.id} onClick={() => setView(`run:${d.id}`)} className={cn("h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md font-ui text-[12px]", view === `run:${d.id}` ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground")}>
+              <span aria-hidden className={cn("w-2 h-2 rounded-full", d.done ? "bg-[hsl(var(--brand-good))]" : "bg-[hsl(var(--brand-needs-you))]")} />{d.agent_name ?? "Agent"} · {d.title}
+            </button>
+          ))}
           {document && view === "document" && <span className="h-7 px-2.5 inline-flex items-center rounded-md font-ui text-[12px] text-muted-foreground">{saving ? "Saving…" : dirty ? "Unsaved" : document.body_edited_at ? "Your version" : "Kinika's version"}</span>}
         </nav>
         <div className="flex items-center gap-2">
-          {showDoc && <button onClick={() => setChatOpen((v) => !v)} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px]">{chatOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />} {chatOpen ? "Hide Kinika" : "Show Kinika"}</button>}
+          {(showDoc || showRun) && <button onClick={() => setChatOpen((v) => !v)} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px]">{chatOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />} {chatOpen ? "Hide Kinika" : "Show Kinika"}</button>}
           <button onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast("Link copied"); } catch { toast.error("Could not copy"); } }} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px]"><Link2 size={13} /> Share</button>
           {!taskDone && (
             <button disabled={completing || !allDone} title={allDone ? "Tick the task on your plan" : "Every deliverable must be done first"} onClick={complete} className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-ui text-[12px] font-medium disabled:opacity-50">{completing ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Mark the task done</button>
@@ -162,7 +185,12 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
         </aside>
         <DeliverableSheet deliverable={deliverables.find((d) => d.id === openId) ?? null} onClose={() => setOpenId(null)} onAskKinika={askKinika} onSaveResult={saveResult} onToggle={(d) => toggle(d)} />
 
-        {showDoc ? (
+        {showRun && runDeliverable ? (
+          <>
+            <main className="flex-1 min-w-0 overflow-y-auto"><RunTab deliverable={runDeliverable} onApproved={onRunApproved} /></main>
+            {chatOpen && <aside className="hidden md:flex w-[400px] shrink-0 flex-col border-l border-border bg-background min-h-0">{chat}</aside>}
+          </>
+        ) : showDoc ? (
           <>
             <main className="flex-1 min-w-0 overflow-y-auto p-4 md:p-8">
               <article className="max-w-[760px] mx-auto rounded-xl border border-border bg-card">

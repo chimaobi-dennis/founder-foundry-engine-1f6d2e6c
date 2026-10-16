@@ -4,23 +4,26 @@ import { Loader2, UserPlus, Users, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
-import { hireAgent, listAgents, listHires, type Agent } from "@/services/agentService";
+import { createRun, hireAgent, listAgents, listHires, quoteAgentTask, type Agent } from "@/services/agentService";
 import { effectiveLimit, getEntitlements } from "@/services/subscriptionService";
-import { delegateUrl, type Deliverable } from "@/services/planService";
+import type { Deliverable } from "@/services/planService";
 import type { Workspace } from "@/services/workspaceService";
 
 /** Which role on Kinika's roster does a need map to. Legal has no role yet. */
-const ROLE_SLUG: Record<string, string | null> = { research: "researcher", copy: "copywriter", design: "designer", seo: "seo_specialist", dev: "developer", community: null, legal: null, other: null };
+const ROLE_SLUG: Record<string, string | null> = { research: "researcher", copy: "copywriter", design: "designer", seo: "seo_specialist", dev: "developer", legal: "legal_drafter", community: null, other: null };
 
 /**
  * Kinika found work it should not do itself. Three doors, the same wherever a
  * hire is confirmed: let Kinika hire the role, bring your own person and paste
  * their text, or have Kinika write the brief for them. Each resolves the need.
  */
-export function NeedsCard({ ws, deliverable, onResolve, onSend, onAsk }: {
+export function NeedsCard({ ws, deliverables, deliverable, onResolve, onHired, onSend, onAsk }: {
   ws: Workspace;
+  deliverables: Deliverable[];
   deliverable: Deliverable;
   onResolve: (d: Deliverable, how: NonNullable<NonNullable<Deliverable["needs"]>["resolved"]>) => Promise<void>;
+  /** A run was created for this deliverable; the workspace records it and opens its tab. */
+  onHired: (d: Deliverable, run: { id: string; agentSlug: string; agentName: string }) => Promise<void>;
   /** Send a message in the founder's voice. */
   onSend: (text: string) => void;
   /** Send an instruction on the founder's behalf, with the note shown instead. */
@@ -30,7 +33,8 @@ export function NeedsCard({ ws, deliverable, onResolve, onSend, onAsk }: {
   const { user } = useAuth();
   const need = deliverable.needs!;
   const [agent, setAgent] = useState<Agent | null | undefined>(undefined);
-  const [seats, setSeats] = useState<{ total: number; used: number } | null>(null);
+  const [seats, setSeats] = useState<{ total: number; used: number; hiredSlugs: Set<string> } | null>(null);
+  const [quote, setQuote] = useState<number | null>(null);
   const [own, setOwn] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -41,23 +45,33 @@ export function NeedsCard({ ws, deliverable, onResolve, onSend, onAsk }: {
       const slug = ROLE_SLUG[need.role] ?? null;
       const [agents, hires, ent] = await Promise.all([listAgents(), listHires(ws.task.brand_id), user ? getEntitlements(user.id) : Promise.resolve(null)]);
       if (!active) return;
-      setAgent(slug ? agents.find((a) => a.slug === slug) ?? null : null);
+      const found = slug ? agents.find((a) => a.slug === slug) ?? null : null;
+      setAgent(found);
       const total = ent ? effectiveLimit(ent, "agents") : 0;
-      setSeats({ total, used: hires.filter((h) => h.status === "active").length });
+      const activeHires = hires.filter((h) => h.status === "active");
+      setSeats({ total, used: activeHires.length, hiredSlugs: new Set(activeHires.map((h) => h.agent.slug)) });
+      if (found) { try { const q = await quoteAgentTask(found, { brief: need.brief || deliverable.detail, units: 1 }); if (active) setQuote(Math.round(q.estimate)); } catch { /* no rate */ } }
     })();
     return () => { active = false; };
   }, [need.role, ws.task.brand_id, user]);
 
+  /** Kinika hires the role (a seat) if needed, then starts the run for this deliverable with the decisions so far. */
   const hired = async () => {
-    if (!agent || !user) return;
+    if (!agent || !user || !seats) return;
     setBusy("hire");
-    const r = await hireAgent(ws.task.brand_id, user.id, agent.id, "kinika");
+    if (!seats.hiredSlugs.has(agent.slug)) {
+      const h = await hireAgent(ws.task.brand_id, user.id, agent.id, "kinika");
+      if (!h.success) { setBusy(null); toast.error(h.error ?? `Could not hire ${agent.name}`); return; }
+    }
+    const decided = deliverables.filter((d) => d.done && d.result).map((d) => `- ${d.title}: ${d.result}`).join("\n");
+    const brief = [need.brief || deliverable.detail, `Task: ${ws.task.title}.`, decided ? `Decisions already made:\n${decided}` : ""].filter(Boolean).join("\n\n");
+    const r = await createRun({ brandId: ws.task.brand_id, userId: user.id, agent, name: deliverable.title, input: { brief, units: 1, plan_task_id: ws.task.id, deliverable_id: deliverable.id } });
     setBusy(null);
-    if (!r.success) { toast.error(r.error ?? `Could not hire ${agent.name}`); return; }
-    await onResolve(deliverable, "hired");
-    navigate(delegateUrl({ id: ws.task.id, title: `${deliverable.title} — ${ws.task.title}`, agent_brief: need.brief || deliverable.detail, agent_slug: agent.slug }));
+    if (!r.success || !r.run) { toast.error(r.error ?? `Could not start ${agent.name}`); return; }
+    await onHired(deliverable, { id: r.run.id, agentSlug: agent.slug, agentName: agent.name });
+    toast(`Kinika hired ${agent.name} for "${deliverable.title}"`);
   };
-  const alreadyHired = false;
+  const alreadyHired = !!(agent && seats?.hiredSlugs.has(agent.slug));
   const free = seats ? (seats.total < 0 ? Infinity : seats.total - seats.used) : 0;
 
   return (
@@ -83,7 +97,10 @@ export function NeedsCard({ ws, deliverable, onResolve, onSend, onAsk }: {
             <span className="font-ui text-[12px] text-muted-foreground">Your trial has no agent seats.</span>
           </div>
         ) : free > 0 || alreadyHired ? (
-          <button disabled={!!busy} onClick={hired} className="self-start h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50">{busy === "hire" ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />} Let Kinika hire {agent.name} for this</button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button disabled={!!busy} onClick={hired} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50">{busy === "hire" ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />} {alreadyHired ? `Hand this to ${agent.name}` : `Let Kinika hire ${agent.name} for this`}</button>
+            <span className="font-ui text-[12px] text-muted-foreground">{quote != null ? `About ${quote} credits` : ""}{alreadyHired ? "" : " · uses a seat"} · you approve the result here</span>
+          </div>
         ) : (
           <div className="flex items-center gap-3 flex-wrap">
             <button onClick={() => navigate("/billing")} className="h-9 px-3.5 rounded-lg border border-border bg-card font-ui text-[13px] inline-flex items-center gap-1.5"><UserPlus size={13} /> Add a seat</button>
