@@ -7,12 +7,12 @@
 /** What the workspace passes when Kinika is working one task with the founder. */
 export interface TaskChatContext {
   task: { id: string; title: string; detail: string | null; target_title: string };
-  deliverables: { id: string; title: string; detail: string; kind: string; done: boolean }[];
+  deliverables: { id: string; title: string; detail: string; kind: string; done: boolean; withAgent?: string | null }[];
 }
 
 export function taskPromptBlock(ctx: TaskChatContext): string {
   // Deliverables are numbered D1, D2… for the model; the ids never reach the founder.
-  const list = ctx.deliverables.map((d, i) => `D${i + 1} [${d.done ? 'done' : 'open'}] ${d.title} (${d.kind}): ${d.detail}`).join('\n');
+  const list = ctx.deliverables.map((d, i) => `D${i + 1} [${d.done ? 'done' : d.withAgent ? `with ${d.withAgent}, Kinika hired them; wait for the founder to approve their result` : 'open'}] ${d.title} (${d.kind}): ${d.detail}`).join('\n');
   return [
     'WORKING ONE TASK WITH THE FOUNDER (the workspace). You are Kinika, the founder\'s business manager, doing this task together with the founder right now. Stay on this task; the plan-level conversation is elsewhere.',
     `TASK: ${ctx.task.title}${ctx.task.detail ? ` — ${ctx.task.detail}` : ''} (target: ${ctx.task.target_title})`,

@@ -24,7 +24,7 @@ const GATEWAY_URL = `${SUPABASE_URL}/functions/v1/ai-gateway`;
 
 // deno-lint-ignore no-explicit-any
 type Admin = any;
-type Deliverable = { id: string; title: string; detail: string; kind: "decision" | "document" | "list" | "action"; done: boolean; done_at: string | null; document_id: string | null; result?: string | null; needs?: { role: string; label: string; why: string; brief: string; raised_at: string; resolved?: string | null } | null };
+type Deliverable = { id: string; title: string; detail: string; kind: "decision" | "document" | "list" | "action"; done: boolean; done_at: string | null; document_id: string | null; result?: string | null; needs?: { role: string; label: string; why: string; brief: string; raised_at: string; resolved?: string | null } | null; run_id?: string | null; agent_slug?: string | null; agent_name?: string | null };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -84,7 +84,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   ]);
   const ctx: TaskChatContext = {
     task: { id: task.id, title: task.title, detail: task.detail, target_title: task.plan_targets?.title ?? "" },
-    deliverables: deliverables.map((d) => ({ id: d.id, title: d.title, detail: d.detail, kind: d.kind, done: d.done })),
+    deliverables: deliverables.map((d) => ({ id: d.id, title: d.title, detail: d.detail, kind: d.kind, done: d.done, withAgent: d.run_id && !d.done ? (d.agent_name ?? "an agent") : null })),
   };
   const targets = (plan?.plan_targets ?? []).sort((a: { position: number }, b: { position: number }) => a.position - b.position).map((t: { title: string; status: string }) => `- ${t.title} (${t.status})`).join("\n");
   const systemPrompt = [

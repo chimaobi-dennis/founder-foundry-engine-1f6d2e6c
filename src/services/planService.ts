@@ -26,6 +26,10 @@ export interface Deliverable {
   result?: string | null;
   /** Kinika raised that this needs a specialist or an outside person; cleared when the founder resolves it. */
   needs?: { role: string; label: string; why: string; brief: string; raised_at: string; resolved?: 'hired' | 'own' | 'brief' | 'dismissed' | null } | null;
+  /** An agent Kinika hired for this deliverable: its run lands as a tab in the task's workspace. */
+  run_id?: string | null;
+  agent_slug?: string | null;
+  agent_name?: string | null;
 }
 
 export interface PlanTask {
