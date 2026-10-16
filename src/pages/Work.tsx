@@ -9,7 +9,8 @@ import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StepLine, OutputView } from "@/components/team/RunViews";
-import { cancelRun, decideApproval } from "@/services/agentService";
+import { cancelRun } from "@/services/agentService";
+import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
 import { delegateUrl } from "@/services/planService";
 import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, wantsCanvas, type Workspace } from "@/services/workspaceService";
 import ContentStudioEditor from "@/pages/ContentStudioEditor";
@@ -31,7 +32,6 @@ export default function Work() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [note, setNote] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [firstNote, setFirstNote] = useState(false);
   const [tab, setTab] = useState<number | null>(null);
@@ -82,15 +82,10 @@ export default function Work() {
     return r.status;
   }, [ws]);
 
-  const decide = async (d: "approved" | "rejected") => {
-    if (!ws?.approval || !user) return;
-    setBusy(d);
-    if (dirty && ws.document) await saveDocumentBody(ws.document.id, bodyRef.current);
-    const r = await decideApproval(ws.approval.id, d, user.id, note.trim() || undefined);
-    setBusy(null);
-    if (!r.success) { toast.error(r.error ?? "Could not record your decision"); return; }
+  const decided = async (d: "approved" | "revise" | "rejected") => {
+    if (!user) return;
+    if (dirty && ws?.document) await saveDocumentBody(ws.document.id, bodyRef.current);
     if (d === "approved" && !firstApprovalSeen(user.id)) { markFirstApprovalSeen(user.id); setFirstNote(true); }
-    toast(d === "approved" ? "Approved" : "Sent back");
     await load();
   };
 
@@ -142,12 +137,7 @@ export default function Work() {
         <div className="flex items-center gap-2">
           <button onClick={() => setHistoryOpen((v) => !v)} className={cn("h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border font-ui text-[12px]", historyOpen ? "bg-accent text-accent-foreground" : "bg-card")}><History size={13} /> History</button>
           <button onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast("Link copied"); } catch { toast.error("Could not copy"); } }} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px]"><Link2 size={13} /> Share</button>
-          {approval && (
-            <>
-              <button disabled={!!busy} onClick={() => decide("rejected")} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px] disabled:opacity-50">{busy === "rejected" ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} Send back</button>
-              <button disabled={!!busy} onClick={() => decide("approved")} className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-ui text-[12px] font-medium disabled:opacity-50">{busy === "approved" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Approve</button>
-            </>
-          )}
+          {approval && user && <ApprovalActions approvalId={approval.id} userId={user.id} agentName={agentName} round={roundOf(run?.steps)} onDecided={decided} compact />}
         </div>
       </header>
 
@@ -194,8 +184,7 @@ export default function Work() {
           {approval && (
             <div className="flex flex-col gap-1.5">
               <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">This approval</span>
-              <span className="font-ui text-[12px] leading-relaxed text-muted-foreground">Approving keeps {document?.body_edited_at ? "your version" : "the result"} and marks the task done. Sending it back cancels the run; the {credits} credits already used stay used.</span>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the log" className="h-8 text-[12px]" />
+              <span className="font-ui text-[12px] leading-relaxed text-muted-foreground">Approving keeps {document?.body_edited_at ? "your version" : "the result"} and marks the task done. Sending it back for changes asks {agentName} for another round with your note. Stop ends the run; the {credits} credits already used stay used.</span>
             </div>
           )}
           <div className="mt-auto flex flex-col gap-1.5">

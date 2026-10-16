@@ -34,6 +34,7 @@ import { listConnections, type ToolConnection } from "@/services/connectionServi
 import { SUPABASE_CONFIG } from "@/config/supabaseConfig";
 import { getEntitlements, planAllows, planLimitMessage, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
 import { linkTaskToRun } from "@/services/planService";
+import { ApprovalActions } from "@/components/work/ApprovalActions";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { getMyRole, roleAtLeast, type BrandRole } from "@/services/teamMembersService";
 import { PeopleSection } from "@/components/team/People";
@@ -567,14 +568,7 @@ function ApprovalCard({ approval, userId, canDecide = true, onDecided, onOpenRun
   const items = outputItems(approval.payload?.output);
   const agentName = approval.run?.agent?.name ?? "Agent";
 
-  const decide = async (d: "approved" | "rejected") => {
-    setBusy(d);
-    const r = await decideApproval(approval.id, d, userId, note.trim() || undefined);
-    setBusy(null);
-    if (!r.success) { toast.error(r.error ?? "Could not record your decision"); return; }
-    toast(d === "approved" ? "Approved" : "Sent back");
-    onDecided();
-  };
+  const decided = async () => { onDecided(); };
 
   return (
     <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
@@ -588,15 +582,9 @@ function ApprovalCard({ approval, userId, canDecide = true, onDecided, onOpenRun
         <button onClick={onOpenRun} className="text-[12px] font-ui text-muted-foreground hover:text-foreground inline-flex items-center gap-1">Open run <ArrowUpRight size={12} /></button>
       </div>
       {(approval.payload as any)?.code ? <CodeReview code={(approval.payload as any).code} /> : (approval.payload as any)?.diff ? <DiffTable diff={(approval.payload as any).diff} /> : <OutputView output={approval.payload?.output ?? null} compact />}
-      <div className="mt-3 flex items-center gap-2 flex-wrap">
-        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note for the log" className="max-w-xs h-8 text-[12px]" />
-        <button onClick={() => decide("approved")} disabled={!!busy || !canDecide} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui font-medium disabled:opacity-50">
-          {busy === "approved" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Approve
-        </button>
-        <button onClick={() => decide("rejected")} disabled={!!busy || !canDecide} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui disabled:opacity-50">
-          {busy === "rejected" ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} Send back
-        </button>
-        <span className="text-[11px] font-ui text-muted-foreground">{approval.kind === "review_publish" ? "Approving publishes these posts to your linked accounts. Deleting them afterwards works only where the network allows it." : approval.kind === "review_code" ? "Approving opens the pull request; closing it later reverts everything." : (approval.payload as any)?.diff ? "Approving applies these changes; each one can be reverted afterwards." : "Approving keeps the result; sending back cancels the run."} Credits already used stay used.</span>
+      <div className="mt-3 flex items-start justify-between gap-3 flex-wrap">
+        <span className="text-[11px] font-ui text-muted-foreground max-w-[46ch]">{approval.kind === "review_publish" ? "Approving publishes these posts to your linked accounts. Deleting them afterwards works only where the network allows it." : approval.kind === "review_code" ? "Approving opens the pull request; closing it later reverts everything." : (approval.payload as any)?.diff ? "Approving applies these changes; each one can be reverted afterwards." : "Approving keeps the result. Send back for changes asks for another round with your note; Stop ends the run."} Credits already used stay used.</span>
+        {canDecide && <ApprovalActions approvalId={approval.id} userId={userId} agentName={approval.run?.agent?.name ?? "the agent"} onDecided={decided} compact />}
       </div>
     </div>
   );
