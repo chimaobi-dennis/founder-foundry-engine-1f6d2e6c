@@ -77,7 +77,7 @@ serve(async (req) => {
       chat ? `A CONVERSATION THE FOUNDER ALREADY HAD ABOUT THIS BUSINESS:\n${chat}` : "",
       ...docs.map((d: string, i: number) => `DOCUMENT ${i + 1}:\n${d}`),
       `JOURNEY STAGES: ${(stageRows ?? []).map((s: any) => `${s.stage_key} (${s.name}: ${String(s.description ?? "").slice(0, 80)})`).join("; ")}`,
-      "Respond with the JSON object only.",
+      await loadPrompt(admin, "respond_json_only"),
     ].filter(Boolean).join("\n\n");
 
     const systemPrompt = await loadPrompt(admin, "understanding", { stage_keys: stageKeys.join(", ") });
@@ -101,7 +101,7 @@ serve(async (req) => {
       const second = await ask([
         { role: "user", content: parts },
         { role: "assistant", content: first.text.slice(0, 6000) },
-        { role: "user", content: "That was not the JSON object described, or it had fewer than two filled sections. Respond again with the JSON object only, every section you can fill from the material above." },
+        { role: "user", content: await loadPrompt(admin, "understanding_retry") },
       ], 2);
       if (!second.error) readback = toReadback(second.text);
     }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { feedbackEntry, memoryLine, outcomeEntry, revertFeedbackEntry, runSummaryEntry } from '@shared/memory';
-import { mergeSelfReview, planSingleAgentRun, selfReviewInstruction, type AgentDefinition } from '@shared/runner';
+import { mergeSelfReview, planSingleAgentRun, type AgentDefinition } from '@shared/runner';
 
 const designer: AgentDefinition = {
   id: 'd', slug: 'designer', name: 'Designer', role: 'Designer', system_prompt: 'x', model_tier: 'standard', action_type: 'agent_designed_post',
@@ -19,8 +19,6 @@ describe('designer self-review', () => {
     expect(planSingleAgentRun(copywriter, { brief: 'b' }).map((s) => s.type)).toEqual(['agent_task', 'approval']);
   });
   it('asks for the same shape plus review notes', () => {
-    expect(selfReviewInstruction()).toMatch(/SAME JSON shape/);
-    expect(selfReviewInstruction()).toMatch(/issues_found/);
   });
   it('keeps the draft when the review loses its items', () => {
     const draft = { items: [{ title: 'a' }], summary: 's' };

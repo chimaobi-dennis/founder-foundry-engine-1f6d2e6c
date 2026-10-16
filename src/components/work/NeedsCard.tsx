@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { createRun, hireAgent, listAgents, listHires, quoteAgentTask, type Agent } from "@/services/agentService";
 import { effectiveLimit, getEntitlements } from "@/services/subscriptionService";
+import { requirePrompt } from "@/services/aiService";
 import type { Deliverable } from "@/services/planService";
 import type { Workspace } from "@/services/workspaceService";
 
@@ -122,7 +123,7 @@ export function NeedsCard({ ws, deliverables, deliverable, onResolve, onHired, o
         )}
 
         {/* Door 3: the brief */}
-        <button onClick={async () => { onAsk(`Write the brief for an outside ${need.label} for the deliverable "${deliverable.title}": what they must deliver, the decisions already made, the open questions to ask them, and what to check in their answer. Put it inside a DOCUMENT titled "Brief for a ${need.label}". Make clear it is a brief, not the work itself.`, `You asked Kinika to write the brief for a ${need.label.toLowerCase()}.`); await onResolve(deliverable, "brief"); }} className="self-start h-9 px-3.5 rounded-lg border border-border bg-card font-ui text-[13px] inline-flex items-center gap-1.5"><FileText size={13} /> Kinika, write the brief for them</button>
+        <button onClick={async () => { try { onAsk(await requirePrompt("task_chat_brief_request", { label: need.label, title: deliverable.title }), `You asked Kinika to write the brief for a ${need.label.toLowerCase()}.`); await onResolve(deliverable, "brief"); } catch (e) { toast.error((e as Error).message); } }} className="self-start h-9 px-3.5 rounded-lg border border-border bg-card font-ui text-[13px] inline-flex items-center gap-1.5"><FileText size={13} /> Kinika, write the brief for them</button>
       </div>
     </div>
   );

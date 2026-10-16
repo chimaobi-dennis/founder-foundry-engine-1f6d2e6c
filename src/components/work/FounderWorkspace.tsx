@@ -10,6 +10,7 @@ import { DeliverableSheet } from "@/components/work/DeliverableSheet";
 import { RunTab } from "@/components/work/RunTab";
 import { setTaskStatus, type Deliverable } from "@/services/planService";
 import { breakdownTask, saveDeliverables, saveDocumentBody, type Workspace } from "@/services/workspaceService";
+import { requirePrompt } from "@/services/aiService";
 
 /**
  * A founder's own plan task, worked with Kinika. Kinika breaks the task into
@@ -83,15 +84,13 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
     if (d.kind === "document" && (d.document_id || document)) { setView("document"); return; }
     setOpenId(d.id);
   };
-  const askKinika = (d: Deliverable) => {
+  const askKinika = async (d: Deliverable) => {
     setOpenId(null);
     if (document && view === "document") setChatOpen(true); else setView("chat");
     const n = deliverables.findIndex((x) => x.id === d.id) + 1;
-    setAsk({
-      text: `Close deliverable D${n} ("${d.title}") now with its outcome in the STATE line, from what we have decided so far, and confirm in one line without mentioning any ids. If we have not decided enough, say what is missing instead and leave it open.`,
-      note: `You asked Kinika to write down the outcome of "${d.title}".`,
-      nonce: Date.now(),
-    });
+    try {
+      setAsk({ text: await requirePrompt("task_chat_write_down", { n: String(n), title: d.title }), note: `You asked Kinika to write down the outcome of "${d.title}".`, nonce: Date.now() });
+    } catch (e) { toast.error((e as Error).message); }
   };
   /** Kinika hired an agent for a deliverable: remember the run and open its tab. */
   const onHired = async (d: Deliverable, run: { id: string; agentSlug: string; agentName: string }) => {

@@ -9,7 +9,7 @@ import { buildContextPack } from "./contextPack.ts";
 import { parseStructuredOutput } from "./runner.ts";
 import { agentsBlock, coercePlan, playbookBlock, playbookForKind, type PlanAgentOption, type PlanDraft, type PlaybookChoice } from "./plan.ts";
 import { remember } from "./memory.ts";
-import { loadPrompt } from "./promptLoad.ts";
+import { loadPrompts } from "./promptLoad.ts";
 
 export interface PlanBrand {
   id: string;
@@ -51,7 +51,8 @@ export async function buildOrRevisePlan(
   const hiredSlugs = new Set((hires ?? []).map((h: any) => h.agents?.slug).filter(Boolean));
   const agents: PlanAgentOption[] = (agentRows ?? []).map((a: any) => ({ slug: a.slug, name: a.name, tagline: a.tagline, hired: hiredSlugs.has(a.slug) }));
 
-  const systemPrompt = `${await loadPrompt(admin, "plan_build")}\n\n=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text}`;
+  const P = await loadPrompts(admin, ["plan_build", "plan_goal_rule", "plan_agents_rule", "plan_playbook_auto", "plan_playbook_chosen", "respond_json_only"]);
+  const systemPrompt = `${P.plan_build}\n\n=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text}`;
 
   const existingText = existing && action === "revise"
     ? "EXISTING PLAN (keep done tasks and the founder's edits; change only what the new information warrants):\n" + JSON.stringify({
@@ -65,13 +66,13 @@ export async function buildOrRevisePlan(
   const milestoneText = (milestones ?? []).length ? "RECENT MILESTONES:\n" + (milestones ?? []).map((m: any) => `- ${m.name} (${m.stage_key ?? m.category})`).join("\n") : "";
   const userPrompt = [
     `Journey stage: ${brand.journey_stage ?? "unknown"}.${brand.business_kind ? ` Kind of business: ${brand.business_kind}.` : ""}`,
-    brand.goal ? `THE FOUNDER'S GOAL${brand.goal_horizon ? ` (${brand.goal_horizon})` : ""}: ${brand.goal}\nThe targets must lead to this goal.` : "",
-    action === "build" ? playbookBlock(playbook === "auto" ? playbookForKind(brand.business_kind) : playbook) : "",
-    agentsBlock(agents),
+    brand.goal ? P.plan_goal_rule.split("{{horizon}}").join(brand.goal_horizon ? ` (${brand.goal_horizon})` : "").split("{{goal}}").join(String(brand.goal)) : "",
+    action === "build" ? playbookBlock(playbook === "auto" ? playbookForKind(brand.business_kind) : playbook, { auto: P.plan_playbook_auto, chosen: P.plan_playbook_chosen }) : "",
+    agentsBlock(agents, P.plan_agents_rule),
     milestoneText,
     existingText,
     note ? `NOTE FROM THE FOUNDER OR A TRIGGER: ${String(note).slice(0, 1500)}` : "",
-    "Respond with the JSON object only.",
+    P.respond_json_only,
   ].filter(Boolean).join("\n\n");
 
   // ── Model ──

@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ThinkingLine } from "@/components/work/ThinkingLine";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { getMessages, type MentorMessage, type ReplyOption } from "@/services/mentorService";
+import { requirePrompt } from "@/services/aiService";
 import type { Deliverable } from "@/services/planService";
 import { getTaskConversationState, sendTaskMessage, saveDeliverables, type Workspace } from "@/services/workspaceService";
 import { NeedsCard } from "@/components/work/NeedsCard";
@@ -79,7 +80,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
   useEffect(() => {
     if (!ready || pending || openedRef.current || messages.length > 0 || deliverables.length === 0) return;
     openedRef.current = true;
-    turn("Open this task: in three short lines say how we will work through the deliverables, then ask the first question for the first open deliverable.", false);
+    requirePrompt("task_chat_open").then((t) => turn(t, false)).catch((e) => toast.error((e as Error).message));
   }, [ready, pending, messages.length, deliverables.length, turn]);
 
   useEffect(() => {

@@ -82,7 +82,7 @@ async function breakdownTask(admin: any, brand: { id: string; name: string; busi
     brand.goal ? `THE FOUNDER'S GOAL: ${brand.goal}` : "",
     `TARGET: ${target?.title ?? ""}${target?.why ? ` (why: ${target.why})` : ""}`,
     `TASK: ${task.title}${task.detail ? `\n${task.detail}` : ""}`,
-    "Respond with the JSON object only.",
+    await loadPrompt(admin, "respond_json_only"),
   ].filter(Boolean).join("\n\n");
   const gw = await fetch(`${SUPABASE_URL}/functions/v1/ai-gateway`, {
     method: "POST",
