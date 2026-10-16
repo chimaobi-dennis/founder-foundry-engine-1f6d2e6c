@@ -1,606 +1,217 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  getAllSystemPrompts, 
-  updateSystemPrompt, 
-  getPromptVersionHistory, 
-  restorePromptVersion,
-  type TaskType 
-} from "@/services/aiService";
-import { useAuth } from "@/contexts/AuthContext";
+import { Check, ChevronDown, ChevronRight, Cpu, History, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { safeCopyToClipboard } from "@/lib/clipboard";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog";
-import { Book, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
+import { ListSkeleton } from "@/components/ui/page-skeleton";
+import { cn } from "@/lib/utils";
+import { composePrompt, fillVars, PROMPT_REGISTRY, type PromptDef, type PromptExample, type PromptRow } from "@shared/prompts";
+import { getAllSystemPrompts, getPromptVersionHistory, getRouteFor, listTaskClasses, restorePromptVersion, savePrompt, setTaskClass } from "@/services/aiService";
 
-const TASK_CONFIG: Record<TaskType, {
-  name: string;
-  description: string;
-  color: string;
-  variables: string[];
-}> = {
-  mentor_chat: {
-    name: 'Kinika (Mentor Chat)',
-    description: 'System prompt for brand mentorship conversations',
-    color: '#1E4ED8',
-    variables: ['brand_name', 'industry', 'brand_voice', 'positioning_statement', 'target_audience', 'core_promise', 'brand_references', 'campaign_strategy', 'customer_insight']
-  },
-  template_generation: {
-    name: 'ProStudio (Template Generation)',
-    description: 'System prompt for ProStudio template generation',
-    color: '#0F766E',
-    variables: ['brand_name', 'primary_color', 'brand_voice', 'product_name']
-  },
-  document_generation: {
-    name: 'DocStudio (Document Generation)',
-    description: 'System prompt for DocStudio document generation',
-    color: '#1E4ED8',
-    variables: ['brand_name', 'industry', 'brand_voice', 'positioning_statement', 'target_audience', 'core_promise']
-  },
-  campaign_copy: {
-    name: 'ContentStudio (Campaign Copy)',
-    description: 'System prompt for CampaignKit copy generation',
-    color: '#157347',
-    variables: ['brand_name', 'brand_voice', 'target_audience', 'core_promise', 'key_benefit', 'call_to_action']
-  },
-  reel_script: {
-    name: 'ReelBuilder (Reel Script)',
-    description: 'System prompt for ReelBuilder script generation',
-    color: '#6D28D9',
-    variables: ['brand_name', 'brand_voice', 'target_audience', 'core_promise']
-  },
-  image_generation: {
-    name: 'Image Generation',
-    description: 'System prompt for image generation across all modules',
-    color: '#8A5A00',
-    variables: ['brand_name', 'primary_color', 'brand_voice', 'product_name']
-  },
-  system_ai: {
-    name: 'System AI',
-    description: 'Powers internal platform tasks — context extraction, auto-naming, brand suggestions, and other background processes',
-    color: '#8A5A00',
-    variables: []
-  },
-  context_extraction: {
-    name: 'System AI (Context Extraction)',
-    description: 'Used during project onboarding to extract structured brand data from pasted text, URLs, or uploaded documents.',
-    color: '#BE185D',
-    variables: ['field_guide']
-  }
-};
+/**
+ * Every prompt in Kinika, from the registry: the model flow it runs on, the
+ * effective text (code default or the admin's override), further instructions
+ * and training examples. Saving keeps history. Nothing here is hard-coded
+ * elsewhere: the functions compose the same text through composePrompt.
+ */
 
-interface SystemPrompt {
-  id: string;
-  task_type: TaskType;
-  system_prompt: string;
-  version: number;
-  is_active: boolean;
-  last_edited_by: string;
-  updated_at: string;
-}
+type Row = PromptRow & { id?: string; task_type: string; version?: number; updated_at?: string };
+type Route = Awaited<ReturnType<typeof getRouteFor>>;
 
-interface PromptVersion {
-  id: string;
-  version: number;
-  system_prompt: string;
-  edited_by: string;
-  edit_note: string;
-  created_at: string;
-}
+const GROUPS: PromptDef["group"][] = ["Kinika", "Workspace", "Agents", "Studio"];
 
 export default function AdminKnowledgeBase() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [prompts, setPrompts] = useState<SystemPrompt[]>([]);
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<Record<string, Row>>({});
+  const [routes, setRoutes] = useState<Record<string, Route>>({});
+  const [classes, setClasses] = useState<{ slug: string; name: string; description: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  const [open, setOpen] = useState<string | null>(null);
 
-  const setActionLoading = (key: string, value: boolean) => {
-    setLoadingStates(prev => ({ ...prev, [key]: value }));
-  };
-
-  const isActionLoading = (key: string) => loadingStates[key] === true;
-  
-  // Edit mode state
-  const [editingTask, setEditingTask] = useState<TaskType | null>(null);
-  const [editPrompt, setEditPrompt] = useState("");
-  const [editNote, setEditNote] = useState("");
-  
-  // History modal state
-  const [historyTask, setHistoryTask] = useState<TaskType | null>(null);
-  const [versions, setVersions] = useState<PromptVersion[]>([]);
-  const [restoringVersion, setRestoringVersion] = useState<string | null>(null);
-  
-  // Expanded state
-  const [expandedPrompts, setExpandedPrompts] = useState<Set<TaskType>>(new Set());
-  
-  // Variables panel state
-  const [showVariables, setShowVariables] = useState<Set<TaskType>>(new Set());
-  const [copiedVariable, setCopiedVariable] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadPrompts();
-  }, []);
-
-  const loadPrompts = async () => {
-    setLoading(true);
-    const { data, error } = await getAllSystemPrompts();
-    if (error) {
-      toast.error('Failed to load prompts');
-    } else {
-      setPrompts(data || []);
-    }
+  const load = async () => {
+    const [{ data }, cls] = await Promise.all([getAllSystemPrompts(), listTaskClasses()]);
+    const map: Record<string, Row> = {};
+    for (const r of (data ?? []) as Row[]) map[r.task_type] = r;
+    setRows(map); setClasses(cls);
+    const taskTypes = [...new Set(PROMPT_REGISTRY.map((d) => d.taskType))];
+    const found = await Promise.all(taskTypes.map(async (t) => [t, await getRouteFor(t)] as const));
+    setRoutes(Object.fromEntries(found));
     setLoading(false);
   };
+  useEffect(() => { load(); }, []);
 
-  const handleEdit = (taskType: TaskType, currentPrompt: string) => {
-    setEditingTask(taskType);
-    setEditPrompt(currentPrompt);
-    setEditNote("");
-  };
-
-  const handleCancelEdit = () => {
-    setEditingTask(null);
-    setEditPrompt("");
-    setEditNote("");
-  };
-
-  const handleSave = async () => {
-    if (!editingTask || !user?.id) return;
-    
-    const loadingKey = `save-prompt-${editingTask}`;
-    setActionLoading(loadingKey, true);
-    
-    const result = await updateSystemPrompt(editingTask, editPrompt, editNote, user.id);
-    if (result.success) {
-      toast.success('Saved');
-      setEditingTask(null);
-      setEditPrompt("");
-      setEditNote("");
-      loadPrompts();
-    } else {
-      toast.error(result.error || 'Failed to save prompt');
-    }
-    setActionLoading(loadingKey, false);
-  };
-
-  const handleHistory = async (taskType: TaskType) => {
-    setHistoryTask(taskType);
-    const { data, error } = await getPromptVersionHistory(taskType);
-    if (error) {
-      toast.error('Failed to load version history');
-    } else {
-      setVersions(data || []);
-    }
-  };
-
-  const handleRestore = async (versionId: string) => {
-    if (!user?.id) return;
-    
-    const loadingKey = `restore-version-${versionId}`;
-    setActionLoading(loadingKey, true);
-    
-    const result = await restorePromptVersion(versionId, user.id);
-    if (result.success) {
-      toast.success('Restored');
-      setHistoryTask(null);
-      setVersions([]);
-      loadPrompts();
-    } else {
-      toast.error(result.error || 'Failed to restore version');
-    }
-    setActionLoading(loadingKey, false);
-  };
-
-  const toggleExpand = (taskType: TaskType) => {
-    setExpandedPrompts(prev => {
-      const next = new Set(prev);
-      if (next.has(taskType)) {
-        next.delete(taskType);
-      } else {
-        next.add(taskType);
-      }
-      return next;
-    });
-  };
-
-  const toggleVariables = (taskType: TaskType) => {
-    setShowVariables(prev => {
-      const next = new Set(prev);
-      if (next.has(taskType)) {
-        next.delete(taskType);
-      } else {
-        next.add(taskType);
-      }
-      return next;
-    });
-  };
-
-  const copyVariable = async (variable: string) => {
-    const placeholder = `{{${variable}}}`;
-    await safeCopyToClipboard(placeholder);
-    setCopiedVariable(variable);
-    setTimeout(() => setCopiedVariable(null), 2000);
-  };
-
-  const getPreviewLines = (text: string, lineCount: number = 3) => {
-    return text.split('\n').slice(0, lineCount).join('\n');
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString();
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-4 h-4 rounded-full bg-[#1E4ED8] animate-pulse" />
-      </div>
-    );
-  }
+  if (loading) return <ListSkeleton cards={4} rows={2} className="max-w-4xl" />;
 
   return (
     <div className="max-w-4xl">
       <div className="mb-6">
-        <h1 className="font-display text-[26px] font-semibold text-foreground mb-2">
-          Knowledge Base
-        </h1>
-        <p className="text-[13px] text-muted-foreground">
-          Manage the AI system prompts that power every feature. Changes take effect immediately for all users.
+        <h1 className="font-display text-[26px] text-foreground mb-1">Prompts</h1>
+        <p className="font-ui text-[13px] text-muted-foreground max-w-[70ch] leading-relaxed">
+          Every prompt Kinika and the agents run on, with the model it goes to. Each has a code default; you can replace the base text, add instructions that take precedence, and attach examples of good work. Changes apply to the next call. History is kept per prompt.
         </p>
       </div>
+      {GROUPS.map((g) => (
+        <section key={g} className="mb-8">
+          <h2 className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">{g}</h2>
+          <div className="flex flex-col gap-2">
+            {PROMPT_REGISTRY.filter((d) => d.group === g).map((def) => (
+              <PromptCard key={def.key} def={def} row={rows[def.key]} route={routes[def.taskType]} classes={classes} open={open === def.key}
+                onToggle={() => setOpen(open === def.key ? null : def.key)} onChanged={load} adminId={user?.id ?? ""} onEditRouting={() => navigate("/admin/product/ai-models")} />
+            ))}
+          </div>
+        </section>
+      ))}
+      <p className="font-ui text-[12px] text-muted-foreground">Agents' own prompts (Researcher, Copywriter, Legal drafter and the rest) live on each agent: <button onClick={() => navigate("/admin/product/agents")} className="underline">Community agents</button>.</p>
+    </div>
+  );
+}
 
-      <div 
-        className="rounded-lg p-4 mb-6"
-        style={{ 
-          background: '#FFF1D6', 
-          border: '1px solid #8A5A00',
-          fontSize: '12px',
-          color: '#1E40AF'
-        }}
-      >
-        ⚠ Changes to system prompts affect all users immediately. Test carefully before saving. Use version history to roll back if needed.
+function ModelFlow({ route, def, classes, onClassChange, onEditRouting }: { route?: Route; def: PromptDef; classes: { slug: string; name: string }[]; onClassChange: (slug: string) => Promise<void>; onEditRouting: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const chain = route?.candidates ?? [];
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground inline-flex items-center gap-1.5"><Cpu size={11} /> Model flow · task type <code className="font-mono text-[10px] normal-case tracking-normal">{def.taskType}</code>{route?.profile ? ` · profile ${route.profile}` : ""}</span>
+        <div className="flex items-center gap-2">
+          <label className="font-ui text-[11px] text-muted-foreground">Class</label>
+          <select disabled={busy} value={route?.class ?? ""} onChange={async (e) => { setBusy(true); await onClassChange(e.target.value); setBusy(false); }} className="h-7 rounded-md border border-border bg-card px-2 font-ui text-[12px]">
+            <option value="">(none)</option>
+            {classes.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+          </select>
+          <button onClick={onEditRouting} className="h-7 px-2.5 rounded-md border border-border bg-card font-ui text-[12px]">Update models</button>
+        </div>
       </div>
+      <div className="flex items-center gap-2 flex-wrap font-ui text-[12px]">
+        {chain.length === 0 && <span className="text-[hsl(var(--brand-needs-you))]">No model is routed for this task type. Set a class, or add a rule under Update models.</span>}
+        {chain.map((c, i) => (
+          <span key={`${c.model_id}-${i}`} className="inline-flex items-center gap-2">
+            {i > 0 && <span className="text-muted-foreground">→</span>}
+            <span className={cn("px-2 py-0.5 rounded-md border", i === 0 ? "border-[hsl(var(--brand-blue-line))] bg-accent text-accent-foreground font-medium" : "border-border bg-card text-muted-foreground")} title={c.model_id}>{c.model_name} <span className="opacity-70">· {c.provider?.slug}</span></span>
+          </span>
+        ))}
+        {chain.length > 1 && <span className="text-muted-foreground">(primary, then fallbacks)</span>}
+      </div>
+    </div>
+  );
+}
 
-      <div className="space-y-4">
-        {prompts.map((prompt) => {
-          const config = TASK_CONFIG[prompt.task_type];
-          const isEditing = editingTask === prompt.task_type;
-          const isExpanded = expandedPrompts.has(prompt.task_type);
-          const showVars = showVariables.has(prompt.task_type);
-          
-          return (
-            <div 
-              key={prompt.id}
-              className="rounded-lg p-6"
-              style={{ border: '1px solid #C9D2DE' }}
-            >
-              {/* Card header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="px-2.5 py-1 rounded-full text-[11px] font-medium text-white"
-                    style={{ background: config.color }}
-                  >
-                    {config.name}
-                  </span>
-                  <div>
-                    <h3 className="text-[15px] font-medium text-foreground" style={{ fontFamily: 'DM Sans' }}>
-                      {config.name} Prompt
-                    </h3>
-                    <div className="flex items-center gap-3 mt-0.5">
-                      <span className="text-[11px] text-muted-foreground">v{prompt.version}</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        Edited {formatDate(prompt.updated_at)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+function PromptCard({ def, row, route, classes, open, onToggle, onChanged, adminId, onEditRouting }: {
+  def: PromptDef; row?: Row; route?: Route; classes: { slug: string; name: string }[]; open: boolean; onToggle: () => void; onChanged: () => Promise<void>; adminId: string; onEditRouting: () => void;
+}) {
+  const customised = !!(row && (row.system_prompt?.trim() || row.instructions?.trim() || (row.examples ?? []).length));
+  const [base, setBase] = useState(row?.system_prompt ?? "");
+  const [instructions, setInstructions] = useState(row?.instructions ?? "");
+  const [examples, setExamples] = useState<PromptExample[]>(row?.examples ?? []);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [showEffective, setShowEffective] = useState(false);
+  const [history, setHistory] = useState<{ id: string; version: number; edit_note: string | null; created_at: string }[] | null>(null);
+  useEffect(() => { setBase(row?.system_prompt ?? ""); setInstructions(row?.instructions ?? ""); setExamples(row?.examples ?? []); }, [row?.id, row?.version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const vars = def.variables ?? {};
+  const defaultText = useMemo(() => def.defaultText(), [def]);
+  const effective = useMemo(() => composePrompt(def, { system_prompt: base, instructions, examples, is_active: true }, vars), [def, base, instructions, examples, vars]);
+  const dirty = base !== (row?.system_prompt ?? "") || instructions !== (row?.instructions ?? "") || JSON.stringify(examples) !== JSON.stringify(row?.examples ?? []);
+
+  const save = async () => {
+    setSaving(true);
+    const r = await savePrompt(def.key, { system_prompt: base.trim() || null, instructions: instructions.trim() || null, examples: examples.filter((e) => e.input?.trim() || e.output?.trim()) }, note.trim(), adminId);
+    setSaving(false);
+    if (!r.success) { toast.error(r.error ?? "Could not save"); return; }
+    toast("Saved; the next call uses it"); setNote(""); await onChanged();
+  };
+  const loadHistory = async () => { const { data } = await getPromptVersionHistory(def.key as never); setHistory(data ?? []); };
+
+  return (
+    <div className="rounded-xl border border-border bg-card">
+      <button onClick={onToggle} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+        {open ? <ChevronDown size={14} className="text-muted-foreground" /> : <ChevronRight size={14} className="text-muted-foreground" />}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-ui text-[14px] font-semibold">{def.name}</span>
+            <span className={cn("font-ui text-[10px] uppercase tracking-[0.14em] px-1.5 py-0.5 rounded", customised ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>{customised ? `customised · v${row?.version ?? 1}` : "code default"}</span>
+            {(row?.examples ?? []).length > 0 && <span className="font-ui text-[10px] text-muted-foreground">{(row?.examples ?? []).length} example{(row?.examples ?? []).length === 1 ? "" : "s"}</span>}
+          </div>
+          <p className="font-ui text-[12px] text-muted-foreground mt-0.5">{def.description}</p>
+        </div>
+        <span className="hidden md:inline font-ui text-[11px] text-muted-foreground shrink-0">{route?.candidates?.[0]?.model_name ?? "no model"}{route?.class ? ` · ${route.class}` : ""}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-4 border-t border-border pt-4">
+          <p className="font-ui text-[12px] text-muted-foreground">Used by: {def.usedBy}</p>
+          <ModelFlow route={route} def={def} classes={classes} onEditRouting={onEditRouting} onClassChange={async (slug) => { if (!slug) return; if (await setTaskClass(def.taskType, slug)) { toast("Class updated"); await onChanged(); } else toast.error("Could not update the class"); }} />
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="font-ui text-[12px] font-medium">Base prompt {base.trim() ? "(your override)" : "(code default shown; edit to override)"}</label>
+              {base.trim() && <button onClick={() => setBase("")} className="font-ui text-[11px] underline inline-flex items-center gap-1"><RotateCcw size={11} /> Back to the code default</button>}
+            </div>
+            <Textarea value={base.trim() ? base : defaultText} onChange={(e) => setBase(e.target.value === defaultText ? "" : e.target.value)} rows={Math.min(18, Math.max(6, (base || defaultText).split("\n").length + 1))} className="font-mono text-[12px] leading-relaxed" />
+            {Object.keys(vars).length > 0 && <p className="font-ui text-[11px] text-muted-foreground">Placeholders filled at run time: {Object.keys(vars).map((k) => `{{${k}}}`).join(", ")}</p>}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="font-ui text-[12px] font-medium">Further instructions <span className="font-normal text-muted-foreground">(appended; take precedence over the base)</span></label>
+            <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={4} placeholder="Always answer in the founder's language. Never suggest paid ads for a business under six months old." className="text-[13px]" />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label className="font-ui text-[12px] font-medium">Training examples <span className="font-normal text-muted-foreground">(input → the output you want; up to 8 are sent)</span></label>
+              <button onClick={() => setExamples((x) => [...x, { input: "", output: "", note: "" }])} className="font-ui text-[12px] inline-flex items-center gap-1"><Plus size={12} /> Add example</button>
+            </div>
+            {examples.length === 0 && <p className="font-ui text-[12px] text-muted-foreground">None yet. A good example is a real input and the answer you would have wanted.</p>}
+            {examples.map((ex, i) => (
+              <div key={i} className="rounded-lg border border-border p-3 flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  {!isEditing && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-[#1E4ED8] hover:text-[#1E4ED8]/80"
-                        onClick={() => handleEdit(prompt.task_type, prompt.system_prompt)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => handleHistory(prompt.task_type)}
-                      >
-                        History
-                      </Button>
-                    </>
-                  )}
+                  <Input value={ex.note ?? ""} onChange={(e) => setExamples((x) => x.map((y, j) => j === i ? { ...y, note: e.target.value } : y))} placeholder="Short note: what this example teaches" className="h-8 text-[12px]" />
+                  <button onClick={() => setExamples((x) => x.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive" aria-label="Remove example"><Trash2 size={14} /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <Textarea value={ex.input} onChange={(e) => setExamples((x) => x.map((y, j) => j === i ? { ...y, input: e.target.value } : y))} rows={5} placeholder="Input" className="font-mono text-[12px]" />
+                  <Textarea value={ex.output} onChange={(e) => setExamples((x) => x.map((y, j) => j === i ? { ...y, output: e.target.value } : y))} rows={5} placeholder="The output you want" className="font-mono text-[12px]" />
                 </div>
               </div>
-
-              <p className="text-[13px] text-muted-foreground mb-4">
-                {config.description}
-              </p>
-
-              {isEditing ? (
-                /* Edit mode */
-                <div className="space-y-4">
-                  <Textarea
-                    value={editPrompt}
-                    onChange={(e) => setEditPrompt(e.target.value)}
-                    className="min-h-[400px] font-mono text-[12px] leading-relaxed w-full rounded-lg p-4"
-                    style={{
-                      background: '#FFFFFF',
-                      border: '1px solid #1E4ED8',
-                      color: '#0B1220'
-                    }}
-                  />
-
-                  {prompt.task_type === 'context_extraction' && (
-                    <div
-                      className="rounded-md px-3 py-2.5"
-                      style={{
-                        borderLeft: '2px solid #1E4ED8',
-                        background: 'rgba(212, 160, 23, 0.08)',
-                        fontFamily: 'DM Sans',
-                        fontSize: '13px',
-                        color: '#0B1220',
-                        lineHeight: 1.5
-                      }}
-                    >
-                      This prompt uses <code style={{ color: '#1E4ED8', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> as a variable. At runtime, this is automatically replaced with all active journey stage fields from the database. Do not remove <code style={{ color: '#1E4ED8', fontFamily: 'monospace' }}>{'{{field_guide}}'}</code> from the prompt.
-                    </div>
-                  )}
-                  
-                  {/* Variables reference panel */}
-                  <div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-[11px] text-muted-foreground hover:text-foreground p-0 h-auto"
-                      onClick={() => toggleVariables(prompt.task_type)}
-                    >
-                      {showVars ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
-                      Available variables
-                    </Button>
-                    {showVars && (
-                      <div className="mt-2 p-3 rounded-lg" style={{ background: '#FFFFFF' }}>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {config.variables.map((variable) => (
-                            <button
-                              key={variable}
-                              onClick={() => copyVariable(variable)}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded text-[11px] font-mono text-left hover:bg-muted/50 transition-colors"
-                              style={{ color: '#5B6472' }}
-                            >
-                              <span style={{ color: '#1E4ED8' }}>{'{{'}</span>
-                              {variable}
-                              <span style={{ color: '#1E4ED8' }}>{'}}'}</span>
-                              {copiedVariable === variable && <Check className="w-3 h-3 ml-auto text-green-500" />}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <Input
-                    value={editNote}
-                    onChange={(e) => setEditNote(e.target.value)}
-                    placeholder="Describe what you changed..."
-                    className="h-9 rounded-lg text-[13px]"
-                  />
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={handleCancelEdit}
-                      className="h-10 rounded-lg"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleSave}
-                      disabled={isActionLoading(`save-prompt-${editingTask}`)}
-                      className="h-10 rounded-lg bg-[#1E4ED8] text-white hover:bg-[#1E4ED8]/90"
-                      style={{
-                        opacity: isActionLoading(`save-prompt-${editingTask}`) ? 0.7 : 1,
-                        cursor: isActionLoading(`save-prompt-${editingTask}`) ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {isActionLoading(`save-prompt-${editingTask}`) && (
-                        <span style={{
-                          width: '12px',
-                          height: '12px',
-                          border: '2px solid currentColor',
-                          borderTopColor: 'transparent',
-                          borderRadius: '50%',
-                          display: 'inline-block',
-                          animation: 'spin 0.6s linear infinite',
-                          flexShrink: 0
-                        }} />
-                      )}
-                      {isActionLoading(`save-prompt-${editingTask}`) ? 'Saving...' : 'Save changes'}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                /* View mode */
-                <div>
-                  <div
-                    className="rounded-lg p-3 font-mono text-[12px] leading-relaxed mb-2 overflow-hidden"
-                    style={{
-                      background: '#FFFFFF',
-                      color: '#5B6472'
-                    }}
-                  >
-                    {isExpanded ? prompt.system_prompt : getPreviewLines(prompt.system_prompt, 3)}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-[#1E4ED8] hover:text-[#1E4ED8]/80 p-0 h-auto text-[13px]"
-                    onClick={() => toggleExpand(prompt.task_type)}
-                  >
-                    {isExpanded ? 'Show less' : 'Show full prompt'}
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* History modal */}
-      <Dialog open={!!historyTask} onOpenChange={() => setHistoryTask(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {historyTask && TASK_CONFIG[historyTask].name} Version History
-            </DialogTitle>
-            <DialogDescription>
-              View and restore previous versions of this prompt
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="max-h-[60vh] overflow-y-auto space-y-3">
-            {versions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No version history available
-              </p>
-            ) : (
-              versions.map((version) => (
-                <div
-                  key={version.id}
-                  className="p-4 rounded-lg border border-border"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">v{version.version}</span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {formatDate(version.created_at)}
-                        </span>
-                      </div>
-                      {version.edit_note && (
-                        <p className="text-[12px] text-muted-foreground mt-1">
-                          {version.edit_note}
-                        </p>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-[#1E4ED8] border-[#1E4ED8] hover:bg-[#1E4ED8]/10"
-                      onClick={() => setRestoringVersion(version.id)}
-                      disabled={isActionLoading(`restore-version-${version.id}`)}
-                      style={{
-                        opacity: isActionLoading(`restore-version-${version.id}`) ? 0.7 : 1,
-                        cursor: isActionLoading(`restore-version-${version.id}`) ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {isActionLoading(`restore-version-${version.id}`) && (
-                        <span style={{
-                          width: '12px',
-                          height: '12px',
-                          border: '2px solid currentColor',
-                          borderTopColor: 'transparent',
-                          borderRadius: '50%',
-                          display: 'inline-block',
-                          animation: 'spin 0.6s linear infinite',
-                          flexShrink: 0
-                        }} />
-                      )}
-                      {isActionLoading(`restore-version-${version.id}`) ? 'Restoring...' : 'Restore this version'}
-                    </Button>
-                  </div>
-                  <div
-                    className="rounded p-2 font-mono text-[11px] overflow-hidden max-h-24"
-                    style={{
-                      background: '#FFFFFF',
-                      color: '#5B6472'
-                    }}
-                  >
-                    {getPreviewLines(version.system_prompt, 2)}
-                  </div>
-                </div>
-              ))
-            )}
+            ))}
           </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Restore confirmation dialog */}
-      <Dialog open={!!restoringVersion} onOpenChange={() => setRestoringVersion(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Restore Version?</DialogTitle>
-            <DialogDescription>
-              This will replace the current prompt with the selected version. Changes will take effect immediately for all users.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setRestoringVersion(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-[#1E4ED8] text-white hover:bg-[#1E4ED8]/90"
-              onClick={() => restoringVersion && handleRestore(restoringVersion)}
-              disabled={isActionLoading(`restore-version-${restoringVersion}`)}
-              style={{
-                opacity: isActionLoading(`restore-version-${restoringVersion}`) ? 0.7 : 1,
-                cursor: isActionLoading(`restore-version-${restoringVersion}`) ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              {isActionLoading(`restore-version-${restoringVersion}`) && (
-                <span style={{
-                  width: '12px',
-                  height: '12px',
-                  border: '2px solid currentColor',
-                  borderTopColor: 'transparent',
-                  borderRadius: '50%',
-                  display: 'inline-block',
-                  animation: 'spin 0.6s linear infinite',
-                  flexShrink: 0
-                }} />
-              )}
-              {isActionLoading(`restore-version-${restoringVersion}`) ? 'Restoring...' : 'Confirm Restore'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {def.contract && (
+            <div className="flex flex-col gap-1.5">
+              <label className="font-ui text-[12px] font-medium">Contract <span className="font-normal text-muted-foreground">(fixed; the code that reads the answer depends on it)</span></label>
+              <pre className="whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-muted-foreground">{def.contract}</pre>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <button onClick={() => setShowEffective((v) => !v)} className="self-start font-ui text-[12px] underline">{showEffective ? "Hide" : "Show"} the exact text the model receives (sample values)</button>
+            {showEffective && <pre className="whitespace-pre-wrap rounded-lg border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed max-h-[420px] overflow-y-auto">{fillVars(effective, vars)}</pre>}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What changed and why (kept in history)" className="h-9 text-[12px] max-w-sm" />
+            <Button disabled={!dirty || saving} onClick={save} className="h-9">{saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Save prompt</Button>
+            <Button variant="outline" onClick={loadHistory} className="h-9"><History size={13} /> History</Button>
+            {row?.updated_at && <span className="font-ui text-[11px] text-muted-foreground">Last saved {new Date(row.updated_at).toLocaleString()}</span>}
+          </div>
+          {history && (
+            <div className="rounded-lg border border-border p-3 flex flex-col gap-1.5">
+              <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">History</span>
+              {history.length === 0 && <span className="font-ui text-[12px] text-muted-foreground">No earlier versions.</span>}
+              {history.map((v) => (
+                <div key={v.id} className="flex items-center justify-between gap-3 font-ui text-[12px]">
+                  <span>v{v.version} · {new Date(v.created_at).toLocaleString()} · {v.edit_note ?? ""}</span>
+                  <button onClick={async () => { const r = await restorePromptVersion(v.id, adminId); if (r.success) { toast("Restored"); setHistory(null); await onChanged(); } else toast.error(r.error ?? "Could not restore"); }} className="underline">Restore</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

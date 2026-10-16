@@ -14,6 +14,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { parseTaskReply, taskPromptBlock, type TaskChatContext } from "../_shared/taskChat.ts";
+import { loadPrompt } from "../_shared/promptLoad.ts";
+import { STATE_CONTRACT } from "../_shared/taskChat.ts";
+// The rules prompt carries the contract for the admin preview; the block appends it itself.
+const STATE_SUFFIX = "\n\n" + STATE_CONTRACT;
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
@@ -75,12 +79,16 @@ serve(async (req) => {
 // deno-lint-ignore no-explicit-any
 async function reply(admin: Admin, userId: string, task: any, conversationId: string, userText: string) {
   const deliverables: Deliverable[] = Array.isArray(task.deliverables) ? task.deliverables : [];
-  const [{ data: brand }, pack, { data: history }, { data: promptRow }, { data: plan }] = await Promise.all([
+  const [{ data: brand }, pack, { data: history }, { data: plan }] = await Promise.all([
     admin.from("brands").select("id, user_id, name, journey_stage, business_kind, goal").eq("id", task.brand_id).maybeSingle(),
     buildContextPack(admin, task.brand_id),
     admin.from("mentor_messages").select("role, content").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(40),
-    admin.from("ai_system_prompts").select("system_prompt").eq("task_type", "task_chat").eq("is_active", true).maybeSingle(),
     admin.from("brand_plans").select("title, plan_targets(title, status, position)").eq("brand_id", task.brand_id).maybeSingle(),
+  ]);
+  const [voice, rules, followups] = await Promise.all([
+    loadPrompt(admin, "task_chat", { brand_name: brand?.name ?? "this business" }),
+    loadPrompt(admin, "task_chat_rules"),
+    loadPrompt(admin, "task_chat_followups"),
   ]);
   const ctx: TaskChatContext = {
     task: { id: task.id, title: task.title, detail: task.detail, target_title: task.plan_targets?.title ?? "" },
@@ -88,11 +96,11 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   };
   const targets = (plan?.plan_targets ?? []).sort((a: { position: number }, b: { position: number }) => a.position - b.position).map((t: { title: string; status: string }) => `- ${t.title} (${t.status})`).join("\n");
   const systemPrompt = [
-    promptRow?.system_prompt || `You are Kinika, the business manager of ${brand?.name ?? "this business"}: direct, warm, concrete, never a pronoun for yourself. You know the business from its record and you never invent numbers it does not give you.`,
+    voice,
     `=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text.slice(0, 12_000)}`,
     brand?.goal ? `THE FOUNDER'S GOAL: ${brand.goal}` : "",
     targets ? `THE PLAN${plan?.title ? ` (${plan.title})` : ""}:\n${targets}` : "",
-    taskPromptBlock(ctx),
+    taskPromptBlock(ctx, { rules: rules.replace(STATE_SUFFIX, ""), followups }),
   ].filter(Boolean).join("\n\n");
 
   // The history already holds the founder's message when it was saved; a hidden instruction is appended here.

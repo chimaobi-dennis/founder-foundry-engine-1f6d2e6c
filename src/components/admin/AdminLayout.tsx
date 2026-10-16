@@ -21,7 +21,7 @@ const SECTIONS: Array<{ label?: string; items: Array<{ label: string; icon: type
     { label: "Community agents", icon: Bot, path: "/admin/product/agents", hint: "Review submitted agents" },
     { label: "Templates", icon: Layers, path: "/admin/product/templates", hint: "Studio templates" },
     { label: "Journey stages", icon: Map, path: "/admin/journey-stages", hint: "Stage names and playbooks" },
-    { label: "Knowledge base", icon: Book, path: "/admin/knowledge-base", hint: "What Kinika cites" },
+    { label: "Prompts", icon: Book, path: "/admin/knowledge-base", hint: "Every prompt, its model flow, instructions and examples" },
   ] },
   { label: "AI", items: [
     { label: "Models and routing", icon: Cpu, path: "/admin/product/ai-models", hint: "Providers, models, profiles, prompts" },

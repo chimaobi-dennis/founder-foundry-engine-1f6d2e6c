@@ -7,8 +7,9 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildContextPack } from "./contextPack.ts";
 import { parseStructuredOutput } from "./runner.ts";
-import { agentsBlock, coercePlan, playbookBlock, playbookForKind, planSystemPrompt, type PlanAgentOption, type PlanDraft, type PlaybookChoice } from "./plan.ts";
+import { agentsBlock, coercePlan, playbookBlock, playbookForKind, type PlanAgentOption, type PlanDraft, type PlaybookChoice } from "./plan.ts";
 import { remember } from "./memory.ts";
+import { loadPrompt } from "./promptLoad.ts";
 
 export interface PlanBrand {
   id: string;
@@ -50,8 +51,7 @@ export async function buildOrRevisePlan(
   const hiredSlugs = new Set((hires ?? []).map((h: any) => h.agents?.slug).filter(Boolean));
   const agents: PlanAgentOption[] = (agentRows ?? []).map((a: any) => ({ slug: a.slug, name: a.name, tagline: a.tagline, hired: hiredSlugs.has(a.slug) }));
 
-  const { data: promptRow } = await admin.from("ai_system_prompts").select("system_prompt").eq("task_type", "plan_build").eq("is_active", true).maybeSingle();
-  const systemPrompt = `${promptRow?.system_prompt || planSystemPrompt()}\n\n=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text}`;
+  const systemPrompt = `${await loadPrompt(admin, "plan_build")}\n\n=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text}`;
 
   const existingText = existing && action === "revise"
     ? "EXISTING PLAN (keep done tasks and the founder's edits; change only what the new information warrants):\n" + JSON.stringify({

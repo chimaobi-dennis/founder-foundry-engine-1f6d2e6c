@@ -345,16 +345,7 @@ export const generateProjectTitle = async (
   const result = await callAI({
     taskType: 'mentor_chat',
     userId,
-    systemPrompt: `You generate short, descriptive project titles. You receive a founder's first message and the mentor's response. You output exactly 3 words that capture the essence of what is being built. 
-
-Rules:
-- Exactly 3 words. Never more, never less.
-- Each word starts with a capital letter
-- No punctuation
-- No generic words like "The", "A", "An", "My", "New"
-- Should sound like a real product or company name
-- Examples: "Smart Founder OS", "Origin Brand Platform", "Solo Architect Tool", "Nordic Wellness App", "Legal Doc Engine"
-- Output only the 3 words. Nothing else.`,
+    systemPrompt: (await getSystemPrompt('project_title')) ?? '',
     messages: [
       {
         role: 'user',

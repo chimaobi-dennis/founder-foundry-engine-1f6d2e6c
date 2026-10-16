@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { composePrompt, promptDef, type PromptExample } from '@shared/prompts';
 import { logAIError, type ErrorModule } from './errorService';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 
@@ -6,16 +7,50 @@ import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 
 // Fetch active system prompt for a task type
 export const getSystemPrompt = async (
-  taskType: TaskType
+  taskType: TaskType | string
 ): Promise<string | null> => {
   const { data } = await (supabase as any)
     .from('ai_system_prompts')
-    .select('system_prompt')
+    .select('system_prompt, instructions, examples, is_active')
     .eq('task_type', taskType)
-    .eq('is_active', true)
-    .single();
+    .maybeSingle();
+  const def = promptDef(String(taskType));
+  if (def) return composePrompt(def, data ?? null);
+  return data?.is_active !== false ? data?.system_prompt ?? null : null;
+};
 
-  return data?.system_prompt ?? null;
+/** Save a prompt by key: the base override, the instructions and the examples. Creates the row the first time; keeps history. */
+export const savePrompt = async (
+  key: string,
+  fields: { system_prompt: string | null; instructions: string | null; examples: PromptExample[] },
+  editNote: string,
+  adminId: string
+): Promise<{ success: boolean; error?: string }> => {
+  const def = promptDef(key);
+  const { data: current } = await (supabase as any).from('ai_system_prompts').select('id, version, system_prompt, instructions, examples').eq('task_type', key).maybeSingle();
+  if (current) {
+    await (supabase as any).from('ai_prompt_versions').insert({ prompt_id: current.id, version: current.version, system_prompt: current.system_prompt, instructions: current.instructions, examples: current.examples, edited_by: adminId, edit_note: editNote || 'Updated' });
+    const { error } = await (supabase as any).from('ai_system_prompts').update({ ...fields, version: (current.version ?? 1) + 1, last_edited_by: adminId, updated_at: new Date().toISOString() }).eq('id', current.id);
+    return { success: !error, error: error?.message };
+  }
+  const { error } = await (supabase as any).from('ai_system_prompts').insert({ task_type: key, name: def?.name ?? key, description: def?.description ?? null, ...fields, is_active: true, version: 1, last_edited_by: adminId });
+  return { success: !error, error: error?.message };
+};
+
+/** Where a task type runs: class, primary model and fallbacks, from the active profile. */
+export const getRouteFor = async (taskType: string): Promise<{ profile: string | null; class: string | null; source: string; candidates: { model_id: string; model_name: string; provider: { slug: string } }[] }> => {
+  const { data } = await (supabase as any).rpc('resolve_ai_route', { p_task_type: taskType, p_tier: null, p_user_id: null });
+  return { profile: data?.profile ?? null, class: data?.class ?? null, source: data?.source ?? 'none', candidates: Array.isArray(data?.candidates) ? data.candidates : [] };
+};
+
+export const setTaskClass = async (taskType: string, classSlug: string): Promise<boolean> => {
+  const { error } = await (supabase as any).from('ai_task_types').upsert({ task_type: taskType, class_slug: classSlug, last_seen_at: new Date().toISOString() }, { onConflict: 'task_type' });
+  return !error;
+};
+
+export const listTaskClasses = async (): Promise<{ slug: string; name: string; description: string | null }[]> => {
+  const { data } = await (supabase as any).from('ai_task_classes').select('slug, name, description').order('sort_order');
+  return data ?? [];
 };
 
 // Inject brand context variables into a prompt template
@@ -118,9 +153,10 @@ export const restorePromptVersion = async (
 
   if (!version) return { success: false, error: 'Version not found' };
 
-  return updateSystemPrompt(
+  // A restore brings back the whole prompt of that version: base, instructions and examples.
+  return savePrompt(
     version.ai_system_prompts.task_type,
-    version.system_prompt,
+    { system_prompt: version.system_prompt ?? null, instructions: version.instructions ?? null, examples: Array.isArray(version.examples) ? version.examples : [] },
     `Restored from version ${version.version}`,
     adminId
   );

@@ -18,6 +18,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/cors.ts";
+import { loadPrompt } from "../_shared/promptLoad.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { feedbackEntry, outcomeEntry, remember, runSummaryEntry } from "../_shared/memory.ts";
 import { allowedFields, diffLines, ConnectorError, runConnector, type NormalizedRecord, type ProposedChange } from "../_shared/connectors.ts";
@@ -530,7 +531,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         ].join("\n");
       } else if (step.input?.use_previous === "output" && step.input?.prompt_mode === "critique") {
         const draftStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
-        extra = [selfReviewInstruction(), "YOUR DRAFT:", JSON.stringify(draftStep?.output ?? {}).slice(0, 40_000)].join("\n");
+        extra = [await loadPrompt(admin, "agent_self_review"), "YOUR DRAFT:", JSON.stringify(draftStep?.output ?? {}).slice(0, 40_000)].join("\n");
       } else if (step.input?.use_previous === "output") {
         const prevAgentStep = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
         if (prevAgentStep) {
@@ -564,9 +565,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
       } else if (step.input?.use_previous === "revision") {
         const prev = all.find((s: any) => s.id === step.input?.revision_of_step_id) ?? [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output);
         extra = [
-          `REVISION, ROUND ${step.input?.revision_round ?? 2}. The founder reviewed your previous result and sent it back with this note:`,
-          `"${String(step.input?.revision_note ?? "").trim() || "(no note)"}"`,
-          `Change what the note asks for and keep everything else as it was. Do not start over. Return the complete revised result in the same JSON shape.`,
+          await loadPrompt(admin, "agent_revision", { round: String(step.input?.revision_round ?? 2), note: String(step.input?.revision_note ?? "").trim() || "(no note)" }),
           `YOUR PREVIOUS RESULT:`,
           JSON.stringify(prev?.output ?? {}).slice(0, 40_000),
         ].join("\n");
