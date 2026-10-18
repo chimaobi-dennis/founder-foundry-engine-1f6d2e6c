@@ -4,10 +4,10 @@
  * Dedicated, NON-managed source of truth for Supabase connection settings.
  *
  * Why this exists:
- *   `.env` (VITE_SUPABASE_*) is auto-managed by Lovable Cloud and may be
- *   regenerated, which can revert the project away from the external
- *   Supabase instance used in preview. This file is hand-maintained and
- *   takes precedence so the external project stays consistent.
+ *   `.env` (VITE_SUPABASE_*) can be regenerated or overwritten by tooling,
+ *   which could point the app away from the intended Supabase project.
+ *   This file is hand-maintained and takes precedence so the project stays
+ *   consistent.
  *
  * Resolution order (first defined wins):
  *   1. Runtime override on `window.__KINIKA_SUPABASE__`
