@@ -57,33 +57,6 @@ CLAUDE.md             product and architecture rules
 ROADMAP.md            what is done and what is next
 ```
 
-## Run it locally
-
-You need Node 20 or newer and npm.
-
-```bash
-git clone https://github.com/chimaobi-dennis/founder-foundry-engine-1f6d2e6c.git
-cd founder-foundry-engine-1f6d2e6c
-npm install
-npm run dev
-```
-
-The app reads its Supabase URL and public key from `src/config/supabaseConfig.ts`. Today that file points at Kinika's own project and takes precedence over `.env`. To run against your own project, change the two `EXTERNAL_SUPABASE_*` constants there, or set `window.__KINIKA_SUPABASE__ = { url, anonKey }` before the app loads. Copy `.env.example` to `.env` if you prefer environment variables, after removing the constants. Making the environment the default is on the [roadmap](ROADMAP.md).
-
-### Setting up your own backend
-
-The backend is not a one-command setup yet, and this is worth knowing before you start.
-
-- The migrations in `supabase/migrations` do not fully describe the live database. The early tables came from a code generator and were never captured as migrations. `supabase/schema` holds a snapshot of the live schema to check against.
-- Newer features ship as paste-ready files in `supabase/sql`. Files that need a secret contain a placeholder that you fill in locally. Do not commit the filled-in file.
-- Edge functions receive `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from Supabase automatically. Set the Stripe secrets yourself:
-
-  ```bash
-  supabase secrets set STRIPE_SECRET_KEY=sk_test_... STRIPE_WEBHOOK_SECRET=whsec_...
-  ```
-
-- AI provider keys are entered by an admin in the app and stored server-side in a table that browsers cannot read. Connector credentials are stored in Supabase Vault.
-
 ## Tests and checks
 
 ```bash
@@ -101,7 +74,7 @@ npm run test:db   # SQL billing tests against a linked Supabase project; the tes
 
 ## About this project
 
-Kinika is built by Chimaobi Dennis as a solo project. The first scaffold was generated with Lovable, so the earliest commits appear under its bot account. Later work is committed under the maintainer's name and is developed with Claude Code as an assistant.
+Kinika is built by Chimaobi Dennis as a solo project, developed with Claude Code as an assistant.
 
 Product and architecture rules live in [CLAUDE.md](CLAUDE.md). Plans live in [ROADMAP.md](ROADMAP.md).
 

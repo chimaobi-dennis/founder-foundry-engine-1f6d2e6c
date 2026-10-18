@@ -246,7 +246,7 @@ export async function callGoogle(cfg: ProviderConfig, req: ProviderRequest): Pro
   return { text, usage: normalizeUsage("google", usageRaw) };
 }
 
-// ── OpenAI-compatible (OpenAI, DeepInfra, Together, Lovable gateway, …) ──────
+// ── OpenAI-compatible (OpenAI, DeepInfra, Together, hosted gateways, …) ──────
 
 export async function callOpenAICompatible(cfg: ProviderConfig, req: ProviderRequest): Promise<ProviderResponse> {
   const messages: any[] = req.messages.map((m) => ({ role: m.role, content: m.content }));

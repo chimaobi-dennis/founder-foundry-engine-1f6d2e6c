@@ -2,7 +2,7 @@
 
 `supabase db dump --linked -s public` output from the production project, kept
 as a reference because the committed migrations do not fully describe the live
-database (the Lovable-era tables and constraints were never captured as
+database (the earliest tables and constraints were never captured as
 migrations). Check here before relying on a column, constraint or function
 body; two production bugs in October 2026 came from constraints that existed
 only on the live database.

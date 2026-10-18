@@ -25,8 +25,8 @@ Ordered by what unblocks real use.
 3. **Fund and verify the model providers.** The standard and reasoning tiers need a funded provider account. Replace the estimated cost rate for the fast tier with the real published rate so cost reports are accurate.
 4. **Go live on payments.** Finalise plan prices and credit amounts, move Stripe from test to live mode, and set up webhook monitoring.
 5. **Continuous integration.** Add a GitHub Actions workflow that runs lint, unit tests and the production build on every pull request. There is none today.
-6. **Make the environment the default for local setup.** `src/config/supabaseConfig.ts` currently overrides `.env`. Flip the order so contributors can point the app at their own project without editing code.
-7. **A reproducible database.** Capture the early tables as migrations so a fresh Supabase project can be created from the repository alone, and keep the live schema snapshot as a check.
+6. **Configuration from the environment.** `src/config/supabaseConfig.ts` currently overrides `.env`. Flip the order so the connection settings come from the environment instead of a hardcoded file.
+7. **A fully described database.** Capture the early tables as migrations so the repository describes the whole schema, and keep the live schema snapshot as a check.
 8. **Support chat.** A floating chat reachable from any screen, first used when the understanding read-back fails twice.
 
 ## Later

@@ -3,7 +3,7 @@
 
 BEGIN;
 
--- The live notifications_type_check only allows the Lovable-era types, so the
+-- The live notifications_type_check only allows the original types, so the
 -- runner's "needs you" / completed / paused / failed notifications were
 -- rejected silently. Add the agent types.
 
