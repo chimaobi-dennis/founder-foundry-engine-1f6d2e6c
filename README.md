@@ -57,6 +57,33 @@ CLAUDE.md             product and architecture rules
 ROADMAP.md            what is done and what is next
 ```
 
+## Running it
+
+You need Node 20 or newer and npm. From the project folder:
+
+```bash
+npm install
+npm run dev
+```
+
+The app opens on the Vite dev server. It reads its Supabase URL and public key from `src/config/supabaseConfig.ts`, which currently points at Kinika's own project and takes precedence over `.env`. To use a different project, change the two `EXTERNAL_SUPABASE_*` constants there, or set `window.__KINIKA_SUPABASE__ = { url, anonKey }` before the app loads. `.env.example` lists the matching environment variables for when that order is flipped (see the [roadmap](ROADMAP.md)).
+
+To build for production, run `npm run build`.
+
+### The backend
+
+Running the app against a fresh Supabase project takes more than the steps above, and it is worth knowing before you start.
+
+- The migrations in `supabase/migrations` do not fully describe the live database. The earliest tables were never captured as migrations. `supabase/schema` holds a snapshot of the live schema to check against.
+- Newer features ship as paste-ready files in `supabase/sql`. Files that need a secret contain a placeholder to fill in locally. Never commit the filled-in file.
+- Edge functions receive `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` from Supabase automatically. The Stripe secrets are set separately:
+
+  ```bash
+  supabase secrets set STRIPE_SECRET_KEY=sk_test_... STRIPE_WEBHOOK_SECRET=whsec_...
+  ```
+
+- AI provider keys are entered by an admin inside the app and stored server-side in a table that browsers cannot read. Connector credentials are stored in Supabase Vault.
+
 ## Tests and checks
 
 ```bash
