@@ -54,7 +54,7 @@ export default function Board() {
           <div className="flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border border-border bg-accent/60 min-w-0">
             <span aria-hidden className="w-7 h-7 rounded-md bg-primary text-primary-foreground inline-flex items-center justify-center font-ui text-[12px] font-semibold shrink-0">{agentName.slice(0, 1)}</span>
             <span className="flex flex-col leading-tight min-w-0">
-              <span className="font-ui text-[13px] font-semibold truncate">{agentName} · hired by Kinika</span>
+              <span className="font-ui text-[13px] font-semibold truncate">{agentName} · on Kinika's team</span>
               <span className="font-ui text-[11px] text-accent-foreground truncate">{status}{latest ? ` · ${Number(latest.credits_captured ?? 0)} credits last run` : ""}</span>
             </span>
           </div>

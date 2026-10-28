@@ -64,7 +64,7 @@ const FALLBACK_PLANS: Plan[] = [
     intent: "For one founder with a plan to run.",
     price: "$20",
     cadence: "per month",
-    description: "Two agent seats, 1,000 credits a month. Kinika hires one role at a time and swaps when a role is done. You approve every result.",
+    description: "Two agent seats, 1,000 credits a month. Kinika staffs one role at a time and swaps when a role is done. You approve every result.",
     includes: ["1,000 credits every month", "2 agent seats; Kinika hires from your plan", "1 person in the workspace", "2 connected tools", "1 connected repository", "Every result waits for your approval", "Extra agent seat $10 a month", "Extra person $5 a month"],
     cta: "Start with Solo",
     to: "/sign-up?plan=solo",
@@ -400,7 +400,7 @@ export default function Pricing() {
                   A note before you choose
                 </p>
                 <p className="pf" style={{ fontSize: 17, lineHeight: 1.6, color: L.inkSoft, fontStyle: "italic" }}>
-                  Start free: Kinika reads your business back and writes the plan with you. Add seats when you want Kinika to hire the roles the plan names.
+                  Start free: Kinika reads your business back and writes the plan with you. Add seats when you want Kinika to staff the tasks that need an agent.
                 </p>
               </div>
             </aside>
@@ -459,7 +459,7 @@ export default function Pricing() {
                 Seats are how many agents Kinika can have working at once. Credits are how much
                 work gets done; every task is quoted before it runs. The free trial has no seats:
                 Kinika reads your business back, writes the plan and advises, and you do the tasks.
-                Add seats when you want Kinika to hire the roles the plan names.
+                Add seats when you want Kinika to staff the tasks that need an agent.
               </p>
             </div>
           </div>

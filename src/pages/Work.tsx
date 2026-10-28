@@ -9,7 +9,7 @@ import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { StepLine, OutputView } from "@/components/team/RunViews";
-import { cancelRun } from "@/services/agentService";
+import { cancelRun, ensureStaffed } from "@/services/agentService";
 import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
 import { delegateUrl } from "@/services/planService";
 import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, wantsCanvas, type Workspace } from "@/services/workspaceService";
@@ -124,7 +124,7 @@ export default function Work() {
           <div className="flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border border-border bg-accent/60 min-w-0">
             <span aria-hidden className="w-7 h-7 rounded-md bg-primary text-primary-foreground inline-flex items-center justify-center font-ui text-[12px] font-semibold shrink-0">{agentName.slice(0, 1)}</span>
             <span className="flex flex-col leading-tight min-w-0">
-              <span className="font-ui text-[13px] font-semibold truncate">{task.owner === "agent" ? `${agentName} · hired by Kinika` : "You"}</span>
+              <span className="font-ui text-[13px] font-semibold truncate">{task.owner === "agent" ? `${agentName} · on Kinika's team` : "You"}</span>
               <span className="font-ui text-[11px] text-accent-foreground truncate">{status}{run ? ` · ${credits} credits used` : ""}</span>
             </span>
             {inFlight && <button disabled={!!busy} onClick={takeOver} className="ml-1 h-7 px-2.5 rounded-md border border-border bg-card font-ui text-[12px] disabled:opacity-50">Take over</button>}
@@ -220,7 +220,7 @@ export default function Work() {
             <div className="max-w-[720px] mx-auto rounded-xl border border-border bg-card p-6 flex flex-col gap-3">
               <p className="font-display text-[20px]">Nothing has been made for this task yet.</p>
               <p className="font-ui text-[13px] text-muted-foreground leading-relaxed">{task.detail || "When an agent works on it, the result appears here and you approve it here."}</p>
-              {task.owner === "agent" && <button onClick={() => navigate(delegateUrl(task))} className="self-start h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Hand to {agentName}</button>}
+              {task.owner === "agent" && <button onClick={async () => { if (!user || !task.agent_slug) return; const r = await ensureStaffed(task.brand_id, user.id, task.agent_slug); if (r.ok === true) navigate(delegateUrl(task)); else toast.error(r.reason === "trial" ? `Kinika would run this with the ${r.agent?.name ?? "right agent"}; your trial has no seats yet.` : r.reason === "seats_busy" ? `Your seats are busy with ${r.busy.map((h) => h.agent.name).join(" and ")}. Pause one on Kinika's team, or add a seat.` : r.error ?? "Kinika could not staff this.", { action: { label: "Seats", onClick: () => navigate("/billing") } }); }} className="self-start h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Set up</button>}
             </div>
           )}
 

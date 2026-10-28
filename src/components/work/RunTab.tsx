@@ -58,7 +58,7 @@ export function RunTab({ deliverable, onApproved }: { deliverable: Deliverable; 
       <article className="max-w-[760px] mx-auto rounded-xl border border-border bg-card">
         <div className="px-6 pt-6 pb-3 border-b border-border flex items-start justify-between gap-4 flex-wrap">
           <div className="flex flex-col gap-1">
-            <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground">{agentName} · hired by Kinika · {status}</span>
+            <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground">{agentName} · on Kinika's team · {status}</span>
             <h1 className="font-display text-[22px] leading-tight">{deliverable.title}</h1>
             <span className="font-ui text-[12px] text-muted-foreground">{Number(run.credits_captured ?? 0)} credits used{inFlight ? " so far" : ""}</span>
           </div>

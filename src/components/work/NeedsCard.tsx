@@ -4,7 +4,7 @@ import { Loader2, UserPlus, Users, FileText, X } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
-import { createRun, hireAgent, listAgents, listHires, quoteAgentTask, type Agent } from "@/services/agentService";
+import { createRun, ensureStaffed, listAgents, listHires, quoteAgentTask, type Agent } from "@/services/agentService";
 import { effectiveLimit, getEntitlements } from "@/services/subscriptionService";
 import { requirePrompt } from "@/services/aiService";
 import type { Deliverable } from "@/services/planService";
@@ -60,17 +60,15 @@ export function NeedsCard({ ws, deliverables, deliverable, onResolve, onHired, o
   const hired = async () => {
     if (!agent || !user || !seats) return;
     setBusy("hire");
-    if (!seats.hiredSlugs.has(agent.slug)) {
-      const h = await hireAgent(ws.task.brand_id, user.id, agent.id, "kinika");
-      if (!h.success) { setBusy(null); toast.error(h.error ?? `Could not hire ${agent.name}`); return; }
-    }
+    const st = await ensureStaffed(ws.task.brand_id, user.id, agent.slug, { seats: seats.total });
+    if (st.ok === false) { setBusy(null); toast.error(st.reason === "seats_busy" ? `Your seats are busy with ${st.busy.map((h) => h.agent.name).join(" and ")}. Pause one on Kinika's team, or add a seat.` : st.error ?? `Kinika could not staff ${agent.name}`); return; }
     const decided = deliverables.filter((d) => d.done && d.result).map((d) => `- ${d.title}: ${d.result}`).join("\n");
     const brief = [need.brief || deliverable.detail, `Task: ${ws.task.title}.`, decided ? `Decisions already made:\n${decided}` : ""].filter(Boolean).join("\n\n");
     const r = await createRun({ brandId: ws.task.brand_id, userId: user.id, agent, name: deliverable.title, input: { brief, units: 1, plan_task_id: ws.task.id, deliverable_id: deliverable.id } });
     setBusy(null);
     if (!r.success || !r.run) { toast.error(r.error ?? `Could not start ${agent.name}`); return; }
     await onHired(deliverable, { id: r.run.id, agentSlug: agent.slug, agentName: agent.name });
-    toast(`Kinika hired ${agent.name} for "${deliverable.title}"`);
+    toast(`${agent.name} is on it: "${deliverable.title}"`);
   };
   const alreadyHired = !!(agent && seats?.hiredSlugs.has(agent.slug));
   const free = seats ? (seats.total < 0 ? Infinity : seats.total - seats.used) : 0;
@@ -91,16 +89,16 @@ export function NeedsCard({ ws, deliverables, deliverable, onResolve, onHired, o
         {agent === undefined || !seats ? (
           <span className="font-ui text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Checking Kinika's roster and your seats</span>
         ) : agent === null ? (
-          <p className="font-ui text-[12px] text-muted-foreground">Kinika's roster has no {need.label} yet, so Kinika cannot hire one for this. The other two doors work today.</p>
+          <p className="font-ui text-[12px] text-muted-foreground">Kinika's roster has no {need.label} yet, so Kinika cannot set this up. The other two doors work today.</p>
         ) : seats.total === 0 ? (
           <div className="flex items-center gap-3 flex-wrap">
-            <button onClick={() => navigate("/billing")} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5"><UserPlus size={13} /> Add a seat so Kinika can hire {agent.name}</button>
+            <button onClick={() => navigate("/billing")} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5"><UserPlus size={13} /> Add a seat so Kinika can set this up with the {agent.name}</button>
             <span className="font-ui text-[12px] text-muted-foreground">Your trial has no agent seats.</span>
           </div>
         ) : free > 0 || alreadyHired ? (
           <div className="flex items-center gap-3 flex-wrap">
-            <button disabled={!!busy} onClick={hired} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50">{busy === "hire" ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />} {alreadyHired ? `Hand this to ${agent.name}` : `Let Kinika hire ${agent.name} for this`}</button>
-            <span className="font-ui text-[12px] text-muted-foreground">{quote != null ? `About ${quote} credits` : ""}{alreadyHired ? "" : " · uses a seat"} · you approve the result here</span>
+            <button disabled={!!busy} onClick={hired} className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-50">{busy === "hire" ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />} Kinika sets this up with the {agent.name}</button>
+            <span className="font-ui text-[12px] text-muted-foreground">{quote != null ? `About ${quote} credits` : ""}{alreadyHired ? "" : " · the agent joins the team"} · you approve the result here</span>
           </div>
         ) : (
           <div className="flex items-center gap-3 flex-wrap">

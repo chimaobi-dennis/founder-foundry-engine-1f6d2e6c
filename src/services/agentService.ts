@@ -165,6 +165,33 @@ export async function hireAgent(brandId: string, userId: string, agentId: string
   return { success: true, hire: data };
 }
 
+/**
+ * Staffing is Kinika's job, not the founder's. When a task needs a role,
+ * this puts the role on the team if a seat is free and says why not when
+ * it cannot. The founder only ever sees the moment a seat binds.
+ */
+export type StaffingResult =
+  | { ok: true; agent: Agent; hired: boolean }
+  | { ok: false; reason: 'no_role' | 'trial' | 'seats_busy' | 'error'; agent: Agent | null; seats: number; busy: AgentHire[]; error?: string };
+
+export async function ensureStaffed(brandId: string, userId: string, agentSlug: string, ctx?: { agents?: Agent[]; hires?: AgentHire[]; seats?: number }): Promise<StaffingResult> {
+  const [agents, hires] = await Promise.all([ctx?.agents ?? listAgents(), ctx?.hires ?? listHires(brandId)]);
+  const agent = agents.find((a) => a.slug === agentSlug) ?? null;
+  const active = hires.filter((h) => h.status === 'active');
+  let seats = ctx?.seats;
+  if (seats === undefined) {
+    const { getEntitlements, effectiveLimit } = await import('./subscriptionService');
+    seats = effectiveLimit(await getEntitlements(userId), 'agents');
+  }
+  if (!agent) return { ok: false, reason: 'no_role', agent: null, seats, busy: active };
+  if (active.some((h) => h.agent.slug === agentSlug)) return { ok: true, agent, hired: false };
+  if (seats === 0) return { ok: false, reason: 'trial', agent, seats, busy: active };
+  if (seats > 0 && active.length >= seats) return { ok: false, reason: 'seats_busy', agent, seats, busy: active };
+  const r = await hireAgent(brandId, userId, agent.id, 'kinika');
+  if (!r.success) return { ok: false, reason: 'error', agent, seats, busy: active, error: r.error };
+  return { ok: true, agent, hired: true };
+}
+
 export async function setHireStatus(hireId: string, status: 'active' | 'paused'): Promise<boolean> {
   const { error } = await db.from('agent_hires').update({ status }).eq('id', hireId);
   return !error;

@@ -4,7 +4,7 @@
 
 The workspace that knows your business. Kinika understands a business, writes its plan, hires agents for the work, and the founder approves.
 
-Last Updated: 10 October 2026
+Last Updated: 28 October 2026
 
 Design source of truth: the "Kinika — full flow v1" canvas (https://claude.ai/artifact/SYEctJAfdTd5JyZ5JsBJXm) and the research + decision log (https://claude.ai/code/artifact/39339aa1-f925-4a91-b069-c6c89f2d576e). When this file and those disagree, the decision log wins; update this file.
 
@@ -28,9 +28,10 @@ The long-term vision:
 
 **Kinika is the business manager. Agents are Kinika's staff.**
 
-* Kinika understands the business, writes and revises the plan, names the roles it needs, hires and briefs them, reports back, remembers everything, and is the only one the founder talks to. Kinika never does the specialist work itself.
+* Kinika understands the business, writes and revises the plan, names the roles it needs, staffs and briefs them, reports back, remembers everything, and is the only one the founder talks to. Kinika never does the specialist work itself.
+* **Staffing is Kinika's, not the founder's (locked 28 Oct 2026).** The founder sets the work up ("Set up" on an agent task, "Start with Kinika" on their own); Kinika picks the role from the task and puts it on the team itself when a seat is free (`ensureStaffed`, hired_by "kinika", told after the fact). There are no hire buttons on the plan. Seats are shown only at the moment they bind: on the trial ("Kinika would run this with the Copywriter; your trial has no seats yet: do it with Kinika, or add a seat") and when every seat is busy ("pause one on Kinika's team, or add a seat"). Kinika's team is a roster view of who is on the team because of which tasks, with pause and stop; adding an agent by hand stays possible there but is not the main path.
 * Agents do tasks on surfaces. The founder watches, takes over, approves, or leaves a note on the work. Feedback goes to Kinika or onto the work, never a chat with an agent.
-* Chips read "Researcher · hired by Kinika". The team page is "Kinika's team". The input box is "Tell Kinika".
+* Chips read "Researcher · on Kinika's team". The team page is "Kinika's team". The input box is "Tell Kinika". Never ask the founder to hire; the verb on their side is "Set up".
 * **No pronoun for Kinika, ever.** Not "she", not "it" as a subject. Write "Kinika".
 
 ## Vocabulary (use these five; introduce any other term on the screen where it first does something)
@@ -57,8 +58,8 @@ Understanding comes before anything else. Nothing else in Kinika exists until st
 3. **Your business, as Kinika understands it** — the trust moment. Headings fit the business type; each section says where it came from and how sure Kinika is (sure · fairly sure · a guess); every line editable. "Yes, that is my business" writes the brand record.
 4. **What do you want to achieve?** — three suggested goals from the understanding, or their own words; loose is fine.
 5. **Kinika writes the plan** — targets, tasks, and the roles Kinika would hire.
-6. **Your plan and Kinika's team** — on the trial: "This plan needs three roles. Your trial has no agent seats yet." with Add seats or Keep going without agents (the card collapses; the founder works the plan with Kinika). Agent tasks stay visible as the reason to upgrade.
-7. **Seats** — Kinika hires the roster in one confirmation. Fewer seats than roles: Kinika sequences roles, one at a time.
+6. **Your plan and Kinika's team** — on the trial: "Kinika would run N of these tasks with agents. Your trial has no seats yet." with Add seats or "I'll do them with Kinika for now" (the card collapses; the founder works the plan with Kinika). Agent tasks stay visible as the reason to upgrade.
+7. **Seats** — the founder presses Set up on a task; Kinika staffs it. Fewer seats than roles: Kinika staffs in plan order and says so the moment a seat binds.
 8. **Workspace** — the agent works where the founder can see it; approval happens *in the workspace*, never on a separate page.
 9. Kinika's one-time note after the first approval ("That is how Kinika's team works").
 10. **Home** — today on the plan first, then what waits for you, Kinika's team, brand and outputs. Sidebar: Home, Your plan, Kinika's team, Kinika, Brand. Studio, Calendar, Documents, Reels and Library appear on first use. No tour, no modal, no blank screens.
@@ -127,7 +128,7 @@ Seats live on the subscription (`extra_agent_seats`, `effectiveLimit("agents")`)
 ## Plans
 
 * **Free trial** — plans and consultation, **no agent seats**. 50 credits fund understanding, the plan, revisions and Kinika; they do not fund agent runs. Agent tasks stay visible in the plan as the reason to upgrade; Kinika says so inside the plan, never a wall.
-* **Solo** — 1 seat; Kinika hires one role at a time. [price and credits TBD]
+* **Solo** — 1 seat; Kinika staffs one role at a time. [price and credits TBD]
 * **Startup** — 3 seats; all roles at once; invite 2 people. [price and credits TBD]
 * **Enterprise** — seats per business, several businesses, act-without-asking on chosen classes, own connectors.
 

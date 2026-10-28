@@ -268,7 +268,7 @@ export default function Team() {
           {/* ── Hire ── */}
           {canEdit && available.length > 0 && (
             <section>
-              <SectionTitle icon={<Plus size={14} className="text-muted-foreground" />} title="Hire" />
+              <SectionTitle icon={<Plus size={14} className="text-muted-foreground" />} title="Add to the team yourself" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {available.map((a) => (
                   <div key={a.id} className={cn("rounded-xl border bg-card/30 p-5 flex flex-col gap-2", hireSlug === a.slug ? "border-primary ring-1 ring-primary/40" : "border-card-border")}>
@@ -293,7 +293,7 @@ export default function Team() {
                       }}
                       className="mt-auto inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui hover:border-primary"
                     >
-                      <Plus size={12} /> Hire {a.name}
+                      <Plus size={12} /> Add {a.name}
                     </button>
                   </div>
                 ))}
