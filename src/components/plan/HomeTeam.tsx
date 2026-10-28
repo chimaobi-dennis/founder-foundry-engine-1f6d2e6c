@@ -49,7 +49,7 @@ export function HomeTeam({ brandId }: { brandId: string | null | undefined }) {
   if (seats === 0 && active.length === 0) {
     return (
       <div className="rounded-xl border border-card-border bg-card/40 px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
-        <p className="font-ui text-[13px] text-muted-foreground"><strong className="font-semibold text-foreground">Trial:</strong> Kinika plans and advises; you do the tasks. Seats let Kinika hire agents for the marked ones.</p>
+        <p className="font-ui text-[13px] text-muted-foreground"><strong className="font-semibold text-foreground">Trial:</strong> you do every task with Kinika. With seats, Kinika staffs the tasks that need an agent.</p>
         <button onClick={() => navigate("/billing")} className="font-ui text-[12px] text-accent-foreground underline whitespace-nowrap">Add seats</button>
       </div>
     );
@@ -83,7 +83,7 @@ export function HomeTeam({ brandId }: { brandId: string | null | undefined }) {
             const last = runs.find((r) => r.agent_id === h.agent_id && r.status === "completed");
             return (
               <li key={h.id} className="flex items-center justify-between gap-3 font-ui text-[13px]">
-                <span><strong className="font-semibold">{h.agent.name}</strong>{h.hired_by === "kinika" ? " · hired by Kinika" : ""}</span>
+                <span><strong className="font-semibold">{h.agent.name}</strong>{h.hired_by === "kinika" ? " · staffed by Kinika" : ""}</span>
                 {run ? <button onClick={() => openWork(run.id)} className="text-[12px] text-accent-foreground underline">working · {run.name}</button>
                   : last ? <span className="text-[12px] text-muted-foreground">idle · last: {last.name}</span>
                   : <span className="text-[12px] text-muted-foreground">idle</span>}
@@ -92,7 +92,7 @@ export function HomeTeam({ brandId }: { brandId: string | null | undefined }) {
           })}
         </ul>
       ) : (
-        <p className="font-ui text-[13px] text-muted-foreground">No agents on the team yet. Kinika hires from your plan.</p>
+        <p className="font-ui text-[13px] text-muted-foreground">No agents on the team yet. Kinika staffs the team as you set up tasks on your plan.</p>
       )}
       {approvals.length === 0 && active.length > 0 && <span className="font-ui text-[12px] text-muted-foreground">Nothing waiting for your approval.</span>}
     </div>

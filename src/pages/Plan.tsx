@@ -8,7 +8,7 @@ import { useBrand } from "@/hooks/use-brand";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listAgents, listHires, hireAgent, type Agent, type AgentHire } from "@/services/agentService";
+import { ensureStaffed, listAgents, listHires, type Agent, type AgentHire, type StaffingResult } from "@/services/agentService";
 import { getEntitlements, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
 import { KinikaTeam } from "@/components/plan/KinikaTeam";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -251,6 +251,22 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, s
   seats: number; seatsFree: number; userId: string;
   busy: string | null; setBusy: (b: string | null) => void; onChanged: () => Promise<void>;
 }) {
+  const [seatBound, setSeatBound] = useState<Record<string, Extract<StaffingResult, { ok: false }>>>({});
+  /** The founder sets the work up; Kinika staffs it. Seats only show when they bind. */
+  const setUp = async (k: PlanTask) => {
+    if (!k.agent_slug) { navigate(`/work/${k.id}`); return; }
+    setBusy(`setup-${k.id}`);
+    const r = await ensureStaffed(plan.brand_id, userId, k.agent_slug, { agents: [...agentBySlug.values()], seats });
+    setBusy(null);
+    if (r.ok) {
+      if (r.hired) toast(`${r.agent.name} is on Kinika's team for this`);
+      await onChanged();
+      navigate(delegateUrl(k));
+      return;
+    }
+    const failed = r as Extract<StaffingResult, { ok: false }>;
+    setSeatBound((b) => ({ ...b, [k.id]: failed }));
+  };
   const navigate = useNavigate();
   const [newTitle, setNewTitle] = useState("");
   const [adding, setAdding] = useState(false);
@@ -282,8 +298,9 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, s
         {target.tasks.map((k) => {
           const agent = k.agent_slug ? agentBySlug.get(k.agent_slug) : null;
           const isDone = k.status === "done";
+          const bound = seatBound[k.id];
           return (
-            <li key={k.id} className={cn("rounded-lg border border-border/60 bg-card/30 px-3 py-2.5 flex items-start gap-3", isDone && "opacity-60")}>
+            <li key={k.id} className={cn("rounded-lg border border-border/60 bg-card/30 px-3 py-2.5 flex items-start gap-3 flex-wrap", isDone && "opacity-60")}>
               <button disabled={!canEdit || busy === k.id} onClick={() => toggle(k)} className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary disabled:opacity-50" aria-label={isDone ? "Mark not done" : "Mark done"}>
                 {busy === k.id ? <Loader2 size={16} className="animate-spin" /> : isDone ? <Check size={16} className="text-primary" /> : <Circle size={16} />}
               </button>
@@ -304,18 +321,26 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, s
                     <button onClick={() => navigate(`/work/${k.id}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-medium">{(k.deliverables?.length ?? 0) > 0 ? "Continue with Kinika" : "Start with Kinika"} <ChevronRight size={11} /></button>
                   )}
                   {k.owner === "agent" && k.status !== "doing" && (
-                    hired.has(k.agent_slug ?? "") ? (
-                      <button onClick={() => navigate(delegateUrl(k))} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-medium">Hand to {agent?.name ?? "agent"} <ChevronRight size={11} /></button>
-                    ) : seats === 0 ? (
-                      <button onClick={() => navigate(`/work/${k.id}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary" title="No agent seat yet">Do it with Kinika</button>
-                    ) : seatsFree > 0 && agent ? (
-                      <button disabled={busy === `hire-${k.id}`} onClick={async () => { setBusy(`hire-${k.id}`); const r = await hireAgent(plan.brand_id, userId, agent.id, "kinika"); setBusy(null); if (r.success) { toast(`Kinika hired ${agent.name}`); await onChanged(); navigate(delegateUrl(k)); } else toast.error(r.error ?? "Could not hire"); }} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary disabled:opacity-50">Let Kinika hire {agent.name}</button>
-                    ) : (
-                      <button onClick={() => navigate("/billing")} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-border text-[11px] font-ui hover:border-primary" title="All seats are taken">Needs a seat</button>
-                    )
+                    <button disabled={busy === `setup-${k.id}`} onClick={() => setUp(k)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-ui font-medium disabled:opacity-50" title={agent ? `Kinika runs this with the ${agent.name}` : undefined}>{busy === `setup-${k.id}` ? <Loader2 size={11} className="animate-spin" /> : null} Set up <ChevronRight size={11} /></button>
                   )}
                   {k.status !== "skipped" && <button onClick={async () => { setBusy(k.id); await setTaskStatus(k, "skipped"); setBusy(null); onChanged(); }} className="text-muted-foreground hover:text-foreground" title="Skip" aria-label="Skip task"><X size={13} /></button>}
                   <button onClick={async () => { if (await deleteTask(k.id)) onChanged(); }} className="text-muted-foreground hover:text-destructive" title="Remove" aria-label="Remove task"><Trash2 size={13} /></button>
+                </div>
+              )}
+              {bound && (
+                <div role="status" className="basis-full mt-2 rounded-lg border border-[hsl(var(--brand-needs-you))]/40 bg-[hsl(var(--brand-needs-you-soft))]/60 px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+                  <p className="font-ui text-[12px] text-foreground">
+                    {bound.reason === "trial" && <>Kinika would run this with the <strong className="font-semibold">{bound.agent?.name ?? "right agent"}</strong>. Your trial has no agent seats yet.</>}
+                    {bound.reason === "seats_busy" && <>This needs the <strong className="font-semibold">{bound.agent?.name ?? "right agent"}</strong> on the team. Your {bound.seats} seat{bound.seats === 1 ? " is" : "s are"} busy with {bound.busy.map((h) => h.agent.name).join(" and ")}: pause one on Kinika's team, or add a seat.</>}
+                    {bound.reason === "no_role" && <>Kinika's roster has no agent for this yet. Do it with Kinika for now.</>}
+                    {bound.reason === "error" && <>{bound.error ?? "Kinika could not staff this."}</>}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => navigate(`/work/${k.id}`)} className="h-8 px-3 rounded-md bg-primary text-primary-foreground font-ui text-[12px] font-medium">Do it with Kinika</button>
+                    {bound.reason === "seats_busy" && <button onClick={() => navigate("/team")} className="h-8 px-3 rounded-md border border-border bg-card font-ui text-[12px]">Kinika's team</button>}
+                    {(bound.reason === "trial" || bound.reason === "seats_busy") && <button onClick={() => navigate("/billing")} className="h-8 px-3 rounded-md border border-border bg-card font-ui text-[12px]">Add a seat</button>}
+                    <button onClick={() => setSeatBound((b) => { const n = { ...b }; delete n[k.id]; return n; })} className="text-muted-foreground" aria-label="Dismiss"><X size={13} /></button>
+                  </div>
                 </div>
               )}
             </li>
