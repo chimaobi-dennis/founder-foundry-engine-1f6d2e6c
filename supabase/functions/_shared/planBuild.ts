@@ -6,6 +6,7 @@
  */
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildContextPack } from "./contextPack.ts";
+import { silentNarrator, type Narrator } from "./progress.ts";
 import { parseStructuredOutput } from "./runner.ts";
 import { agentsBlock, coercePlan, playbookBlock, playbookForKind, type PlanAgentOption, type PlanDraft, type PlaybookChoice } from "./plan.ts";
 import { remember } from "./memory.ts";
@@ -38,10 +39,19 @@ export async function buildOrRevisePlan(
   playbook: PlaybookChoice = "auto",
   /** "new": the goal this plan is written for. It becomes the current plan beside the older ones. */
   goal?: { goal: string; horizon?: string | null } | null,
+  /** Who is watching: the steps are narrated as they happen (the runner passes nothing). */
+  n: Narrator = silentNarrator,
 ): Promise<PlanBuildResult> {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  n.plan([
+    { key: "context", label: "Gathering what Kinika knows about the business" },
+    { key: "model", label: action === "revise" ? "Revising the targets and tasks" : "Writing the targets and tasks, and who does what" },
+    { key: "check", label: "Checking the plan's shape" },
+    { key: "save", label: action === "revise" ? "Saving the new version" : "Saving your plan" },
+  ]);
+  n.start("context");
   // ── Context ──
   const [pack, { data: agentRows }, { data: hires }, { data: milestones }, { data: existing }] = await Promise.all([
     buildContextPack(admin, brand.id),
@@ -53,6 +63,7 @@ export async function buildOrRevisePlan(
   const hiredSlugs = new Set((hires ?? []).map((h: any) => h.agents?.slug).filter(Boolean));
   const agents: PlanAgentOption[] = (agentRows ?? []).map((a: any) => ({ slug: a.slug, name: a.name, tagline: a.tagline, hired: hiredSlugs.has(a.slug) }));
 
+  n.done("context", `${pack.text.length.toLocaleString()} characters of brand record${(milestones ?? []).length ? `, ${(milestones ?? []).length} milestones` : ""}${existing && action === "revise" ? ", the current plan" : ""}`);
   const P = await loadPrompts(admin, ["plan_build", "plan_goal_rule", "plan_agents_rule", "plan_playbook_auto", "plan_playbook_chosen", "respond_json_only"]);
   const systemPrompt = `${P.plan_build}\n\n=== BRAND CONTEXT (pack ${pack.hash}) ===\n${pack.text}`;
 
@@ -78,19 +89,24 @@ export async function buildOrRevisePlan(
   ].filter(Boolean).join("\n\n");
 
   // ── Model ──
+  n.start("model");
   const gw = await fetch(`${SUPABASE_URL}/functions/v1/ai-gateway`, {
     method: "POST",
     headers: { "content-type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({ userId: brand.user_id, taskType: "plan_build", systemPrompt, messages: [{ role: "user", content: userPrompt }], maxTokens: 6000, temperature: 0.3, cacheContext: true, metadata: { plan: action, brand_id: brand.id } }),
   });
   const result = await gw.json().catch(() => null);
-  if (!gw.ok || !result?.success) return { success: false, error: result?.error ?? `The plan builder did not answer (${gw.status}).`, status: 502 };
+  if (!gw.ok || !result?.success) { n.fail("model", result?.error ?? `no answer (${gw.status})`); return { success: false, error: result?.error ?? `The plan builder did not answer (${gw.status}).`, status: 502 }; }
+  n.done("model");
+  n.start("check");
   const parsed = parseStructuredOutput(result.text ?? "");
-  if (!parsed.ok) return { success: false, error: "The plan came back in an unexpected shape. Try again.", status: 502 };
+  if (!parsed.ok) { n.fail("check", "the answer was not in the shape Kinika needs"); return { success: false, error: "The plan came back in an unexpected shape. Try again.", status: 502 }; }
   const draft = coercePlan(parsed.value, agents);
-  if (!draft) return { success: false, error: "The plan builder produced nothing usable. Add more about the business in Kinika and try again.", status: 502 };
+  if (!draft) { n.fail("check", "nothing usable in the answer"); return { success: false, error: "The plan builder produced nothing usable. Add more about the business in Kinika and try again.", status: 502 }; }
+  n.done("check", `${draft.targets.length} targets, ${draft.targets.reduce((k, t) => k + t.tasks.length, 0)} tasks`);
 
   // ── Write ──
+  n.start("save");
   const plan = await writePlan(admin, brand.id, brand.user_id, draft, existing, action, reason, goal);
   await remember(admin, { brandId: brand.id, userId: brand.user_id }, {
     kind: "run_summary", key: `plan:${plan.id}:v${plan.version}`,
@@ -98,7 +114,8 @@ export async function buildOrRevisePlan(
     summary: `${reason ? `${reason} ` : ""}${draft.summary} Targets: ${draft.targets.map((t) => t.title).join("; ")}.`,
     data: { version: plan.version, founder_type: draft.founder_type, reason: reason ?? null },
   });
-  return { success: true, planId: plan.id, version: plan.version, targets: draft.targets.length, tasks: draft.targets.reduce((n, t) => n + t.tasks.length, 0), modelUsed: result.modelUsed };
+  n.done("save", `version ${plan.version}`);
+  return { success: true, planId: plan.id, version: plan.version, targets: draft.targets.length, tasks: draft.targets.reduce((k, t) => k + t.tasks.length, 0), modelUsed: result.modelUsed };
 }
 
 /** Replace the plan's targets and tasks, carrying over statuses of tasks that still exist (by title). */

@@ -15,6 +15,7 @@ import { corsHeaders, json } from "../_shared/cors.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { parseTaskReply, taskPromptBlock, type TaskChatContext } from "../_shared/taskChat.ts";
 import { loadPrompts } from "../_shared/promptLoad.ts";
+import { storedNarrator, type Narrator } from "../_shared/progress.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
@@ -64,9 +65,11 @@ serve(async (req) => {
   } else if (body.note) {
     await admin.from("mentor_messages").insert({ conversation_id: conv.id, role: "note", content: String(body.note).slice(0, 300) });
   }
-  await admin.from("mentor_conversations").update({ pending_since: new Date().toISOString(), last_error: null, last_message_at: new Date().toISOString() }).eq("id", conv.id);
+  await admin.from("mentor_conversations").update({ pending_since: new Date().toISOString(), last_error: null, last_message_at: new Date().toISOString(), progress: [] }).eq("id", conv.id);
 
-  const work = reply(admin, userId, task, conv.id, text).catch(async (e) => {
+  // The steps are written onto the conversation as they happen; the browser polls them while pending.
+  const n = storedNarrator(admin, "mentor_conversations", conv.id);
+  const work = reply(admin, userId, task, conv.id, text, n).catch(async (e) => {
     await admin.from("mentor_conversations").update({ pending_since: null, last_error: (e as Error).message }).eq("id", conv.id);
   });
   if (typeof EdgeRuntime !== "undefined" && EdgeRuntime) EdgeRuntime.waitUntil(work); else await work;
@@ -74,14 +77,21 @@ serve(async (req) => {
 });
 
 // deno-lint-ignore no-explicit-any
-async function reply(admin: Admin, userId: string, task: any, conversationId: string, userText: string) {
+async function reply(admin: Admin, userId: string, task: any, conversationId: string, userText: string, n: Narrator) {
   const deliverables: Deliverable[] = Array.isArray(task.deliverables) ? task.deliverables : [];
+  n.plan([
+    { key: "context", label: "Reading the conversation, the plan and your business" },
+    { key: "model", label: "Thinking about your message" },
+    { key: "apply", label: "Putting the reply together" },
+  ]);
+  n.start("context");
   const [{ data: brand }, pack, { data: history }, { data: plan }] = await Promise.all([
     admin.from("brands").select("id, user_id, name, journey_stage, business_kind, goal").eq("id", task.brand_id).maybeSingle(),
     buildContextPack(admin, task.brand_id),
     admin.from("mentor_messages").select("role, content").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(40),
     admin.from("brand_plans").select("title, plan_targets(title, status, position)").eq("brand_id", task.brand_id).eq("is_current", true).maybeSingle(),
   ]);
+  n.done("context", `${(history ?? []).length} messages so far`);
   const P = await loadPrompts(admin, ["task_chat", "task_chat_intro", "task_chat_rules", "task_chat_contract", "task_chat_followups"]);
   const voice = P.task_chat.split("{{brand_name}}").join(brand?.name ?? "this business");
   const ctx: TaskChatContext = {
@@ -101,16 +111,20 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   const msgs = (history ?? []).filter((m: { role: string }) => m.role === "user" || m.role === "assistant").map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
   if (!(msgs.length && msgs[msgs.length - 1].role === "user" && msgs[msgs.length - 1].content === userText)) msgs.push({ role: "user", content: userText });
 
+  n.start("model");
   const gw = await fetch(GATEWAY_URL, {
     method: "POST",
     headers: { "content-type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({ userId: brand?.user_id ?? userId, taskType: "task_chat", systemPrompt, messages: msgs, maxTokens: 2500, temperature: 0.4, metadata: { brand_id: task.brand_id, task_id: task.id, conversation_id: conversationId } }),
   });
   const result = await gw.json().catch(() => null);
-  if (!gw.ok || !result?.success || !result.text) throw new Error(result?.error ?? `Kinika could not answer (${gw.status})`);
+  if (!gw.ok || !result?.success || !result.text) { n.fail("model", result?.error ?? `no answer (${gw.status})`); throw new Error(result?.error ?? `Kinika could not answer (${gw.status})`); }
+  n.done("model");
+  n.start("apply");
 
   const parsed = parseTaskReply(String(result.text), ctx.deliverables);
   const now = new Date().toISOString();
+  if (parsed.document) { n.plan([{ key: "document", label: `Saving the document: ${parsed.document.title.slice(0, 60)}` }]); n.start("document"); }
 
   // A document Kinika wrote: saved once; a later version never overwrites the founder's edits.
   let documentId: string | null = null;
@@ -125,6 +139,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     }
   }
 
+  if (parsed.document) n.done("document");
   // Deliverables closed in this reply, the document linked to the first document-kind one still open,
   // and a need Kinika raised pinned to its deliverable until the founder resolves it.
   const needTarget = parsed.needs ? (parsed.needs.deliverableId ?? deliverables.find((d) => !d.done)?.id ?? null) : null;
@@ -141,9 +156,10 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     await admin.from("plan_tasks").update({ deliverables: next, updated_at: now }).eq("id", task.id);
   }
 
+  n.done("apply", parsed.done.length ? `${parsed.done.length} deliverable${parsed.done.length === 1 ? "" : "s"} ticked` : undefined);
   await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "assistant", content: parsed.text || "…" });
   await admin.from("mentor_conversations").update({
-    pending_since: null, last_error: null, last_message_at: now,
+    pending_since: null, last_error: null, last_message_at: now, progress: n.steps,
     last_followups: { suggestions: parsed.suggestions, options: parsed.options, document: !!parsed.document, closed: parsed.done.map((d) => d.id), needs: needTarget },
   }).eq("id", conversationId);
 }

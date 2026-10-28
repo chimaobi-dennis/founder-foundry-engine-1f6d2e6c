@@ -1,13 +1,17 @@
 import { Check, Circle, FileText, ListChecks, Loader2, Scale, Zap } from "lucide-react";
+import { ProgressSteps } from "@/components/ui/progress-steps";
+import type { ProgressStep } from "@shared/progress";
 import { cn } from "@/lib/utils";
 import type { Deliverable } from "@/services/planService";
 
 const ICON: Record<Deliverable["kind"], typeof Check> = { decision: Scale, document: FileText, list: ListChecks, action: Zap };
 
 /** The deliverables that complete a founder task, ticked as the work with Kinika progresses. */
-export function DeliverablesRail({ deliverables, breaking, busyId, onToggle, onOpen }: {
+export function DeliverablesRail({ deliverables, breaking, breakSteps = [], busyId, onToggle, onOpen }: {
   deliverables: Deliverable[];
   breaking: boolean;
+  /** The real steps of the breakdown while it runs. */
+  breakSteps?: ProgressStep[];
   busyId: string | null;
   onToggle: (d: Deliverable) => void;
   /** Open the deliverable itself: its list, decision, or document. */
@@ -21,7 +25,10 @@ export function DeliverablesRail({ deliverables, breaking, busyId, onToggle, onO
         {deliverables.length > 0 && <span className="font-ui text-[11px] text-muted-foreground">{done} of {deliverables.length}</span>}
       </div>
       {breaking && (
-        <p className="font-ui text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Kinika is breaking this task into deliverables</p>
+        <div className="flex flex-col gap-1.5">
+          <p className="font-ui text-[12px] text-muted-foreground inline-flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Kinika is breaking this task into deliverables</p>
+          <ProgressSteps steps={breakSteps} compact placeholder="Reaching Kinika" />
+        </div>
       )}
       {!breaking && deliverables.length === 0 && <p className="font-ui text-[12px] text-muted-foreground">Kinika names what completes this task once the workspace opens.</p>}
       <ul className="flex flex-col gap-1.5">
