@@ -2,13 +2,31 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Markdown } from "@/components/ui/markdown";
 import { ListSkeleton } from "@/components/ui/page-skeleton";
-import { StepLine, OutputView } from "@/components/team/RunViews";
+import { OutputView } from "@/components/team/RunViews";
+import { ProgressSteps } from "@/components/ui/progress-steps";
+import type { ProgressStep } from "@shared/progress";
+import type { RunStep } from "@/services/agentService";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { useAuth } from "@/contexts/AuthContext";
 import { cancelRun, getRun, outputToText, type Approval, type AutomationRun } from "@/services/agentService";
 import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
 import { supabase } from "@/integrations/supabase/client";
 import type { Deliverable } from "@/services/planService";
+
+/** A run step in the shared progress shape: the runner's own plan is the to-do list. */
+function stepToProgress(s: RunStep): ProgressStep {
+  const status = s.status === "done" ? "done" : s.status === "running" ? "doing" : s.status === "failed" ? "failed" : s.status === "skipped" ? "skipped" : s.status === "waiting" ? "doing" : "todo";
+  const bits = [s.status === "waiting" ? "waiting for you" : "", s.credits_captured > 0 ? `${Number(s.credits_captured)} credits` : "", s.error ?? ""].filter(Boolean);
+  return { key: s.id, label: s.name, status, at: s.started_at ?? undefined, note: bits.join(" · ") || undefined };
+}
+
+/** "Step 2 of 4 · writing the captions." */
+function runSummary(steps: RunStep[], agentName: string): string {
+  const cur = steps.find((s) => s.status === "running" || s.status === "waiting");
+  if (!cur) return `${agentName} is starting.`;
+  const i = steps.findIndex((s) => s.id === cur.id) + 1;
+  return `Step ${i} of ${steps.length}: ${cur.name}.`;
+}
 
 /**
  * One deliverable an agent is doing, as a tab in the founder's workspace:
@@ -74,9 +92,9 @@ export function RunTab({ deliverable, onApproved }: { deliverable: Deliverable; 
         )}
         <div className="px-6 py-5">
           {inFlight && !output && (
-            <div className="flex flex-col gap-2">
-              <p className="font-ui text-[13px] text-muted-foreground">{agentName} is working. This tab follows along.</p>
-              <ul className="space-y-1">{(run.steps ?? []).map((s) => <StepLine key={s.id} step={s} />)}</ul>
+            <div className="flex flex-col gap-3">
+              <p className="font-ui text-[13px] text-muted-foreground">{runSummary(run.steps ?? [], agentName)} This tab follows along; nothing goes anywhere without your yes.</p>
+              <ProgressSteps steps={(run.steps ?? []).map(stepToProgress)} placeholder={`${agentName} is starting`} />
             </div>
           )}
           {output && (legalDraft ? (

@@ -13,6 +13,8 @@ import { grantFreeTrialCredits } from "@/services/billingAdminService";
 import { buildPlan } from "@/services/planService";
 import { approveUnderstanding, draftUnderstanding, readTextFile, type BusinessKind, type Readback } from "@/services/understandingService";
 import { ReadingPanel } from "@/components/start/ReadingPanel";
+import { ProgressSteps } from "@/components/ui/progress-steps";
+import type { ProgressStep } from "@shared/progress";
 import { openSupport } from "@/services/supportService";
 
 /**
@@ -67,7 +69,9 @@ export default function Start() {
   const [busy, setBusy] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [draftFailures, setDraftFailures] = useState(0);
-  const [reading, setReading] = useState<{ site: boolean; chat: boolean; documents: number; startedAt: number } | null>(null);
+  const [reading, setReading] = useState<{ hasSources: boolean; startedAt: number } | null>(null);
+  /** The real steps of whatever Kinika is doing right now (the read-back, then the plan), streamed from the function. */
+  const [progress, setProgress] = useState<ProgressStep[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const firstSectionRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -134,10 +138,11 @@ export default function Start() {
     const useSite = !wordsOnly && !!websiteUrl.trim();
     const useChat = !wordsOnly && !!chatUrl.trim();
     const docs = wordsOnly ? [] : documents;
-    setReading({ site: useSite, chat: useChat, documents: docs.length, startedAt: Date.now() });
+    setProgress([]);
+    setReading({ hasSources: useSite || useChat || docs.length > 0, startedAt: Date.now() });
     const id = await ensureBrand();
     if (!id) { setBusy(null); setReading(null); return; }
-    const r = await draftUnderstanding(id, { text: text.trim(), kind, websiteUrl: useSite ? websiteUrl.trim() : undefined, chatUrl: useChat ? chatUrl.trim() : undefined, pasted: pasted.trim() || undefined, documents: docs.map((d) => d.text) }, ctrl.signal);
+    const r = await draftUnderstanding(id, { text: text.trim(), kind, websiteUrl: useSite ? websiteUrl.trim() : undefined, chatUrl: useChat ? chatUrl.trim() : undefined, pasted: pasted.trim() || undefined, documents: docs.map((d) => d.text) }, ctrl.signal, setProgress);
     if (ctrl.signal.aborted) return;
     setBusy(null);
     setReading(null);
@@ -166,7 +171,8 @@ export default function Start() {
     // The plan is written while the founder watches the building screen; the
     // profile and brand list refresh afterwards, right before the plan opens.
     setBusy("plan");
-    const p = await buildPlan(brandId, undefined, "auto");
+    setProgress([]);
+    const p = await buildPlan(brandId, undefined, "auto", setProgress);
     if (!p.success) toast.error(p.error ?? "Kinika could not write the plan yet; you can from the plan page.");
     await Promise.all([refetchProfile(), refreshBrands()]);
     navigate("/plan", { replace: true });
@@ -233,12 +239,9 @@ export default function Start() {
           <div className="w-full max-w-[560px] flex flex-col gap-6 self-center" role="status" aria-live="polite">
             <span className="inline-flex items-center gap-2 font-ui text-[12px] tracking-[0.18em] uppercase text-[hsl(var(--brand-good))]"><Check size={14} /> Kinika knows your business</span>
             <h1 className="font-display text-[32px] md:text-[38px] leading-[1.1] inline-flex items-center gap-3"><Loader2 size={26} className="animate-spin text-primary shrink-0" /> Kinika is writing your plan</h1>
-            <p className="font-ui text-[15px] leading-relaxed text-muted-foreground max-w-[52ch]">{(ownGoal.trim() || goal) ? <>Towards: <strong className="text-foreground font-medium">{ownGoal.trim() || goal}</strong>, {horizon.toLowerCase()}.</> : "Based on what Kinika understood."} This takes about half a minute.</p>
-            <ol className="flex flex-col gap-2.5 font-ui text-[14px] text-muted-foreground">
-              {["Two to five targets you can check off", "The tasks under each, and which an agent could do", "The roles Kinika would hire for them"].map((t, i) => (
-                <li key={t} className="flex items-center gap-3"><span className="w-6 h-6 rounded-full border border-border inline-flex items-center justify-center text-[11px] font-semibold text-foreground shrink-0">{i + 1}</span>{t}</li>
-              ))}
-            </ol>
+            <p className="font-ui text-[15px] leading-relaxed text-muted-foreground max-w-[52ch]">{(ownGoal.trim() || goal) ? <>Towards: <strong className="text-foreground font-medium">{ownGoal.trim() || goal}</strong>, {horizon.toLowerCase()}.</> : "Based on what Kinika understood."} This usually takes half a minute to a minute.</p>
+            <ProgressSteps steps={progress} placeholder="Reaching Kinika" />
+            <p className="font-ui text-[13px] leading-relaxed text-muted-foreground max-w-[52ch]">You get two to five targets you can check off, the tasks under each, and which of them Kinika would set up with an agent.</p>
           </div>
         )}
 
@@ -309,7 +312,7 @@ export default function Start() {
               <Textarea id="more" rows={3} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="Anything the sources would not show: what sells best, who your regulars are, what you have tried, what you refuse to do." />
             </div>
             {reading ? (
-              <ReadingPanel reading={reading} kind={kind} onRetry={() => draft(false)} onStop={stopReading} />
+              <ReadingPanel steps={progress} startedAt={reading.startedAt} hasSources={reading.hasSources} onRetry={() => draft(false)} onStop={stopReading} />
             ) : (
               <>
                 {draftError && <DraftErrorPanel error={draftError} failures={draftFailures} onRetry={() => draft(false)} onSupport={() => openSupport({ where: "start/read-back", problem: draftError, details: { brandId, kind, site: !!websiteUrl.trim(), chat: !!chatUrl.trim(), documents: documents.length, failures: draftFailures } })} />}
@@ -342,6 +345,7 @@ export default function Start() {
                 {busy === "draft" ? <Loader2 size={16} className="animate-spin" /> : null}{busy === "draft" ? "Kinika is reading" : "Show me what Kinika understood"}
               </button>
             </div>
+            {busy === "draft" && reading && <ReadingPanel steps={progress} startedAt={reading.startedAt} hasSources={false} onRetry={() => draft(true)} onStop={stopReading} />}
           </div>
         )}
 

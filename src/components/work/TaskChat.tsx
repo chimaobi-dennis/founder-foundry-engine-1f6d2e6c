@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ThinkingLine } from "@/components/work/ThinkingLine";
+import { ProgressSteps } from "@/components/ui/progress-steps";
+import type { ProgressStep } from "@shared/progress";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { getMessages, type MentorMessage, type ReplyOption } from "@/services/mentorService";
 import { requirePrompt } from "@/services/aiService";
@@ -33,7 +34,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
   const [messages, setMessages] = useState<MentorMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
-  const [startedAt, setStartedAt] = useState(0);
+  const [progress, setProgress] = useState<ProgressStep[]>([]);
   const [ready, setReady] = useState(false);
   const [followups, setFollowups] = useState<{ options: ReplyOption[]; suggestions: string[] }>({ options: [], suggestions: [] });
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -48,7 +49,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
     const ms = state ? await getMessages(state.id) : [];
     setMessages(ms);
     const stillPending = !!state?.pending_since && Date.now() - new Date(state.pending_since).getTime() < 3 * 60_000;
-    if (stillPending && !pending) setStartedAt(state!.pending_since ? new Date(state!.pending_since).getTime() : Date.now());
+    setProgress(stillPending ? (state?.progress ?? []) : []);
     setPending(stillPending);
     if (!stillPending) {
       const f = state?.last_followups;
@@ -58,7 +59,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
     }
     lastCountRef.current = ms.length;
     if (initial) setReady(true);
-  }, [ws.task.id, pending, onReplied]);
+  }, [ws.task.id, onReplied]);
 
   useEffect(() => { setReady(false); sync(true); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ws.task.id]);
@@ -71,7 +72,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
     if (saveUser) setMessages((m) => [...m, { id: `temp-${Date.now()}`, conversation_id: "", role: "user", content: text, created_at: new Date().toISOString() } as MentorMessage]);
     else if (note) setMessages((m) => [...m, { id: `temp-${Date.now()}`, conversation_id: "", role: "note", content: note, created_at: new Date().toISOString() } as MentorMessage]);
     setPending(true);
-    setStartedAt(Date.now());
+    setProgress([]);
     const r = await sendTaskMessage(ws.task.brand_id, ws.task.id, text, saveUser, note);
     if (r.success === false) { setPending(false); toast.error(r.error); setMessages((m) => m.filter((x) => !x.id.startsWith("temp-"))); return; }
   }, [pending, ws.task.brand_id, ws.task.id]);
@@ -130,7 +131,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
             <div className="flex justify-start">
               <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 bg-card border border-border font-ui text-[14px] leading-relaxed">
                 <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>
-                <ThinkingLine startedAt={startedAt} />
+                <ProgressSteps steps={progress} compact placeholder="Sending your message to Kinika" />
               </div>
             </div>
           )}

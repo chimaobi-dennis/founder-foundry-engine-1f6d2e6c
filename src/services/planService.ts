@@ -6,8 +6,8 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 import { matchByTitle, type PlanEditOp, type PlaybookChoice } from '@shared/plan';
+import { postNarrated, type OnProgress } from '@/services/narrated';
 
 const db = supabase as any;
 
@@ -140,8 +140,8 @@ export async function setPlanStatus(planId: string, status: PlanSummary['status'
 }
 
 /** A new plan for a goal; Kinika already knows the business. It becomes the current plan. */
-export function createPlan(brandId: string, goal: string, goalHorizon?: string) {
-  return callPlanFunction({ action: 'new', brandId, goal, goalHorizon });
+export function createPlan(brandId: string, goal: string, goalHorizon?: string, onProgress?: OnProgress) {
+  return callPlanFunction({ action: 'new', brandId, goal, goalHorizon }, onProgress);
 }
 
 /** Intake import: a brand that just told Kinika about itself gets a plan without being asked, unless it has one. */
@@ -161,31 +161,18 @@ export async function setAutoRevise(planId: string, on: boolean): Promise<boolea
   return !error;
 }
 
-async function callPlanFunction(body: Record<string, unknown>): Promise<{ success: boolean; error?: string; targets?: number; tasks?: number; modelUsed?: string }> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) return { success: false, error: 'Not signed in' };
-  try {
-    const res = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/founder-plan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
-    });
-    const json = await res.json().catch(() => null);
-    return json ?? { success: false, error: `The plan builder returned ${res.status}` };
-  } catch (e: any) {
-    return { success: false, error: e?.message ?? 'Could not reach the plan builder' };
-  }
+async function callPlanFunction(body: Record<string, unknown>, onProgress?: OnProgress): Promise<{ success: boolean; error?: string; targets?: number; tasks?: number; modelUsed?: string }> {
+  return postNarrated<{ success: boolean; error?: string; targets?: number; tasks?: number; modelUsed?: string }>('founder-plan', body, { onProgress, timeoutMs: 170_000 });
 }
 
 /** Ask Mentor to write a plan from everything the brand has told it. Replaces any existing plan. */
-export function buildPlan(brandId: string, note?: string, playbook: PlaybookChoice = 'auto') {
-  return callPlanFunction({ action: 'build', brandId, note, playbook });
+export function buildPlan(brandId: string, note?: string, playbook: PlaybookChoice = 'auto', onProgress?: OnProgress) {
+  return callPlanFunction({ action: 'build', brandId, note, playbook }, onProgress);
 }
 
 /** Revise the plan with a note; done tasks and the founder's edits are kept. */
-export function revisePlan(brandId: string, note: string) {
-  return callPlanFunction({ action: 'revise', brandId, note });
+export function revisePlan(brandId: string, note: string, onProgress?: OnProgress) {
+  return callPlanFunction({ action: 'revise', brandId, note }, onProgress);
 }
 
 export async function setTaskStatus(task: Pick<PlanTask, 'id' | 'plan_id'>, status: TaskStatus): Promise<boolean> {

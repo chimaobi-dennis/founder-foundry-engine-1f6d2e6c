@@ -3,7 +3,7 @@
  *
  * POST (user JWT), editors and owners:
  *   { action: "draft", brandId, text, kind?, websiteUrl?, chatUrl?, pasted?, documents?: string[] }
- *     → { success, readback }   nothing is written
+ *     → NDJSON: { progress } lines, then { result: { success, readback } }; nothing is written
  *   { action: "approve", brandId, readback, goal?, goalHorizon?, sources?: { site, chat, documents, pasted } }
  *     → { success }             writes brand_dna, the stage, the kind, the goal,
  *                               and marks the brand understood
@@ -16,6 +16,7 @@ import { parseStructuredOutput } from "../_shared/runner.ts";
 import { loadPrompt } from "../_shared/promptLoad.ts";
 import { coerceReadback, kindFrom, readbackToDna, sectionLabels, type Readback } from "../_shared/understanding.ts";
 import { remember } from "../_shared/memory.ts";
+import { narratedResponse } from "../_shared/progress.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -65,51 +66,76 @@ serve(async (req) => {
   if (body.action !== "approve") {
     const text = String(body.text ?? "").trim();
     if (text.length < 20) return json({ success: false, error: "Tell Kinika a little more first (a few sentences)." }, 400);
-    const [site, chat] = await Promise.all([
-      body.websiteUrl ? readPage(String(body.websiteUrl)) : Promise.resolve(""),
-      body.chatUrl ? readPage(String(body.chatUrl)) : Promise.resolve(""),
-    ]);
     const docs = (Array.isArray(body.documents) ? body.documents : []).map((d: unknown) => String(d ?? "").slice(0, 6000)).filter(Boolean).slice(0, 5);
-    const parts = [
-      `THE FOUNDER SAID (situation: ${kindFrom(body.kind)}):\n${text.slice(0, 4000)}`,
-      body.pasted ? `MORE FROM THE FOUNDER:\n${String(body.pasted).slice(0, 6000)}` : "",
-      site ? `WEBSITE (${body.websiteUrl}):\n${site}` : "",
-      chat ? `A CONVERSATION THE FOUNDER ALREADY HAD ABOUT THIS BUSINESS:\n${chat}` : "",
-      ...docs.map((d: string, i: number) => `DOCUMENT ${i + 1}:\n${d}`),
-      `JOURNEY STAGES: ${(stageRows ?? []).map((s: any) => `${s.stage_key} (${s.name}: ${String(s.description ?? "").slice(0, 80)})`).join("; ")}`,
-      await loadPrompt(admin, "respond_json_only"),
-    ].filter(Boolean).join("\n\n");
+    const kindWord = ({ starting: "an idea", running: "a running business", creator: "a creator", other: "your business" } as Record<string, string>)[kindFrom(body.kind)] ?? "your business";
+    // The browser watches the steps as they happen; the result is the last line.
+    return narratedResponse(req, corsHeaders, async (n) => {
+      n.plan([
+        { key: "words", label: "Reading what you wrote" },
+        ...(body.websiteUrl ? [{ key: "site", label: "Reading your website" }] : []),
+        ...(body.chatUrl ? [{ key: "chat", label: "Reading the conversation you shared" }] : []),
+        ...(docs.length ? [{ key: "docs", label: `Reading ${docs.length} document${docs.length === 1 ? "" : "s"}` }] : []),
+        { key: "model", label: `Writing it back under headings that fit ${kindWord}` },
+        { key: "check", label: "Checking the read-back" },
+      ]);
+      n.start("words");
+      n.done("words", `${text.split(/\s+/).length} words${body.pasted ? ", plus what you pasted" : ""}`);
+      if (body.websiteUrl) n.start("site");
+      if (body.chatUrl) n.start("chat");
+      const [site, chat] = await Promise.all([
+        body.websiteUrl ? readPage(String(body.websiteUrl)).then((t) => { if (t) n.done("site", `${t.length.toLocaleString()} characters read`); else n.skip("site", "could not be read; left out"); return t; }) : Promise.resolve(""),
+        body.chatUrl ? readPage(String(body.chatUrl)).then((t) => { if (t) n.done("chat", `${t.length.toLocaleString()} characters read`); else n.skip("chat", "could not be read; left out"); return t; }) : Promise.resolve(""),
+      ]);
+      if (docs.length) { n.start("docs"); n.done("docs"); }
+      const parts = [
+        `THE FOUNDER SAID (situation: ${kindFrom(body.kind)}):\n${text.slice(0, 4000)}`,
+        body.pasted ? `MORE FROM THE FOUNDER:\n${String(body.pasted).slice(0, 6000)}` : "",
+        site ? `WEBSITE (${body.websiteUrl}):\n${site}` : "",
+        chat ? `A CONVERSATION THE FOUNDER ALREADY HAD ABOUT THIS BUSINESS:\n${chat}` : "",
+        ...docs.map((d: string, i: number) => `DOCUMENT ${i + 1}:\n${d}`),
+        `JOURNEY STAGES: ${(stageRows ?? []).map((s: any) => `${s.stage_key} (${s.name}: ${String(s.description ?? "").slice(0, 80)})`).join("; ")}`,
+        await loadPrompt(admin, "respond_json_only"),
+      ].filter(Boolean).join("\n\n");
 
-    const systemPrompt = await loadPrompt(admin, "understanding", { stage_keys: stageKeys.join(", ") });
-    const ask = async (messages: Array<{ role: string; content: string }>, attempt: number) => {
-      const gw = await fetch(GATEWAY_URL, {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
-        body: JSON.stringify({ userId: brand.user_id, taskType: "understanding", systemPrompt, messages, maxTokens: 3000, temperature: 0.2, metadata: { brand_id: brand.id, attempt, sources: { site: !!site, chat: !!chat, documents: docs.length } } }),
-      });
-      const result = await gw.json().catch(() => null);
-      if (!gw.ok || !result?.success) return { error: result?.error ?? `Kinika could not read this yet (${gw.status}).`, text: "" };
-      return { error: null, text: String(result.text ?? "") };
-    };
-    const toReadback = (text: string) => { const parsed = parseStructuredOutput(text); return parsed.ok ? coerceReadback(parsed.value, stageKeys) : null; };
+      const systemPrompt = await loadPrompt(admin, "understanding", { stage_keys: stageKeys.join(", ") });
+      const ask = async (messages: Array<{ role: string; content: string }>, attempt: number) => {
+        const gw = await fetch(GATEWAY_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({ userId: brand.user_id, taskType: "understanding", systemPrompt, messages, maxTokens: 3000, temperature: 0.2, metadata: { brand_id: brand.id, attempt, sources: { site: !!site, chat: !!chat, documents: docs.length } } }),
+        });
+        const result = await gw.json().catch(() => null);
+        if (!gw.ok || !result?.success) return { error: result?.error ?? `Kinika could not read this yet (${gw.status}).`, text: "" };
+        return { error: null, text: String(result.text ?? "") };
+      };
+      const toReadback = (text: string) => { const parsed = parseStructuredOutput(text); return parsed.ok ? coerceReadback(parsed.value, stageKeys) : null; };
 
-    const first = await ask([{ role: "user", content: parts }], 1);
-    if (first.error) return json({ success: false, error: first.error, reason: "model" }, 502);
-    let readback = toReadback(first.text);
-    // A model that answered in prose or broke the JSON gets one more go with the answer in front of it.
-    if (!readback && first.text.trim()) {
-      const second = await ask([
-        { role: "user", content: parts },
-        { role: "assistant", content: first.text.slice(0, 6000) },
-        { role: "user", content: await loadPrompt(admin, "understanding_retry") },
-      ], 2);
-      if (!second.error) readback = toReadback(second.text);
-    }
-    if (!readback) {
-      console.error("understanding: no usable read-back", { brand: brand.id, textLength: first.text.length, head: first.text.slice(0, 200) });
-      return json({ success: false, error: "Kinika could not turn this into a read-back. Add a sentence or two about what you sell and who buys, or try again.", reason: "format" }, 502);
-    }
-    return json({ success: true, readback, sourcesRead: { site: !!site, chat: !!chat, documents: docs.length } });
+      n.start("model");
+      const first = await ask([{ role: "user", content: parts }], 1);
+      if (first.error) { n.fail("model", first.error); return { success: false, error: first.error, reason: "model" }; }
+      n.done("model");
+      n.start("check");
+      let readback = toReadback(first.text);
+      // A model that answered in prose or broke the JSON gets one more go with the answer in front of it.
+      if (!readback && first.text.trim()) {
+        n.skip("check", "the answer was not in the shape Kinika needs");
+        n.plan([{ key: "retry", label: "Asking again for a cleaner read-back" }]);
+        n.start("retry");
+        const second = await ask([
+          { role: "user", content: parts },
+          { role: "assistant", content: first.text.slice(0, 6000) },
+          { role: "user", content: await loadPrompt(admin, "understanding_retry") },
+        ], 2);
+        if (!second.error) readback = toReadback(second.text);
+        if (readback) n.done("retry"); else n.fail("retry", second.error ?? "still not usable");
+      }
+      if (!readback) {
+        console.error("understanding: no usable read-back", { brand: brand.id, textLength: first.text.length, head: first.text.slice(0, 200) });
+        return { success: false, error: "Kinika could not turn this into a read-back. Add a sentence or two about what you sell and who buys, or try again.", reason: "format" };
+      }
+      n.done("check", `${readback.sections.length} sections, ${readback.not_known?.length ?? 0} things Kinika does not know yet`);
+      return { success: true, readback, sourcesRead: { site: !!site, chat: !!chat, documents: docs.length } };
+    });
   }
 
   // ── approve ──

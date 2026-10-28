@@ -7,6 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getRun, outputToText, type Agent, type Approval, type AutomationRun } from '@/services/agentService';
 import type { Deliverable, PlanTask } from '@/services/planService';
+import { postNarrated, type OnProgress, type ProgressStep } from '@/services/narrated';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 
 const db = supabase as any;
@@ -113,24 +114,10 @@ export function wantsCanvas(ws: Workspace): boolean {
 // ─── Founder tasks worked with Kinika ───────────────────────
 
 /** Ask Kinika for the deliverables that complete a founder task (reused if they exist). */
-export async function breakdownTask(brandId: string, taskId: string): Promise<{ success: true; deliverables: Deliverable[] } | { success: false; error: string }> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) return { success: false, error: 'Not signed in' };
-  try {
-    const res = await fetch(`${SUPABASE_CONFIG.url}/functions/v1/founder-plan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_CONFIG.anonKey, Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ action: 'breakdown', brandId, taskId }),
-    });
-    const json = await res.json().catch(() => null);
-    return json ?? { success: false, error: `Kinika did not answer (${res.status})` };
-  } catch (e: unknown) {
-    return { success: false, error: e instanceof Error ? e.message : 'Could not reach Kinika' };
-  }
+export function breakdownTask(brandId: string, taskId: string, onProgress?: OnProgress): Promise<{ success: true; deliverables: Deliverable[] } | { success: false; error: string }> {
+  return postNarrated<{ success: true; deliverables: Deliverable[] }>('founder-plan', { action: 'breakdown', brandId, taskId }, { onProgress });
 }
 
-/** Write the task's deliverables back (done flags, linked documents). Database truth; returns what was saved. */
 export async function saveDeliverables(taskId: string, deliverables: Deliverable[]): Promise<boolean> {
   const { error } = await db.from('plan_tasks').update({ deliverables, updated_at: new Date().toISOString() }).eq('id', taskId);
   return !error;
@@ -153,6 +140,8 @@ export interface TaskConversationState {
   pending_since: string | null;
   last_error: string | null;
   last_followups: { suggestions?: string[]; options?: { label: string; value: string }[]; document?: boolean; closed?: string[] } | null;
+  /** The steps of the reply in flight, as the server writes them. */
+  progress: ProgressStep[] | null;
 }
 
 /** Send a turn to Kinika for this task. The reply is made in the background; poll the conversation until pending clears. */
@@ -174,6 +163,6 @@ export async function sendTaskMessage(brandId: string, taskId: string, text: str
 }
 
 export async function getTaskConversationState(taskId: string): Promise<TaskConversationState | null> {
-  const { data } = await db.from('mentor_conversations').select('id, pending_since, last_error, last_followups').eq('plan_task_id', taskId).maybeSingle();
+  const { data } = await db.from('mentor_conversations').select('id, pending_since, last_error, last_followups, progress').eq('plan_task_id', taskId).maybeSingle();
   return data ?? null;
 }

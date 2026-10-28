@@ -10,6 +10,7 @@ import { DeliverableSheet } from "@/components/work/DeliverableSheet";
 import { RunTab } from "@/components/work/RunTab";
 import { setTaskStatus, type Deliverable } from "@/services/planService";
 import { breakdownTask, saveDeliverables, saveDocumentBody, type Workspace } from "@/services/workspaceService";
+import type { ProgressStep } from "@shared/progress";
 import { requirePrompt } from "@/services/aiService";
 
 /**
@@ -22,6 +23,7 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
   const navigate = useNavigate();
   const [deliverables, setDeliverables] = useState<Deliverable[]>(ws.task.deliverables ?? []);
   const [breaking, setBreaking] = useState(false);
+  const [breakSteps, setBreakSteps] = useState<ProgressStep[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [document, setDocument] = useState(ws.document);
   const [body, setBody] = useState(ws.document?.body_md ?? "");
@@ -53,7 +55,8 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
     brokeRef.current = true;
     (async () => {
       setBreaking(true);
-      const r = await breakdownTask(ws.task.brand_id, ws.task.id);
+      setBreakSteps([]);
+      const r = await breakdownTask(ws.task.brand_id, ws.task.id, setBreakSteps);
       setBreaking(false);
       if (r.success === false) { toast.error(r.error); brokeRef.current = false; return; }
       setDeliverables(r.deliverables);
@@ -173,7 +176,7 @@ export function FounderWorkspace({ ws, userId, reload }: { ws: Workspace; userId
             {ws.task.detail && <span className="font-ui text-[12px] text-muted-foreground leading-snug">{ws.task.detail}</span>}
             <span className="font-ui text-[11px] text-muted-foreground">Target {ws.task.target_position + 1} · {ws.task.target_title} · <button onClick={() => navigate("/plan")} className="underline">open the plan</button></span>
           </div>
-          <DeliverablesRail deliverables={deliverables} breaking={breaking} busyId={busyId} onToggle={toggle} onOpen={openDeliverable} />
+          <DeliverablesRail deliverables={deliverables} breaking={breaking} breakSteps={breakSteps} busyId={busyId} onToggle={toggle} onOpen={openDeliverable} />
           {ws.using.length > 0 && (
             <div className="flex flex-col gap-1">
               <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">What Kinika is using</span>

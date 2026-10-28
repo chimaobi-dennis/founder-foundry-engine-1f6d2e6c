@@ -1,41 +1,30 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { BusinessKind } from "@/services/understandingService";
+import { Loader2 } from "lucide-react";
+import { ProgressSteps } from "@/components/ui/progress-steps";
+import type { ProgressStep } from "@shared/progress";
 
 /**
- * What Kinika is doing while the read-back is written. The function runs as
- * one call, so the steps below are what it reads in order, ticked on a
- * timer that matches how long each usually takes; the last step stays open
- * until the answer arrives. Past 45 seconds the panel says so, and past 90
- * offers to try again. The sources are never dropped: the read-back is what
- * Kinika's memory of the business is built from.
+ * What Kinika is doing while the read-back is written: the function's own
+ * steps, streamed as they happen (what you wrote, the website, the
+ * conversation, the documents, the model, the check). A source that could
+ * not be read says so on its line instead of disappearing. Past 45 seconds
+ * the panel says it is slow, and past 90 offers to try again.
  */
-const KIND_WORD: Record<BusinessKind, string> = { starting: "an idea", running: "a running business", creator: "a creator", other: "your business" };
-
-export function ReadingPanel({ reading, kind, onRetry, onStop }: {
-  reading: { site: boolean; chat: boolean; documents: number; startedAt: number };
-  kind: BusinessKind;
+export function ReadingPanel({ steps, startedAt, hasSources, onRetry, onStop }: {
+  steps: ProgressStep[];
+  startedAt: number;
+  hasSources: boolean;
   onRetry: () => void;
   onStop: () => void;
 }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - reading.startedAt) / 1000)), 500);
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 500);
     return () => clearInterval(t);
-  }, [reading.startedAt]);
-
-  const hasSources = reading.site || reading.chat || reading.documents > 0;
-  // Each step: label, and the second it usually completes by.
-  const steps: Array<{ label: string; doneBy: number }> = [
-    { label: "Reading what you wrote", doneBy: 2 },
-    ...(reading.site ? [{ label: "Reading your website", doneBy: 10 }] : []),
-    ...(reading.chat ? [{ label: "Reading the conversation you shared", doneBy: 14 }] : []),
-    ...(reading.documents ? [{ label: `Reading ${reading.documents} document${reading.documents === 1 ? "" : "s"}`, doneBy: 16 }] : []),
-    { label: `Writing it back under headings that fit ${KIND_WORD[kind]}`, doneBy: Infinity },
-  ];
+  }, [startedAt]);
   const slow = elapsed >= 45;
   const verySlow = elapsed >= 90;
+  const leftOut = steps.filter((s) => s.status === "skipped");
 
   return (
     <div role="status" aria-live="polite" className="flex flex-col gap-4 p-5 rounded-2xl border-2 border-primary bg-card">
@@ -43,26 +32,15 @@ export function ReadingPanel({ reading, kind, onRetry, onStop }: {
         <span className="font-display text-[18px] inline-flex items-center gap-2.5"><Loader2 size={18} className="animate-spin text-primary" /> Kinika is reading</span>
         <span className="font-ui text-[12px] text-muted-foreground tabular-nums">{elapsed}s · usually {hasSources ? "20 to 60" : "10 to 30"} seconds</span>
       </div>
-      <ol className="flex flex-col gap-2">
-        {steps.map((st, i) => {
-          const done = elapsed >= st.doneBy;
-          const current = !done && (i === 0 || elapsed >= steps[i - 1].doneBy);
-          return (
-            <li key={st.label} className={cn("flex items-center gap-3 font-ui text-[14px]", done ? "text-muted-foreground" : current ? "text-foreground" : "text-muted-foreground/60")}>
-              <span className={cn("w-5 h-5 rounded-full inline-flex items-center justify-center shrink-0 border", done ? "bg-[hsl(var(--brand-good-soft))] border-transparent text-[hsl(var(--brand-good))]" : current ? "border-primary" : "border-border")}>
-                {done ? <Check size={12} /> : current ? <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> : null}
-              </span>
-              {st.label}
-            </li>
-          );
-        })}
-      </ol>
+      <ProgressSteps steps={steps} placeholder="Reaching Kinika" />
       <p className="font-ui text-[13px] leading-relaxed text-muted-foreground max-w-[60ch]">
         {verySlow
-          ? "This is taking much longer than usual. Kinika is still trying, but a slow or very long website can hold it up."
+          ? "This is taking much longer than usual. Kinika is still trying, but a busy model can hold it up."
           : slow
-            ? "Taking a little longer than usual. A long website or a busy model does that; Kinika is still reading."
-            : "Each line of the read-back will say where it came from and how sure Kinika is. You will be able to fix any of it."}
+            ? "Taking a little longer than usual. A busy model does that; Kinika is still at it."
+            : leftOut.length
+              ? "A source that could not be read is left out of this read-back; everything else is in. You can fix the address and read again later from the plan."
+              : "Each line of the read-back will say where it came from and how sure Kinika is. You will be able to fix any of it."}
       </p>
       {verySlow && (
         <div className="flex items-center gap-3 flex-wrap">
