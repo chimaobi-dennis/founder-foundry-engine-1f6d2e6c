@@ -29,7 +29,7 @@ const NEED_ROLES: NeedRole[] = ['legal', 'research', 'copy', 'design', 'seo', 'd
 
 /** What of a reply still streaming may be shown: everything before the first machine tag, and no half-typed tag at the end. */
 export function visibleWhileStreaming(text: string): { text: string; writingDocument: boolean } {
-  const cut = text.search(/<(STATE|DELIVERABLE_DONE)\b/i);
+  const cut = text.search(/<(STATE|DELIVERABLE_DONE)\b|(^|\n)[ \t]*STATE:?[ \t]*\{/i);
   let shown = cut >= 0 ? text.slice(0, cut) : text;
   let writingDocument = false;
   const doc = shown.search(/<DOCUMENT\b/i);
@@ -38,6 +38,9 @@ export function visibleWhileStreaming(text: string): { text: string; writingDocu
   shown = shown.replace(/<[A-Za-z_]{0,16}$/, '');
   return { text: shown.replace(/```\s*$/, '').trimEnd(), writingDocument };
 }
+
+/** Where the first document block stood, until the note that replaces it is written. */
+const DOC_MARK = '[[kinika-document]]';
 
 export function parseTaskReply(text: string, deliverables?: { id: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: string[]; options: ReplyOption[]; needs: TaskNeed | null } {
   const done: { id: string; result: string | null }[] = [];
@@ -52,6 +55,8 @@ export function parseTaskReply(text: string, deliverables?: { id: string }[]): {
   let clean = text;
   // The state line, possibly wrapped in a code fence.
   clean = clean.replace(/```[a-z]*\s*(<STATE>[\s\S]*?<\/STATE>)\s*```/gi, '$1');
+  // The model sometimes drops the tags ("STATE {…}") or the closing one: the JSON is found by its braces and tagged.
+  clean = tagBareState(clean);
   clean = clean.replace(/<STATE>\s*([\s\S]*?)\s*<\/STATE>/gi, (_m, body) => {
     try {
       const parsed = JSON.parse(String(body));
@@ -74,9 +79,52 @@ export function parseTaskReply(text: string, deliverables?: { id: string }[]): {
     .replace(/<DELIVERABLE_DONE\s+id=["']([^"']+)["']\s*>([\s\S]*?)<\/DELIVERABLE_DONE>/gi, (_m, ref, body) => { const id = idFor(String(ref)); if (id) done.push({ id, result: String(body).trim() || null }); return ''; })
     .replace(/<DELIVERABLE_DONE\s+id=["']([^"']+)["']\s*\/?>/gi, (_m, ref) => { const id = idFor(String(ref)); if (id) done.push({ id, result: null }); return ''; });
   // Anything left that looks like our machinery never reaches the founder.
-  clean = clean.replace(/<\/?(STATE|DELIVERABLE_DONE)[^>]*>/gi, '').replace(/^\s*STATE:.*$/gim, '');
+  clean = clean.replace(/<\/?(STATE|DELIVERABLE_DONE)[^>]*>/gi, '').replace(/^\s*STATE:?\s*(\{.*)?$/gim, '');
+  // Documents: one surface per task, so several blocks in one reply become one document with a section each.
+  const docs: { title: string; body: string }[] = [];
+  clean = clean
+    .replace(/```[a-z]*\s*(<DOCUMENT\b[\s\S]*?<\/DOCUMENT>)\s*```/gi, '$1')
+    .replace(/<DOCUMENT\s+title=["']([^"']*)["']\s*>([\s\S]*?)(?:<\/DOCUMENT>|$)/gi, (_m, title, body) => {
+      const b = String(body).trim();
+      if (b) docs.push({ title: String(title).trim() || 'Document', body: b });
+      return docs.length === 1 && b ? DOC_MARK : '';
+    })
+    .replace(/<\/?DOCUMENT[^>]*>/gi, '');
   let document: { title: string; body: string } | null = null;
-  const m = clean.match(/<DOCUMENT\s+title=["']([^"']*)["']>([\s\S]*?)<\/DOCUMENT>/);
-  if (m) { document = { title: m[1].trim() || 'Document', body: m[2].trim() }; clean = clean.replace(m[0], `\n\n*Written: ${document.title}. It is open beside this conversation; edit any line.*`); }
+  if (docs.length) {
+    document = { title: docs[0].title, body: docs.map((d, i) => (i === 0 ? d.body : `## ${d.title}\n\n${d.body}`)).join('\n\n') };
+    const names = docs.map((d) => d.title).join(' and ');
+    clean = clean.replace(DOC_MARK, `\n\n*Written: ${names}. It is open beside this conversation; edit any line.*`);
+  }
+  clean = clean.split(DOC_MARK).join('');
   return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document, suggestions, options, needs };
+}
+
+/** Find a bare "STATE {…}" (or an unclosed "<STATE>{…") and wrap the balanced JSON in the tags the parser reads. */
+function tagBareState(text: string): string {
+  const re = /(^|\n)[ \t]*(?:<STATE>|STATE:?)[ \t]*(?=\{)/gi;
+  let m: RegExpExecArray | null;
+  let out = text;
+  while ((m = re.exec(out))) {
+    const start = m.index + m[0].length;
+    const end = balancedEnd(out, start);
+    if (end < 0) break;
+    const after = out.slice(end).replace(/^\s*<\/STATE>/i, '');
+    out = `${out.slice(0, m.index)}${m[1]}<STATE>${out.slice(start, end)}</STATE>${after}`;
+    re.lastIndex = m.index + m[1].length + 7;
+  }
+  return out;
+}
+
+/** The index just past the brace that closes the one at `start`, ignoring braces inside strings; -1 when unbalanced. */
+function balancedEnd(text: string, start: number): number {
+  let depth = 0; let inStr = false; let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return i + 1; }
+  }
+  return -1;
 }

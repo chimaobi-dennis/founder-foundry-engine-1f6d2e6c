@@ -42,10 +42,21 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
   const openedRef = useRef(false);
   const askedRef = useRef(0);
   const lastCountRef = useRef(0);
+  /** The server's last_message_at before the turn in flight; the turn is accepted once it moves. */
+  const sentRef = useRef<{ before: string | null; at: number } | null>(null);
+  const seenAtRef = useRef<string | null>(null);
 
   /** What is on the server now: messages, whether Kinika is still answering, and the follow-ups of the last reply. */
   const sync = useCallback(async (initial = false) => {
     const state = await getTaskConversationState(ws.task.id);
+    // A turn was sent but the server has not recorded it yet: keep waiting (and the founder's
+    // message on screen) instead of reading the old state as "nothing in flight".
+    const sent = sentRef.current;
+    if (sent && (state?.last_message_at ?? null) === sent.before) {
+      if (Date.now() - sent.at < 3 * 60_000) return;
+      sentRef.current = null;
+    } else if (sent) sentRef.current = null;
+    seenAtRef.current = state?.last_message_at ?? null;
     const ms = state ? await getMessages(state.id) : [];
     setMessages(ms);
     const stillPending = !!state?.pending_since && Date.now() - new Date(state.pending_since).getTime() < 3 * 60_000;
@@ -73,8 +84,9 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
     else if (note) setMessages((m) => [...m, { id: `temp-${Date.now()}`, conversation_id: "", role: "note", content: note, created_at: new Date().toISOString() } as MentorMessage]);
     setPending(true);
     setProgress([]);
+    sentRef.current = { before: seenAtRef.current, at: Date.now() };
     const r = await sendTaskMessage(ws.task.brand_id, ws.task.id, text, saveUser, note);
-    if (r.success === false) { setPending(false); toast.error(r.error); setMessages((m) => m.filter((x) => !x.id.startsWith("temp-"))); return; }
+    if (r.success === false) { sentRef.current = null; setPending(false); toast.error(r.error); setMessages((m) => m.filter((x) => !x.id.startsWith("temp-"))); return; }
   }, [pending, ws.task.brand_id, ws.task.id]);
 
   // Kinika opens the task once the deliverables exist and nothing has been said yet.

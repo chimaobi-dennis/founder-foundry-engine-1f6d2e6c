@@ -138,6 +138,8 @@ export async function createTaskDocument(ws: Workspace, userId: string, title: s
 export interface TaskConversationState {
   id: string;
   pending_since: string | null;
+  /** When the server last accepted a turn or finished a reply; a sent turn is accepted once this moves. */
+  last_message_at: string | null;
   last_error: string | null;
   last_followups: { suggestions?: string[]; options?: { label: string; value: string }[]; document?: boolean; closed?: string[] } | null;
   /** The steps of the reply in flight, as the server writes them. */
@@ -163,6 +165,6 @@ export async function sendTaskMessage(brandId: string, taskId: string, text: str
 }
 
 export async function getTaskConversationState(taskId: string): Promise<TaskConversationState | null> {
-  const { data } = await db.from('mentor_conversations').select('id, pending_since, last_error, last_followups, progress').eq('plan_task_id', taskId).maybeSingle();
+  const { data } = await db.from('mentor_conversations').select('id, pending_since, last_message_at, last_error, last_followups, progress').eq('plan_task_id', taskId).maybeSingle();
   return data ?? null;
 }
