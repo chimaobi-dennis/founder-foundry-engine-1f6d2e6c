@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { ConnectProviders } from "@/components/team/ConnectProviders";
+import { listConnections, type ToolConnection } from "@/services/connectionService";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBrand } from "@/hooks/use-brand";
@@ -55,6 +57,8 @@ export default function Start() {
 
   const [step, setStep] = useState<Step>(1);
   const [brandId, setBrandId] = useState<string | null>(params.get("brand"));
+  const [startConnections, setStartConnections] = useState<ToolConnection[]>([]);
+  useEffect(() => { if (brandId) listConnections(brandId).then(setStartConnections); }, [brandId]);
   const [kind, setKind] = useState<BusinessKind>("running");
   const [text, setText] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -302,11 +306,14 @@ export default function Start() {
                 </label>
                 {documents.length > 0 && <span className="font-ui text-[12px] text-muted-foreground">{documents.map((d) => d.name).join(", ")}</span>}
               </div>
-              <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-card">
-                <span className="font-ui text-[14px] font-medium">Your inbox, Slack and channels</span>
-                <span className="font-ui text-[12px] text-muted-foreground leading-relaxed">Email, Slack, Instagram and TikTok connect from Kinika's team once your plan exists. Shopify, WordPress, Notion and GitHub can be connected there today.</span>
-              </div>
             </div>
+            {brandId && (
+              <div className="flex flex-col gap-2">
+                <span className="font-ui text-[14px] font-medium">Connect what Kinika will run</span>
+                <span className="font-ui text-[12px] text-muted-foreground">Each one says what Kinika may do with it. Kinika reads now; nothing is sent, published or changed without your yes. You can skip this and connect later from Kinika's team.</span>
+                <ConnectProviders brandId={brandId} connections={startConnections} onConnected={async () => setStartConnections(await listConnections(brandId))} />
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <label htmlFor="more" className="font-ui text-[13px] font-medium">Or just tell Kinika more</label>
               <Textarea id="more" rows={3} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="Anything the sources would not show: what sells best, who your regulars are, what you have tried, what you refuse to do." />

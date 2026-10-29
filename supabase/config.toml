@@ -33,3 +33,11 @@ verify_jwt = false
 [functions.task-chat]
 # Kinika working a task with the founder; the reply is made in the background.
 verify_jwt = false
+
+[functions.oauth-start]
+# Checks the user JWT itself.
+verify_jwt = false
+
+[functions.oauth-callback]
+# The provider calls this; the state id is the credential.
+verify_jwt = false

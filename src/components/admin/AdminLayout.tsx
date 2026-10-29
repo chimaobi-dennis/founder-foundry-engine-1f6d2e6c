@@ -4,7 +4,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
-  LayoutGrid, Users, Layers, Inbox, Settings, Cpu, Book, Bug, Map, Coins, Bot, Menu, ArrowLeft, ShieldCheck,
+  LayoutGrid, Users, Layers, Inbox, Settings, Cpu, Book, Bug, Map, Coins, Bot, Menu, ArrowLeft, ShieldCheck, Plug,
 } from "lucide-react";
 
 /**
@@ -22,6 +22,7 @@ const SECTIONS: Array<{ label?: string; items: Array<{ label: string; icon: type
     { label: "Templates", icon: Layers, path: "/admin/product/templates", hint: "Studio templates" },
     { label: "Journey stages", icon: Map, path: "/admin/journey-stages", hint: "Stage names and playbooks" },
     { label: "Prompts", icon: Book, path: "/admin/knowledge-base", hint: "Every prompt, its model flow, instructions and examples" },
+    { label: "Connections", icon: Plug, path: "/admin/connections", hint: "OAuth providers: add, verify, go live" },
   ] },
   { label: "AI", items: [
     { label: "Models and routing", icon: Cpu, path: "/admin/product/ai-models", hint: "Providers, models, profiles, prompts" },

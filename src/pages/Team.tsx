@@ -108,7 +108,17 @@ export default function Team() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandId, activeBrand?.user_id]);
 
-  // Sent here from the Set up dialog to connect something: land on the connections.
+  // Back from a full-page OAuth sign-in (popup blocked): say what happened once.
+  useEffect(() => {
+    const c = params.get("connected"), e = params.get("oauth_error");
+    if (!c && !e) return;
+    if (c) toast(`${c} connected`); else toast.error(e ?? "Could not connect");
+    const next = new URLSearchParams(params); next.delete("connected"); next.delete("oauth_error"); next.delete("provider");
+    setParams(next, { replace: true });
+    reload();
+  }, [params, setParams, reload]);
+
+  // Sent here from the board to connect something: land on the connections.
   useEffect(() => {
     if (loading || window.location.hash !== "#connections") return;
     document.getElementById("connections")?.scrollIntoView({ behavior: "smooth", block: "start" });
