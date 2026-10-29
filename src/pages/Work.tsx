@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StepLine, OutputView } from "@/components/team/RunViews";
 import { cancelRun, ensureStaffed } from "@/services/agentService";
 import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
-import { delegateUrl } from "@/services/planService";
+import { SetUpDialog } from "@/components/plan/SetUpDialog";
 import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, wantsCanvas, type Workspace } from "@/services/workspaceService";
 import ContentStudioEditor from "@/pages/ContentStudioEditor";
 import { FounderWorkspace } from "@/components/work/FounderWorkspace";
@@ -28,6 +28,7 @@ export default function Work() {
   const { user } = useAuth();
   const [ws, setWs] = useState<Workspace | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [settingUp, setSettingUp] = useState(false);
   const [body, setBody] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -216,11 +217,12 @@ export default function Work() {
             </div>
           )}
 
+          {!run && user && <SetUpDialog task={task} brandId={task.brand_id} userId={user.id} open={settingUp} onClose={() => setSettingUp(false)} onDone={load} />}
           {!run && (
             <div className="max-w-[720px] mx-auto rounded-xl border border-border bg-card p-6 flex flex-col gap-3">
               <p className="font-display text-[20px]">Nothing has been made for this task yet.</p>
               <p className="font-ui text-[13px] text-muted-foreground leading-relaxed">{task.detail || "When an agent works on it, the result appears here and you approve it here."}</p>
-              {task.owner === "agent" && <button onClick={async () => { if (!user || !task.agent_slug) return; const r = await ensureStaffed(task.brand_id, user.id, task.agent_slug); if (r.ok === true) navigate(delegateUrl(task)); else toast.error(r.reason === "trial" ? `Kinika would run this with the ${r.agent?.name ?? "right agent"}; your trial has no seats yet.` : r.reason === "seats_busy" ? `Your seats are busy with ${r.busy.map((h) => h.agent.name).join(" and ")}. Pause one on Kinika's team, or add a seat.` : r.error ?? "Kinika could not staff this.", { action: { label: "Seats", onClick: () => navigate("/billing") } }); }} className="self-start h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Set up</button>}
+              {task.owner === "agent" && <button onClick={async () => { if (!user || !task.agent_slug) return; const r = await ensureStaffed(task.brand_id, user.id, task.agent_slug); if (r.ok === true) setSettingUp(true); else toast.error(r.reason === "trial" ? `Kinika would run this with the ${r.agent?.name ?? "right agent"}; your trial has no seats yet.` : r.reason === "seats_busy" ? `Your seats are busy with ${r.busy.map((h) => h.agent.name).join(" and ")}. Pause one on Kinika's team, or add a seat.` : r.error ?? "Kinika could not staff this.", { action: { label: "Seats", onClick: () => navigate("/billing") } }); }} className="self-start h-10 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium">Set up</button>}
             </div>
           )}
 
