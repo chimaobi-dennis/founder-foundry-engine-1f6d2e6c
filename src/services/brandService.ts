@@ -204,14 +204,18 @@ const MEMBER_ACTIVE_KEY = 'kinika.activeBrand.member';
  * this user" goes through this filter, so an admin never lands in a founder's
  * workspace by accident (and fails every write there).
  */
-async function mineOnly(query: any, userId: string) {
+async function memberBrandIds(userId: string): Promise<string[]> {
   const { data: m } = await (supabase as any).from('brand_members').select('brand_id').eq('user_id', userId).eq('status', 'active');
-  const ids = ((m ?? []) as { brand_id: string }[]).map((x) => x.brand_id);
-  return ids.length ? query.or(`user_id.eq.${userId},id.in.(${ids.join(',')})`) : query.eq('user_id', userId);
+  return ((m ?? []) as { brand_id: string }[]).map((x) => x.brand_id);
+}
+// Applied to a query builder before it runs (a builder is thenable: never await it mid-chain).
+function mineOnly(query: any, userId: string, memberIds: string[]) {
+  return memberIds.length ? query.or(`user_id.eq.${userId},id.in.(${memberIds.join(',')})`) : query.eq('user_id', userId);
 }
 
 export const getUserBrands = async (userId: string): Promise<Brand[]> => {
-  const { data, error } = await (await mineOnly((supabase as any).from('brands').select('*'), userId))
+  const ids = await memberBrandIds(userId);
+  const { data, error } = await mineOnly((supabase as any).from('brands').select('*'), userId, ids)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -236,13 +240,14 @@ export const getActiveBrand = async (userId: string): Promise<Brand | null> => {
   // Members: a workspace they picked earlier, else the first they can see.
   let remembered: string | null = null;
   try { remembered = localStorage.getItem(MEMBER_ACTIVE_KEY); } catch { /* storage unavailable */ }
+  const ids = await memberBrandIds(userId);
   if (remembered) {
-    const { data: picked } = await (await mineOnly((supabase as any).from('brands').select('*').eq('id', remembered), userId)).maybeSingle();
+    const { data: picked } = await mineOnly((supabase as any).from('brands').select('*').eq('id', remembered), userId, ids).maybeSingle();
     if (picked) return picked;
   }
 
   // Fall back to the most recent workspace that is theirs (own or member)
-  const { data: fallback } = await (await mineOnly((supabase as any).from('brands').select('*'), userId))
+  const { data: fallback } = await mineOnly((supabase as any).from('brands').select('*'), userId, ids)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
