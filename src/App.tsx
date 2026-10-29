@@ -63,6 +63,8 @@ import AdminJourneyStages from "./pages/admin/AdminJourneyStages";
 import AdminErrorLogs from "./pages/admin/AdminErrorLogs";
 import AdminRuntimeSettings from "./pages/admin/AdminRuntimeSettings";
 import AdminBilling from "./pages/admin/AdminBilling";
+import AdminConnections from "./pages/admin/AdminConnections";
+import OAuthDone from "./pages/OAuthDone";
 import AdminAgents from "./pages/admin/AdminAgents";
 import Billing from "./pages/Billing";
 import Studio from "./pages/Studio";
@@ -144,6 +146,7 @@ const App = () => (
                       <Route path="/reset-password" element={<ResetPassword />} />
                       <Route path="/verify-email" element={<VerifyEmail />} />
                       <Route path="/start" element={<Start />} />
+                      <Route path="/oauth/done" element={<OAuthDone />} />
                       <Route path="/onboarding" element={<Onboarding />} />
                       {/* Admin shell — separate layout */}
                       <Route path="/admin" element={<AdminLayout />}>
@@ -158,6 +161,7 @@ const App = () => (
                         <Route path="errors" element={<AdminErrorLogs />} />
                         <Route path="settings" element={<AdminRuntimeSettings />} />
                         <Route path="billing" element={<AdminBilling />} />
+                        <Route path="connections" element={<AdminConnections />} />
                       </Route>
                       {/* Main app shell */}
                       <Route element={<Layout />}>

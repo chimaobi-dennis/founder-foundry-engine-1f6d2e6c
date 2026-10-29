@@ -16,6 +16,8 @@ import {
   type ToolConnection, type ChangeSet, type ConnectorProvider, type RecipeKey, type NormalizedRecord, type PrStatus,
 } from "@/services/connectionService";
 import { DEFAULT_ALLOWED_PATHS } from "@shared/github";
+import { ConnectProviders } from "@/components/team/ConnectProviders";
+import { isOAuthConnection } from "@/services/oauthService";
 import { planLimitMessage } from "@/services/subscriptionService";
 
 const SOCIAL_PLATFORMS = ["instagram", "linkedin", "x", "facebook", "tiktok"];
@@ -71,6 +73,9 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
             </button>
           )}
         </div>
+        <div className="mb-3">
+          <ConnectProviders brandId={brandId} connections={connections} canConnect={canConnect} onConnected={reload} />
+        </div>
         {connections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border/70 p-5">
             <p className="font-display text-[15px] text-foreground">Nothing connected yet.</p>
@@ -79,7 +84,9 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {connections.map((c) => (
-              <ConnectionCard key={c.id} connection={c} agents={agents} canManage={canConnect} canRun={canRun} onChanged={reload} onRecipe={(recipe) => setRecipeFor({ connection: c, recipe })} />
+              isOAuthConnection(c) && !PROVIDERS[c.provider]
+                ? <OAuthConnectionCard key={c.id} connection={c} canManage={canConnect} onChanged={reload} />
+                : <ConnectionCard key={c.id} connection={c} agents={agents} canManage={canConnect} canRun={canRun} onChanged={reload} onRecipe={(recipe) => setRecipeFor({ connection: c, recipe })} />
             ))}
           </div>
         )}
@@ -114,6 +121,38 @@ export function ConnectionsSection({ brandId, userId, agents, balance, balanceLo
         />
       )}
     </>
+  );
+}
+
+// ─── OAuth connection card (a provider an admin put live; no adapter of its own yet) ──
+function OAuthConnectionCard({ connection: c, canManage = true, onChanged }: { connection: ToolConnection; canManage?: boolean; onChanged: () => Promise<void> }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const account = (c.config as { account?: { name?: string | null; handle?: string | null; email?: string | null } }).account;
+  const who = account?.name ?? account?.handle ?? account?.email ?? "";
+  const scopes = Array.isArray((c.config as { granted_scopes?: string[] }).granted_scopes) ? ((c.config as { granted_scopes?: string[] }).granted_scopes as string[]) : [];
+  const act = async (what: string, fn: () => Promise<unknown>) => { setBusy(what); await fn(); setBusy(null); await onChanged(); };
+  return (
+    <div className="rounded-xl border border-card-border bg-card/60 p-5 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-display text-lg text-foreground truncate">{c.display_name}</h3>
+            <span className="font-ui text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground">connected by sign-in</span>
+            {c.status === "error" && <span className="inline-flex items-center gap-1 text-[11px] font-ui text-destructive"><AlertTriangle size={11} /> needs attention</span>}
+            {c.status === "paused" && <span className="text-[11px] font-ui text-muted-foreground">paused</span>}
+          </div>
+          <p className="font-ui text-[12px] text-muted-foreground mt-0.5 truncate">{who ? `Signed in as ${who}` : "Signed in"}{scopes.length ? ` · ${scopes.length} permission${scopes.length === 1 ? "" : "s"} granted` : ""}</p>
+        </div>
+        {canManage && (
+          <button disabled={!!busy} onClick={() => act("toggle", () => updateConnectionScope(c.id, { status: c.status === "paused" ? "active" : "paused" }))} className="text-muted-foreground hover:text-foreground" title={c.status === "paused" ? "Resume" : "Pause"} aria-label={c.status === "paused" ? "Resume connection" : "Pause connection"}>
+            {c.status === "paused" ? <Play size={14} /> : <Pause size={14} />}
+          </button>
+        )}
+      </div>
+      {c.last_error && c.status === "error" && <p className="font-ui text-[12px] text-destructive">{SHORT(c.last_error, 160)}</p>}
+      <p className="font-ui text-[12px] text-muted-foreground">Kinika reads from it; anything sent, published or changed waits for your yes. Reconnect from the Connect list above to refresh the sign-in.</p>
+      {canManage && <button disabled={!!busy} onClick={() => { if (confirm("Remove this connection? Kinika forgets the sign-in.")) act("remove", () => removeConnection(c.id)); }} className="self-start inline-flex items-center gap-1 font-ui text-[12px] text-muted-foreground hover:text-destructive"><Trash2 size={12} /> Remove</button>}
+    </div>
   );
 }
 

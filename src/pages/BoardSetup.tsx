@@ -90,7 +90,8 @@ export default function BoardSetup() {
     fit(all.length);
     let i = 0;
     const step = () => {
-      if (i >= all.length) { if (reveal.current) window.clearInterval(reveal.current); reveal.current = null; setCursor({ ...circleCentre(all.length - 1), x: circleCentre(all.length - 1).x + 90, label: "", busy: false }); return; }
+      // Done placing: the cursor settles at the start of the sentence it is about to write.
+      if (i >= all.length) { if (reveal.current) window.clearInterval(reveal.current); reveal.current = null; setCursor({ x: SHEET_PAD + 6, y: SHEET_PAD + 196, label: "", busy: false }); return; }
       const c = circleCentre(i);
       setCursor({ x: c.x + 12, y: c.y + 10, label: all[i].title, busy: false });
       const k = i;
