@@ -8,6 +8,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { matchByTitle, type PlanEditOp, type PlaybookChoice } from '@shared/plan';
 import { postNarrated, type OnProgress } from '@/services/narrated';
+import type { PlanDraft } from '@shared/runner';
+import type { BoardQuestion, BoardNeed } from '@shared/boardDraft';
 
 const db = supabase as any;
 
@@ -163,6 +165,24 @@ export async function setAutoRevise(planId: string, on: boolean): Promise<boolea
 
 async function callPlanFunction(body: Record<string, unknown>, onProgress?: OnProgress): Promise<{ success: boolean; error?: string; targets?: number; tasks?: number; modelUsed?: string }> {
   return postNarrated<{ success: boolean; error?: string; targets?: number; tasks?: number; modelUsed?: string }>('founder-plan', body, { onProgress, timeoutMs: 170_000 });
+}
+
+export interface PlanBoardResult {
+  success: boolean;
+  error?: string;
+  draft?: PlanDraft;
+  question?: BoardQuestion | null;
+  needs?: BoardNeed[];
+  role?: { slug: string; name: string } | null;
+}
+
+/**
+ * Set up, from a sentence: the board Kinika proposes for an agent task. The
+ * draft is the same shape Describe it produces; nothing is created until the
+ * founder confirms it (executeDraft in plannerService).
+ */
+export function planBoard(brandId: string, taskId: string, note?: string, onProgress?: OnProgress): Promise<PlanBoardResult> {
+  return postNarrated<PlanBoardResult>('founder-plan', { action: 'plan_board', brandId, taskId, note }, { onProgress, timeoutMs: 150_000 });
 }
 
 /** Ask Mentor to write a plan from everything the brand has told it. Replaces any existing plan. */

@@ -108,6 +108,12 @@ export default function Team() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandId, activeBrand?.user_id]);
 
+  // Sent here from the Set up dialog to connect something: land on the connections.
+  useEffect(() => {
+    if (loading || window.location.hash !== "#connections") return;
+    document.getElementById("connections")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading]);
+
   useEffect(() => {
     setLoading(true);
     reload().finally(() => setLoading(false));
@@ -302,6 +308,7 @@ export default function Team() {
           )}
 
           {/* ── Connected tools + changes ── */}
+          <div id="connections" />
           <ConnectionsSection
             brandId={brandId!}
             userId={user!.id}

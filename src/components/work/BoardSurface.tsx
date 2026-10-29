@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { BookOpen, Bot, Check, Clock, Loader2, Send, UserRound, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { planSingleAgentRun, SCHEDULE_INTERVALS, EVENT_TYPES, type Automation, type AutomationRun, type RunStep } from "@/services/agentService";
+import { planSingleAgentRun, SCHEDULE_INTERVALS, EVENT_TYPES, type Agent, type Automation, type AutomationRun, type RunStep } from "@/services/agentService";
+import { planHiveRun, planRecipeRun, RECIPES, type PlanDraft, type PlannedStep, type HiveStage } from "@shared/runner";
+import { scheduleWords } from "@shared/boardDraft";
 
 /**
  * The board: a standing task you can read as one sentence, drawn as named
@@ -56,12 +58,45 @@ export function boardCards(a: Automation, latest: AutomationRun | null): BoardCa
   const planned = latest?.steps?.length
     ? latest.steps.map((s) => ({ step_index: s.step_index, type: s.type, name: s.name, input: s.input }))
     : a.agent ? planSingleAgentRun(a.agent as never, a.task_input, a.policy) : [];
-  const agentName = a.agent?.name ?? "an agent";
-  const cards: BoardCard[] = [{
+  const when: BoardCard = {
     key: "when", stepIndex: null, kind: "when", label: "When", title: triggerLabel(a), who: a.trigger_type === "schedule" ? "Kinika's clock" : a.trigger_type === "webhook" ? "another system" : a.trigger_type === "event" ? "something in Kinika" : "you",
     detail: a.status === "paused" ? "paused" : a.next_run_at && a.trigger_type === "schedule" ? `next ${new Date(a.next_run_at).toLocaleString()}` : latest ? `last ${new Date(latest.created_at).toLocaleString()}` : "has not run yet",
     status: a.status === "paused" ? "idle" : latest && (latest.status === "queued" || latest.status === "running") ? "running" : "idle",
-  }];
+  };
+  return cardsFromPlan(when, planned, latest, a.agent?.name ?? "an agent");
+}
+
+/**
+ * Cards for a draft the founder has not confirmed yet (the Set up dialog):
+ * the same picture the board will show once it exists, so what they read is
+ * what runs.
+ */
+export function draftBoardCards(draft: PlanDraft, agents: Agent[]): BoardCard[] {
+  const bySlug = new Map(agents.map((a) => [a.slug, a]));
+  const policy = { approval: draft.approval } as const;
+  const input = { brief: draft.brief, units: draft.units, platforms: draft.platforms };
+  let planned: PlannedStep[] = [];
+  if (draft.kind === "recipe" && draft.recipe) {
+    const agent = bySlug.get(RECIPES[draft.recipe].agentSlug);
+    if (agent) planned = planRecipeRun(draft.recipe, agent as never, { ...input, connection_id: draft.connection_id ?? "", record_limit: draft.units }, policy);
+  } else if (draft.kind === "hive") {
+    const stages = draft.agents.map((s) => ({ agent: bySlug.get(s)!, units: draft.units, platforms: draft.platforms })).filter((s) => s.agent) as unknown as HiveStage[];
+    planned = planHiveRun(stages, input, policy);
+  } else {
+    const agent = bySlug.get(draft.agents[0]);
+    if (agent) planned = planSingleAgentRun(agent as never, input, policy);
+  }
+  const once = draft.schedule === "once";
+  const when: BoardCard = {
+    key: "when", stepIndex: null, kind: "when", label: "When", title: once ? "When you run it" : scheduleWords(draft),
+    who: once ? "you" : draft.schedule === "webhook" ? "another system" : draft.schedule === "event" ? "something in Kinika" : "Kinika's clock",
+    detail: once ? "right after you confirm" : "first run right after you confirm", status: "idle",
+  };
+  return cardsFromPlan(when, planned, null, bySlug.get(draft.agents[0])?.name ?? "an agent");
+}
+
+function cardsFromPlan(when: BoardCard, planned: Pick<PlannedStep, "step_index" | "type" | "name" | "input">[], latest: AutomationRun | null, agentName: string): BoardCard[] {
+  const cards: BoardCard[] = [when];
   let reviewed = false;
   for (const p of planned) {
     const s = latest?.steps?.find((x) => x.step_index === p.step_index);
@@ -85,7 +120,7 @@ export function boardCards(a: Automation, latest: AutomationRun | null): BoardCa
 }
 
 /** The board as one sentence a founder can read aloud. */
-export function boardSentence(a: Automation, cards: BoardCard[]): string {
+export function boardSentence(_a: unknown, cards: BoardCard[]): string {
   const parts: string[] = [];
   const when = cards.find((c) => c.kind === "when");
   parts.push(when ? when.title.replace(/^When /, "When ").replace(/^On /, "On ") : "When it runs");
@@ -105,6 +140,11 @@ const ICON: Record<BoardCard["kind"], typeof Clock> = { when: Clock, read: BookO
 
 export function BoardSurface({ automation, latest, selected, onSelect }: { automation: Automation; latest: AutomationRun | null; selected?: string | null; onSelect?: (key: string) => void }) {
   const cards = useMemo(() => boardCards(automation, latest), [automation, latest]);
+  return <BoardPicture cards={cards} selected={selected} onSelect={onSelect} />;
+}
+
+/** The named circles, left to right, for any list of cards (a board or a draft). */
+export function BoardPicture({ cards, selected, onSelect, compact = false }: { cards: BoardCard[]; selected?: string | null; onSelect?: (key: string) => void; compact?: boolean }) {
   return (
     <div className="flex items-start gap-0 flex-wrap" role="list" aria-label="The board">
       {cards.map((c, i) => {
@@ -112,9 +152,10 @@ export function BoardSurface({ automation, latest, selected, onSelect }: { autom
         const sel = selected === c.key;
         return (
           <div key={c.key} className="flex items-start" role="listitem">
-            <button type="button" onClick={() => onSelect?.(c.key)} aria-pressed={sel} className="w-[150px] flex flex-col items-center gap-2 text-center group">
+            <button type="button" onClick={() => onSelect?.(c.key)} aria-pressed={sel} className={cn("flex flex-col items-center gap-2 text-center group", compact ? "w-[120px]" : "w-[150px]")}>
               <span className={cn(
-                "relative w-[72px] h-[72px] rounded-full inline-flex items-center justify-center border-2 transition-colors",
+                "relative rounded-full inline-flex items-center justify-center border-2 transition-colors",
+                compact ? "w-[56px] h-[56px]" : "w-[72px] h-[72px]",
                 c.kind === "review" ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border",
                 c.status === "done" && c.kind !== "review" && "border-[hsl(var(--brand-good))]",
                 c.status === "waiting" && "border-[hsl(var(--brand-needs-you))] ring-4 ring-[hsl(var(--brand-needs-you-soft))]",
@@ -122,7 +163,7 @@ export function BoardSurface({ automation, latest, selected, onSelect }: { autom
                 c.status === "running" && "border-primary",
                 sel && "ring-4 ring-[hsl(var(--brand-blue-line))]",
               )}>
-                <Icon size={26} />
+                <Icon size={compact ? 20 : 26} />
                 <span className={cn("absolute -bottom-1 -right-1 w-6 h-6 rounded-full inline-flex items-center justify-center border-2 border-background text-[11px]",
                   c.status === "done" ? "bg-[hsl(var(--brand-good))] text-white" : c.status === "running" ? "bg-primary text-primary-foreground" : c.status === "waiting" ? "bg-[hsl(var(--brand-needs-you))] text-white" : c.status === "failed" ? "bg-destructive text-white" : "bg-muted text-muted-foreground")}>
                   {c.status === "done" ? <Check size={12} /> : c.status === "running" ? <Loader2 size={12} className="animate-spin" /> : c.status === "waiting" ? <Clock size={12} /> : c.status === "failed" ? <X size={12} /> : <span>{i + 1}</span>}
@@ -134,7 +175,7 @@ export function BoardSurface({ automation, latest, selected, onSelect }: { autom
                 <span className={cn("font-ui text-[11px]", c.status === "done" ? "text-[hsl(var(--brand-good))]" : c.status === "failed" ? "text-destructive" : c.status === "waiting" ? "text-[hsl(var(--brand-needs-you))]" : "text-muted-foreground")}>{c.detail}</span>
               </span>
             </button>
-            {i < cards.length - 1 && <span aria-hidden className="mt-[34px] w-6 h-0.5 bg-border relative shrink-0"><span className="absolute -right-px -top-[5px] border-[6px] border-transparent border-l-[8px] border-l-border" /></span>}
+            {i < cards.length - 1 && <span aria-hidden className={cn("w-6 h-0.5 bg-border relative shrink-0", compact ? "mt-[26px]" : "mt-[34px]")}><span className="absolute -right-px -top-[5px] border-[6px] border-transparent border-l-[8px] border-l-border" /></span>}
           </div>
         );
       })}
