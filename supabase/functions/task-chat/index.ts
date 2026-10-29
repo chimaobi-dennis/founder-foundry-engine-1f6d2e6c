@@ -188,7 +188,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   }
 
   n.done("apply", parsed.done.length ? `${parsed.done.length} deliverable${parsed.done.length === 1 ? "" : "s"} ticked` : undefined);
-  await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "assistant", content: parsed.text || "…" });
+  await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "assistant", content: parsed.text || "…", steps: n.steps });
   for (const note of startedNotes) await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "note", content: note.slice(0, 300) });
   await admin.from("mentor_conversations").update({
     pending_since: null, last_error: null, last_message_at: now, progress: n.steps,

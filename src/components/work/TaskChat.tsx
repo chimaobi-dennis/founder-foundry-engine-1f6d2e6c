@@ -135,6 +135,12 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
                 <div className={cn("max-w-[85%] rounded-2xl px-4 py-3 font-ui text-[14px] leading-relaxed", m.role === "user" ? "bg-primary text-primary-foreground rounded-br-md whitespace-pre-wrap" : "bg-card border border-border rounded-bl-md")}>
                   {m.role !== "user" && <span className="block font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground mb-1">Kinika</span>}
                   {m.role === "user" ? m.content : <Markdown>{m.content}</Markdown>}
+                  {m.role === "assistant" && Array.isArray(m.steps) && m.steps.length > 0 && (
+                    <details className="mt-2 pt-2 border-t border-border">
+                      <summary className="cursor-pointer font-ui text-[11px] text-muted-foreground select-none">How Kinika did it · {m.steps.length} steps</summary>
+                      <ProgressSteps steps={m.steps} compact className="mt-2" />
+                    </details>
+                  )}
                 </div>
               </div>
             </div>

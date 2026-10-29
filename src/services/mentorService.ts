@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { ProgressStep } from '@shared/progress';
 import { callAI, type TaskType, getSystemPrompt, requirePrompt, injectPromptVariables } from './aiService';
 import { applyPlanEdits, getPlan } from './planService';
 import { parsePlanEdits, planPromptBlock } from '@shared/plan';
@@ -25,6 +26,8 @@ export interface MentorMessage {
   role: 'user' | 'assistant' | 'note';
   content: string;
   ai_response_failed?: boolean;
+  /** The steps Kinika took for this reply (task conversations), kept for the record. */
+  steps?: ProgressStep[] | null;
   created_at: string;
 }
 
