@@ -19,6 +19,7 @@ import { delegateUrl, getTask, linkTaskToRun, planBoard, type PlanTask } from "@
 import type { ProgressStep } from "@/services/narrated";
 import type { Quote } from "@/services/pricingService";
 import { applyDraftPatch, boardNeeds, type BoardNeed, type BoardQuestion } from "@shared/boardDraft";
+import { ago, peekWatchSource, watchSourceFor, type WatchItem } from "@/services/watchService";
 
 /**
  * /board/new?task=:id — Set up, in the board. Pressing Set up on an agent
@@ -33,7 +34,7 @@ import { applyDraftPatch, boardNeeds, type BoardNeed, type BoardQuestion } from 
 
 type Bubble =
   | { id: number; role: "you"; text: string }
-  | { id: number; role: "kinika"; text?: string; steps?: ProgressStep[]; question?: BoardQuestion; needs?: BoardNeed[]; quote?: boolean; warnings?: string[] };
+  | { id: number; role: "kinika"; text?: string; steps?: ProgressStep[]; question?: BoardQuestion; needs?: BoardNeed[]; quote?: boolean; warnings?: string[]; start?: { item: WatchItem | null; count: number; noun: string; nouns: string; error?: string } };
 
 const CARD_PITCH = 174; // card 150 + connector 24, as BoardPicture lays them out
 const SHEET_PAD = 40;
@@ -60,6 +61,8 @@ export default function BoardSetup() {
   const [busy, setBusy] = useState<"plan" | "run" | null>(null);
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const [input, setInput] = useState("");
+  const [startFrom, setStartFrom] = useState<WatchItem | null>(null);
+  const [startFromNow, setStartFromNow] = useState(false);
   const [camera, setCamera] = useState<Camera>({ x: 48, y: 48, scale: 1 });
   const [shown, setShown] = useState(0);
   const [cursor, setCursor] = useState<{ x: number; y: number; label: string; busy?: boolean }>({ x: 160, y: 120, label: "", busy: false });
@@ -125,6 +128,13 @@ export default function BoardSetup() {
     draw(draftBoardCards(r.draft, agentsNow));
     if (r.question) say({ role: "kinika", question: r.question });
     if (nd.length) say({ role: "kinika", needs: nd });
+    setStartFrom(null); setStartFromNow(false);
+    const src = r.draft.schedule === "watch" && r.draft.watch ? watchSourceFor(r.draft.watch.source) : null;
+    if (src && r.draft.watch) {
+      const pk = await peekWatchSource(t.brand_id, r.draft.watch.source, r.draft.watch.connection_id, r.draft.watch.options);
+      if (pk.success) { setStartFrom(pk.latest ?? null); say({ role: "kinika", start: { item: pk.latest ?? null, count: pk.recentCount, noun: src.noun, nouns: src.nouns } }); }
+      else say({ role: "kinika", start: { item: null, count: 0, noun: src.noun, nouns: src.nouns, error: pk.error } });
+    }
     let q: Quote | null = null;
     try { q = await quoteDraft(r.draft, agentsNow, connNow); } catch { q = null; }
     setQuote(q);
@@ -184,7 +194,7 @@ export default function BoardSetup() {
       }
       if (st.hired) toast(`${st.agent.name} is on Kinika's team for this`);
     }
-    const r = await executeDraft(draft, task.brand_id, user.id, agents, connections);
+    const r = await executeDraft(draft, task.brand_id, user.id, agents, connections, startFromNow ? null : startFrom);
     setBusy(null);
     if (!r.success) { say({ role: "kinika", text: r.error ?? "Could not start." }); return; }
     if (r.run?.id) await linkTaskToRun(task.id, r.run.id);
@@ -219,7 +229,7 @@ export default function BoardSetup() {
           {quote && <QuoteChip estimate={quote.estimate} max={quote.max} mode={quote.mode} balance={balance} balanceLoading={balanceLoading} retailUsd={quote.retailUsd} breakdown={quote.breakdown} onTopUp={() => openPricingModal({ currentBalance: balance })} />}
           <button disabled={!canRun} onClick={run} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-primary text-primary-foreground font-ui text-[13px] font-medium disabled:opacity-50">
             {busy === "run" ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-            {insufficient ? "Top up to run" : missingRequired.length ? `Connect ${missingRequired[0].name} first` : standing ? "Set up and run once" : "Run once"}
+            {insufficient ? "Top up to run" : missingRequired.length ? `Connect ${missingRequired[0].name} first` : draft?.schedule === "watch" ? (startFrom && !startFromNow ? "Start from the last one" : "Start watching") : standing ? "Set up and run once" : "Run once"}
           </button>
         </div>
       </header>
@@ -275,8 +285,27 @@ export default function BoardSetup() {
                     ))}
                   </div>
                 )}
+                {b.start && (
+                  <div className="flex flex-col gap-2">
+                    {b.start.error ? (
+                      <p className="font-ui text-[13px] text-destructive flex items-start gap-1.5"><AlertTriangle size={12} className="mt-0.5 shrink-0" /> Kinika could not read the connection: {b.start.error}</p>
+                    ) : b.start.item ? (
+                      <>
+                        <p className="font-medium">Start from the last real {b.start.noun}?</p>
+                        <p className="font-ui text-[13px] text-foreground"><span className="font-medium">{b.start.item.title}</span> <span className="text-muted-foreground">· from {b.start.item.from} · {ago(b.start.item.at)}</span></p>
+                        <p className="font-ui text-[12px] text-muted-foreground">{b.start.count} {b.start.count === 1 ? b.start.noun : b.start.nouns} arrived in the last week. The first run works on this one; after it, only what is new runs.</p>
+                        <div className="flex items-center gap-2 flex-wrap" role="radiogroup" aria-label="Start from">
+                          <button role="radio" aria-checked={!startFromNow} onClick={() => setStartFromNow(false)} className={cn("h-8 px-3 rounded-full border font-ui text-[13px] inline-flex items-center gap-1.5", !startFromNow ? "bg-accent border-[hsl(var(--brand-blue-line))] text-accent-foreground font-medium" : "bg-card border-border hover:border-primary/50")}>{!startFromNow && <Check size={12} />}Start from this one</button>
+                          <button role="radio" aria-checked={startFromNow} onClick={() => setStartFromNow(true)} className={cn("h-8 px-3 rounded-full border font-ui text-[13px] inline-flex items-center gap-1.5", startFromNow ? "bg-accent border-[hsl(var(--brand-blue-line))] text-accent-foreground font-medium" : "bg-card border-border hover:border-primary/50")}>{startFromNow && <Check size={12} />}Only what arrives from now</button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="font-ui text-[13px]">Nothing has arrived there yet. The board runs on the first {b.start.noun} that does.</p>
+                    )}
+                  </div>
+                )}
                 {b.quote && (
-                  <p className="font-ui text-[13px] text-muted-foreground">{quote ? `About ${quote.estimate} credits, up to ${quote.max}; ${Math.max(0, balance - quote.max)} after.` : "No price yet."} {draft?.approval === "autonomous" ? "No review step." : "You approve before anything goes out."} {standing ? "Set up and run once" : "Run once"} is top right when you are ready.</p>
+                  <p className="font-ui text-[13px] text-muted-foreground">{quote ? `About ${quote.estimate} credits, up to ${quote.max}; ${Math.max(0, balance - quote.max)} after.` : "No price yet."} {draft?.approval === "autonomous" ? "No review step." : "You approve before anything goes out."} {draft?.schedule === "watch" ? "Start watching" : standing ? "Set up and run once" : "Run once"} is top right when you are ready.</p>
                 )}
               </div>
             ))}

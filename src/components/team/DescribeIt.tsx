@@ -8,6 +8,7 @@ import type { Quote } from "@/services/pricingService";
 import type { Agent } from "@/services/agentService";
 import type { ToolConnection } from "@/services/connectionService";
 import { ACTION_CLASS_LABEL, EVENT_TYPES, RECIPES, SCHEDULE_INTERVALS, type ActionClass } from "@shared/runner";
+import { watchSourceFor } from "@shared/watch";
 
 /**
  * "Describe it": plain language in, a reviewed plan out. Nothing is created
@@ -52,7 +53,7 @@ export function DescribeIt({ brandId, userId, agents, connections, stage, balanc
     const r = await executeDraft(draft, brandId, userId, agents, connections);
     setBusy(null);
     if (!r.success) { toast.error(r.error ?? "Could not start"); return; }
-    toast(draft.schedule === "once" ? "On it" : draft.schedule === "webhook" ? "Webhook ready; copy its URL from the schedule list" : draft.schedule === "event" ? "Trigger created" : "Scheduled");
+    toast(draft.schedule === "once" ? "On it" : draft.schedule === "webhook" ? "Webhook ready; copy its URL from the schedule list" : draft.schedule === "event" ? "Trigger created" : draft.schedule === "watch" ? "Watching; the board runs when something new arrives" : "Scheduled");
     setDraft(null);
     setText("");
     onCreated(r.run?.id);
@@ -61,7 +62,7 @@ export function DescribeIt({ brandId, userId, agents, connections, stage, balanc
   const eventText = draft?.schedule === "event" && draft.event
     ? `${EVENT_TYPES.find((e) => e.value === draft.event)?.label ?? "On an event"}${draft.conditions.length ? ` (${draft.conditions.map((c) => `${c.field} ${c.op === "eq" ? "is" : c.op === "neq" ? "is not" : "contains"} ${c.value}`).join(", ")})` : ""}`
     : "";
-  const scheduleLabel = draft ? (draft.schedule === "once" ? "Once, now" : draft.schedule === "webhook" ? "When a webhook fires" : draft.schedule === "event" ? eventText : SCHEDULE_INTERVALS.find((i) => i.value === draft.schedule)?.label ?? draft.schedule) : "";
+  const scheduleLabel = draft ? (draft.schedule === "once" ? "Once, now" : draft.schedule === "webhook" ? "When a webhook fires" : draft.schedule === "event" ? eventText : draft.schedule === "watch" ? (watchSourceFor(draft.watch?.source)?.words ?? "When something new arrives") : SCHEDULE_INTERVALS.find((i) => i.value === draft.schedule)?.label ?? draft.schedule) : "";
   const steps = draft ? describeDraftSteps(draft, agents) : [];
   const classStyle: Record<ActionClass, string> = {
     read: "bg-muted text-muted-foreground",

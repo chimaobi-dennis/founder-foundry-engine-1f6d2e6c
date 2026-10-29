@@ -41,3 +41,7 @@ verify_jwt = false
 [functions.oauth-callback]
 # The provider calls this; the state id is the credential.
 verify_jwt = false
+
+[functions.watch-source]
+# Checks the user JWT itself.
+verify_jwt = false

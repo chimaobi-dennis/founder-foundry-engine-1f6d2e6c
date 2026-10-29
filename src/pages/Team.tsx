@@ -28,6 +28,7 @@ import {
 } from "@/services/agentService";
 import type { Quote } from "@/services/pricingService";
 import { ConnectionsSection, DiffTable, CodeReview } from "@/components/team/Connections";
+import { watchSourceFor } from "@shared/watch";
 import { DescribeIt } from "@/components/team/DescribeIt";
 import { TeamMemorySection } from "@/components/team/TeamMemory";
 import { listConnections, type ToolConnection } from "@/services/connectionService";
@@ -616,7 +617,7 @@ function AutomationRow({ automation, userId, onChanged, onOpenRun }: { automatio
   const isEvent = automation.trigger_type === "event";
   const eventLabel = isEvent ? EVENT_TYPES.find((e) => e.value === automation.event_type)?.label ?? "On an event" : "";
   const condText = isEvent && automation.conditions?.length ? ` (${automation.conditions.map((c) => `${c.field} ${c.op === "eq" ? "is" : c.op === "neq" ? "is not" : "contains"} ${c.value}`).join(", ")})` : "";
-  const label = isWebhook ? "Webhook" : isEvent ? `${eventLabel}${condText}` : SCHEDULE_INTERVALS.find((i) => i.value === automation.schedule_interval)?.label ?? automation.schedule_interval ?? "";
+  const label = isWebhook ? "Webhook" : isEvent ? `${eventLabel}${condText}` : automation.trigger_type === "watch" ? (watchSourceFor(automation.watch?.source)?.words ?? "When something new arrives") : SCHEDULE_INTERVALS.find((i) => i.value === automation.schedule_interval)?.label ?? automation.schedule_interval ?? "";
   const next = automation.next_run_at ? new Date(automation.next_run_at) : null;
   const paused = automation.status === "paused";
   const webhookUrl = isWebhook && automation.webhook_secret ? `${SUPABASE_CONFIG.url}/functions/v1/webhook-trigger?automation=${automation.id}&key=${automation.webhook_secret}` : null;

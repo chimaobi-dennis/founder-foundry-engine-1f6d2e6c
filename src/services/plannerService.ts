@@ -12,6 +12,7 @@ import { plannerSystemPrompt, coercePlanDraft, declineReason, parseStructuredOut
 import { quoteAction, type Quote } from './pricingService';
 import { createRun, createAutomation, createHiveRun, quoteHive, type Agent, type AutomationRun, type Automation } from './agentService';
 import { startRecipe, quoteRecipe, type ToolConnection } from './connectionService';
+import type { WatchItem } from '@shared/watch';
 
 export type { PlanDraft } from '@shared/runner';
 
@@ -77,7 +78,7 @@ export interface ExecuteResult {
 }
 
 /** Create exactly what the confirmed draft says. */
-export async function executeDraft(draft: PlanDraft, brandId: string, userId: string, agents: Agent[], connections: ToolConnection[]): Promise<ExecuteResult> {
+export async function executeDraft(draft: PlanDraft, brandId: string, userId: string, agents: Agent[], connections: ToolConnection[], startFrom: WatchItem | null = null): Promise<ExecuteResult> {
   const bySlug = new Map(agents.map((a) => [a.slug, a]));
   const policy = { approval: draft.approval } as const;
   const input = { brief: draft.brief, units: draft.units, platforms: draft.platforms };
@@ -101,10 +102,13 @@ export async function executeDraft(draft: PlanDraft, brandId: string, userId: st
   if (draft.schedule === 'once') {
     return createRun({ brandId, userId, agent, name: draft.name, input, policy });
   }
+  if (draft.schedule === 'watch' && draft.watch) {
+    return createAutomation({ brandId, userId, agent, name: draft.name, input, interval: 'weekly', trigger: 'watch', watch: { ...draft.watch, started_from: startFrom }, policy, runNow: !!startFrom });
+  }
   if (draft.schedule === 'event' && draft.event) {
     return createAutomation({ brandId, userId, agent, name: draft.name, input, interval: 'weekly', trigger: 'event', eventType: draft.event, conditions: draft.conditions, policy, runNow: false });
   }
-  return createAutomation({ brandId, userId, agent, name: draft.name, input, interval: draft.schedule === 'webhook' || draft.schedule === 'event' ? 'weekly' : draft.schedule, trigger: draft.schedule === 'webhook' ? 'webhook' : 'schedule', policy, runNow: draft.schedule !== 'webhook' });
+  return createAutomation({ brandId, userId, agent, name: draft.name, input, interval: draft.schedule === 'webhook' || draft.schedule === 'event' || draft.schedule === 'watch' ? 'weekly' : draft.schedule, trigger: draft.schedule === 'webhook' ? 'webhook' : 'schedule', policy, runNow: draft.schedule !== 'webhook' });
 }
 
 export interface DraftStep {

@@ -25,6 +25,7 @@ import { allowedFields, diffLines, ConnectorError, runConnector, type Normalized
 import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullRequest, publishItems, readRepoFiles, repoSnapshot, settlePull, trimRecords } from "../_shared/connectorOps.ts";
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import { buildOrRevisePlan } from "../_shared/planBuild.ts";
+import { itemForBrief, readWatchSource, watchSourceFor, type WatchConfig } from "../_shared/watch.ts";
 import { checkinSummary } from "../_shared/plan.ts";
 import {
   mergeSelfReview,
@@ -127,7 +128,8 @@ async function tick(admin: Admin) {
     .lt("updated_at", new Date(Date.now() - 60_000).toISOString())
     .order("created_at")
     .limit(10);
-  const ids = new Set<string>([...(enqueued ?? []), ...(queued ?? []).map((r: any) => r.id)]);
+  const watched = await watchDue(admin);
+  const ids = new Set<string>([...(enqueued ?? []), ...watched, ...(queued ?? []).map((r: any) => r.id)]);
   const advanced: Record<string, string> = {};
   for (const id of ids) {
     try {
@@ -146,7 +148,44 @@ async function tick(admin: Admin) {
   const merged = housekeeping ? await autoMergeDue(admin) : 0;
   const revised = housekeeping ? await revisePlansDue(admin) : 0;
   const checkins = housekeeping ? await planCheckins(admin) : 0;
-  return { enqueued: enqueued?.length ?? 0, advanced, digests, readied, merged, revised, checkins, housekeeping };
+  return { enqueued: enqueued?.length ?? 0, watched: watched.length, advanced, digests, readied, merged, revised, checkins, housekeeping };
+}
+
+/**
+ * Watching boards whose interval has passed: read what is newer than the
+ * cursor, queue one run per item (a few at most per tick), move the cursor.
+ * A read that fails is written on the board and tried again later, slower.
+ */
+async function watchDue(admin: Admin): Promise<string[]> {
+  const { data: boards } = await admin.from("automations").select("*").eq("status", "active").eq("trigger_type", "watch").lte("next_watch_at", new Date().toISOString()).order("next_watch_at").limit(8);
+  const runs: string[] = [];
+  for (const a of boards ?? []) {
+    const w = (a.watch ?? null) as WatchConfig | null;
+    const spec = watchSourceFor(w?.source);
+    const minutes = Math.max(2, Number(w?.interval_minutes) || spec?.intervalMinutes || 5);
+    const later = (factor = 1) => new Date(Date.now() + minutes * factor * 60_000).toISOString();
+    if (!w || !spec) { await admin.from("automations").update({ last_watch_error: "This board has no source to watch.", next_watch_at: later(6) }).eq("id", a.id); continue; }
+    try {
+      const { row, secret } = await loadConnection(admin, w.connection_id);
+      const since = w.cursor?.at ?? w.started_from?.at ?? new Date(Date.now() - 24 * 3600_000).toISOString();
+      const items = await readWatchSource(admin, w.source, { id: row.id, config: row.config }, secret, w.options ?? {}, { since, limit: 3 });
+      let cursor = w.cursor ?? (w.started_from ? { at: w.started_from.at, id: w.started_from.id } : null);
+      for (const item of items) {
+        if (cursor && item.id === cursor.id) continue;
+        const brief = `${a.task_input?.brief ?? ""}\n\n${itemForBrief(item)}`;
+        const input = { ...(a.task_input ?? {}), brief, event: item, watch_source: w.source };
+        const credits = Number(a.budget?.credits_per_run) || 200;
+        const { data: run, error } = await admin.from("automation_runs").insert({ automation_id: a.id, brand_id: a.brand_id, user_id: a.user_id, agent_id: a.agent_id, name: `${a.name} · ${item.title.slice(0, 60)}`, trigger_type: "watch", status: "queued", input, policy: a.policy, budget: a.budget, credits_quoted: credits, credits_reserved: credits, external_event_id: `watch:${item.id}` }).select("id").single();
+        if (run) runs.push(run.id);
+        else if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
+        cursor = { at: item.at, id: item.id };
+      }
+      await admin.from("automations").update({ watch: { ...w, cursor }, last_watched_at: new Date().toISOString(), last_watch_error: null, next_watch_at: later(), ...(items.length ? { last_run_at: new Date().toISOString() } : {}) }).eq("id", a.id);
+    } catch (e) {
+      await admin.from("automations").update({ last_watch_error: (e as Error).message.slice(0, 300), last_watched_at: new Date().toISOString(), next_watch_at: later(3) }).eq("id", a.id);
+    }
+  }
+  return runs;
 }
 
 /**
