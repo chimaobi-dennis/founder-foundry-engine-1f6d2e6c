@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressSteps } from "@/components/ui/progress-steps";
 import type { ProgressStep } from "@shared/progress";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
-import { getMessages, type MentorMessage, type ReplyOption } from "@/services/mentorService";
+import { getMessages, type MentorMessage, type ReplyOption, type Suggestion } from "@/services/mentorService";
 import { requirePrompt } from "@/services/aiService";
 import type { Deliverable } from "@/services/planService";
 import { getTaskConversationState, sendTaskMessage, saveDeliverables, type Workspace } from "@/services/workspaceService";
@@ -36,7 +36,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
   const [pending, setPending] = useState(false);
   const [progress, setProgress] = useState<ProgressStep[]>([]);
   const [ready, setReady] = useState(false);
-  const [followups, setFollowups] = useState<{ options: ReplyOption[]; suggestions: string[] }>({ options: [], suggestions: [] });
+  const [followups, setFollowups] = useState<{ options: ReplyOption[]; suggestions: Suggestion[] }>({ options: [], suggestions: [] });
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const openedRef = useRef(false);
@@ -64,7 +64,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
     setPending(stillPending);
     if (!stillPending) {
       const f = state?.last_followups;
-      setFollowups({ suggestions: f?.suggestions ?? [], options: f?.options ?? [] });
+      setFollowups({ suggestions: (f?.suggestions ?? []).map((x) => (typeof x === "string" ? { label: x, value: x } : x)), options: f?.options ?? [] });
       if (state?.last_error && !initial) toast.error(`Kinika did not answer: ${state.last_error}`);
       if (ms.length !== lastCountRef.current && !initial) await onReplied();
     }
@@ -110,9 +110,9 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
     setDraft("");
     await turn(text, true);
   };
-  /** A suggestion is a starting point, not an answer: it goes into the box for the founder to finish. */
-  const startFromSuggestion = (t: string) => {
-    setDraft(`Based on "${t}": `);
+  /** A suggestion is a starting point, not an answer: the full request goes into the box for the founder to change or send. */
+  const startFromSuggestion = (s: Suggestion) => {
+    setDraft(s.value);
     inputRef.current?.focus();
   };
 
@@ -175,8 +175,8 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
       <form onSubmit={(e) => { e.preventDefault(); send(); }} className={cn("border-t border-border bg-card", compact ? "p-3" : "px-4 md:px-8 py-4")}>
         {!pending && followups.suggestions.length > 0 && (
           <div className={cn("mx-auto flex gap-2 overflow-x-auto pb-2 -mt-1", compact ? "" : "max-w-[760px]")} aria-label="Starting points for your reply">
-            {followups.suggestions.map((t) => (
-              <button key={t} type="button" onClick={() => startFromSuggestion(t)} className="shrink-0 h-8 px-3 rounded-full border border-border bg-background font-ui text-[12px] text-muted-foreground hover:text-foreground hover:border-primary transition-colors">{t}</button>
+            {followups.suggestions.map((s) => (
+              <button key={s.label} type="button" title={s.value} onClick={() => startFromSuggestion(s)} className="shrink-0 h-8 px-3 rounded-full border border-border bg-background font-ui text-[12px] text-muted-foreground hover:text-foreground hover:border-primary transition-colors">{s.label}</button>
             ))}
           </div>
         )}

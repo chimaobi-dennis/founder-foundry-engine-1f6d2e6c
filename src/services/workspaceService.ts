@@ -141,7 +141,7 @@ export interface TaskConversationState {
   /** When the server last accepted a turn or finished a reply; a sent turn is accepted once this moves. */
   last_message_at: string | null;
   last_error: string | null;
-  last_followups: { suggestions?: string[]; options?: { label: string; value: string }[]; document?: boolean; closed?: string[] } | null;
+  last_followups: { suggestions?: (string | { label: string; value: string })[]; options?: { label: string; value: string }[]; document?: boolean; closed?: string[] } | null;
   /** The steps of the reply in flight, as the server writes them. */
   progress: ProgressStep[] | null;
 }
