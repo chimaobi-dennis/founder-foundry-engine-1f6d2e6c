@@ -11,6 +11,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
+import { itemForBrief, watchSourceFor, type WatchConfig, type WatchItem } from '@shared/watch';
 import { quoteAction, type Quote } from './pricingService';
 import { getBrandOwnerId } from './teamMembersService';
 import {
@@ -428,8 +429,13 @@ export interface Automation {
   user_id: string;
   agent_id: string | null;
   name: string;
-  trigger_type: 'manual' | 'schedule' | 'webhook' | 'event';
+  trigger_type: 'manual' | 'schedule' | 'webhook' | 'event' | 'watch';
   schedule_interval: ScheduleInterval | null;
+  /** trigger watch: what the board waits for; cursor and started_from are the runner's. */
+  watch?: WatchConfig | null;
+  next_watch_at?: string | null;
+  last_watched_at?: string | null;
+  last_watch_error?: string | null;
   webhook_secret: string | null;
   event_type?: EventType | null;
   conditions?: EventCondition[];
@@ -464,10 +470,12 @@ export interface CreateAutomationInput {
   name: string;
   input: TaskInput;
   interval: ScheduleInterval;
-  /** schedule (default) fires on the interval; webhook when another system calls in; event when something happens in Kinika */
-  trigger?: 'schedule' | 'webhook' | 'event';
+  /** schedule (default) fires on the interval; webhook when another system calls in; event when something happens in Kinika; watch when something new arrives in a connected system */
+  trigger?: 'schedule' | 'webhook' | 'event' | 'watch';
   eventType?: EventType;
   conditions?: EventCondition[];
+  /** trigger watch: the source, its connection, options, and the last real item the board starts after */
+  watch?: { source: string; connection_id: string; options: Record<string, string>; started_from: WatchItem | null };
   policy?: RunPolicy;
   budget?: Partial<RunBudget>;
   /** Also start the first run right away (default true). */
@@ -503,13 +511,15 @@ export async function createAutomation(params: CreateAutomationInput): Promise<{
       user_id: owner,
       created_by: userId,
       agent_id: agent.id,
-      name: name.trim() || `${agent.name} · ${trigger === 'webhook' ? 'webhook' : trigger === 'event' ? 'on event' : interval}`,
+      name: name.trim() || `${agent.name} · ${trigger === 'webhook' ? 'webhook' : trigger === 'event' ? 'on event' : trigger === 'watch' ? 'watching' : interval}`,
       trigger_type: trigger,
       event_type: trigger === 'event' ? params.eventType ?? null : null,
       conditions: trigger === 'event' ? params.conditions ?? [] : [],
       schedule_interval: trigger === 'schedule' ? interval : null,
       next_run_at: trigger === 'schedule' ? nextRunAt(interval, new Date()).toISOString() : null,
       webhook_secret: trigger === 'webhook' ? newWebhookSecret() : null,
+      watch: trigger === 'watch' && params.watch ? { source: params.watch.source, connection_id: params.watch.connection_id, options: params.watch.options ?? {}, interval_minutes: watchSourceFor(params.watch.source)?.intervalMinutes ?? 5, cursor: params.watch.started_from ? { at: params.watch.started_from.at, id: params.watch.started_from.id } : null, started_from: params.watch.started_from } : null,
+      next_watch_at: trigger === 'watch' ? new Date().toISOString() : null,
       task_input: { ...input, units: normalizeUnits(input.units) },
       policy,
       budget,
@@ -525,6 +535,13 @@ export async function createAutomation(params: CreateAutomationInput): Promise<{
     const r = await createRun({ brandId, userId, agent, name: data.name, input, policy, budget, automationId: data.id });
     if (!r.success) return { success: false, error: r.error, automation: data };
     run = r.run;
+  } else if (trigger === 'watch' && params.runNow !== false && params.watch?.started_from) {
+    // "Start from": the first run works on the last real item; the watch begins after it.
+    const item = params.watch.started_from;
+    const r = await createRun({ brandId, userId, agent, name: `${data.name} · ${item.title.slice(0, 60)}`, input: { ...input, brief: `${input.brief}\n\n${itemForBrief(item)}`, event: item, watch_source: params.watch.source }, policy, budget, automationId: data.id });
+    if (!r.success) return { success: false, error: r.error, automation: data };
+    run = r.run;
+    await db.from('automations').update({ last_run_at: new Date().toISOString() }).eq('id', data.id);
   }
   return { success: true, automation: data, run };
 }

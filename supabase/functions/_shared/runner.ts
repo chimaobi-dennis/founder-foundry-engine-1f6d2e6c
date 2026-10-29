@@ -449,9 +449,11 @@ export interface PlanDraft {
   connection_id?: string;
   units: number;
   platforms: string[];
-  schedule: "once" | ScheduleInterval | "webhook" | "event";
+  schedule: "once" | ScheduleInterval | "webhook" | "event" | "watch";
   /** Set when schedule is "event" */
   event?: EventType;
+  /** Set when schedule is "watch": what the board waits for and the connection it reads. */
+  watch?: { source: string; connection_id: string; options: Record<string, string> };
   conditions: EventCondition[];
   approval: "review_first" | "autonomous";
   /** The riskiest thing this plan does, decided in code from the recipe */
@@ -468,6 +470,8 @@ export interface PlannerContext {
   agents: { slug: string; name: string; tagline?: string | null; unit_label: string }[];
   connections: { id: string; provider: string; display_name: string }[];
   stage?: string | null;
+  /** Watch sources the workspace can use, from its connections (key → connection id). */
+  sources?: { key: string; connection_id: string; line: string }[];
 }
 
 /** The Describe-it planner; `template` is the prompt key automation_planner ({{agents}}, {{recipes}}, {{connections}}). */
@@ -475,7 +479,8 @@ export function plannerSystemPrompt(ctx: PlannerContext, template: string): stri
   const agents = ctx.agents.map((a) => `- ${a.slug}: ${a.name} (${a.unit_label}s). ${a.tagline ?? ""}`).join("\n");
   const recipes = Object.values(RECIPES).map((r) => `- ${r.key}: ${r.name} (needs a ${r.provider} connection; agent ${r.agentSlug})`).join("\n");
   const conns = ctx.connections.length ? ctx.connections.map((c) => `- ${c.id}: ${c.display_name} (${c.provider})`).join("\n") : "(none)";
-  return template.split("{{agents}}").join(agents).split("{{recipes}}").join(recipes).split("{{connections}}").join(conns);
+  const sources = ctx.sources?.length ? ctx.sources.map((x) => x.line).join("\n") : "(none connected)";
+  return template.split("{{agents}}").join(agents).split("{{recipes}}").join(recipes).split("{{connections}}").join(conns).split("{{sources}}").join(sources);
 }
 
 const INTERVALS: ScheduleInterval[] = ["daily", "weekly", "biweekly", "monthly"];
@@ -551,6 +556,19 @@ export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | 
   let event: EventType | undefined;
   let conditions: EventCondition[] = [];
   let schedule: PlanDraft["schedule"] = schedRaw === "webhook" ? "webhook" : (INTERVALS as string[]).includes(schedRaw) ? (schedRaw as ScheduleInterval) : "once";
+  let watch: PlanDraft["watch"];
+  if (schedRaw === "watch") {
+    const w = (r.watch ?? {}) as Record<string, unknown>;
+    const key = str(w.source, 40);
+    const src = ctx.sources?.find((x) => x.key === key);
+    if (src) {
+      const opts = (w.options && typeof w.options === "object" ? w.options : {}) as Record<string, unknown>;
+      watch = { source: key, connection_id: src.connection_id, options: Object.fromEntries(Object.entries(opts).filter(([, v]) => typeof v === "string").map(([k, v]) => [k.slice(0, 40), String(v).slice(0, 200)])) };
+      schedule = "watch";
+    } else {
+      warnings.push(key ? `Nothing is connected that Kinika could watch for "${key}"; planned a single run instead.` : "No source to watch; planned a single run instead.");
+    }
+  }
   if (schedRaw === "event") {
     const ev = str(r.event, 40) as EventType;
     if (EVENT_TYPES.some((e) => e.value === ev)) {
@@ -576,6 +594,7 @@ export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | 
     platforms,
     schedule,
     event,
+    watch,
     conditions,
     approval,
     action_class: draftActionClass(kind, recipe),

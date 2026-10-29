@@ -22,6 +22,7 @@ import { playbookFrom } from "../_shared/plan.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { coercePlanDraft, parseStructuredOutput, plannerSystemPrompt, type PlannerContext } from "../_shared/runner.ts";
 import { boardNeeds, coerceBoardQuestion } from "../_shared/boardDraft.ts";
+import { availableWatchSources } from "../_shared/watch.ts";
 import { loadPrompt } from "../_shared/promptLoad.ts";
 import { narratedResponse, type Narrator } from "../_shared/progress.ts";
 
@@ -156,6 +157,7 @@ async function planBoard(admin: any, brand: { id: string; user_id: string; name:
     agents: (agentRows ?? []) as PlannerContext["agents"],
     connections: ((connRows ?? []) as { id: string; provider: string; display_name: string }[]).map((c) => ({ id: c.id, provider: c.provider, display_name: c.display_name })),
     stage: brand.journey_stage ?? null,
+    sources: availableWatchSources((connRows ?? []) as { id: string; provider: string; display_name: string; status: string }[]).map((a) => ({ key: a.source.key, connection_id: a.connection_id, line: `- ${a.source.key}: ${a.source.words.toLowerCase()} (${a.source.name}: ${a.display_name})` })),
   };
   if (!ctx.agents.length) { n.fail("context", "no agents are published"); return { success: false, error: "Kinika has no agents to staff this with yet." }; }
   n.done("context", `${ctx.agents.length} roles, ${ctx.connections.length} connection${ctx.connections.length === 1 ? "" : "s"}`);

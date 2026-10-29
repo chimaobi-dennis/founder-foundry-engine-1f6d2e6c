@@ -8,6 +8,7 @@
  */
 import { PROVIDERS, type ConnectorProvider } from "./connectors.ts";
 import { EVENT_TYPES, RECIPES, SCHEDULE_INTERVALS, normalizeUnits, type EventType, type PlanDraft, type ScheduleInterval } from "./runner.ts";
+import { watchSourceFor } from "./watch.ts";
 
 /** What a chip changes on the draft when the founder picks it. */
 export interface DraftPatch {
@@ -39,7 +40,7 @@ function coercePatch(raw: unknown): DraftPatch | null {
   const r = raw as Record<string, unknown>;
   const p: DraftPatch = {};
   const sched = typeof r.schedule === "string" ? r.schedule.trim() : "";
-  if (sched === "once" || sched === "webhook" || SCHEDULE_INTERVALS.some((i) => i.value === sched)) p.schedule = sched as PlanDraft["schedule"];
+  if (sched === "once" || sched === "webhook" || sched === "watch" || SCHEDULE_INTERVALS.some((i) => i.value === sched)) p.schedule = sched as PlanDraft["schedule"];
   if (sched === "event") {
     const ev = typeof r.event === "string" ? r.event.trim() : "";
     if (EVENT_TYPES.some((e) => e.value === ev)) { p.schedule = "event"; p.event = ev as EventType; }
@@ -75,9 +76,14 @@ export function coerceBoardQuestion(raw: unknown): BoardQuestion | null {
 export function applyDraftPatch(draft: PlanDraft, patch: DraftPatch): PlanDraft {
   const next: PlanDraft = { ...draft, warnings: [...draft.warnings] };
   if (patch.schedule) {
-    next.schedule = patch.schedule;
-    next.event = patch.schedule === "event" ? patch.event ?? draft.event : undefined;
-    if (patch.schedule !== "event") next.conditions = [];
+    // A chip cannot invent a source to watch: "watch" only sticks when the draft already has one.
+    if (patch.schedule === "watch" && !draft.watch) { next.warnings.push("Nothing is connected to watch yet; kept the schedule."); }
+    else {
+      next.schedule = patch.schedule;
+      next.event = patch.schedule === "event" ? patch.event ?? draft.event : undefined;
+      if (patch.schedule !== "event") next.conditions = [];
+      if (patch.schedule !== "watch") next.watch = undefined;
+    }
   }
   if (patch.units != null) next.units = normalizeUnits(patch.units);
   if (patch.platforms) next.platforms = patch.platforms;
@@ -96,13 +102,16 @@ export function boardNeeds(draft: PlanDraft, rawNeeds: unknown, connections: { p
   const connected = new Set(connections.filter((c) => !c.status || c.status === "active").map((c) => c.provider));
   const out: BoardNeed[] = [];
   const seen = new Set<string>();
-  const push = (provider: string, why: string, required: boolean) => {
+  const push = (provider: string, why: string, required: boolean, fallbackName?: string) => {
     const spec = (PROVIDERS as Record<string, { name: string }>)[provider];
-    if (!spec || seen.has(provider)) return;
+    const name = spec?.name ?? fallbackName;
+    if (!name || seen.has(provider)) return;
     seen.add(provider);
-    out.push({ provider: provider as ConnectorProvider, name: spec.name, why, required, connected: connected.has(provider) });
+    out.push({ provider: provider as ConnectorProvider, name, why, required, connected: connected.has(provider) });
   };
   if (draft.recipe) push(RECIPES[draft.recipe].provider, `${RECIPES[draft.recipe].name} runs on it`, true);
+  const ws = draft.schedule === "watch" && draft.watch ? watchSourceFor(draft.watch.source) : null;
+  if (ws) push(ws.provider, `the board waits for new ${ws.nouns} there`, true, ws.name);
   for (const n of Array.isArray(rawNeeds) ? rawNeeds.slice(0, 4) : []) {
     const x = (typeof n === "string" ? { provider: n } : n ?? {}) as Record<string, unknown>;
     const provider = String(x.provider ?? "").toLowerCase().trim();
@@ -117,6 +126,7 @@ export function scheduleWords(draft: Pick<PlanDraft, "schedule" | "event">): str
   if (draft.schedule === "once") return "Once, now";
   if (draft.schedule === "webhook") return "When a webhook fires";
   if (draft.schedule === "event") return EVENT_TYPES.find((e) => e.value === draft.event)?.label ?? "On an event";
+  if (draft.schedule === "watch") return watchSourceFor((draft as { watch?: { source?: string } }).watch?.source)?.words ?? "When something new arrives";
   const map: Record<ScheduleInterval, string> = { daily: "Every day", weekly: "Every week", biweekly: "Every two weeks", monthly: "Every month" };
   return map[draft.schedule] ?? draft.schedule;
 }

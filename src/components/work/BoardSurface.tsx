@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { planSingleAgentRun, SCHEDULE_INTERVALS, EVENT_TYPES, type Agent, type Automation, type AutomationRun, type RunStep } from "@/services/agentService";
 import { planHiveRun, planRecipeRun, RECIPES, type PlanDraft, type PlannedStep, type HiveStage } from "@shared/runner";
 import { scheduleWords } from "@shared/boardDraft";
+import { watchSourceFor } from "@shared/watch";
 
 /**
  * The board: a standing task you can read as one sentence, drawn as named
@@ -34,6 +35,7 @@ export function triggerLabel(a: Automation): string {
     return `${ev}${cond}`;
   }
   if (a.trigger_type === "schedule") return SCHEDULE_INTERVALS.find((i) => i.value === a.schedule_interval)?.label ?? "On a schedule";
+  if (a.trigger_type === "watch") return watchSourceFor(a.watch?.source)?.words ?? "When something new arrives";
   return "When you run it";
 }
 
@@ -59,8 +61,8 @@ export function boardCards(a: Automation, latest: AutomationRun | null): BoardCa
     ? latest.steps.map((s) => ({ step_index: s.step_index, type: s.type, name: s.name, input: s.input }))
     : a.agent ? planSingleAgentRun(a.agent as never, a.task_input, a.policy) : [];
   const when: BoardCard = {
-    key: "when", stepIndex: null, kind: "when", label: "When", title: triggerLabel(a), who: a.trigger_type === "schedule" ? "Kinika's clock" : a.trigger_type === "webhook" ? "another system" : a.trigger_type === "event" ? "something in Kinika" : "you",
-    detail: a.status === "paused" ? "paused" : a.next_run_at && a.trigger_type === "schedule" ? `next ${new Date(a.next_run_at).toLocaleString()}` : latest ? `last ${new Date(latest.created_at).toLocaleString()}` : "has not run yet",
+    key: "when", stepIndex: null, kind: "when", label: "When", title: triggerLabel(a), who: a.trigger_type === "schedule" ? "Kinika's clock" : a.trigger_type === "webhook" ? "another system" : a.trigger_type === "event" ? "something in Kinika" : a.trigger_type === "watch" ? `${watchSourceFor(a.watch?.source)?.name ?? "a connection"} · read` : "you",
+    detail: a.status === "paused" ? "paused" : a.trigger_type === "watch" ? (a.last_watch_error ? `could not read: ${a.last_watch_error.slice(0, 60)}` : a.last_watched_at ? `checked ${new Date(a.last_watched_at).toLocaleTimeString()} · every ${a.watch?.interval_minutes ?? 5} min` : "watching from now") : a.next_run_at && a.trigger_type === "schedule" ? `next ${new Date(a.next_run_at).toLocaleString()}` : latest ? `last ${new Date(latest.created_at).toLocaleString()}` : "has not run yet",
     status: a.status === "paused" ? "idle" : latest && (latest.status === "queued" || latest.status === "running") ? "running" : "idle",
   };
   return cardsFromPlan(when, planned, latest, a.agent?.name ?? "an agent");
@@ -87,10 +89,11 @@ export function draftBoardCards(draft: PlanDraft, agents: Agent[]): BoardCard[] 
     if (agent) planned = planSingleAgentRun(agent as never, input, policy);
   }
   const once = draft.schedule === "once";
+  const watching = draft.schedule === "watch" ? watchSourceFor(draft.watch?.source) : null;
   const when: BoardCard = {
     key: "when", stepIndex: null, kind: "when", label: "When", title: once ? "When you run it" : scheduleWords(draft),
-    who: once ? "you" : draft.schedule === "webhook" ? "another system" : draft.schedule === "event" ? "something in Kinika" : "Kinika's clock",
-    detail: once ? "right after you confirm" : "first run right after you confirm", status: "idle",
+    who: once ? "you" : draft.schedule === "webhook" ? "another system" : draft.schedule === "event" ? "something in Kinika" : watching ? `${watching.name} · read` : "Kinika's clock",
+    detail: once ? "right after you confirm" : watching ? `every ${watching.intervalMinutes} min, only what is new` : "first run right after you confirm", status: "idle",
   };
   return cardsFromPlan(when, planned, null, bySlug.get(draft.agents[0])?.name ?? "an agent");
 }

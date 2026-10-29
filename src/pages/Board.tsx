@@ -91,6 +91,13 @@ export default function Board() {
             <span className="font-ui text-[13px] font-medium leading-snug">{a.name}</span>
             <span className="font-ui text-[11px] text-muted-foreground">{triggerLabel(a)} · {a.task_input.units ?? 1} {a.agent?.unit_label ?? "item"}{(a.task_input.units ?? 1) === 1 ? "" : "s"} a run</span>
           </div>
+          {a.trigger_type === "watch" && (
+            <div className="flex flex-col gap-1">
+              <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Watching</span>
+              <span className="font-ui text-[12px] leading-relaxed text-muted-foreground">{a.watch?.started_from ? <>Started from <span className="text-foreground">{a.watch.started_from.title}</span> ({new Date(a.watch.started_from.at).toLocaleString()}); only what arrived after it runs.</> : "Only what arrives from now on runs."} {a.last_watched_at ? `Last checked ${new Date(a.last_watched_at).toLocaleTimeString()}.` : ""}</span>
+              {a.last_watch_error && <span className="font-ui text-[12px] text-destructive">Could not read: {a.last_watch_error}</span>}
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-muted-foreground">The brief</span>
             <span className="font-ui text-[12px] leading-relaxed text-muted-foreground whitespace-pre-wrap">{String(a.task_input.brief ?? "").slice(0, 400)}</span>
