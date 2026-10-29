@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { parseTaskReply, visibleWhileStreaming } from "@shared/taskChat";
 
-const ds = [{ id: "d-1" }, { id: "d-2" }, { id: "d-3" }];
+const ds = [{ id: "d-1", title: "Primary Platform Choice" }, { id: "d-2", title: "Audit Report" }, { id: "d-3" }];
 
 describe("task reply: nothing of the machinery reaches the founder", () => {
   it("reads a bare STATE line without its tags", () => {
@@ -31,6 +31,10 @@ describe("task reply: nothing of the machinery reaches the founder", () => {
     const r = parseTaskReply('Here.\n<DOCUMENT title="Brief">The brief body', ds);
     expect(r.document).toEqual({ title: "Brief", body: "The brief body" });
     expect(r.text).toContain("*Written: Brief.");
+  });
+  it("closes a deliverable named by its title or id, and ignores one it cannot place", () => {
+    const r = parseTaskReply('Noted.\n<STATE>{"closed":[{"d":"Primary Platform Choice","outcome":"Facebook"},{"d":"d-2"},{"d":"Nothing like it"}]}</STATE>', ds);
+    expect(r.done).toEqual([{ id: "d-1", result: "Facebook" }, { id: "d-2", result: null }]);
   });
   it("hides a bare STATE line while streaming", () => {
     expect(visibleWhileStreaming('Hello there.\nSTATE {"closed":[]}').text).toBe("Hello there.");

@@ -42,15 +42,20 @@ export function visibleWhileStreaming(text: string): { text: string; writingDocu
 /** Where the first document block stood, until the note that replaces it is written. */
 const DOC_MARK = '[[kinika-document]]';
 
-export function parseTaskReply(text: string, deliverables?: { id: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: string[]; options: ReplyOption[]; needs: TaskNeed | null } {
+export function parseTaskReply(text: string, deliverables?: { id: string; title?: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: string[]; options: ReplyOption[]; needs: TaskNeed | null } {
   const done: { id: string; result: string | null }[] = [];
   let suggestions: string[] = [];
   let options: ReplyOption[] = [];
   let needs: TaskNeed | null = null;
+  // Kinika names a deliverable as D2, by its id, or by its title; each resolves to the id.
   const idFor = (ref: string): string | null => {
-    const m = /^D(\d+)$/i.exec(ref.trim());
+    const r = ref.trim();
+    if (!r) return null;
+    const m = /^D(\d+)$/i.exec(r);
     if (m && deliverables) return deliverables[Number(m[1]) - 1]?.id ?? null;
-    return ref.trim() || null;
+    if (!deliverables) return r;
+    const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    return deliverables.find((d) => d.id === r)?.id ?? deliverables.find((d) => d.title && norm(d.title) === norm(r))?.id ?? null;
   };
   let clean = text;
   // The state line, possibly wrapped in a code fence.
