@@ -77,7 +77,7 @@ export interface MentorAIResult {
   deliverablesDone?: { id: string; result: string | null }[];
   taskDocument?: { title: string; body: string } | null;
   /** Workspace only: three replies the founder might give, and options when the question was a choice. */
-  suggestions?: string[];
+  suggestions?: Suggestion[];
   options?: ReplyOption[];
 }
 
@@ -118,8 +118,8 @@ export const getOrCreateTaskConversation = async (brandId: string, taskId: strin
   return data;
 };
 
-export { taskPromptBlock, parseTaskReply, visibleWhileStreaming, type TaskChatContext, type ReplyOption, type TaskNeed } from '@shared/taskChat';
-import { parseTaskReply, taskPromptBlock, type TaskChatContext, type ReplyOption } from '@shared/taskChat';
+export { taskPromptBlock, parseTaskReply, visibleWhileStreaming, type TaskChatContext, type ReplyOption, type Suggestion, type TaskNeed } from '@shared/taskChat';
+import { parseTaskReply, taskPromptBlock, type TaskChatContext, type ReplyOption, type Suggestion } from '@shared/taskChat';
 
 // ─── Messages ─────────────────────────────────────────────
 
@@ -670,7 +670,7 @@ export const getMentorAIResponse = async (
 
   let deliverablesDone: { id: string; result: string | null }[] = [];
   let taskDocument: { title: string; body: string } | null = null;
-  let suggestions: string[] = [];
+  let suggestions: Suggestion[] = [];
   let options: ReplyOption[] = [];
   if (taskContext) {
     const t = parseTaskReply(cleanText, taskContext.deliverables);

@@ -23,6 +23,8 @@ export function taskPromptBlock(ctx: TaskChatContext, texts: TaskPromptTexts): s
 
 /** Kinika's reply when working a task: the clean text, the deliverables it closed (with outcomes) and a document if it wrote one. */
 export interface ReplyOption { label: string; value: string }
+/** A suggested next message: the chip reads the theme (label); clicking it puts the full request (value) in the box. */
+export interface Suggestion { label: string; value: string }
 export type NeedRole = 'legal' | 'research' | 'copy' | 'design' | 'seo' | 'dev' | 'community' | 'other';
 export interface TaskNeed { deliverableId: string | null; role: NeedRole; label: string; why: string; brief: string }
 const NEED_ROLES: NeedRole[] = ['legal', 'research', 'copy', 'design', 'seo', 'dev', 'community', 'other'];
@@ -42,9 +44,9 @@ export function visibleWhileStreaming(text: string): { text: string; writingDocu
 /** Where the first document block stood, until the note that replaces it is written. */
 const DOC_MARK = '[[kinika-document]]';
 
-export function parseTaskReply(text: string, deliverables?: { id: string; title?: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: string[]; options: ReplyOption[]; needs: TaskNeed | null } {
+export function parseTaskReply(text: string, deliverables?: { id: string; title?: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: Suggestion[]; options: ReplyOption[]; needs: TaskNeed | null } {
   const done: { id: string; result: string | null }[] = [];
-  let suggestions: string[] = [];
+  let suggestions: Suggestion[] = [];
   let options: ReplyOption[] = [];
   let needs: TaskNeed | null = null;
   // Kinika names a deliverable as D2, by its id, or by its title; each resolves to the id.
@@ -69,7 +71,11 @@ export function parseTaskReply(text: string, deliverables?: { id: string; title?
         const id = idFor(String(c?.d ?? c?.id ?? ''));
         if (id) done.push({ id, result: String(c?.outcome ?? '').trim() || null });
       }
-      suggestions = (Array.isArray(parsed?.suggestions) ? parsed.suggestions : []).map((x: unknown) => String(x ?? '').trim()).filter((x: string) => x && x.length <= 120).slice(0, 3);
+      // A suggestion is { label, value }; a plain string (the older shape) is both.
+      suggestions = (Array.isArray(parsed?.suggestions) ? parsed.suggestions : []).map((x: unknown): Suggestion => {
+        if (x && typeof x === 'object') { const o = x as { label?: unknown; value?: unknown }; const value = String(o.value ?? o.label ?? '').trim().slice(0, 300); return { label: String(o.label ?? value).trim().slice(0, 60), value }; }
+        const t = String(x ?? '').trim().slice(0, 300); return { label: t.slice(0, 60), value: t };
+      }).filter((x: Suggestion) => x.label && x.value).slice(0, 3);
       const n = parsed?.needs;
       if (n && typeof n === 'object' && String(n.label ?? '').trim()) {
         const role = NEED_ROLES.includes(n.role) ? n.role as NeedRole : 'other';
