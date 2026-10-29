@@ -129,7 +129,11 @@ export function boardSentence(_a: unknown, cards: BoardCard[]): string {
     if (c.kind === "review") parts.push("you approve");
     else if (c.kind === "read") parts.push(`Kinika reads ${c.who.split(" · ")[0]}`);
     else if (c.kind === "act") parts.push(`${c.title.toLowerCase()} on ${c.who.split(" · ")[0]}`);
-    else parts.push(`${c.who === "you" ? "you" : `the ${c.who}`} ${c.title.toLowerCase().replace(/^\d+\s/, (m) => m)}`);
+    else {
+      const t = c.title.toLowerCase();
+      // A step named only by its count ("1 brief", "3 captions") needs a verb to read as a sentence.
+      parts.push(`${c.who === "you" ? "you" : `the ${c.who}`} ${/^\d/.test(t) ? `make${c.who === "you" ? "" : "s"} ${t}` : t}`);
+    }
   }
   parts.push("and Kinika remembers");
   const text = parts.join(", ") + ".";

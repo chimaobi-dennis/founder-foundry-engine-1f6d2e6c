@@ -219,6 +219,12 @@ export async function deleteTask(id: string): Promise<boolean> {
 }
 
 /** Tie a task to the run that is doing it; the database flips it to done when the run completes. */
+/** One task with the workspace it belongs to (plan_tasks carries brand_id). */
+export async function getTask(taskId: string): Promise<(PlanTask & { brand_id: string }) | null> {
+  const { data } = await db.from('plan_tasks').select('*').eq('id', taskId).maybeSingle();
+  return (data as (PlanTask & { brand_id: string }) | null) ?? null;
+}
+
 export async function linkTaskToRun(taskId: string, runId: string): Promise<boolean> {
   const { error } = await db.from('plan_tasks').update({ run_id: runId, status: 'doing' }).eq('id', taskId);
   return !error;
