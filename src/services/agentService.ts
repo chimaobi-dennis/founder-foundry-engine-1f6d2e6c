@@ -118,7 +118,7 @@ export interface Approval {
   user_id: string;
   kind: string;
   title: string;
-  payload: { output?: Record<string, unknown> | null; step_name?: string | null };
+  payload: { output?: Record<string, unknown> | null; step_name?: string | null; reason?: string | null; decision?: { question: string; choice: string | null; why: string | null; item: Record<string, unknown> | null; brief: string } | null };
   status: 'pending' | 'approved' | 'rejected';
   note: string | null;
   decided_at: string | null;
@@ -336,12 +336,38 @@ export async function resumeRun(runId: string, budget?: Partial<RunBudget>): Pro
   return kickRun(runId);
 }
 
+/** The step a paused or failed run stopped on. */
+async function stoppedStep(runId: string): Promise<{ id: string } | null> {
+  const { data } = await db.from('automation_run_steps').select('id').eq('run_id', runId).eq('status', 'failed').order('step_index', { ascending: false }).limit(1).maybeSingle();
+  return data ?? null;
+}
+
+/** Try the failed step again: it goes back to pending and the run continues. */
+export async function retryStep(runId: string): Promise<{ success: boolean; error?: string }> {
+  const st = await stoppedStep(runId);
+  if (!st) return { success: false, error: 'No failed step to try again.' };
+  const { error } = await db.from('automation_run_steps').update({ status: 'pending', error: null, started_at: null, finished_at: null }).eq('id', st.id);
+  if (error) return { success: false, error: error.message };
+  await db.from('automation_runs').update({ error: null }).eq('id', runId);
+  return resumeRun(runId);
+}
+
+/** Skip the failed step and carry on with the rest. */
+export async function skipFailedStep(runId: string): Promise<{ success: boolean; error?: string }> {
+  const st = await stoppedStep(runId);
+  if (!st) return { success: false, error: 'No failed step to skip.' };
+  const { error } = await db.from('automation_run_steps').update({ status: 'skipped', output: { skipped_because: 'you skipped it' }, finished_at: new Date().toISOString() }).eq('id', st.id);
+  if (error) return { success: false, error: error.message };
+  await db.from('automation_runs').update({ error: null }).eq('id', runId);
+  return resumeRun(runId);
+}
+
 export async function cancelRun(runId: string): Promise<boolean> {
   const { error } = await db
     .from('automation_runs')
     .update({ status: 'cancelled', finished_at: new Date().toISOString() })
     .eq('id', runId)
-    .in('status', ['queued', 'paused', 'waiting_approval']);
+    .in('status', ['queued', 'paused', 'waiting_approval', 'running']);
   if (error) return false;
   // Let the runner release the reservation if one exists.
   void kickRun(runId);

@@ -26,6 +26,8 @@ import { applyChanges, createRecord, loadConnection, mergePullRequest, openPullR
 import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import { buildOrRevisePlan } from "../_shared/planBuild.ts";
 import { itemForBrief, readWatchSource, watchSourceFor, type WatchConfig } from "../_shared/watch.ts";
+import { failureSentence, pickBranch, type Branches } from "../_shared/branching.ts";
+import { loadPrompt } from "../_shared/promptLoad.ts";
 import { checkinSummary } from "../_shared/plan.ts";
 import {
   mergeSelfReview,
@@ -507,6 +509,44 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
     if (step.status !== "pending") continue;
     if (stepsRun >= MAX_STEPS_PER_INVOCATION) break;
 
+    if (step.type === "branch") {
+      // Kinika decides which way the board goes, from what arrived.
+      await admin.from("automation_run_steps").update({ status: "running", started_at: new Date().toISOString() }).eq("id", step.id);
+      const branches = { question: String(step.input?.question ?? ""), options: Array.isArray(step.input?.options) ? step.input.options : [] } as Branches;
+      let chosen = branches.options[branches.options.length - 1];
+      let reason = "no options to choose from";
+      if (branches.options.length >= 2) {
+        const item = run.input?.event ? JSON.stringify(run.input.event).slice(0, 6000) : String(run.input?.brief ?? "").slice(0, 6000);
+        const user = [`QUESTION: ${branches.question}`, `OPTIONS: ${branches.options.map((o: { label: string }) => `"${o.label}"`).join(", ")}`, `WHAT ARRIVED:\n${item}`, await loadPrompt(admin, "respond_json_only")].join("\n\n");
+        const gw = await fetch(GATEWAY_URL, { method: "POST", headers: { "content-type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` }, body: JSON.stringify({ userId: run.user_id, taskType: "tier_fast", modelTier: "fast", systemPrompt: await loadPrompt(admin, "run_branch"), messages: [{ role: "user", content: user }], maxTokens: 300, temperature: 0, metadata: { run_id: run.id, step_id: step.id, branch: true } }) });
+        const result = await gw.json().catch(() => null);
+        const parsed = gw.ok && result?.success ? parseStructuredOutput(String(result.text ?? "")) : { ok: false as const, error: result?.error ?? `gateway ${gw.status}` };
+        if (parsed.ok) { chosen = pickBranch(branches, parsed.value); reason = String((parsed.value as Record<string, unknown>)?.reason ?? ""); }
+        else { chosen = branches.options[branches.options.length - 1]; reason = `Kinika could not decide (${parsed.error}); took the otherwise.`; }
+      }
+      const out = { choice: chosen.label, action: chosen.action, reason };
+      await admin.from("automation_run_steps").update({ status: "done", output: out, finished_at: new Date().toISOString() }).eq("id", step.id);
+      step.status = "done"; step.output = out; stepsRun++;
+      const decision = all.find((s: any) => s.type === "approval" && s.input?.kind === "decision" && s.status === "pending");
+      if (chosen.action === "skip") {
+        for (const rest of all) if (rest.status === "pending") { await admin.from("automation_run_steps").update({ status: "skipped", output: { reason: `Kinika decided: ${chosen.label}` }, finished_at: new Date().toISOString() }).eq("id", rest.id); rest.status = "skipped"; }
+        await finishRun(admin, run, "completed", { summary: `Nothing to do: ${chosen.label}. ${reason}`.trim(), branch: out });
+        return { status: "completed", stepsRun };
+      }
+      if (chosen.action === "run" && decision) {
+        await admin.from("automation_run_steps").update({ status: "skipped", output: { reason: "not needed: Kinika decided" }, finished_at: new Date().toISOString() }).eq("id", decision.id);
+        decision.status = "skipped";
+      }
+      if (chosen.brief) {
+        for (const rest of all) if (rest.status === "pending" && rest.type === "agent_task") {
+          const input = { ...(rest.input ?? {}), brief: `${rest.input?.brief ?? ""}\n\nBRANCH (${chosen.label}): ${chosen.brief}` };
+          await admin.from("automation_run_steps").update({ input }).eq("id", rest.id); rest.input = input;
+        }
+      }
+      lastOutput = { ...(lastOutput ?? {}), branch: out };
+      continue;
+    }
+
     if (step.type === "approval") {
       const gate = await openApproval(admin, run, agent, step, all, lastOutput, step.input?.kind ?? "review_output", step.input?.connection_id ?? null);
       return { ...gate, stepsRun };
@@ -537,7 +577,7 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         if (a) agent = a as AgentDefinition;
       }
       if (!agent) {
-        await failRun(admin, run, step, "This run has no agent attached.");
+        await failRun(admin, run, step, failureSentence("This run has no agent attached."));
         return { status: "failed", stepsRun };
       }
 
@@ -633,14 +673,16 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
 
       if (!gw.ok || !result?.success) {
         const msg = result?.error ?? `AI gateway returned ${gw.status}`;
-        await failRun(admin, run, step, msg, result?.usageLogId ?? null);
-        return { status: "failed", stepsRun };
+        const r = await stepFailed(admin, run, step, msg, result?.usageLogId ?? null);
+        if (r === "skipped") { stepsRun++; continue; }
+        return { status: r, stepsRun };
       }
 
       const parsed = parseStructuredOutput(result.text ?? "");
       if (!parsed.ok) {
-        await failRun(admin, run, step, `${agent.name} did not return structured output (${parsed.error}).`, result.usageLogId ?? null, result.text);
-        return { status: "failed", stepsRun };
+        const r = await stepFailed(admin, run, step, `${agent.name} did not return structured output (${parsed.error}).`, result.usageLogId ?? null, result.text);
+        if (r === "skipped") { stepsRun++; continue; }
+        return { status: r, stepsRun };
       }
 
       if (step.input?.prompt_mode === "critique") {
@@ -724,8 +766,9 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         continue;
       } catch (e) {
         const msg = e instanceof ConnectorError ? e.message : `Connector step failed: ${(e as Error).message}`;
-        await failRun(admin, run, step, msg);
-        return { status: "failed", stepsRun };
+        const r = await stepFailed(admin, run, step, msg);
+        if (r === "skipped") { stepsRun++; continue; }
+        return { status: r, stepsRun };
       }
     }
 
@@ -784,17 +827,21 @@ async function openApproval(admin: Admin, run: any, agent: AgentDefinition | nul
         };
       }
       await admin.from("automation_run_steps").update({ status: "waiting", started_at: new Date().toISOString() }).eq("id", step.id);
+      const branch = kind === "decision" ? ([...all].reverse().find((s: any) => s.type === "branch" && s.status === "done")?.output ?? null) : null;
       const { data: ap } = await admin.from("approvals").insert({
         run_id: run.id,
         step_id: step.id,
         brand_id: run.brand_id,
         user_id: run.user_id,
         kind,
-        title: `${agent?.name ?? "Agent"} finished "${run.name}"`,
-        payload: { output: code ? null : (prev?.output ?? lastOutput ?? null), step_name: prev?.name ?? null, diff, code, reason },
+        title: kind === "decision" ? `Kinika needs your decision on "${run.name}"` : `${agent?.name ?? "Agent"} finished "${run.name}"`,
+        payload: kind === "decision"
+          ? { output: null, step_name: step.name, diff: null, code: null, reason, decision: { question: String(step.input?.question ?? branch?.question ?? ""), choice: branch?.choice ?? null, why: branch?.reason ?? null, item: run.input?.event ?? null, brief: String(run.input?.brief ?? "").slice(0, 1200) } }
+          : { output: code ? null : (prev?.output ?? lastOutput ?? null), step_name: prev?.name ?? null, diff, code, reason },
       }).select("id").single();
       await admin.from("automation_runs").update({ status: "waiting_approval", current_step: step.step_index }).eq("id", run.id);
-      await notify(admin, run, "agent_needs_you", `${agent?.name ?? "An agent"} needs your review`, `"${run.name}" is ready to review.`, ap?.id ?? null);
+      if (kind === "decision") await notify(admin, run, "agent_needs_you", "Kinika needs your decision", `"${run.name}": ${branch?.choice ? `Kinika read it as "${branch.choice}". ` : ""}Run it, or skip this one?`, ap?.id ?? null);
+      else await notify(admin, run, "agent_needs_you", `${agent?.name ?? "An agent"} needs your review`, `"${run.name}" is ready to review.`, ap?.id ?? null);
       return { status: "waiting_approval", stepsRun: 0, reason: reason ?? undefined };
 }
 
@@ -924,6 +971,30 @@ async function pricingRule(admin: Admin, key: string) {
 async function pauseRun(admin: Admin, run: any, reason: string) {
   await admin.from("automation_runs").update({ status: "paused", paused_reason: reason }).eq("id", run.id);
   await notify(admin, run, "agent_run_paused", `"${run.name}" is paused`, reason, null);
+}
+
+/**
+ * A step failed: the board's policy says what happens. skip: the step is
+ * marked skipped with the reason in plain words and the run carries on. ask
+ * (default): the step is marked failed, the run pauses with a sentence the
+ * founder can act on (Try again, Skip this step, Stop). stop: the run fails.
+ */
+async function stepFailed(admin: Admin, run: any, step: any, message: string, usageLogId: string | null = null, rawText?: string): Promise<"skipped" | "paused" | "failed"> {
+  const policy = (run.policy?.on_failure ?? "ask") as "skip" | "ask" | "stop";
+  const words = failureSentence(message);
+  if (policy === "skip") {
+    await admin.from("automation_run_steps").update({ status: "skipped", error: message, usage_log_id: usageLogId, output: { skipped_because: words, raw: rawText ? rawText.slice(0, 4000) : undefined }, finished_at: new Date().toISOString() }).eq("id", step.id);
+    step.status = "skipped";
+    return "skipped";
+  }
+  if (policy === "stop") {
+    await failRun(admin, run, step, words, usageLogId, rawText);
+    return "failed";
+  }
+  await admin.from("automation_run_steps").update({ status: "failed", error: message, usage_log_id: usageLogId, output: rawText ? { raw: rawText.slice(0, 4000) } : null, finished_at: new Date().toISOString() }).eq("id", step.id);
+  step.status = "failed";
+  await pauseRun(admin, run, words);
+  return "paused";
 }
 
 async function failRun(admin: Admin, run: any, step: any, message: string, usageLogId: string | null = null, rawText?: string) {

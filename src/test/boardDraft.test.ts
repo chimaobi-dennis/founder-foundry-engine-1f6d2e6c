@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyDraftPatch, boardNeeds, coerceBoardQuestion, scheduleWords } from "@shared/boardDraft";
 import type { PlanDraft } from "@shared/runner";
 
-const base: PlanDraft = { kind: "task", name: "Three posts", brief: "Write three posts", agents: ["copywriter"], units: 3, platforms: ["instagram"], schedule: "once", conditions: [], approval: "review_first", action_class: "generate", explanation: "", warnings: [] };
+const base: PlanDraft = { kind: "task", name: "Three posts", brief: "Write three posts", agents: ["copywriter"], units: 3, platforms: ["instagram"], schedule: "once", conditions: [], approval: "review_first", on_failure: "ask", action_class: "generate", explanation: "", warnings: [] };
 
 describe("coerceBoardQuestion", () => {
   it("keeps a question with two usable chips", () => {

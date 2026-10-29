@@ -9,6 +9,7 @@ import type { Agent } from "@/services/agentService";
 import type { ToolConnection } from "@/services/connectionService";
 import { ACTION_CLASS_LABEL, EVENT_TYPES, RECIPES, SCHEDULE_INTERVALS, type ActionClass } from "@shared/runner";
 import { watchSourceFor } from "@shared/watch";
+import { ON_FAILURE_WORDS } from "@shared/branching";
 
 /**
  * "Describe it": plain language in, a reviewed plan out. Nothing is created
@@ -109,7 +110,7 @@ export function DescribeIt({ brandId, userId, agents, connections, stage, balanc
               {draft.kind === "recipe" && draft.recipe ? `${RECIPES[draft.recipe].name} · ${connections.find((c) => c.id === draft.connection_id)?.display_name ?? ""}` : draft.agents.map((s) => bySlug.get(s)?.name ?? s).join(" → ")}
             </li>
             <li className="text-muted-foreground">{draft.units} {draft.units === 1 ? "item" : "items"}{draft.platforms.length ? ` · ${draft.platforms.join(", ")}` : ""}</li>
-            <li className="flex items-center gap-2 text-muted-foreground">{draft.schedule === "webhook" ? <Webhook size={12} /> : draft.schedule === "event" ? <Zap size={12} /> : <Repeat size={12} />} {scheduleLabel} · {draft.approval === "autonomous" ? "no review" : "you review first"}</li>
+            <li className="flex items-center gap-2 text-muted-foreground">{draft.schedule === "webhook" ? <Webhook size={12} /> : draft.schedule === "event" ? <Zap size={12} /> : <Repeat size={12} />} {scheduleLabel} · {draft.approval === "autonomous" ? "no review" : "you review first"} · if a step fails, {ON_FAILURE_WORDS[draft.on_failure ?? "ask"]}</li>
             {draft.warnings.map((w, i) => <li key={i} className="flex items-start gap-2 text-amber-600 dark:text-amber-400"><AlertTriangle size={12} className="mt-0.5" /> {w}</li>)}
           </ul>
           {steps.length > 0 && (

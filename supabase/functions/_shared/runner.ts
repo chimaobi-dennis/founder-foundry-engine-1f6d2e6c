@@ -3,9 +3,11 @@
  * (planning a run before it is created, rendering outputs). No I/O here.
  */
 
-export type StepType = "agent_task" | "approval" | "native" | "connector";
+export type StepType = "agent_task" | "approval" | "native" | "connector" | "branch";
 export type RunStatus = "queued" | "running" | "waiting_approval" | "paused" | "completed" | "failed" | "cancelled";
 export type StepStatus = "pending" | "running" | "waiting" | "done" | "failed" | "skipped";
+
+import { coerceBranches, coerceOnFailure, type Branches, type OnFailure } from "./branching.ts";
 
 export interface AgentDefinition {
   id: string;
@@ -34,6 +36,10 @@ export interface TaskInput {
 
 export interface RunPolicy {
   approval: "review_first" | "autonomous";
+  /** A decision before the work: Kinika classifies what arrived and the chosen option says what happens. */
+  branches?: Branches | null;
+  /** What to do when a step fails: skip it, ask the founder (pause), or stop. Default ask. */
+  on_failure?: OnFailure;
 }
 
 export interface RunBudget {
@@ -64,14 +70,21 @@ export function normalizeUnits(units: unknown, max = 20): number {
  */
 function planSingleAgentRunRaw(agent: AgentDefinition, input: TaskInput, policy: RunPolicy = DEFAULT_POLICY): PlannedStep[] {
   const units = normalizeUnits(input.units);
-  const steps: PlannedStep[] = [
-    {
-      step_index: 0,
-      type: "agent_task",
-      name: `${agent.name}: ${units} ${agent.unit_label}${units === 1 ? "" : "s"}`,
-      input: { agent_id: agent.id, units, brief: input.brief, platforms: input.platforms ?? [] },
-    },
-  ];
+  const steps: PlannedStep[] = [];
+  // A branch decides first; when any option asks the founder, the decision
+  // step follows it and is skipped when the chosen option does not ask.
+  if (policy.branches && policy.branches.options.length >= 2) {
+    steps.push({ step_index: 0, type: "branch", name: `Kinika decides: ${policy.branches.question}`, input: { question: policy.branches.question, options: policy.branches.options } });
+    if (policy.branches.options.some((o) => o.action === "ask")) {
+      steps.push({ step_index: 1, type: "approval", name: "Your decision", input: { kind: "decision" } });
+    }
+  }
+  steps.push({
+    step_index: steps.length,
+    type: "agent_task",
+    name: `${agent.name}: ${units} ${agent.unit_label}${units === 1 ? "" : "s"}`,
+    input: { agent_id: agent.id, units, brief: input.brief, platforms: input.platforms ?? [] },
+  });
   // Creative agents check their own draft against the brand before the founder
   // sees it: a fast, uncharged critique-and-repair pass.
   if ((agent.output_spec as { type?: string } | undefined)?.type === "creative_brief") {
@@ -454,6 +467,10 @@ export interface PlanDraft {
   event?: EventType;
   /** Set when schedule is "watch": what the board waits for and the connection it reads. */
   watch?: { source: string; connection_id: string; options: Record<string, string> };
+  /** A decision before the work, if the task reads differently depending on what arrives. */
+  branches?: Branches | null;
+  /** What to do when a step fails. */
+  on_failure: OnFailure;
   conditions: EventCondition[];
   approval: "review_first" | "autonomous";
   /** The riskiest thing this plan does, decided in code from the recipe */
@@ -595,6 +612,8 @@ export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | 
     schedule,
     event,
     watch,
+    branches: coerceBranches(r.branches),
+    on_failure: coerceOnFailure(r.on_failure),
     conditions,
     approval,
     action_class: draftActionClass(kind, recipe),

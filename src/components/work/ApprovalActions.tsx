@@ -9,10 +9,12 @@ import { decideApproval } from "@/services/agentService";
  * Approve · Send back for changes (a note is required; the agent revises and
  * asks again) · Stop (ends the run). The same three everywhere.
  */
-export function ApprovalActions({ approvalId, userId, agentName, round, onDecided, compact = false }: {
+export function ApprovalActions({ approvalId, userId, agentName, round, onDecided, compact = false, kind = "review_output" }: {
   approvalId: string;
   userId: string;
   agentName: string;
+  /** "decision": Kinika asked whether to run this one at all; the buttons read Run it / Skip this one. */
+  kind?: string;
   /** Which round this result is; 1 for the first. */
   round?: number;
   onDecided: (decision: "approved" | "revise" | "rejected") => Promise<void>;
@@ -22,13 +24,14 @@ export function ApprovalActions({ approvalId, userId, agentName, round, onDecide
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
+  const decision = kind === "decision";
   const decide = async (d: "approved" | "revise" | "rejected") => {
-    if (d === "rejected" && !confirm(`Stop ${agentName} here? The run ends; credits already used stay used.`)) return;
+    if (d === "rejected" && !decision && !confirm(`Stop ${agentName} here? The run ends; credits already used stay used.`)) return;
     setBusy(d);
     const r = await decideApproval(approvalId, d, userId, note.trim() || undefined);
     setBusy(null);
     if (!r.success) { toast.error(r.error ?? "Could not record your decision"); return; }
-    toast(d === "approved" ? "Approved" : d === "revise" ? `${agentName} is revising` : "Stopped");
+    toast(decision ? (d === "approved" ? `${agentName} is on it` : "Skipped this one") : d === "approved" ? "Approved" : d === "revise" ? `${agentName} is revising` : "Stopped");
     setMode("idle"); setNote("");
     await onDecided(d);
   };
@@ -38,9 +41,9 @@ export function ApprovalActions({ approvalId, userId, agentName, round, onDecide
     <div className="flex flex-col gap-2 items-end">
       <div className="flex items-center gap-2 flex-wrap justify-end">
         {round && round > 1 && <span className="font-ui text-[11px] text-muted-foreground">Round {round}</span>}
-        <button disabled={!!busy} onClick={() => setMode(mode === "revise" ? "idle" : "revise")} className={`${btn} inline-flex items-center gap-1.5 rounded-lg border font-ui disabled:opacity-50 ${mode === "revise" ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card"}`}><RotateCcw size={13} /> Send back for changes</button>
-        <button disabled={!!busy} onClick={() => decide("rejected")} className={`${btn} inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-muted-foreground disabled:opacity-50`} title="End the run">{busy === "rejected" ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} Stop</button>
-        <button disabled={!!busy} onClick={() => decide("approved")} className={`${btn} inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-ui font-medium disabled:opacity-50`}>{busy === "approved" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Approve</button>
+        {!decision && <button disabled={!!busy} onClick={() => setMode(mode === "revise" ? "idle" : "revise")} className={`${btn} inline-flex items-center gap-1.5 rounded-lg border font-ui disabled:opacity-50 ${mode === "revise" ? "border-primary bg-accent text-accent-foreground" : "border-border bg-card"}`}><RotateCcw size={13} /> Send back for changes</button>}
+        <button disabled={!!busy} onClick={() => decide("rejected")} className={`${btn} inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-muted-foreground disabled:opacity-50`} title={decision ? "Nothing happens for this one" : "End the run"}>{busy === "rejected" ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />} {decision ? "Skip this one" : "Stop"}</button>
+        <button disabled={!!busy} onClick={() => decide("approved")} className={`${btn} inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-ui font-medium disabled:opacity-50`}>{busy === "approved" ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} {decision ? "Run it" : "Approve"}</button>
       </div>
       {mode === "revise" && (
         <div className="w-full max-w-[520px] flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
