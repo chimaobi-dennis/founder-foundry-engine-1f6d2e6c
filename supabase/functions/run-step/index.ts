@@ -27,6 +27,8 @@ import { validateEdit, DEFAULT_ALLOWED_PATHS } from "../_shared/github.ts";
 import { buildOrRevisePlan } from "../_shared/planBuild.ts";
 import { itemForBrief, readWatchSource, watchSourceFor, type WatchConfig } from "../_shared/watch.ts";
 import { failureSentence, pickBranch, type Branches } from "../_shared/branching.ts";
+import { MAX_TOOL_DEPTH, outputText, toolDepth } from "../_shared/tools.ts";
+import { BOARD_SELECT, kickRun, queueBoardRun } from "../_shared/boardRuns.ts";
 import { loadPrompt } from "../_shared/promptLoad.ts";
 import { checkinSummary } from "../_shared/plan.ts";
 import {
@@ -175,11 +177,8 @@ async function watchDue(admin: Admin): Promise<string[]> {
       for (const item of items) {
         if (cursor && item.id === cursor.id) continue;
         const brief = `${a.task_input?.brief ?? ""}\n\n${itemForBrief(item)}`;
-        const input = { ...(a.task_input ?? {}), brief, event: item, watch_source: w.source };
-        const credits = Number(a.budget?.credits_per_run) || 200;
-        const { data: run, error } = await admin.from("automation_runs").insert({ automation_id: a.id, brand_id: a.brand_id, user_id: a.user_id, agent_id: a.agent_id, name: `${a.name} · ${item.title.slice(0, 60)}`, trigger_type: "watch", status: "queued", input, policy: a.policy, budget: a.budget, credits_quoted: credits, credits_reserved: credits, external_event_id: `watch:${item.id}` }).select("id").single();
-        if (run) runs.push(run.id);
-        else if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
+        const run = await queueBoardRun(admin, a, { name: `${a.name} · ${item.title.slice(0, 60)}`, input: { brief, event: item, watch_source: w.source }, trigger_type: "watch", external_event_id: `watch:${item.id}` });
+        if (run.created) runs.push(run.id);
         cursor = { at: item.at, id: item.id };
       }
       await admin.from("automations").update({ watch: { ...w, cursor }, last_watched_at: new Date().toISOString(), last_watch_error: null, next_watch_at: later(), ...(items.length ? { last_run_at: new Date().toISOString() } : {}) }).eq("id", a.id);
@@ -505,6 +504,35 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
   let creditsCaptured = Number(run.credits_captured) || 0;
   let lastOutput: Record<string, unknown> | null = (run.output as any) ?? null;
 
+  // ── a board this run handed its result to: wait for it, then carry on ──
+  const handed = all.find((s: any) => s.type === "tool" && s.status === "waiting");
+  if (handed) {
+    const boardName = String(handed.input?.board_name ?? "the board");
+    const childId = handed.output?.child_run_id ? String(handed.output.child_run_id) : null;
+    const { data: child } = childId ? await admin.from("automation_runs").select("id, status, output, error, name").eq("id", childId).maybeSingle() : { data: null };
+    if (!child) {
+      const r = await stepFailed(admin, run, handed, `The run of the board "${boardName}" could not be found.`);
+      if (r !== "skipped") return { status: r, stepsRun };
+    } else if (child.status === "completed") {
+      const text = outputText(child.output) || summarizeOutput(boardName, child.output, `${boardName} finished.`);
+      const summary = summarizeOutput(boardName, child.output, `${boardName} finished.`);
+      const out = { child_run_id: child.id, board: boardName, summary, output: child.output ?? null };
+      await admin.from("automation_run_steps").update({ status: "done", output: out, finished_at: new Date().toISOString() }).eq("id", handed.id);
+      handed.status = "done"; handed.output = out;
+      lastOutput = { ...(lastOutput ?? {}), handed_to: { board: boardName, run_id: child.id, summary } };
+      // Whatever the board made is in front of the agents that still have work here.
+      for (const rest of all) if (rest.status === "pending" && rest.type === "agent_task") {
+        const input = { ...(rest.input ?? {}), brief: `${rest.input?.brief ?? ""}\n\nRESULT FROM THE BOARD "${boardName}":\n${text.slice(0, 6000)}` };
+        await admin.from("automation_run_steps").update({ input }).eq("id", rest.id); rest.input = input;
+      }
+    } else if (child.status === "failed" || child.status === "cancelled") {
+      const r = await stepFailed(admin, run, handed, `The board "${boardName}" ${child.status === "cancelled" ? "was stopped" : "stopped"}${child.error ? `: ${child.error}` : "."}`);
+      if (r !== "skipped") return { status: r, stepsRun };
+    } else {
+      return { status: "running", stepsRun, reason: `waiting for the board "${boardName}"` };
+    }
+  }
+
   for (const step of all) {
     if (step.status !== "pending") continue;
     if (stepsRun >= MAX_STEPS_PER_INVOCATION) break;
@@ -550,6 +578,44 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
     if (step.type === "approval") {
       const gate = await openApproval(admin, run, agent, step, all, lastOutput, step.input?.kind ?? "review_output", step.input?.connection_id ?? null);
       return { ...gate, stepsRun };
+    }
+
+    if (step.type === "tool") {
+      // The result goes on to another board on the team; this run waits for it.
+      const boardId = String(step.input?.automation_id ?? "");
+      const boardName = String(step.input?.board_name ?? "another board");
+      const depth = toolDepth(run.input);
+      const skipWith = async (reason: string) => {
+        await admin.from("automation_run_steps").update({ status: "skipped", output: { reason }, finished_at: new Date().toISOString() }).eq("id", step.id);
+        step.status = "skipped"; stepsRun++;
+      };
+      if (!boardId || boardId === run.automation_id) { await skipWith("A board does not hand its result to itself."); continue; }
+      if (depth >= MAX_TOOL_DEPTH) { await skipWith(`Boards hand on at most ${MAX_TOOL_DEPTH} deep; the result stops here.`); continue; }
+      const { data: board } = await admin.from("automations").select(BOARD_SELECT).eq("id", boardId).eq("brand_id", run.brand_id).maybeSingle();
+      if (!board || board.status !== "active") {
+        const r = await stepFailed(admin, run, step, `The board "${boardName}" is ${board ? board.status : "no longer on the team"}, so the result could not be handed on.`);
+        if (r === "skipped") { stepsRun++; continue; }
+        return { status: r, stepsRun };
+      }
+      await admin.from("automation_run_steps").update({ status: "running", started_at: new Date().toISOString() }).eq("id", step.id);
+      await admin.from("automation_runs").update({ current_step: step.step_index }).eq("id", run.id);
+      const prev = [...all].reverse().find((s: any) => s.step_index < step.step_index && s.status === "done" && s.type === "agent_task" && s.output && s.input?.prompt_mode !== "critique");
+      const handedText = outputText(prev?.output) || summarizeOutput(agent?.name ?? "The agent", lastOutput, run.name);
+      try {
+        const child = await queueBoardRun(admin, board, { name: `${board.name} · from ${run.name}`, handed: handedText, from: `the board "${run.name}"`, input: { called_by: { run_id: run.id, step_id: step.id, name: run.name }, tool_depth: depth + 1 }, trigger_type: "tool", external_event_id: `tool:${step.id}` });
+        const out = { child_run_id: child.id, board: board.name };
+        await admin.from("automation_run_steps").update({ status: "waiting", output: out }).eq("id", step.id);
+        step.status = "waiting"; step.output = out; stepsRun++;
+        if (child.created) {
+          kickRun(SUPABASE_URL, SERVICE_ROLE_KEY, child.id);
+          await notify(admin, run, "system", `"${run.name}" handed its result to "${board.name}"`, `${board.name} is working on it now. You approve its result as usual.`, null);
+        }
+        return { status: "running", stepsRun, reason: `waiting for the board "${board.name}"` };
+      } catch (e) {
+        const r = await stepFailed(admin, run, step, `Could not start the board "${board.name}": ${(e as Error).message}`);
+        if (r === "skipped") { stepsRun++; continue; }
+        return { status: r, stepsRun };
+      }
     }
 
     if (step.type === "connector" && isConnectorWrite(step.input?.action) && !step.input?.approved && !step.input?.dry_run) {

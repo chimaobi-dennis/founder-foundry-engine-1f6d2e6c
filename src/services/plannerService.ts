@@ -80,7 +80,7 @@ export interface ExecuteResult {
 /** Create exactly what the confirmed draft says. */
 export async function executeDraft(draft: PlanDraft, brandId: string, userId: string, agents: Agent[], connections: ToolConnection[], startFrom: WatchItem | null = null): Promise<ExecuteResult> {
   const bySlug = new Map(agents.map((a) => [a.slug, a]));
-  const policy = { approval: draft.approval, branches: draft.branches ?? null, on_failure: draft.on_failure ?? 'ask' };
+  const policy = { approval: draft.approval, branches: draft.branches ?? null, on_failure: draft.on_failure ?? 'ask', then: draft.then ?? null };
   const input = { brief: draft.brief, units: draft.units, platforms: draft.platforms };
 
   if (draft.kind === 'recipe' && draft.recipe) {
@@ -119,7 +119,7 @@ export interface DraftStep {
 /** The readable checklist of what a confirmed draft will do, each step with its class. */
 export function describeDraftSteps(draft: PlanDraft, agents: Agent[]): DraftStep[] {
   const bySlug = new Map(agents.map((a) => [a.slug, a]));
-  const policy = { approval: draft.approval, branches: draft.branches ?? null, on_failure: draft.on_failure ?? 'ask' };
+  const policy = { approval: draft.approval, branches: draft.branches ?? null, on_failure: draft.on_failure ?? 'ask', then: draft.then ?? null };
   const input = { brief: draft.brief, units: draft.units, platforms: draft.platforms };
   let steps;
   if (draft.kind === 'recipe' && draft.recipe) {

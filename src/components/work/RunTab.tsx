@@ -17,7 +17,7 @@ import type { Deliverable } from "@/services/planService";
 /** A run step in the shared progress shape: the runner's own plan is the to-do list. */
 function stepToProgress(s: RunStep): ProgressStep {
   const status = s.status === "done" ? "done" : s.status === "running" ? "doing" : s.status === "failed" ? "failed" : s.status === "skipped" ? "skipped" : s.status === "waiting" ? "doing" : "todo";
-  const bits = [s.status === "waiting" ? "waiting for you" : "", s.credits_captured > 0 ? `${Number(s.credits_captured)} credits` : "", s.error ?? ""].filter(Boolean);
+  const bits = [s.status === "waiting" ? (s.type === "tool" ? "waiting for the board" : "waiting for you") : "", s.credits_captured > 0 ? `${Number(s.credits_captured)} credits` : "", s.error ?? ""].filter(Boolean);
   return { key: s.id, label: s.name, status, at: s.started_at ?? undefined, note: bits.join(" · ") || undefined };
 }
 

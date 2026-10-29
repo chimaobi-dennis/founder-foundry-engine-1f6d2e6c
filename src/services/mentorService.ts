@@ -2,6 +2,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAI, type TaskType, getSystemPrompt, requirePrompt, injectPromptVariables } from './aiService';
 import { applyPlanEdits, getPlan } from './planService';
 import { parsePlanEdits, planPromptBlock } from '@shared/plan';
+import { boardToolsFrom, boardsBlock, parseBoardCalls } from '@shared/tools';
+import { listAutomations, startBoard, type Automation } from './agentService';
 import { logAIError } from './errorService';
 import { getAssetsForAIContext } from './projectAssetsService';
 import { isUntitledProject, updateProjectName, getAllJourneyStages } from './brandService';
@@ -61,6 +63,8 @@ export interface MentorAIResult {
   } | null;
   /** Short lines describing plan changes Mentor made in this reply. */
   planEdits?: string[];
+  /** Boards Kinika started from this reply, one line each. */
+  boardsStarted?: string[];
   capturedField?: {
     fieldKey: string;
     value: string;
@@ -478,6 +482,16 @@ export const getMentorAIResponse = async (
     if (editTemplate) systemPrompt += '\n\n' + planPromptBlock(plan, editTemplate);
   }
 
+  // The standing boards on the team are tools Kinika may start from the conversation.
+  let boards: Automation[] = [];
+  if (brand?.id) {
+    boards = (await listAutomations(brand.id).catch(() => [] as Automation[])).filter((a) => a.status === 'active');
+    if (boards.length) {
+      const boardsTemplate = await getSystemPrompt('kinika_boards');
+      if (boardsTemplate) systemPrompt += '\n\n' + boardsBlock(boardToolsFrom(boards), boardsTemplate);
+    }
+  }
+
   // If the founder just shared prior context during onboarding, prompt the
   // mentor to acknowledge it briefly in the first response. Only fires on the
   // very first exchange and when context_source indicates real input.
@@ -609,6 +623,17 @@ export const getMentorAIResponse = async (
     }
   }
 
+  // Boards Kinika started from this reply: strip the blocks, queue the runs.
+  const boardsStarted: string[] = [];
+  const calls = parseBoardCalls(cleanText, taskContext?.deliverables);
+  cleanText = calls.text;
+  for (const call of calls.calls) {
+    const board = boards.find((b) => b.id === call.id);
+    if (!board) continue;
+    const r = await startBoard(board, userId, call.brief).catch((e) => ({ success: false, error: (e as Error).message }));
+    boardsStarted.push(r.success ? `Started "${board.name}"${board.agent?.name ? ` with the ${board.agent.name}` : ''}` : `Could not start "${board.name}": ${r.error ?? 'unknown'}`);
+  }
+
   // cleanText is what gets saved to the database
   // choicePrompt is the extracted structured data
   // capturedField contains auto-saved brand_stage_data info
@@ -649,7 +674,7 @@ export const getMentorAIResponse = async (
     cleanText = t.text; deliverablesDone = t.done; taskDocument = t.document; suggestions = t.suggestions; options = t.options;
   }
 
-  return { text: cleanText, choicePrompt, capturedField, planEdits, deliverablesDone, taskDocument, suggestions, options };
+  return { text: cleanText, choicePrompt, capturedField, planEdits, boardsStarted, deliverablesDone, taskDocument, suggestions, options };
 };
 
 // ─── Choice Prompts ─────────────────────────────────────────
