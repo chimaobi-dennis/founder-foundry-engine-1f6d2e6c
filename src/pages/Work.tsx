@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StepLine, OutputView } from "@/components/team/RunViews";
 import { cancelRun, ensureStaffed } from "@/services/agentService";
 import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
+import { RunRecovery } from "@/components/work/RunRecovery";
 import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, wantsCanvas, type Workspace } from "@/services/workspaceService";
 import ContentStudioEditor from "@/pages/ContentStudioEditor";
 import { FounderWorkspace } from "@/components/work/FounderWorkspace";
@@ -77,7 +78,7 @@ export default function Work() {
     if (r.status === "completed") return "done";
     if (r.status === "failed") return `stopped: ${r.error ?? "something went wrong"}`;
     if (r.status === "cancelled") return "sent back";
-    if (r.status === "paused") return `paused: ${r.paused_reason ?? ""}`;
+    if (r.status === "paused") return "paused, needs you";
     return r.status;
   }, [ws]);
 
@@ -136,7 +137,7 @@ export default function Work() {
         <div className="flex items-center gap-2">
           <button onClick={() => setHistoryOpen((v) => !v)} className={cn("h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border font-ui text-[12px]", historyOpen ? "bg-accent text-accent-foreground" : "bg-card")}><History size={13} /> History</button>
           <button onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast("Link copied"); } catch { toast.error("Could not copy"); } }} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card font-ui text-[12px]"><Link2 size={13} /> Share</button>
-          {approval && user && <ApprovalActions approvalId={approval.id} userId={user.id} agentName={agentName} round={roundOf(run?.steps)} onDecided={decided} compact />}
+          {approval && user && <ApprovalActions approvalId={approval.id} userId={user.id} agentName={agentName} round={roundOf(run?.steps)} onDecided={decided} compact kind={approval.kind} />}
         </div>
       </header>
 
@@ -223,10 +224,19 @@ export default function Work() {
             </div>
           )}
 
+          {run && <div className="max-w-[720px] mx-auto mb-4"><RunRecovery run={run} onChanged={load} /></div>}
+          {run && approval?.kind === "decision" && approval.payload.decision && (
+            <div className="max-w-[720px] mx-auto mb-4 rounded-xl border border-[hsl(var(--brand-needs-you))]/50 bg-[hsl(var(--brand-needs-you-soft))]/50 p-4 flex flex-col gap-1.5">
+              <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--brand-needs-you))]">Kinika asks: {approval.payload.decision.question}</span>
+              {approval.payload.decision.choice && <p className="font-ui text-[14px] text-foreground">Kinika read it as <strong>{approval.payload.decision.choice}</strong>{approval.payload.decision.why ? `: ${approval.payload.decision.why}` : "."}</p>}
+              {approval.payload.decision.item && <p className="font-ui text-[13px] text-muted-foreground whitespace-pre-wrap">{String((approval.payload.decision.item as { title?: string }).title ?? "")}{(approval.payload.decision.item as { from?: string }).from ? ` · from ${(approval.payload.decision.item as { from?: string }).from}` : ""}{"\n"}{String((approval.payload.decision.item as { text?: string }).text ?? "").slice(0, 600)}</p>}
+              <p className="font-ui text-[12px] text-muted-foreground">Run it, and {agentName} does the work for your approval. Skip this one, and nothing happens for it.</p>
+            </div>
+          )}
           {run && (
             <article className="max-w-[720px] mx-auto rounded-xl border border-border bg-card">
               <div className="px-6 pt-6 pb-3 border-b border-border flex flex-col gap-1">
-                <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground">{approval ? "Waiting for your approval" : run.status === "completed" ? "Approved" : "Draft"} · {agentName}</span>
+                <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-accent-foreground">{approval ? (approval.kind === "decision" ? "Waiting for your decision" : "Waiting for your approval") : run.status === "completed" ? "Approved" : run.status === "paused" ? "Paused" : "Draft"} · {agentName}</span>
                 <h1 className="font-display text-[24px] leading-tight">{run.name}</h1>
               </div>
               {tabbed && activeStep ? (

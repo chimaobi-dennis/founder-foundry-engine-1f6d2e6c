@@ -17,6 +17,7 @@ export interface DraftPatch {
   units?: number;
   platforms?: string[];
   approval?: PlanDraft["approval"];
+  on_failure?: PlanDraft["on_failure"];
 }
 
 export interface BoardQuestion {
@@ -33,7 +34,7 @@ export interface BoardNeed {
   connected: boolean;
 }
 
-const PATCH_KEYS: (keyof DraftPatch)[] = ["schedule", "event", "units", "platforms", "approval"];
+const PATCH_KEYS: (keyof DraftPatch)[] = ["schedule", "event", "units", "platforms", "approval", "on_failure"];
 
 function coercePatch(raw: unknown): DraftPatch | null {
   if (!raw || typeof raw !== "object") return null;
@@ -48,6 +49,7 @@ function coercePatch(raw: unknown): DraftPatch | null {
   if (r.units != null && isFinite(Number(r.units))) p.units = normalizeUnits(r.units);
   if (Array.isArray(r.platforms)) p.platforms = r.platforms.map((x) => String(x).toLowerCase().trim()).filter(Boolean).slice(0, 8);
   if (r.approval === "review_first" || r.approval === "autonomous") p.approval = r.approval;
+  if (r.on_failure === "skip" || r.on_failure === "ask" || r.on_failure === "stop") p.on_failure = r.on_failure;
   return PATCH_KEYS.some((k) => p[k] !== undefined) ? p : null;
 }
 
@@ -86,6 +88,7 @@ export function applyDraftPatch(draft: PlanDraft, patch: DraftPatch): PlanDraft 
     }
   }
   if (patch.units != null) next.units = normalizeUnits(patch.units);
+  if (patch.on_failure) next.on_failure = patch.on_failure;
   if (patch.platforms) next.platforms = patch.platforms;
   if (patch.approval) {
     const irreversible = draft.recipe ? !!RECIPES[draft.recipe].irreversible : false;

@@ -20,6 +20,7 @@ import type { ProgressStep } from "@/services/narrated";
 import type { Quote } from "@/services/pricingService";
 import { applyDraftPatch, boardNeeds, type BoardNeed, type BoardQuestion } from "@shared/boardDraft";
 import { ago, peekWatchSource, watchSourceFor, type WatchItem } from "@/services/watchService";
+import { ON_FAILURE_WORDS } from "@shared/branching";
 
 /**
  * /board/new?task=:id — Set up, in the board. Pressing Set up on an agent
@@ -305,7 +306,7 @@ export default function BoardSetup() {
                   </div>
                 )}
                 {b.quote && (
-                  <p className="font-ui text-[13px] text-muted-foreground">{quote ? `About ${quote.estimate} credits, up to ${quote.max}; ${Math.max(0, balance - quote.max)} after.` : "No price yet."} {draft?.approval === "autonomous" ? "No review step." : "You approve before anything goes out."} {draft?.schedule === "watch" ? "Start watching" : standing ? "Set up and run once" : "Run once"} is top right when you are ready.</p>
+                  <p className="font-ui text-[13px] text-muted-foreground">{quote ? `About ${quote.estimate} credits, up to ${quote.max}; ${Math.max(0, balance - quote.max)} after.` : "No price yet."} {draft?.approval === "autonomous" ? "No review step." : "You approve before anything goes out."} If a step fails, Kinika will {ON_FAILURE_WORDS[draft?.on_failure ?? "ask"]}. {draft?.schedule === "watch" ? "Start watching" : standing ? "Set up and run once" : "Run once"} is top right when you are ready.</p>
                 )}
               </div>
             ))}
