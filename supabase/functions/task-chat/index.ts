@@ -16,6 +16,8 @@ import { buildContextPack } from "../_shared/contextPack.ts";
 import { parseTaskReply, taskPromptBlock, type TaskChatContext } from "../_shared/taskChat.ts";
 import { loadPrompts } from "../_shared/promptLoad.ts";
 import { storedNarrator, type Narrator } from "../_shared/progress.ts";
+import { boardToolsFrom, boardsBlock, parseBoardCalls } from "../_shared/tools.ts";
+import { BOARD_SELECT, kickRun, queueBoardRun } from "../_shared/boardRuns.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
@@ -85,14 +87,17 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     { key: "apply", label: "Putting the reply together" },
   ]);
   n.start("context");
-  const [{ data: brand }, pack, { data: history }, { data: plan }] = await Promise.all([
+  const [{ data: brand }, pack, { data: history }, { data: plan }, { data: boardRows }] = await Promise.all([
     admin.from("brands").select("id, user_id, name, journey_stage, business_kind, goal").eq("id", task.brand_id).maybeSingle(),
     buildContextPack(admin, task.brand_id),
     admin.from("mentor_messages").select("role, content").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(40),
     admin.from("brand_plans").select("title, plan_targets(title, status, position)").eq("brand_id", task.brand_id).eq("is_current", true).maybeSingle(),
+    admin.from("automations").select(`${BOARD_SELECT}, agents(name, slug)`).eq("brand_id", task.brand_id).eq("status", "active").order("created_at").limit(20),
   ]);
-  n.done("context", `${(history ?? []).length} messages so far`);
-  const P = await loadPrompts(admin, ["task_chat", "task_chat_intro", "task_chat_rules", "task_chat_contract", "task_chat_followups"]);
+  // The standing boards on the team are tools Kinika may start from here.
+  const boards = boardToolsFrom(boardRows);
+  n.done("context", `${(history ?? []).length} messages so far${boards.length ? `, ${boards.length} board${boards.length === 1 ? "" : "s"} on the team` : ""}`);
+  const P = await loadPrompts(admin, ["task_chat", "task_chat_intro", "task_chat_rules", "task_chat_contract", "task_chat_followups", "kinika_boards"]);
   const voice = P.task_chat.split("{{brand_name}}").join(brand?.name ?? "this business");
   const ctx: TaskChatContext = {
     task: { id: task.id, title: task.title, detail: task.detail, target_title: task.plan_targets?.title ?? "" },
@@ -105,6 +110,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
     brand?.goal ? `THE FOUNDER'S GOAL: ${brand.goal}` : "",
     targets ? `THE PLAN${plan?.title ? ` (${plan.title})` : ""}:\n${targets}` : "",
     taskPromptBlock(ctx, { intro: P.task_chat_intro, rules: P.task_chat_rules, contract: P.task_chat_contract, followups: P.task_chat_followups }),
+    boardsBlock(boards, P.kinika_boards),
   ].filter(Boolean).join("\n\n");
 
   // The history already holds the founder's message when it was saved; a hidden instruction is appended here.
@@ -124,6 +130,29 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
 
   const parsed = parseTaskReply(String(result.text), ctx.deliverables);
   const now = new Date().toISOString();
+
+  // Boards Kinika started from this reply: queued now, pinned to a deliverable when Kinika said which.
+  const calls = parseBoardCalls(parsed.text, ctx.deliverables);
+  parsed.text = calls.text;
+  const started = new Map<string, { run_id: string; agent_slug: string | null; agent_name: string | null }>();
+  const startedNotes: string[] = [];
+  for (const call of calls.calls) {
+    // deno-lint-ignore no-explicit-any
+    const board = (boardRows ?? []).find((b: any) => b.id === call.id) as any;
+    if (!board) continue;
+    if (!startedNotes.length) n.plan([{ key: "boards", label: "Starting the board Kinika chose" }]);
+    n.start("boards");
+    try {
+      const run = await queueBoardRun(admin, board, { name: `${board.name} · from ${task.title}`, handed: call.brief, from: "Kinika", input: { called_by: { task_id: task.id, conversation_id: conversationId, name: task.title } }, trigger_type: "kinika", external_event_id: `kinika:${conversationId}:${Date.now()}` });
+      kickRun(SUPABASE_URL, SERVICE_ROLE_KEY, run.id);
+      const agentName = board.agents?.name ?? null;
+      if (call.deliverableId) started.set(call.deliverableId, { run_id: run.id, agent_slug: board.agents?.slug ?? null, agent_name: agentName });
+      startedNotes.push(`Kinika started "${board.name}"${agentName ? ` with the ${agentName}` : ""}. You approve its result as usual.`);
+    } catch (e) {
+      startedNotes.push(`Kinika could not start "${board.name}": ${(e as Error).message}`);
+    }
+  }
+  if (startedNotes.length) n.done("boards", `${calls.calls.length} started`);
   if (parsed.document) { n.plan([{ key: "document", label: `Saving the document: ${parsed.document.title.slice(0, 60)}` }]); n.start("document"); }
 
   // A document Kinika wrote: saved once; a later version never overwrites the founder's edits.
@@ -143,12 +172,14 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   // Deliverables closed in this reply, the document linked to the first document-kind one still open,
   // and a need Kinika raised pinned to its deliverable until the founder resolves it.
   const needTarget = parsed.needs ? (parsed.needs.deliverableId ?? deliverables.find((d) => !d.done)?.id ?? null) : null;
-  if (parsed.done.length || documentId || needTarget) {
+  if (parsed.done.length || documentId || needTarget || started.size) {
     const byId = new Map(parsed.done.map((d) => [d.id, d.result]));
     let linked = false;
     const next = deliverables.map((d) => {
       let out = d;
       if (byId.has(d.id)) out = { ...out, done: true, done_at: out.done_at ?? now, result: byId.get(d.id) ?? out.result ?? null };
+      const s = started.get(d.id);
+      if (s && !d.done && !d.run_id) out = { ...out, run_id: s.run_id, agent_slug: s.agent_slug, agent_name: s.agent_name };
       if (documentId && !linked && d.kind === "document" && !d.document_id) { out = { ...out, document_id: documentId }; linked = true; }
       if (needTarget === d.id && parsed.needs && !d.done && !(d.needs && !d.needs.resolved)) out = { ...out, needs: { role: parsed.needs.role, label: parsed.needs.label, why: parsed.needs.why, brief: parsed.needs.brief, raised_at: now, resolved: null } };
       return out;
@@ -158,6 +189,7 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
 
   n.done("apply", parsed.done.length ? `${parsed.done.length} deliverable${parsed.done.length === 1 ? "" : "s"} ticked` : undefined);
   await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "assistant", content: parsed.text || "…" });
+  for (const note of startedNotes) await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "note", content: note.slice(0, 300) });
   await admin.from("mentor_conversations").update({
     pending_since: null, last_error: null, last_message_at: now, progress: n.steps,
     last_followups: { suggestions: parsed.suggestions, options: parsed.options, document: !!parsed.document, closed: parsed.done.map((d) => d.id), needs: needTarget },

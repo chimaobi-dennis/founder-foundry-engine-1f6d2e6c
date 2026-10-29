@@ -3,11 +3,12 @@
  * (planning a run before it is created, rendering outputs). No I/O here.
  */
 
-export type StepType = "agent_task" | "approval" | "native" | "connector" | "branch";
+export type StepType = "agent_task" | "approval" | "native" | "connector" | "branch" | "tool";
 export type RunStatus = "queued" | "running" | "waiting_approval" | "paused" | "completed" | "failed" | "cancelled";
 export type StepStatus = "pending" | "running" | "waiting" | "done" | "failed" | "skipped";
 
 import { coerceBranches, coerceOnFailure, type Branches, type OnFailure } from "./branching.ts";
+import { coerceHandOff, type HandOff } from "./tools.ts";
 
 export interface AgentDefinition {
   id: string;
@@ -40,6 +41,8 @@ export interface RunPolicy {
   branches?: Branches | null;
   /** What to do when a step fails: skip it, ask the founder (pause), or stop. Default ask. */
   on_failure?: OnFailure;
+  /** After the founder approves, the result is handed to this board (a standing task used as a tool). */
+  then?: HandOff | null;
 }
 
 export interface RunBudget {
@@ -102,6 +105,10 @@ function planSingleAgentRunRaw(agent: AgentDefinition, input: TaskInput, policy:
       name: "Review the result",
       input: { kind: "review_output" },
     });
+  }
+  if (policy.then) {
+    // The result goes on to another board once the founder has approved it.
+    steps.push({ step_index: steps.length, type: "tool", name: `Hand to board: ${policy.then.name}`, input: { automation_id: policy.then.automation_id, board_name: policy.then.name } });
   }
   return steps;
 }
@@ -442,6 +449,10 @@ function planHiveRunRaw(stages: HiveStage[], input: TaskInput, policy: RunPolicy
   if (policy.approval === "review_first") {
     steps.push({ step_index: list.length, type: "approval", name: "Review the team's result", input: { kind: "review_output" } });
   }
+  if (policy.then) {
+    // The result goes on to another board once the founder has approved it.
+    steps.push({ step_index: steps.length, type: "tool", name: `Hand to board: ${policy.then.name}`, input: { automation_id: policy.then.automation_id, board_name: policy.then.name } });
+  }
   return steps;
 }
 
@@ -471,6 +482,8 @@ export interface PlanDraft {
   branches?: Branches | null;
   /** What to do when a step fails. */
   on_failure: OnFailure;
+  /** Where the result goes next: another board on the team, or nowhere. */
+  then?: HandOff | null;
   conditions: EventCondition[];
   approval: "review_first" | "autonomous";
   /** The riskiest thing this plan does, decided in code from the recipe */
@@ -489,6 +502,8 @@ export interface PlannerContext {
   stage?: string | null;
   /** Watch sources the workspace can use, from its connections (key → connection id). */
   sources?: { key: string; connection_id: string; line: string }[];
+  /** Boards on the team a result can be handed to (id → name). */
+  boards?: { id: string; name: string; line: string }[];
 }
 
 /** The Describe-it planner; `template` is the prompt key automation_planner ({{agents}}, {{recipes}}, {{connections}}). */
@@ -497,7 +512,8 @@ export function plannerSystemPrompt(ctx: PlannerContext, template: string): stri
   const recipes = Object.values(RECIPES).map((r) => `- ${r.key}: ${r.name} (needs a ${r.provider} connection; agent ${r.agentSlug})`).join("\n");
   const conns = ctx.connections.length ? ctx.connections.map((c) => `- ${c.id}: ${c.display_name} (${c.provider})`).join("\n") : "(none)";
   const sources = ctx.sources?.length ? ctx.sources.map((x) => x.line).join("\n") : "(none connected)";
-  return template.split("{{agents}}").join(agents).split("{{recipes}}").join(recipes).split("{{connections}}").join(conns).split("{{sources}}").join(sources);
+  const boards = ctx.boards?.length ? ctx.boards.map((b) => b.line).join("\n") : "(none yet)";
+  return template.split("{{agents}}").join(agents).split("{{recipes}}").join(recipes).split("{{connections}}").join(conns).split("{{sources}}").join(sources).split("{{boards}}").join(boards);
 }
 
 const INTERVALS: ScheduleInterval[] = ["daily", "weekly", "biweekly", "monthly"];
@@ -614,6 +630,7 @@ export function coercePlanDraft(raw: unknown, ctx: PlannerContext): PlanDraft | 
     watch,
     branches: coerceBranches(r.branches),
     on_failure: coerceOnFailure(r.on_failure),
+    then: coerceHandOff(r.then, ctx.boards),
     conditions,
     approval,
     action_class: draftActionClass(kind, recipe),
@@ -693,6 +710,7 @@ export const ACTION_CLASS_LABEL: Record<ActionClass, string> = {
 export function classifyStep(step: Pick<PlannedStep, "type" | "input">): ActionClass {
   if (step.type === "agent_task") return "generate";
   if (step.type === "approval") return "review";
+  if (step.type === "tool") return "generate";
   switch (step.input?.action) {
     case "apply_changes":
     case "create_draft":

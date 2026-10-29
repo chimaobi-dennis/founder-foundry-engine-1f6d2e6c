@@ -948,6 +948,9 @@ const Mentor = () => {
       }
 
       // Plan changed from the conversation → say so, refresh the plan glance
+      if (response.boardsStarted?.length) {
+        toast(response.boardsStarted.join(" · "), { duration: 5000 });
+      }
       if (response.planEdits?.length) {
         toast(response.planEdits.join(" · "), { duration: 4000 });
         setForceRefresh(n => n + 1);

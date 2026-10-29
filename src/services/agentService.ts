@@ -12,6 +12,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { SUPABASE_CONFIG } from '@/config/supabaseConfig';
 import { itemForBrief, watchSourceFor, type WatchConfig, type WatchItem } from '@shared/watch';
+import { outputText, toolBrief } from '@shared/tools';
 import { quoteAction, type Quote } from './pricingService';
 import { getBrandOwnerId } from './teamMembersService';
 import {
@@ -221,6 +222,8 @@ export interface CreateRunInput {
   policy?: RunPolicy;
   budget?: Partial<RunBudget>;
   automationId?: string | null;
+  /** Who started it: the founder (manual) or Kinika from a conversation. */
+  trigger?: 'manual' | 'kinika';
 }
 
 /**
@@ -250,7 +253,7 @@ export async function createRun(params: CreateRunInput): Promise<{ success: bool
       agent_id: agent.id,
       automation_id: params.automationId ?? null,
       name: name.trim() || `${agent.name} task`,
-      trigger_type: 'manual',
+      trigger_type: params.trigger ?? 'manual',
       status: 'queued',
       input: { ...input, units: normalizeUnits(input.units) },
       policy,
@@ -429,22 +432,9 @@ export function outputItems(output: Record<string, unknown> | null | undefined):
   return items.filter((i: any) => i && typeof i === 'object');
 }
 
-/** Flatten an output into plain text for copy/paste. */
+/** Flatten an output into plain text for copy/paste (the runner uses the same flattening when a board hands its result on). */
 export function outputToText(output: Record<string, unknown> | null | undefined): string {
-  if (!output) return '';
-  const parts: string[] = [];
-  if (typeof output.brief === 'string') parts.push(output.brief);
-  if (Array.isArray((output as any).headlines)) parts.push(`Headlines:\n- ${(output as any).headlines.join('\n- ')}`);
-  for (const it of outputItems(output)) {
-    const head = [it.platform, it.title].filter(Boolean).join(' · ');
-    parts.push(`${head ? head + '\n' : ''}${it.body ?? ''}${it.hashtags?.length ? '\n' + it.hashtags.map((h) => (h.startsWith('#') ? h : '#' + h)).join(' ') : ''}${it.cta ? '\n' + it.cta : ''}`);
-  }
-  if (Array.isArray((output as any).findings)) {
-    for (const f of (output as any).findings) parts.push(`${f.heading}\n${f.body}`);
-  }
-  if (Array.isArray((output as any).recommendations)) parts.push(`Recommendations:\n- ${(output as any).recommendations.join('\n- ')}`);
-  if (typeof output.notes === 'string' && output.notes) parts.push(`Notes: ${output.notes}`);
-  return parts.join('\n\n');
+  return outputText(output);
 }
 
 // ─── Automations (standing tasks on a schedule) ─────────────
@@ -585,17 +575,30 @@ export async function setAutomationStatus(id: string, status: 'active' | 'paused
 
 /** Start a run from an automation now, and push the schedule forward. */
 export async function runAutomationNow(automation: Automation, userId: string): Promise<{ success: boolean; error?: string; run?: AutomationRun }> {
+  return startAutomationRun(automation, userId, null);
+}
+
+/**
+ * Kinika starting a board from a conversation (the board as a tool): the
+ * board's own brief, then what Kinika handed it.
+ */
+export async function startBoard(automation: Automation, userId: string, handed: string): Promise<{ success: boolean; error?: string; run?: AutomationRun }> {
+  return startAutomationRun(automation, userId, handed);
+}
+
+async function startAutomationRun(automation: Automation, userId: string, handed: string | null): Promise<{ success: boolean; error?: string; run?: AutomationRun }> {
   const { data: agent } = await db.from('agents').select('*').eq('id', automation.agent_id).maybeSingle();
   if (!agent) return { success: false, error: 'This automation has no agent attached.' };
   const r = await createRun({
     brandId: automation.brand_id,
     userId,
     agent,
-    name: automation.name,
-    input: automation.task_input,
+    name: handed ? `${automation.name} · from Kinika` : automation.name,
+    input: handed ? { ...automation.task_input, brief: toolBrief(automation.task_input.brief, 'Kinika', handed) } : automation.task_input,
     policy: automation.policy,
     budget: automation.budget,
     automationId: automation.id,
+    trigger: handed ? 'kinika' : 'manual',
   });
   if (r.success && automation.schedule_interval) {
     await db.from('automations').update({ last_run_at: new Date().toISOString(), next_run_at: nextRunAt(automation.schedule_interval, new Date()).toISOString() }).eq('id', automation.id);

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { BookOpen, Bot, Check, Clock, GitBranch, Loader2, Send, UserRound, X, Zap } from "lucide-react";
+import { BookOpen, Bot, Check, Clock, GitBranch, Loader2, Send, UserRound, Workflow, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { planSingleAgentRun, SCHEDULE_INTERVALS, EVENT_TYPES, type Agent, type Automation, type AutomationRun, type RunStep } from "@/services/agentService";
 import { planHiveRun, planRecipeRun, RECIPES, type PlanDraft, type PlannedStep, type HiveStage } from "@shared/runner";
@@ -18,7 +18,7 @@ import { watchSourceFor } from "@shared/watch";
 export interface BoardCard {
   key: string;
   stepIndex: number | null;
-  kind: "when" | "read" | "work" | "review" | "act" | "report" | "branch";
+  kind: "when" | "read" | "work" | "review" | "act" | "report" | "branch" | "tool";
   label: string;
   title: string;
   /** Who does it, or which connection and permission. */
@@ -75,7 +75,7 @@ export function boardCards(a: Automation, latest: AutomationRun | null): BoardCa
  */
 export function draftBoardCards(draft: PlanDraft, agents: Agent[]): BoardCard[] {
   const bySlug = new Map(agents.map((a) => [a.slug, a]));
-  const policy = { approval: draft.approval, branches: draft.branches ?? null, on_failure: draft.on_failure ?? "ask" };
+  const policy = { approval: draft.approval, branches: draft.branches ?? null, on_failure: draft.on_failure ?? "ask", then: draft.then ?? null };
   const input = { brief: draft.brief, units: draft.units, platforms: draft.platforms };
   let planned: PlannedStep[] = [];
   if (draft.kind === "recipe" && draft.recipe) {
@@ -105,18 +105,19 @@ function cardsFromPlan(when: BoardCard, planned: Pick<PlannedStep, "step_index" 
     const s = latest?.steps?.find((x) => x.step_index === p.step_index);
     const input = (p.input ?? {}) as Record<string, unknown>;
     const isBranch = p.type === "branch";
+    const isTool = p.type === "tool";
     const isDecision = p.type === "approval" && input.kind === "decision";
     const isReview = p.type === "approval";
     const isConnector = p.type === "connector";
     const isRead = isConnector && !reviewed && /read|fetch|snapshot|watch|list|get/i.test(p.name);
-    const kind: BoardCard["kind"] = isBranch ? "branch" : isReview ? "review" : isConnector ? (isRead ? "read" : "act") : "work";
+    const kind: BoardCard["kind"] = isBranch ? "branch" : isTool ? "tool" : isReview ? "review" : isConnector ? (isRead ? "read" : "act") : "work";
     const options = isBranch && Array.isArray(input.options) ? (input.options as { label: string; action: string }[]) : [];
-    const title = isBranch ? String(input.question ?? "Which way?") : isDecision ? "You decide" : isReview ? "You approve" : p.name.includes(":") ? p.name.split(":").slice(1).join(":").trim() : p.name;
+    const title = isBranch ? String(input.question ?? "Which way?") : isTool ? String(input.board_name ?? "another board") : isDecision ? "You decide" : isReview ? "You approve" : p.name.includes(":") ? p.name.split(":").slice(1).join(":").trim() : p.name;
     cards.push({
-      key: `s${p.step_index}`, stepIndex: p.step_index, kind, label: isBranch ? "Decide" : isDecision ? "Ask you" : isReview ? "Approve" : kind === "read" ? "Read" : kind === "act" ? "Act" : "Work",
+      key: `s${p.step_index}`, stepIndex: p.step_index, kind, label: isBranch ? "Decide" : isTool ? "Hand to" : isDecision ? "Ask you" : isReview ? "Approve" : kind === "read" ? "Read" : kind === "act" ? "Act" : "Work",
       title: title || p.name,
-      who: isBranch ? "Kinika" : isReview ? "you" : isConnector ? connectorWho(input, p.name, reviewed) : (p.name.includes(":") ? p.name.split(":")[0].trim() : agentName),
-      detail: s ? (s.status === "done" ? (isBranch ? `decided: ${String((s.output as { choice?: string } | null)?.choice ?? "")}` : `ran · ${Number(s.credits_captured) || 0} credits`) : s.status === "waiting" ? "waiting for you" : s.status === "failed" ? "paused here" : s.status === "skipped" ? (isDecision ? "not needed" : "skipped") : s.status === "running" ? (isBranch ? "deciding" : "working") : "next") : isBranch ? options.map((o) => `${o.label} → ${o.action === "ask" ? "ask you" : o.action === "skip" ? "skip" : "do it"}`).join(" · ") : isDecision ? "only when Kinika is unsure" : isReview ? "cannot be removed" : "not run yet",
+      who: isBranch || isTool ? "Kinika" : isReview ? "you" : isConnector ? connectorWho(input, p.name, reviewed) : (p.name.includes(":") ? p.name.split(":")[0].trim() : agentName),
+      detail: s ? (s.status === "done" ? (isBranch ? `decided: ${String((s.output as { choice?: string } | null)?.choice ?? "")}` : isTool ? "handed over · done" : `ran · ${Number(s.credits_captured) || 0} credits`) : s.status === "waiting" ? (isTool ? "the board is working" : "waiting for you") : s.status === "failed" ? "paused here" : s.status === "skipped" ? (isDecision ? "not needed" : "skipped") : s.status === "running" ? (isBranch ? "deciding" : isTool ? "handing over" : "working") : "next") : isBranch ? options.map((o) => `${o.label} → ${o.action === "ask" ? "ask you" : o.action === "skip" ? "skip" : "do it"}`).join(" · ") : isTool ? "after your approval; this board waits for the result" : isDecision ? "only when Kinika is unsure" : isReview ? "cannot be removed" : "not run yet",
       status: stepStatus(s),
     });
     if (isReview) reviewed = true;
@@ -133,6 +134,7 @@ export function boardSentence(_a: unknown, cards: BoardCard[]): string {
   for (const c of cards) {
     if (c.kind === "when" || c.kind === "report") continue;
     if (c.kind === "branch") parts.push(`Kinika decides ${c.title.toLowerCase().replace(/\?$/, "")}`);
+    else if (c.kind === "tool") parts.push(`Kinika hands it to "${c.title}"`);
     else if (c.kind === "review" && c.title === "You decide") parts.push("asks you when unsure");
     else if (c.kind === "review") parts.push("you approve");
     else if (c.kind === "read") parts.push(`Kinika reads ${c.who.split(" · ")[0]}`);
@@ -148,7 +150,7 @@ export function boardSentence(_a: unknown, cards: BoardCard[]): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-const ICON: Record<BoardCard["kind"], typeof Clock> = { when: Clock, read: BookOpen, work: Bot, review: UserRound, act: Send, report: Zap, branch: GitBranch };
+const ICON: Record<BoardCard["kind"], typeof Clock> = { when: Clock, read: BookOpen, work: Bot, review: UserRound, act: Send, report: Zap, branch: GitBranch, tool: Workflow };
 
 export function BoardSurface({ automation, latest, selected, onSelect }: { automation: Automation; latest: AutomationRun | null; selected?: string | null; onSelect?: (key: string) => void }) {
   const cards = useMemo(() => boardCards(automation, latest), [automation, latest]);

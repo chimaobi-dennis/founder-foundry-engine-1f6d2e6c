@@ -21,6 +21,7 @@ import { buildOrRevisePlan } from "../_shared/planBuild.ts";
 import { playbookFrom } from "../_shared/plan.ts";
 import { buildContextPack } from "../_shared/contextPack.ts";
 import { coercePlanDraft, parseStructuredOutput, plannerSystemPrompt, type PlannerContext } from "../_shared/runner.ts";
+import { boardLines, boardToolsFrom } from "../_shared/tools.ts";
 import { boardNeeds, coerceBoardQuestion } from "../_shared/boardDraft.ts";
 import { availableWatchSources } from "../_shared/watch.ts";
 import { loadPrompt } from "../_shared/promptLoad.ts";
@@ -147,17 +148,20 @@ async function planBoard(admin: any, brand: { id: string; user_id: string; name:
   if (!task) return { success: false, error: "Task not found" };
   n.done("task", task.agent_slug ? `for the ${task.agent_slug.replace(/_/g, " ")}` : undefined);
   n.start("context");
-  const [pack, { data: agentRows }, { data: connRows }] = await Promise.all([
+  const [pack, { data: agentRows }, { data: connRows }, { data: boardRows }] = await Promise.all([
     buildContextPack(admin, brand.id),
     admin.from("agents").select("slug, name, tagline, unit_label").eq("is_active", true).eq("status", "published").order("sort_order"),
     admin.from("tool_connections").select("id, provider, display_name, status").eq("brand_id", brand.id).eq("status", "active"),
+    admin.from("automations").select("id, name, trigger_type, task_input, agents(name)").eq("brand_id", brand.id).eq("status", "active").order("created_at").limit(20),
   ]);
+  const boards = boardToolsFrom(boardRows);
   const ctx: PlannerContext = {
     request: `${task.title}${task.agent_brief ? `\n${task.agent_brief}` : ""}${note ? `\n${note}` : ""}`,
     agents: (agentRows ?? []) as PlannerContext["agents"],
     connections: ((connRows ?? []) as { id: string; provider: string; display_name: string }[]).map((c) => ({ id: c.id, provider: c.provider, display_name: c.display_name })),
     stage: brand.journey_stage ?? null,
     sources: availableWatchSources((connRows ?? []) as { id: string; provider: string; display_name: string; status: string }[]).map((a) => ({ key: a.source.key, connection_id: a.connection_id, line: `- ${a.source.key}: ${a.source.words.toLowerCase()} (${a.source.name}: ${a.display_name})` })),
+    boards: boards.map((b) => ({ id: b.id, name: b.name, line: boardLines([b]) })),
   };
   if (!ctx.agents.length) { n.fail("context", "no agents are published"); return { success: false, error: "Kinika has no agents to staff this with yet." }; }
   n.done("context", `${ctx.agents.length} roles, ${ctx.connections.length} connection${ctx.connections.length === 1 ? "" : "s"}`);
