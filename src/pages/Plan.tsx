@@ -11,7 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ensureStaffed, listAgents, listHires, type Agent, type AgentHire, type StaffingResult } from "@/services/agentService";
 import { getEntitlements, effectiveLimit, type Entitlements } from "@/services/subscriptionService";
 import { KinikaTeam } from "@/components/plan/KinikaTeam";
-import { SetUpDialog } from "@/components/plan/SetUpDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { getMyRole } from "@/services/teamMembersService";
 import { roleAtLeast } from "@shared/plans";
@@ -21,9 +20,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 /**
  * /plan — the founder's plan. Targets in order, each a checklist. Every task
- * is the founder's or an agent's; Set up on an agent task opens the Set up
- * dialog (Kinika proposes the board, the founder runs it), and the task comes
- * back done when the run completes.
+ * is the founder's or an agent's; Set up on an agent task opens the board
+ * (/board/new?task=…) where Kinika designs it in front of the founder, and
+ * the task comes back done when the run completes.
  */
 export default function Plan() {
   const { user } = useAuth();
@@ -40,7 +39,6 @@ export default function Plan() {
   const [canEdit, setCanEdit] = useState(true);
   const [note, setNote] = useState("");
   const [revising, setRevising] = useState(false);
-  const [settingUp, setSettingUp] = useState<PlanTask | null>(null);
   const [startOverOpen, setStartOverOpen] = useState(false);
   const [plans, setPlans] = useState<PlanSummary[]>([]);
   const [newOpen, setNewOpen] = useState(false);
@@ -243,10 +241,8 @@ export default function Plan() {
       {user && <KinikaTeam plan={plan} agents={agents} hires={hires} ent={ent} userId={user.id} canEdit={canEdit} onChanged={reload} />}
 
       {plan.targets.map((t, i) => (
-        <TargetCard key={t.id} index={i} target={t} plan={plan} canEdit={canEdit} agentBySlug={agentBySlug} hired={hired} seats={ent ? effectiveLimit(ent, "agents") : 0} seatsFree={ent ? (effectiveLimit(ent, "agents") < 0 ? Infinity : Math.max(0, effectiveLimit(ent, "agents") - hires.filter((x) => x.status === "active").length)) : 0} userId={user?.id ?? ""} busy={busy} setBusy={setBusy} onChanged={reload} onSetUp={setSettingUp} />
+        <TargetCard key={t.id} index={i} target={t} plan={plan} canEdit={canEdit} agentBySlug={agentBySlug} hired={hired} seats={ent ? effectiveLimit(ent, "agents") : 0} seatsFree={ent ? (effectiveLimit(ent, "agents") < 0 ? Infinity : Math.max(0, effectiveLimit(ent, "agents") - hires.filter((x) => x.status === "active").length)) : 0} userId={user?.id ?? ""} busy={busy} setBusy={setBusy} onChanged={reload} onSetUp={(k) => navigate(`/board/new?task=${k.id}`)} />
       ))}
-
-      {user && <SetUpDialog task={settingUp} brandId={plan.brand_id} userId={user.id} agents={agents} open={!!settingUp} onClose={() => setSettingUp(null)} onDone={reload} />}
     </div>
   );
 }
@@ -257,7 +253,7 @@ function TargetCard({ index, target, plan, canEdit, agentBySlug, hired, seats, s
   busy: string | null; setBusy: (b: string | null) => void; onChanged: () => Promise<void>; onSetUp: (k: PlanTask) => void;
 }) {
   const [seatBound, setSeatBound] = useState<Record<string, Extract<StaffingResult, { ok: false }>>>({});
-  /** The founder sets the work up; Kinika staffs it, then proposes the board in the Set up dialog. Seats only show when they bind. */
+  /** The founder sets the work up; Kinika staffs it, then designs the board in front of them. Seats only show when they bind. */
   const setUp = async (k: PlanTask) => {
     if (!k.agent_slug) { navigate(`/work/${k.id}`); return; }
     setBusy(`setup-${k.id}`);
