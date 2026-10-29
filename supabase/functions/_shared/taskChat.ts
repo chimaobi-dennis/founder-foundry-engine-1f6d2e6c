@@ -39,6 +39,9 @@ export function visibleWhileStreaming(text: string): { text: string; writingDocu
   return { text: shown.replace(/```\s*$/, '').trimEnd(), writingDocument };
 }
 
+/** Where the first document block stood, until the note that replaces it is written. */
+const DOC_MARK = '[[kinika-document]]';
+
 export function parseTaskReply(text: string, deliverables?: { id: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: string[]; options: ReplyOption[]; needs: TaskNeed | null } {
   const done: { id: string; result: string | null }[] = [];
   let suggestions: string[] = [];
@@ -84,16 +87,16 @@ export function parseTaskReply(text: string, deliverables?: { id: string }[]): {
     .replace(/<DOCUMENT\s+title=["']([^"']*)["']\s*>([\s\S]*?)(?:<\/DOCUMENT>|$)/gi, (_m, title, body) => {
       const b = String(body).trim();
       if (b) docs.push({ title: String(title).trim() || 'Document', body: b });
-      return docs.length === 1 && b ? '\u0000DOC\u0000' : '';
+      return docs.length === 1 && b ? DOC_MARK : '';
     })
     .replace(/<\/?DOCUMENT[^>]*>/gi, '');
   let document: { title: string; body: string } | null = null;
   if (docs.length) {
     document = { title: docs[0].title, body: docs.map((d, i) => (i === 0 ? d.body : `## ${d.title}\n\n${d.body}`)).join('\n\n') };
     const names = docs.map((d) => d.title).join(' and ');
-    clean = clean.replace('\u0000DOC\u0000', `\n\n*Written: ${names}. It is open beside this conversation; edit any line.*`);
+    clean = clean.replace(DOC_MARK, `\n\n*Written: ${names}. It is open beside this conversation; edit any line.*`);
   }
-  clean = clean.replace(/\u0000DOC\u0000/g, '');
+  clean = clean.split(DOC_MARK).join('');
   return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document, suggestions, options, needs };
 }
 
