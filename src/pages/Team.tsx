@@ -48,6 +48,7 @@ const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   running: { label: "Working", cls: "bg-primary/10 text-primary" },
   waiting_approval: { label: "Needs you", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
   paused: { label: "Paused", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  waiting_credits: { label: "Waiting for credits", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
   completed: { label: "Done", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
   failed: { label: "Stopped", cls: "bg-destructive/10 text-destructive" },
   cancelled: { label: "Cancelled", cls: "bg-muted text-muted-foreground" },
@@ -737,6 +738,15 @@ function RunRow({ run, open, onToggle, onChanged, onTopUp, onOpenInStudio }: {
                 {insufficient ? "Try again" : "Raise cap by 100 and continue"}
               </button>
               <button disabled={busy} onClick={async () => { setBusy(true); await cancelRun(run.id); setBusy(false); onChanged(); }} className="text-[12px] font-ui text-muted-foreground">Cancel run</button>
+            </div>
+          )}
+          {run.status === "waiting_credits" && (
+            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 flex items-center gap-3 flex-wrap">
+              <AlertTriangle size={14} className="text-amber-500" />
+              <span className="font-ui text-[12px] text-foreground flex-1">{run.paused_reason}</span>
+              <button onClick={onTopUp} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[12px] font-ui">Add credits</button>
+              <button disabled={busy} onClick={async () => { setBusy(true); const r = await resumeRun(run.id); setBusy(false); if (!r.success) toast.error(r.error ?? "Could not try again"); onChanged(); }} className="px-3 py-1.5 rounded-lg border border-border text-[12px] font-ui">Try now</button>
+              <button disabled={busy} onClick={async () => { setBusy(true); await cancelRun(run.id); setBusy(false); onChanged(); }} className="text-[12px] font-ui text-muted-foreground">Stop</button>
             </div>
           )}
           {run.status === "failed" && run.error && (

@@ -29,6 +29,7 @@ import { itemForBrief, readWatchSource, watchSourceFor, type WatchConfig } from 
 import { failureSentence, pickBranch, type Branches } from "../_shared/branching.ts";
 import { MAX_TOOL_DEPTH, outputText, toolDepth } from "../_shared/tools.ts";
 import { BOARD_SELECT, kickRun, queueBoardRun } from "../_shared/boardRuns.ts";
+import { WAITING_CREDITS, MAX_WAITING_PER_BOARD, waitingWords, queueFullWords, resumeStatusFor, fundInOrder } from "../_shared/creditQueue.ts";
 import { loadPrompt } from "../_shared/promptLoad.ts";
 import { checkinSummary } from "../_shared/plan.ts";
 import {
@@ -133,7 +134,8 @@ async function tick(admin: Admin) {
     .order("created_at")
     .limit(10);
   const watched = await watchDue(admin);
-  const ids = new Set<string>([...(enqueued ?? []), ...watched, ...(queued ?? []).map((r: any) => r.id)]);
+  const funded = await resumeFunded(admin);
+  const ids = new Set<string>([...(enqueued ?? []), ...watched, ...funded, ...(queued ?? []).map((r: any) => r.id)]);
   const advanced: Record<string, string> = {};
   for (const id of ids) {
     try {
@@ -152,7 +154,25 @@ async function tick(admin: Admin) {
   const merged = housekeeping ? await autoMergeDue(admin) : 0;
   const revised = housekeeping ? await revisePlansDue(admin) : 0;
   const checkins = housekeeping ? await planCheckins(admin) : 0;
-  return { enqueued: enqueued?.length ?? 0, watched: watched.length, advanced, digests, readied, merged, revised, checkins, housekeeping };
+  return { enqueued: enqueued?.length ?? 0, watched: watched.length, funded: funded.length, advanced, digests, readied, merged, revised, checkins, housekeeping };
+}
+
+/**
+ * Runs waiting for credits whose wallet now covers them, oldest first: back
+ * to queued (never reserved) or running (mid-run), and advanced this tick.
+ * One small query when nothing waits; the wallets are read once per tick.
+ */
+async function resumeFunded(admin: Admin): Promise<string[]> {
+  const { data: waiting } = await admin.from("automation_runs").select("id, user_id, credits_needed, generation_id").eq("status", WAITING_CREDITS).order("waiting_since").limit(10);
+  if (!waiting?.length) return [];
+  const users = [...new Set((waiting as any[]).map((r) => r.user_id))];
+  const { data: wallets } = await admin.from("wallets").select("user_id, balance, reserved_balance").in("user_id", users);
+  const ids = fundInOrder(waiting as any[], (wallets ?? []) as any[]);
+  for (const id of ids) {
+    const run = (waiting as any[]).find((r) => r.id === id);
+    await admin.from("automation_runs").update({ status: resumeStatusFor(run), paused_reason: null, credits_needed: null }).eq("id", id).eq("status", WAITING_CREDITS);
+  }
+  return ids;
 }
 
 /**
@@ -370,6 +390,10 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
   if (["completed", "failed", "cancelled"].includes(run.status)) {
     return { status: run.status, stepsRun: 0 };
   }
+  if (run.status === WAITING_CREDITS) {
+    // The tick's resumeFunded moves it on when the wallet covers it.
+    return { status: run.status, stepsRun: 0, reason: run.paused_reason ?? undefined };
+  }
 
   const runAgent = run.agents as AgentDefinition | null;
   const agent = runAgent;
@@ -398,9 +422,11 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
     });
     if (rErr) throw new Error(`reserve failed: ${rErr.message}`);
     if (!res?.success) {
-      const reason = res?.error === "INSUFFICIENT_BALANCE"
-        ? `Not enough credits: this run needs up to ${toReserve}, you have ${res.available ?? 0} available.`
-        : `Could not reserve credits (${res?.error ?? "unknown"}).`;
+      if (res?.error === "INSUFFICIENT_BALANCE") {
+        const st = await waitForCredits(admin, run, toReserve, Number(res.available ?? 0));
+        return { status: st, stepsRun, reason: "waiting for credits" };
+      }
+      const reason = `Could not reserve credits (${res?.error ?? "unknown"}).`;
       await pauseRun(admin, run, reason);
       return { status: "paused", stepsRun, reason };
     }
@@ -461,9 +487,14 @@ async function advanceRun(admin: Admin, runId: string): Promise<{ status: string
         // Another round costs another quote: reserve it now, so the founder is never charged more than shown.
         if (run.generation_id) {
           const { data: res, error: rErr } = await admin.rpc("reserve_generation_credits", { p_user_id: run.user_id, p_credits: expected, p_generation_id: run.generation_id, p_platform: "kinika_runner", p_metadata: { run_id: run.id, revision_round: round } });
+          if (!rErr && res?.error === "INSUFFICIENT_BALANCE") {
+            // The round waits for credits; the revision step is still waiting, so the next touch reserves again.
+            const st = await waitForCredits(admin, run, expected, Number(res.available ?? 0));
+            return { status: st, stepsRun, reason: "waiting for credits" };
+          }
           if (rErr || !res?.success) {
-            await pauseRun(admin, run, rErr ? `Could not reserve credits for the revision: ${rErr.message}` : `Not enough credits for another round (about ${expected} credits). Top up and resume.`);
-            return { status: "paused", stepsRun, reason: "insufficient credits" };
+            await pauseRun(admin, run, rErr ? `Could not reserve credits for the revision: ${rErr.message}` : `Could not reserve credits for another round (${res?.error ?? "unknown"}).`);
+            return { status: "paused", stepsRun, reason: "could not reserve" };
           }
         }
         await admin.from("automation_run_steps").update({ status: "done", output: { decision: "revise", note: approval.note }, finished_at: new Date().toISOString() }).eq("id", waiting.id);
@@ -1032,6 +1063,26 @@ function dryRunReport(action: string, loaded: Awaited<ReturnType<typeof loadConn
 async function pricingRule(admin: Admin, key: string) {
   const { data } = await admin.from("ai_generation_pricing").select("base_cost, pricing_mode, range_factor").eq("pricing_key", key).eq("is_active", true).maybeSingle();
   return data as { base_cost: number; pricing_mode: string; range_factor: number } | null;
+}
+
+/**
+ * Not enough credits: the run waits instead of pausing. A board holds at
+ * most MAX_WAITING_PER_BOARD waiting runs; past that the run is cancelled
+ * with a note. The founder is told once, when the wait begins.
+ */
+async function waitForCredits(admin: Admin, run: any, needed: number, available: number): Promise<string> {
+  if (run.automation_id && !run.waiting_since) {
+    const { count } = await admin.from("automation_runs").select("id", { count: "exact", head: true }).eq("automation_id", run.automation_id).eq("status", WAITING_CREDITS);
+    if ((count ?? 0) >= MAX_WAITING_PER_BOARD) {
+      const words = queueFullWords(run.name);
+      await admin.from("automation_runs").update({ status: "cancelled", error: words, finished_at: new Date().toISOString() }).eq("id", run.id);
+      return "cancelled";
+    }
+  }
+  const words = waitingWords(needed, available);
+  await admin.from("automation_runs").update({ status: WAITING_CREDITS, paused_reason: words, credits_needed: Math.ceil(needed), waiting_since: run.waiting_since ?? new Date().toISOString() }).eq("id", run.id);
+  if (!run.waiting_since) await notify(admin, run, "agent_run_paused", `"${run.name}" is waiting for credits`, words, null);
+  return WAITING_CREDITS;
 }
 
 async function pauseRun(admin: Admin, run: any, reason: string) {

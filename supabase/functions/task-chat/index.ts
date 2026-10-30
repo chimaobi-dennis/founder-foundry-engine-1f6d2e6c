@@ -96,6 +96,10 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   ]);
   // The standing boards on the team are tools Kinika may start from here.
   const boards = boardToolsFrom(boardRows);
+  if (boards.length) {
+    const { data: waitingRows } = await admin.from("automation_runs").select("automation_id").eq("brand_id", task.brand_id).eq("status", "waiting_credits").limit(50);
+    for (const w of (waitingRows ?? []) as { automation_id: string | null }[]) { const b = boards.find((x) => x.id === w.automation_id); if (b) b.waiting = (b.waiting ?? 0) + 1; }
+  }
   n.done("context", `${(history ?? []).length} messages so far${boards.length ? `, ${boards.length} board${boards.length === 1 ? "" : "s"} on the team` : ""}`);
   const P = await loadPrompts(admin, ["task_chat", "task_chat_intro", "task_chat_rules", "task_chat_contract", "task_chat_followups", "kinika_boards"]);
   const voice = P.task_chat.split("{{brand_name}}").join(brand?.name ?? "this business");

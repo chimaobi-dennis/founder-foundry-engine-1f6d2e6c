@@ -4,7 +4,7 @@
  */
 
 export type StepType = "agent_task" | "approval" | "native" | "connector" | "branch" | "tool";
-export type RunStatus = "queued" | "running" | "waiting_approval" | "paused" | "completed" | "failed" | "cancelled";
+export type RunStatus = "queued" | "running" | "waiting_approval" | "waiting_credits" | "paused" | "completed" | "failed" | "cancelled";
 export type StepStatus = "pending" | "running" | "waiting" | "done" | "failed" | "skipped";
 
 import { coerceBranches, coerceOnFailure, type Branches, type OnFailure } from "./branching.ts";

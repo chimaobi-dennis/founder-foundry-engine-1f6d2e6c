@@ -15,6 +15,8 @@ export interface BoardTool {
   trigger_type: string;
   /** What the board was set up to do, in the founder's words. */
   brief: string;
+  /** Runs of this board waiting for credits, when known. */
+  waiting?: number;
 }
 
 /** Shape the rows automations come back in (with agents(name) joined). */
@@ -34,7 +36,7 @@ export function boardToolsFrom(rows: unknown): BoardTool[] {
 /** The data lines the prompts list boards with. A label, not an instruction. */
 export function boardLines(tools: BoardTool[]): string {
   if (!tools.length) return "(none yet)";
-  return tools.map((t) => `- ${t.id}: "${t.name}"${t.agent_name ? ` (${t.agent_name})` : ""}${t.brief ? ` — ${t.brief.replace(/\s+/g, " ").slice(0, 160)}` : ""}`).join("\n");
+  return tools.map((t) => `- ${t.id}: "${t.name}"${t.agent_name ? ` (${t.agent_name})` : ""}${t.brief ? ` — ${t.brief.replace(/\s+/g, " ").slice(0, 160)}` : ""}${t.waiting ? ` [${t.waiting} run${t.waiting === 1 ? "" : "s"} waiting for credits]` : ""}`).join("\n");
 }
 
 /** Fill the prompt `kinika_boards` ({{boards}}). Empty when there is nothing to call. */

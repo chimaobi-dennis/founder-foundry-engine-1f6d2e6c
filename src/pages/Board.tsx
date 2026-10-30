@@ -50,7 +50,8 @@ export default function Board() {
 
   const paused = a.status === "paused";
   const agentName = a.agent?.name ?? "Agent";
-  const status = paused ? "paused" : inFlight ? "working" : latest?.status === "waiting_approval" ? "waiting for your approval" : latest ? `last run ${new Date(latest.created_at).toLocaleDateString()}` : "has not run yet";
+  const waitingCredits = runs.filter((r) => r.status === "waiting_credits").length;
+  const status = paused ? "paused" : inFlight ? "working" : latest?.status === "waiting_approval" ? "waiting for your approval" : waitingCredits ? `${waitingCredits} run${waitingCredits === 1 ? "" : "s"} waiting for credits` : latest ? `last run ${new Date(latest.created_at).toLocaleDateString()}` : "has not run yet";
   const waiting = latest?.status === "waiting_approval" ? latest : null;
   const act = async (what: string, fn: () => Promise<unknown>) => { setBusy(what); await fn(); setBusy(null); await load(); };
   const openWork = (runId: string) => navigate(taskByRun[runId] ? `/work/${taskByRun[runId]}` : `/team?run=${runId}`);
