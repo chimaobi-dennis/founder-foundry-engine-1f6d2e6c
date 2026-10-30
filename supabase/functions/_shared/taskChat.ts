@@ -44,11 +44,12 @@ export function visibleWhileStreaming(text: string): { text: string; writingDocu
 /** Where the first document block stood, until the note that replaces it is written. */
 const DOC_MARK = '[[kinika-document]]';
 
-export function parseTaskReply(text: string, deliverables?: { id: string; title?: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: Suggestion[]; options: ReplyOption[]; needs: TaskNeed | null } {
+export function parseTaskReply(text: string, deliverables?: { id: string; title?: string }[]): { text: string; done: { id: string; result: string | null }[]; document: { title: string; body: string } | null; suggestions: Suggestion[]; options: ReplyOption[]; needs: TaskNeed | null; connect: 'social' | null } {
   const done: { id: string; result: string | null }[] = [];
   let suggestions: Suggestion[] = [];
   let options: ReplyOption[] = [];
   let needs: TaskNeed | null = null;
+  let connect: 'social' | null = null;
   // Kinika names a deliverable as D2, by its id, or by its title; each resolves to the id.
   const idFor = (ref: string): string | null => {
     const r = ref.trim();
@@ -81,6 +82,7 @@ export function parseTaskReply(text: string, deliverables?: { id: string; title?
         const role = NEED_ROLES.includes(n.role) ? n.role as NeedRole : 'other';
         needs = { deliverableId: n.d ? idFor(String(n.d)) : null, role, label: String(n.label).trim().slice(0, 40), why: String(n.why ?? '').trim().slice(0, 300), brief: String(n.brief ?? '').trim().slice(0, 1200) };
       }
+      if (String(parsed?.connect ?? '').toLowerCase() === 'social') connect = 'social';
       options = (Array.isArray(parsed?.options) ? parsed.options : []).map((o: { label?: unknown; value?: unknown }) => ({ label: String(o?.label ?? '').trim().slice(0, 60), value: String(o?.value ?? o?.label ?? '').trim().slice(0, 300) })).filter((o: ReplyOption) => o.label && o.value).slice(0, 4);
     } catch { /* an unreadable state line closes nothing */ }
     return '';
@@ -108,7 +110,7 @@ export function parseTaskReply(text: string, deliverables?: { id: string; title?
     clean = clean.replace(DOC_MARK, `\n\n*Written: ${names}. It is open beside this conversation; edit any line.*`);
   }
   clean = clean.split(DOC_MARK).join('');
-  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document, suggestions, options, needs };
+  return { text: clean.replace(/\n{3,}/g, '\n\n').trim(), done, document, suggestions, options, needs, connect };
 }
 
 /** Find a bare "STATE {…}" (or an unclosed "<STATE>{…") and wrap the balanced JSON in the tags the parser reads. */

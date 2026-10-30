@@ -11,17 +11,20 @@ import type { ToolConnection } from "@/services/connectionService";
  * provider's own sign-in in a popup; the page keeps its state. Used on the
  * first run (step 2) and on Kinika's team.
  */
-export function ConnectProviders({ brandId, connections, onConnected, compact = false, canConnect = true }: {
+export function ConnectProviders({ brandId, connections, onConnected, compact = false, canConnect = true, kinds }: {
   brandId: string;
   connections: ToolConnection[];
   onConnected: (key: string) => void | Promise<void>;
   compact?: boolean;
   canConnect?: boolean;
+  /** Only providers of these kinds (e.g. ["social"]); all when omitted. */
+  kinds?: OAuthProviderRow["kind"][];
 }) {
   const [providers, setProviders] = useState<OAuthProviderRow[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => { let on = true; listLiveProviders().then((p) => { if (on) setProviders(p); }); return () => { on = false; }; }, []);
-  if (!providers || providers.length === 0) return null;
+  const shown = providers?.filter((p) => !kinds || kinds.includes(p.kind)) ?? [];
+  if (!shown.length) return null;
   const connectedKeys = new Set(connections.filter((c) => c.status !== "error").map((c) => String(c.config?.oauth_provider_key ?? "")));
 
   const connect = async (p: OAuthProviderRow) => {
@@ -35,7 +38,7 @@ export function ConnectProviders({ brandId, connections, onConnected, compact = 
 
   return (
     <div className={cn("grid gap-2.5", compact ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2")}>
-      {providers.map((p) => {
+      {shown.map((p) => {
         const on = connectedKeys.has(p.key);
         return (
           <div key={p.id} className={cn("flex items-start justify-between gap-3 rounded-xl border p-3.5 bg-card", on ? "border-[hsl(var(--brand-good))]/40" : "border-border")}>
