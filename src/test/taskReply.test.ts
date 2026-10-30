@@ -40,6 +40,11 @@ describe("task reply: nothing of the machinery reaches the founder", () => {
     const r = parseTaskReply('Ok.\n<STATE>{"closed":[],"suggestions":[{"label":"Review the report","value":"Do a review of the report with the figures we have."},"Compare metrics",{"value":"Only a value"}]}</STATE>', ds);
     expect(r.suggestions).toEqual([{ label: "Review the report", value: "Do a review of the report with the figures we have." }, { label: "Compare metrics", value: "Compare metrics" }, { label: "Only a value", value: "Only a value" }]);
   });
+  it("reads the connect ask and ignores other values", () => {
+    expect(parseTaskReply('Connect them and I read the numbers.\n<STATE>{"closed":[],"connect":"social"}</STATE>', ds).connect).toBe("social");
+    expect(parseTaskReply('Ok.\n<STATE>{"closed":[],"connect":"bank"}</STATE>', ds).connect).toBeNull();
+    expect(parseTaskReply('Ok.\n<STATE>{"closed":[]}</STATE>', ds).connect).toBeNull();
+  });
   it("hides a bare STATE line while streaming", () => {
     expect(visibleWhileStreaming('Hello there.\nSTATE {"closed":[]}').text).toBe("Hello there.");
     expect(visibleWhileStreaming("Hello there.\n<STATE>{").text).toBe("Hello there.");

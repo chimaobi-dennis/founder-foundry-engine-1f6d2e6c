@@ -13,6 +13,7 @@ import { requirePrompt } from "@/services/aiService";
 import type { Deliverable } from "@/services/planService";
 import { getTaskConversationState, sendTaskMessage, saveDeliverables, type Workspace } from "@/services/workspaceService";
 import { NeedsCard } from "@/components/work/NeedsCard";
+import { ConnectSocialCard } from "@/components/work/ConnectSocialCard";
 
 /**
  * Kinika working one plan task with the founder. Each turn is sent to the
@@ -36,7 +37,8 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
   const [pending, setPending] = useState(false);
   const [progress, setProgress] = useState<ProgressStep[]>([]);
   const [ready, setReady] = useState(false);
-  const [followups, setFollowups] = useState<{ options: ReplyOption[]; suggestions: Suggestion[] }>({ options: [], suggestions: [] });
+  const [followups, setFollowups] = useState<{ options: ReplyOption[]; suggestions: Suggestion[]; connect: "social" | null }>({ options: [], suggestions: [], connect: null });
+  const [connectDismissed, setConnectDismissed] = useState<number>(0);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const openedRef = useRef(false);
@@ -64,7 +66,7 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
     setPending(stillPending);
     if (!stillPending) {
       const f = state?.last_followups;
-      setFollowups({ suggestions: (f?.suggestions ?? []).map((x) => (typeof x === "string" ? { label: x, value: x } : x)), options: f?.options ?? [] });
+      setFollowups({ suggestions: (f?.suggestions ?? []).map((x) => (typeof x === "string" ? { label: x, value: x } : x)), options: f?.options ?? [], connect: f?.connect ?? null });
       if (state?.last_error && !initial) toast.error(`Kinika did not answer: ${state.last_error}`);
       if (ms.length !== lastCountRef.current && !initial) await onReplied();
     }
@@ -76,10 +78,18 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
   }, [ws.task.id]);
   useVisibleInterval(() => { sync(); }, 2500, pending);
 
+  /** A reply was started by something else (Kinika reading the founder's accounts): wait for it like any turn. */
+  const awaitReply = useCallback(() => {
+    setFollowups({ options: [], suggestions: [], connect: null });
+    sentRef.current = { before: seenAtRef.current, at: Date.now() };
+    setPending(true);
+    setProgress([]);
+  }, []);
+
   /** One turn: the founder's message (or a hidden instruction) goes to the server; the reply is polled. */
   const turn = useCallback(async (text: string, saveUser: boolean, note?: string) => {
     if (pending) return;
-    setFollowups({ options: [], suggestions: [] });
+    setFollowups({ options: [], suggestions: [], connect: null });
     if (saveUser) setMessages((m) => [...m, { id: `temp-${Date.now()}`, conversation_id: "", role: "user", content: text, created_at: new Date().toISOString() } as MentorMessage]);
     else if (note) setMessages((m) => [...m, { id: `temp-${Date.now()}`, conversation_id: "", role: "note", content: note, created_at: new Date().toISOString() } as MentorMessage]);
     setPending(true);
@@ -162,6 +172,9 @@ export function TaskChat({ ws, deliverables, onReplied, compact = false, ask, on
                 onAsk={(text, note) => turn(text, false, note)} />
             ) : null;
           })()}
+          {!pending && followups.connect === "social" && connectDismissed !== messages.length && (
+            <ConnectSocialCard brandId={ws.task.brand_id} taskId={ws.task.id} onStarted={awaitReply} onSkip={() => setConnectDismissed(messages.length)} />
+          )}
           {!pending && followups.options.length > 0 && (
             <div className="flex flex-wrap gap-2 pl-1" role="group" aria-label="Kinika's options">
               {followups.options.map((o) => (

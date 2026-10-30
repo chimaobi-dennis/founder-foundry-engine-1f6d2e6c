@@ -196,6 +196,6 @@ async function reply(admin: Admin, userId: string, task: any, conversationId: st
   for (const note of startedNotes) await admin.from("mentor_messages").insert({ conversation_id: conversationId, role: "note", content: note.slice(0, 300) });
   await admin.from("mentor_conversations").update({
     pending_since: null, last_error: null, last_message_at: now, progress: n.steps,
-    last_followups: { suggestions: parsed.suggestions, options: parsed.options, document: !!parsed.document, closed: parsed.done.map((d) => d.id), needs: needTarget },
+    last_followups: { suggestions: parsed.suggestions, options: parsed.options, document: !!parsed.document, closed: parsed.done.map((d) => d.id), needs: needTarget, connect: parsed.connect },
   }).eq("id", conversationId);
 }
