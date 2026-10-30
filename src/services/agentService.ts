@@ -103,6 +103,9 @@ export interface AutomationRun {
   credits_captured: number;
   current_step: number;
   paused_reason: string | null;
+  /** Set while the run waits for credits: how many it needs, and since when. */
+  credits_needed?: number | null;
+  waiting_since?: string | null;
   error: string | null;
   started_at: string | null;
   finished_at: string | null;
@@ -321,7 +324,7 @@ export async function getRun(runId: string): Promise<AutomationRun | null> {
   return { ...run, steps: steps ?? [] };
 }
 
-/** Resume a paused run (after a top-up, or raising the budget). */
+/** Resume a paused or credit-waiting run (after a top-up, or raising the budget). */
 export async function resumeRun(runId: string, budget?: Partial<RunBudget>): Promise<{ success: boolean; error?: string }> {
   const patch: Record<string, unknown> = { status: 'running', paused_reason: null };
   if (budget) {

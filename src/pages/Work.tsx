@@ -12,6 +12,7 @@ import { StepLine, OutputView } from "@/components/team/RunViews";
 import { cancelRun, ensureStaffed } from "@/services/agentService";
 import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
 import { RunRecovery } from "@/components/work/RunRecovery";
+import { CreditWait } from "@/components/work/CreditWait";
 import { ensureDocument, firstApprovalSeen, getWorkspace, markFirstApprovalSeen, runBodyMarkdown, saveDocumentBody, wantsCanvas, type Workspace } from "@/services/workspaceService";
 import ContentStudioEditor from "@/pages/ContentStudioEditor";
 import { FounderWorkspace } from "@/components/work/FounderWorkspace";
@@ -79,6 +80,7 @@ export default function Work() {
     if (r.status === "failed") return `stopped: ${r.error ?? "something went wrong"}`;
     if (r.status === "cancelled") return "sent back";
     if (r.status === "paused") return "paused, needs you";
+    if (r.status === "waiting_credits") return "waiting for credits";
     return r.status;
   }, [ws]);
 
@@ -224,7 +226,7 @@ export default function Work() {
             </div>
           )}
 
-          {run && <div className="max-w-[720px] mx-auto mb-4"><RunRecovery run={run} onChanged={load} /></div>}
+          {run && <div className="max-w-[720px] mx-auto mb-4 flex flex-col gap-3"><CreditWait run={run} onChanged={load} /><RunRecovery run={run} onChanged={load} /></div>}
           {run && approval?.kind === "decision" && approval.payload.decision && (
             <div className="max-w-[720px] mx-auto mb-4 rounded-xl border border-[hsl(var(--brand-needs-you))]/50 bg-[hsl(var(--brand-needs-you-soft))]/50 p-4 flex flex-col gap-1.5">
               <span className="font-ui text-[10px] uppercase tracking-[0.18em] text-[hsl(var(--brand-needs-you))]">Kinika asks: {approval.payload.decision.question}</span>

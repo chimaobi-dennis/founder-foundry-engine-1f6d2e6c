@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cancelRun, getRun, outputToText, type Approval, type AutomationRun } from "@/services/agentService";
 import { ApprovalActions, roundOf } from "@/components/work/ApprovalActions";
 import { RunRecovery } from "@/components/work/RunRecovery";
+import { CreditWait } from "@/components/work/CreditWait";
 import { supabase } from "@/integrations/supabase/client";
 import type { Deliverable } from "@/services/planService";
 
@@ -69,7 +70,7 @@ export function RunTab({ deliverable, onApproved }: { deliverable: Deliverable; 
   if (run === undefined) return <div className="p-4 md:p-8"><ListSkeleton cards={1} rows={3} className="max-w-[760px] mx-auto" /></div>;
   if (!run) return <p className="p-8 font-ui text-[13px] text-muted-foreground">This run is not available.</p>;
   const agentName = deliverable.agent_name ?? run.agent?.name ?? "Agent";
-  const status = approval ? "waiting for your approval" : run.status === "queued" ? "starting" : run.status === "running" ? "working" : run.status === "completed" ? "approved" : run.status === "failed" ? "stopped" : run.status === "paused" ? "paused, needs you" : run.status === "cancelled" ? "sent back" : run.status;
+  const status = approval ? "waiting for your approval" : run.status === "queued" ? "starting" : run.status === "running" ? "working" : run.status === "completed" ? "approved" : run.status === "failed" ? "stopped" : run.status === "paused" ? "paused, needs you" : run.status === "waiting_credits" ? "waiting for credits" : run.status === "cancelled" ? "sent back" : run.status;
   const legalDraft = output && typeof output.document === "string";
 
   return (
@@ -92,6 +93,7 @@ export function RunTab({ deliverable, onApproved }: { deliverable: Deliverable; 
           </div>
         )}
         <div className="px-6 py-5">
+          <CreditWait run={run} onChanged={load} />
           <RunRecovery run={run} onChanged={load} />
           {approval?.kind === "decision" && approval.payload.decision && (
             <p className="font-ui text-[13px] text-foreground mb-3">Kinika asks: {approval.payload.decision.question}{approval.payload.decision.choice ? ` It read this as "${approval.payload.decision.choice}".` : ""} Run it, or skip this one.</p>
